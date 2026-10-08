@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.3.0
+// @version      1.3.1
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -232,17 +232,24 @@
     .tlx-input-wrap:focus-within label { color: var(--mui-palette-primary-main); }
 
     .tlx-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    /* Short patterns render as pills; long ones grow to the panel width and wrap
+       (preferably after "|", see patternText) instead of overflowing. */
     .tlx-chip {
-      display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 4px 0 10px;
-      border-radius: 16px; font-size: 13px; box-sizing: border-box;
+      display: inline-flex; align-items: flex-start; gap: 4px; max-width: 100%; min-height: 24px;
+      padding: 2px 3px 2px 10px; border-radius: 12px; font-size: 13px; box-sizing: border-box;
       border: 1px solid var(--mui-palette-divider); color: var(--mui-palette-text-primary);
     }
     .tlx-chip button {
-      display: inline-flex; padding: 0; border: 0; background: none; cursor: pointer;
+      flex: none; display: inline-flex; padding: 0; border: 0; background: none; cursor: pointer;
       color: var(--mui-palette-text-secondary); opacity: .7;
     }
     .tlx-chip button:hover { opacity: 1; }
-    .tlx-chip > span { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .tlx-chip > span {
+      flex: 1 1 auto; min-width: 0; padding: 1px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 16px;
+      overflow-wrap: anywhere;
+    }
+    .tlx-chip .tlx-seg { display: inline-block; max-width: 100%; }
     .tlx-chip.tlx-error { border-color: var(--mui-palette-error-main, #d32f2f); color: var(--mui-palette-error-main, #d32f2f); text-decoration: line-through; }
     .tlx-input-wrap.tlx-error, .tlx-input-wrap.tlx-error:focus-within { border-color: var(--mui-palette-error-main, #d32f2f); }
     .tlx-input-wrap.tlx-error label { color: var(--mui-palette-error-main, #d32f2f); }
@@ -619,6 +626,17 @@
     return section;
   }
 
+  // Each "alternative|" is its own inline-block, so long alternations wrap
+  // between alternatives (with "|" ending the line) rather than mid-word.
+  function patternText(pattern) {
+    const parts = pattern.split('|');
+    return el(
+      'span',
+      {},
+      ...parts.map((part, i) => el('span', { class: 'tlx-seg', text: i < parts.length - 1 ? `${part}|` : part }))
+    );
+  }
+
   function renderSection(section) {
     // Chips
     const chips = section.querySelector('[data-tlx-chips]');
@@ -633,7 +651,7 @@
             compileFilter(w)
               ? { class: 'tlx-chip', title: /\s/.test(w) ? `/${w}/i` : `/\\b(?:${w})\\b/i` }
               : { class: 'tlx-chip tlx-error', title: 'Invalid regex – ignored' },
-            el('span', { text: w }),
+            patternText(w),
             el(
               'button',
               {
