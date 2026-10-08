@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.1.0
+// @version      1.2.0
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -65,24 +65,28 @@
     }
   }
 
-  // Whole-word, case-insensitive. `*` acts as a wildcard (e.g. "batter*").
+  // Each filter is a case-insensitive regex tested against the lot title.
+  // Patterns without whitespace are implicitly whole-word: \b(?:pattern)\b.
+  // Returns null for an invalid pattern.
+  function compileFilter(pattern) {
+    const src = /\s/.test(pattern) ? pattern : `\\b(?:${pattern})\\b`;
+    try {
+      return new RegExp(src, 'i');
+    } catch {
+      return null;
+    }
+  }
+
   function buildRegexes(words) {
     return words
-      .map((w) => w.trim())
-      .filter(Boolean)
-      .map((w) => {
-        const body = w
-          .split('*')
-          .map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
-          .join('\\w*');
-        return { word: w, re: new RegExp(`(^|[^\\w])${body}(?=$|[^\\w])`, 'i') };
-      });
+      .filter((w) => w.trim())
+      .map((w) => ({ word: w, re: compileFilter(w) }));
   }
   let wordRegexes = buildRegexes(state[KEYS.words]);
 
   function matchFilter(title) {
     if (!state[KEYS.filterOn]) return null;
-    for (const { word, re } of wordRegexes) if (re.test(title)) return word;
+    for (const { word, re } of wordRegexes) if (re && re.test(title)) return word;
     return null;
   }
 
@@ -201,6 +205,10 @@
       color: var(--mui-palette-text-secondary); opacity: .7;
     }
     .tlx-chip button:hover { opacity: 1; }
+    .tlx-chip > span { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+    .tlx-chip.tlx-error { border-color: var(--mui-palette-error-main, #d32f2f); color: var(--mui-palette-error-main, #d32f2f); text-decoration: line-through; }
+    .tlx-input-wrap.tlx-error, .tlx-input-wrap.tlx-error:focus-within { border-color: var(--mui-palette-error-main, #d32f2f); }
+    .tlx-input-wrap.tlx-error label { color: var(--mui-palette-error-main, #d32f2f); }
 
     .tlx-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; font-size: 14px; }
     .tlx-switch { position: relative; flex: none; width: 34px; height: 14px; }
@@ -518,38 +526,40 @@
 
     const wordInput = el('input', {
       type: 'text',
-      placeholder: 'e.g. "as-is", batter*',
-      'aria-label': 'Add filter word',
+      placeholder: 'e.g. batter(y|ies)',
+      'aria-label': 'Add filter regex',
       autocomplete: 'off',
+      spellcheck: 'false',
     });
-    const addWords = () => {
-      const added = wordInput.value
-        .split(',')
-        .map((w) => w.trim())
-        .filter(Boolean);
-      if (!added.length) return;
-      const existing = state[KEYS.words];
-      const lower = new Set(existing.map((w) => w.toLowerCase()));
-      const next = [...existing, ...added.filter((w) => !lower.has(w.toLowerCase()))];
-      wordInput.value = '';
-      save(KEYS.words, next);
+    const inputLabel = el('label', { text: 'Filter regex' });
+    const inputWrap = el('div', { class: 'tlx-input-wrap' }, inputLabel, wordInput);
+    const setError = (msg) => {
+      inputWrap.classList.toggle('tlx-error', !!msg);
+      inputLabel.textContent = msg || 'Filter regex';
     };
+    const addWords = () => {
+      const pattern = wordInput.value.trim();
+      if (!pattern) return;
+      if (!compileFilter(pattern)) {
+        setError('Invalid regex');
+        return;
+      }
+      const existing = state[KEYS.words];
+      wordInput.value = '';
+      if (!existing.includes(pattern)) save(KEYS.words, [...existing, pattern]);
+    };
+    wordInput.addEventListener('input', () => setError(null));
     wordInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         addWords();
       }
     });
+    inputWrap.append(el('button', { type: 'button', class: 'tlx-text-btn', onclick: addWords, text: 'Add' }));
 
     section.append(
       el('p', { class: 'tlx-section-title', text: 'Hide & Filter' }),
-      el(
-        'div',
-        { class: 'tlx-input-wrap' },
-        el('label', { text: 'Filter words' }),
-        wordInput,
-        el('button', { type: 'button', class: 'tlx-text-btn', onclick: addWords, text: 'Add' })
-      ),
+      inputWrap,
       ...collapsible('words', el('div', { class: 'tlx-chips', 'data-tlx-chips': '' })),
       el('p', { class: 'tlx-caption', 'data-tlx-stats': '' }),
       switchRow('Gray out filtered lots', KEYS.filterOn),
@@ -583,7 +593,9 @@
         ...words.map((w) =>
           el(
             'span',
-            { class: 'tlx-chip' },
+            compileFilter(w)
+              ? { class: 'tlx-chip', title: /\s/.test(w) ? `/${w}/i` : `/\\b(?:${w})\\b/i` }
+              : { class: 'tlx-chip tlx-error', title: 'Invalid regex – ignored' },
             el('span', { text: w }),
             el(
               'button',
@@ -609,15 +621,15 @@
     // Stats
     const stats = section.querySelector('[data-tlx-stats]');
     const statText = words.length
-      ? `${pageStats.filtered} lot${pageStats.filtered === 1 ? '' : 's'} filtered on this page. Whole-word match; * is a wildcard.`
-      : 'Lots whose title contains a filter word are grayed out and can’t be bid on. * is a wildcard.';
+      ? `${pageStats.filtered} lot${pageStats.filtered === 1 ? '' : 's'} filtered on this page.`
+      : 'Case-insensitive regex on the lot title. Patterns without spaces match whole words only.';
     if (stats.textContent !== statText) stats.textContent = statText;
 
     // Hidden list
     const hidden = Object.entries(state[KEYS.hidden]).sort((a, b) => b[1].ts - a[1].ts);
 
     // Collapsible headers
-    const labels = { words: `Filter words (${words.length})`, hidden: `Hidden lots (${hidden.length})` };
+    const labels = { words: `Filter patterns (${words.length})`, hidden: `Hidden lots (${hidden.length})` };
     const collapsed = state[KEYS.collapsed] || {};
     for (const head of section.querySelectorAll('[data-tlx-collapse]')) {
       const name = head.dataset.tlxCollapse;
@@ -867,9 +879,12 @@
     save(KEYS.confirm, !state[KEYS.confirm]);
     alert(`Bid confirmation is now ${state[KEYS.confirm] ? 'ON' : 'OFF'}.`);
   });
-  GM_registerMenuCommand('Edit filter words…', () => {
-    const v = prompt('Filter words (comma separated, * = wildcard):', state[KEYS.words].join(', '));
-    if (v !== null) save(KEYS.words, v.split(',').map((w) => w.trim()).filter(Boolean));
+  GM_registerMenuCommand('Add filter regex…', () => {
+    const v = prompt('Filter regex (case-insensitive; no spaces = whole word):', '');
+    const pattern = v?.trim();
+    if (!pattern) return;
+    if (!compileFilter(pattern)) return alert(`Invalid regex: ${pattern}`);
+    if (!state[KEYS.words].includes(pattern)) save(KEYS.words, [...state[KEYS.words], pattern]);
   });
   GM_registerMenuCommand('Unhide all lots', () => {
     if (confirm('Unhide all hidden lots?')) save(KEYS.hidden, {});
