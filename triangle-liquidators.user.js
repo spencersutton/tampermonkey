@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.3.1
+// @version      1.3.2
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -499,6 +499,8 @@
       seen.add(slot);
 
       const title = link.textContent.trim();
+      // Card titles are line-clamped; expose the full name as a tooltip.
+      if (link.title !== title) link.title = title;
       const isHidden = !!state[KEYS.hidden][id];
       const matched = matchFilter(title);
       const showHidden = state[KEYS.showHidden];
