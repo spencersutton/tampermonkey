@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.2.1
+// @version      1.3.0
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -86,6 +86,40 @@
       .map((w) => ({ word: w, re: compileFilter(w) }));
   }
   let wordRegexes = buildRegexes(state[KEYS.words]);
+
+  // Split a comma-separated filter list. Commas inside (...), [...], {...} or
+  // escaped as \, stay part of the pattern, so quantifiers like {1,3} survive.
+  function splitFilters(text) {
+    const out = [];
+    let cur = '';
+    let depth = 0;
+    let inClass = false;
+    let escaped = false;
+    for (const ch of text) {
+      if (escaped) {
+        cur += ch;
+        escaped = false;
+      } else if (ch === '\\') {
+        cur += ch;
+        escaped = true;
+      } else if (inClass) {
+        if (ch === ']') inClass = false;
+        cur += ch;
+      } else if (ch === '[') {
+        inClass = true;
+        cur += ch;
+      } else if (ch === ',' && depth === 0) {
+        out.push(cur);
+        cur = '';
+      } else {
+        if (ch === '(' || ch === '{') depth++;
+        else if ((ch === ')' || ch === '}') && depth > 0) depth--;
+        cur += ch;
+      }
+    }
+    out.push(cur);
+    return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
+  }
 
   function matchFilter(title) {
     if (!state[KEYS.filterOn]) return null;
@@ -881,6 +915,18 @@
   GM_registerMenuCommand('Toggle bid confirmation', () => {
     save(KEYS.confirm, !state[KEYS.confirm]);
     alert(`Bid confirmation is now ${state[KEYS.confirm] ? 'ON' : 'OFF'}.`);
+  });
+  GM_registerMenuCommand('Edit all filters…', () => {
+    let text = state[KEYS.words].join(', ');
+    for (;;) {
+      const v = prompt('All filter regexes, comma separated (case-insensitive; no spaces = whole word):', text);
+      if (v === null) return;
+      const list = splitFilters(v);
+      const bad = list.filter((p) => !compileFilter(p));
+      if (!bad.length) return save(KEYS.words, list);
+      alert(`Invalid regex – fix and try again:\n\n${bad.join('\n')}`);
+      text = v;
+    }
   });
   GM_registerMenuCommand('Add filter regex…', () => {
     const v = prompt('Filter regex (case-insensitive; no spaces = whole word):', '');
