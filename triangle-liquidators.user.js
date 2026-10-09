@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.4.0
+// @version      1.4.1
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -181,6 +181,20 @@
   // ---------------------------------------------------------------------------
   GM_addStyle(`
     .tlx-slot-hidden { display: none !important; }
+
+    /* Compact grid: the catalog grid separates rows with full-width <hr>s at
+       fixed DOM positions (one set per breakpoint). Once cards are removed
+       those leave partial rows, so hide them and draw our own separators
+       between the rows of cards that are still visible. */
+    .tlx-compact > hr { display: none !important; }
+    .tlx-compact > .tlx-later-row { margin-top: var(--tlx-row-sep); }
+    .tlx-compact > .tlx-row-start { position: relative; }
+    .tlx-compact > .tlx-row-start::before {
+      content: ''; position: absolute; left: 0; pointer-events: none;
+      top: calc((var(--tlx-row-gap) + var(--tlx-row-sep)) / -2);
+      width: calc(var(--tlx-cols) * 100% + (var(--tlx-cols) - 1) * var(--tlx-col-gap));
+      border-top: 1px solid var(--mui-palette-divider);
+    }
     .tlx-dim { opacity: .45; filter: grayscale(1); transition: opacity .15s; }
     .tlx-dim:hover { opacity: .7; }
     .tlx-dim [data-tlx-disabled] { pointer-events: none !important; cursor: default !important; }
@@ -489,6 +503,47 @@
 
   let pageStats = { filtered: 0, hidden: 0 };
 
+  function compactGrids(slots) {
+    const grids = new Set();
+    for (const slot of slots) {
+      const parent = slot.parentElement;
+      if (parent && getComputedStyle(parent).display === 'grid') grids.add(parent);
+    }
+    for (const grid of document.querySelectorAll('.tlx-compact')) grids.add(grid);
+
+    for (const grid of grids) {
+      const cards = [...grid.children].filter((c) => c.dataset.tlxLot);
+      const visible = cards.filter((c) => !c.classList.contains('tlx-slot-hidden'));
+      const compact = visible.length < cards.length;
+      grid.classList.toggle('tlx-compact', compact);
+      if (!compact) {
+        cards.forEach((c) => c.classList.remove('tlx-row-start', 'tlx-later-row'));
+        continue;
+      }
+      const cs = getComputedStyle(grid);
+      const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+      // Native rows are separated by gap + <hr> (with its margins) + gap; reproduce that spacing.
+      const hr = grid.querySelector(':scope > hr');
+      const hcs = hr && getComputedStyle(hr);
+      const hrSpace = hcs
+        ? ['marginTop', 'marginBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((n, k) => n + (parseFloat(hcs[k]) || 0), 0)
+        : 0;
+      const rowGap = parseFloat(cs.rowGap) || 0;
+      const vars = {
+        '--tlx-cols': String(cols),
+        '--tlx-row-gap': `${rowGap}px`,
+        '--tlx-row-sep': `${rowGap + hrSpace}px`,
+        '--tlx-col-gap': cs.columnGap,
+      };
+      for (const [k, v] of Object.entries(vars)) if (grid.style.getPropertyValue(k) !== v) grid.style.setProperty(k, v);
+      cards.forEach((c) => {
+        const i = visible.indexOf(c);
+        c.classList.toggle('tlx-later-row', i >= cols);
+        c.classList.toggle('tlx-row-start', i >= cols && i % cols === 0);
+      });
+    }
+  }
+
   function processCards() {
     const seen = new Set();
     const stats = { filtered: 0, hidden: 0 };
@@ -530,11 +585,12 @@
     for (const slot of document.querySelectorAll('[data-tlx-lot]')) {
       if (seen.has(slot)) continue;
       delete slot.dataset.tlxLot;
-      slot.classList.remove('tlx-slot-hidden', 'tlx-dim');
+      slot.classList.remove('tlx-slot-hidden', 'tlx-dim', 'tlx-row-start', 'tlx-later-row');
       setControlsDisabled(slot, false);
       slot.querySelectorAll('.tlx-hide-btn, .tlx-badge, .tlx-total').forEach((n) => n.remove());
     }
 
+    compactGrids(seen);
     pageStats = stats;
   }
 
@@ -986,6 +1042,8 @@
   // characterData: React updates live prices by editing text nodes in place.
   const OBSERVE = { childList: true, subtree: true, characterData: true };
   const observer = new MutationObserver(scheduleScan);
+  // Column count changes at breakpoints; recompute compact-grid row separators.
+  window.addEventListener('resize', scheduleScan);
   observer.observe(document.body, OBSERVE);
   scheduleScan();
 })();
