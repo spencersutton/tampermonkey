@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.3.2
+// @version      1.4.0
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -28,6 +28,7 @@
     filterOn: 'filterEnabled',   // boolean
     confirm: 'confirmBids',      // boolean
     showHidden: 'showHidden',    // boolean
+    removeFiltered: 'removeFiltered', // boolean – drop filtered lots from the page entirely
     collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
   };
   const DEFAULTS = {
@@ -36,6 +37,7 @@
     [KEYS.filterOn]: true,
     [KEYS.confirm]: true,
     [KEYS.showHidden]: false,
+    [KEYS.removeFiltered]: false,
     [KEYS.collapsed]: { words: false, hidden: false },
   };
 
@@ -506,7 +508,8 @@
       const showHidden = state[KEYS.showHidden];
 
       slot.dataset.tlxLot = id;
-      slot.classList.toggle('tlx-slot-hidden', isHidden && !showHidden);
+      const removed = (isHidden && !showHidden) || (!!matched && state[KEYS.removeFiltered]);
+      slot.classList.toggle('tlx-slot-hidden', removed);
       const dim = !!matched || (isHidden && showHidden);
       slot.classList.toggle('tlx-dim', dim);
 
@@ -608,7 +611,8 @@
       inputWrap,
       ...collapsible('words', el('div', { class: 'tlx-chips', 'data-tlx-chips': '' })),
       el('p', { class: 'tlx-caption', 'data-tlx-stats': '' }),
-      switchRow('Gray out filtered lots', KEYS.filterOn),
+      switchRow('Apply filters', KEYS.filterOn),
+      switchRow('Remove filtered lots instead of graying out', KEYS.removeFiltered),
       switchRow('Confirm before bidding', KEYS.confirm),
       switchRow('Show hidden lots', KEYS.showHidden),
       ...collapsible(
@@ -678,7 +682,7 @@
     // Stats
     const stats = section.querySelector('[data-tlx-stats]');
     const statText = words.length
-      ? `${pageStats.filtered} lot${pageStats.filtered === 1 ? '' : 's'} filtered on this page.`
+      ? `${pageStats.filtered} lot${pageStats.filtered === 1 ? '' : 's'} ${state[KEYS.removeFiltered] ? 'removed' : 'filtered'} on this page.`
       : 'Case-insensitive regex on the lot title. Patterns without spaces match whole words only.';
     if (stats.textContent !== statText) stats.textContent = statText;
 
