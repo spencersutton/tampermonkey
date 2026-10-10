@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.4.1
+// @version      1.5.0
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -71,10 +71,10 @@
   }
 
   // Each filter is a case-insensitive regex tested against the lot title.
-  // Patterns without whitespace are implicitly whole-word: \b(?:pattern)\b.
+  // Every pattern is implicitly whole-word: \b(?:pattern)\b.
   // Returns null for an invalid pattern.
   function compileFilter(pattern) {
-    const src = /\s/.test(pattern) ? pattern : `\\b(?:${pattern})\\b`;
+    const src = `\\b(?:${pattern})\\b`;
     try {
       return new RegExp(src, 'i');
     } catch {
@@ -711,7 +711,7 @@
           el(
             'span',
             compileFilter(w)
-              ? { class: 'tlx-chip', title: /\s/.test(w) ? `/${w}/i` : `/\\b(?:${w})\\b/i` }
+              ? { class: 'tlx-chip', title: `/\\b(?:${w})\\b/i` }
               : { class: 'tlx-chip tlx-error', title: 'Invalid regex – ignored' },
             patternText(w),
             el(
@@ -739,7 +739,7 @@
     const stats = section.querySelector('[data-tlx-stats]');
     const statText = words.length
       ? `${pageStats.filtered} lot${pageStats.filtered === 1 ? '' : 's'} ${state[KEYS.removeFiltered] ? 'removed' : 'filtered'} on this page.`
-      : 'Case-insensitive regex on the lot title. Patterns without spaces match whole words only.';
+      : 'Case-insensitive regex on the lot title, matched as whole words: \\b(?:pattern)\\b.';
     if (stats.textContent !== statText) stats.textContent = statText;
 
     // Hidden list
@@ -999,7 +999,7 @@
   GM_registerMenuCommand('Edit all filters…', () => {
     let text = state[KEYS.words].join(', ');
     for (;;) {
-      const v = prompt('All filter regexes, comma separated (case-insensitive; no spaces = whole word):', text);
+      const v = prompt('All filter regexes, comma separated (case-insensitive, whole words):', text);
       if (v === null) return;
       const list = splitFilters(v);
       const bad = list.filter((p) => !compileFilter(p));
@@ -1009,7 +1009,7 @@
     }
   });
   GM_registerMenuCommand('Add filter regex…', () => {
-    const v = prompt('Filter regex (case-insensitive; no spaces = whole word):', '');
+    const v = prompt('Filter regex (case-insensitive, whole words):', '');
     const pattern = v?.trim();
     if (!pattern) return;
     if (!compileFilter(pattern)) return alert(`Invalid regex: ${pattern}`);
