@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.6.1
+// @version      1.6.2
 // @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
@@ -54,20 +54,21 @@
   const state = {};
   for (const k of Object.values(KEYS)) state[k] = GM_getValue(k, DEFAULTS[k]);
 
-  function save(key, value) {
+  function apply(key, value) {
     state[key] = value;
-    GM_setValue(key, value);
     if (key === KEYS.words) wordRegexes = buildRegexes(value);
     scheduleScan();
+  }
+
+  function save(key, value) {
+    GM_setValue(key, value);
+    apply(key, value);
   }
 
   if (typeof GM_addValueChangeListener === 'function') {
     for (const k of Object.values(KEYS)) {
       GM_addValueChangeListener(k, (_name, _old, val, remote) => {
-        if (!remote) return;
-        state[k] = val;
-        if (k === KEYS.words) wordRegexes = buildRegexes(val);
-        scheduleScan();
+        if (remote) apply(k, val);
       });
     }
   }
@@ -123,6 +124,13 @@
     }
     out.push(cur);
     return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
+  }
+
+  // Adds a pattern; returns false if it isn't a valid regex.
+  function addFilter(pattern) {
+    if (!compileFilter(pattern)) return false;
+    if (!state[KEYS.words].includes(pattern)) save(KEYS.words, [...state[KEYS.words], pattern]);
+    return true;
   }
 
   function matchFilter(title) {
@@ -182,8 +190,7 @@
   // Styles – built on the site's MUI CSS variables so light/dark both work
   // ---------------------------------------------------------------------------
   GM_addStyle(`
-    .tlx-slot-hidden { display: none !important; }
-    .tlx-native-hidden { display: none !important; }
+    .tlx-slot-hidden, .tlx-native-hidden { display: none !important; }
 
     /* Title sort */
     .tlx-sort-toggle {
@@ -423,6 +430,10 @@
     save(KEYS.hidden, { ...state[KEYS.hidden], [id]: { title, href, ts: Date.now() } });
   }
 
+  function unhideAll() {
+    if (confirm('Unhide all hidden lots?')) save(KEYS.hidden, {});
+  }
+
   function unhideLot(id) {
     const next = { ...state[KEYS.hidden] };
     delete next[id];
@@ -547,7 +558,7 @@
     if (tag.title !== tip) tag.title = tip;
   }
 
-  let pageStats = { filtered: 0, hidden: 0 };
+  let filteredCount = 0;
 
   function compactGrids(slots) {
     const grids = new Set();
@@ -593,7 +604,7 @@
 
   function processCards() {
     const seen = new Set();
-    const stats = { filtered: 0, hidden: 0 };
+    let filtered = 0;
     for (const link of document.querySelectorAll(TITLE_SEL)) {
       const href = link.getAttribute('href');
       const id = lotIdFromHref(href);
@@ -624,8 +635,7 @@
       const priceEl = slot.querySelector('p.MuiTypography-h6');
       if (priceEl) setTotal(priceEl, locationIn(slot));
 
-      if (isHidden) stats.hidden++;
-      else if (matched) stats.filtered++;
+      if (matched && !isHidden) filtered++;
     }
 
     // Clean up slots that are no longer lot cards (React reused the node).
@@ -638,7 +648,7 @@
     }
 
     compactGrids(seen);
-    pageStats = stats;
+    filteredCount = filtered;
   }
 
   // ---------------------------------------------------------------------------
@@ -648,13 +658,12 @@
     const input = el('input', { type: 'checkbox', role: 'switch' });
     input.checked = !!state[key];
     input.addEventListener('change', () => save(key, input.checked));
-    const row = el(
+    return el(
       'label',
       { class: `tlx-switch-row ${extraClass}`.trim(), 'data-tlx-key': key },
       el('span', { text: labelText }),
       el('span', { class: 'tlx-switch' }, input, el('span', { class: 'tlx-track' }), el('span', { class: 'tlx-thumb' }))
     );
-    return row;
   }
 
   // Header button + body; open/closed state is persisted per list.
@@ -692,13 +701,8 @@
     const addWords = () => {
       const pattern = wordInput.value.trim();
       if (!pattern) return;
-      if (!compileFilter(pattern)) {
-        setError('Invalid regex');
-        return;
-      }
-      const existing = state[KEYS.words];
-      wordInput.value = '';
-      if (!existing.includes(pattern)) save(KEYS.words, [...existing, pattern]);
+      if (addFilter(pattern)) wordInput.value = '';
+      else setError('Invalid regex');
     };
     wordInput.addEventListener('input', () => setError(null));
     wordInput.addEventListener('keydown', (e) => {
@@ -726,9 +730,7 @@
           class: 'tlx-text-btn',
           'data-tlx-unhide-all': '',
           text: 'Unhide all',
-          onclick: () => {
-            if (confirm('Unhide all hidden lots?')) save(KEYS.hidden, {});
-          },
+          onclick: unhideAll,
         })
       )
     );
@@ -768,7 +770,7 @@
                 'aria-label': `Remove ${w}`,
                 onclick: () => save(KEYS.words, state[KEYS.words].filter((x) => x !== w)),
               },
-              icon('cancel', 16)
+              icon('cancel')
             )
           )
         )
@@ -785,7 +787,7 @@
     // Stats
     const stats = section.querySelector('[data-tlx-stats]');
     const statText = words.length
-      ? `${pageStats.filtered} lot${pageStats.filtered === 1 ? '' : 's'} ${state[KEYS.removeFiltered] ? 'removed' : 'filtered'} on this page.`
+      ? `${filteredCount} lot${filteredCount === 1 ? '' : 's'} ${state[KEYS.removeFiltered] ? 'removed' : 'filtered'} on this page.`
       : 'Case-insensitive regex on the lot title, matched as whole words: \\b(?:pattern)\\b.';
     if (stats.textContent !== statText) stats.textContent = statText;
 
@@ -902,8 +904,7 @@
       current = slot.querySelector('p.MuiTypography-h6')?.textContent.trim() ?? '';
     } else if (/^\/lots\//.test(location.pathname)) {
       title = document.querySelector('h1')?.textContent.trim() ?? '';
-      const cur = document.querySelector('[aria-label^="Current bid"]');
-      current = cur?.textContent.trim() ?? '';
+      current = document.querySelector('[aria-label^="Current bid"]')?.textContent.trim() ?? '';
     }
     // Nearest ancestor containing the max-bid input belongs to this button.
     let node = btn.parentElement;
@@ -924,7 +925,7 @@
     if (!btn || btn.closest('[data-tlx-own]')) return;
 
     // Block anything we disabled on filtered / revealed-hidden cards.
-    if (btn.hasAttribute('data-tlx-disabled') || btn.closest('.tlx-dim [data-tlx-disabled]')) {
+    if (btn.hasAttribute('data-tlx-disabled')) {
       e.preventDefault();
       e.stopImmediatePropagation();
       return;
@@ -1238,10 +1239,10 @@
       };
       await Promise.all(Array.from({ length: Math.min(SORT.concurrency, Math.max(pages - 1, 0)) }, worker));
       if (gen !== sv.gen) return;
-      const lots = [...byId.values()];
-      lotCache.set(key, { lots, fetchedAt: Date.now() });
+      const entry = { lots: [...byId.values()], fetchedAt: Date.now() };
+      lotCache.set(key, entry);
       while (lotCache.size > SORT.cacheEntries) lotCache.delete(lotCache.keys().next().value);
-      Object.assign(sv, { lots, fetchedAt: Date.now(), loading: false });
+      Object.assign(sv, entry, { loading: false });
     } catch (err) {
       if (gen === sv.gen) Object.assign(sv, { loading: false, error: err.message || String(err) });
     }
@@ -1513,7 +1514,7 @@
     if (!box) {
       box = el(
         'div',
-        { class: 'tlx-sorted', 'data-tlx-own-root': '' },
+        { class: 'tlx-sorted' },
         el('div', { class: 'tlx-sorted-bar' }),
         el('div', { class: gridClass, 'data-tlx-sorted-grid': '' }),
         el('nav', { class: 'tlx-pager', 'aria-label': 'Sorted lots pages' })
@@ -1643,12 +1644,9 @@
     const v = prompt('Filter regex (case-insensitive, whole words):', '');
     const pattern = v?.trim();
     if (!pattern) return;
-    if (!compileFilter(pattern)) return alert(`Invalid regex: ${pattern}`);
-    if (!state[KEYS.words].includes(pattern)) save(KEYS.words, [...state[KEYS.words], pattern]);
+    if (!addFilter(pattern)) alert(`Invalid regex: ${pattern}`);
   });
-  GM_registerMenuCommand('Unhide all lots', () => {
-    if (confirm('Unhide all hidden lots?')) save(KEYS.hidden, {});
-  });
+  GM_registerMenuCommand('Unhide all lots', unhideAll);
 
   // ---------------------------------------------------------------------------
   // Main loop – the site is a Next.js/React SPA, so react to DOM changes.
