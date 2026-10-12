@@ -9,6 +9,7 @@ Adds to [triangleliquidators.com](https://triangleliquidators.com/):
 - **Hide lots**: eye button on each card; hidden lots are listed (collapsible) in the Filters panel.
 - **Regex filters**: lots whose title matches are grayed out with bidding disabled. Patterns are case-insensitive and always match whole words (`\b(?:pattern)\b`).
 - **Bid confirmation**: optional confirm dialog for Max bid / Raise max bid / Set max bid and quick `+$N` bids.
+- **Sort all lots by title**: A–Z / Z–A toggle next to “All Auctions” fetches every lot matching the current built-in filters (via the site’s own API client) and shows them sorted, 80 per page. Sorted cards link to the lot page for bidding.
 - **Estimated total cost** next to the current bid: `(bid × 1.15 + $1 [+ $5 for Anderson/Transferable]) × 1.0725`.
 
 **Install:** with Tampermonkey installed, open
