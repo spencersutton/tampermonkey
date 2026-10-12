@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      2.1.1
+// @version      2.2.0
 // @description  Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -29,6 +29,7 @@
 		syncMinutes: "tlxSyncMinutes",
 		pickup: "tlxPickup",
 		view: "tlxView",
+		savedSearches: "tlxSavedSearches",
 		accountPickup: "tlxAccountPickup"
 	};
 	var DEFAULTS = {
@@ -45,6 +46,7 @@
 		[KEYS.syncMinutes]: 5,
 		[KEYS.pickup]: null,
 		[KEYS.view]: null,
+		[KEYS.savedSearches]: [],
 		[KEYS.accountPickup]: null
 	};
 	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
@@ -1249,7 +1251,7 @@
 	}, C$1.prototype.render = S, i$2 = [], o$1 = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e$1 = function(n, l) {
 		return n.__v.__b - l.__v.__b;
 	}, H$1.__r = 0, f$2 = Math.random().toString(8), c$1 = "__d" + f$2, a$1 = "__a" + f$2, s$1 = /(PointerCapture)$|Capture$/i, h$1 = 0, p$1 = V$1(!1), v$1 = V$1(!0);
-	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.filter-list{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.filter-row{align-items:flex-start;gap:4px;padding:2px 0;display:flex}.filter-remove{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;flex:none;margin-top:2px;padding:2px;display:inline-flex}.filter-remove:hover{color:var(--bad);background:var(--hover)}.filter-pattern{text-align:left;cursor:text;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:2px 6px}.filter-pattern:hover{background:var(--hover)}.pattern{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:18px}.pattern .seg{max-width:100%;display:inline-block}.filter-row .count{color:var(--muted);font-variant-numeric:tabular-nums;flex:none;margin-top:2px;font-size:12px;line-height:18px}.filter-error .pattern{color:var(--bad);text-decoration:line-through}.filter-edit{flex-direction:column;flex:auto;gap:2px;min-width:0;display:flex}.filter-edit textarea{resize:vertical;border:1px solid var(--line);background:var(--paper);border-radius:6px;width:100%;padding:4px 6px;font:12.5px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.filter-edit textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}.filter-edit textarea.has-error{border-color:var(--bad);outline-color:var(--bad)}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
+	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.filter-list{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.filter-row{align-items:flex-start;gap:4px;padding:2px 0;display:flex}.filter-remove{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;flex:none;margin-top:2px;padding:2px;display:inline-flex}.filter-remove:hover{color:var(--bad);background:var(--hover)}.filter-pattern{text-align:left;cursor:text;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:2px 6px}.filter-pattern:hover{background:var(--hover)}.pattern{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:18px}.pattern .seg{max-width:100%;display:inline-block}.filter-row .count{color:var(--muted);font-variant-numeric:tabular-nums;flex:none;margin-top:2px;font-size:12px;line-height:18px}.filter-error .pattern{color:var(--bad);text-decoration:line-through}.filter-edit{flex-direction:column;flex:auto;gap:2px;min-width:0;display:flex}.filter-edit textarea{resize:vertical;border:1px solid var(--line);background:var(--paper);border-radius:6px;width:100%;padding:4px 6px;font:12.5px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.filter-edit textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}.filter-edit textarea.has-error{border-color:var(--bad);outline-color:var(--bad)}.saved-row{border-radius:6px;align-items:center}.saved-row.active{background:var(--primary-soft)}.saved-name{cursor:pointer;text-align:left;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:3px 6px;font-weight:600;overflow:hidden}.saved-name:hover{background:var(--hover)}.saved-row .count{margin-top:0}.saved-row .rename{border:1px solid var(--line);background:var(--paper);border-radius:6px;flex:auto;min-width:0;height:28px;padding:0 6px}.saved-row .filter-remove{margin-top:0}.pill-new{background:var(--primary);color:var(--on-primary);cursor:pointer;border:0;flex:none;padding:1px 7px;font-size:11.5px}.card-media .pill-new{background:var(--primary);color:#fff;box-shadow:0 1px 3px #0003}.filters-toggle .pill-new{margin-left:2px}.results-line{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;display:flex}.new-line{color:var(--primary);align-items:center;gap:6px;font-weight:600;display:inline-flex}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
 	var t;
 	var r;
 	var u$1;
@@ -1712,7 +1714,15 @@
 		state.meta = await writeMeta({ pullStartedAt: Date.now() });
 		channel?.postMessage({ type: "meta" });
 		const firstLoad = state.lots.size === 0;
+		const startedAt = Date.now();
 		const pulled = new Map();
+		const stamp = (l) => {
+			const prev = state.lots.get(l.id);
+			return {
+				...l,
+				firstSeenAt: prev ? prev.firstSeenAt ?? 0 : firstLoad ? 0 : startedAt
+			};
+		};
 		state.error = null;
 		state.progress = {
 			done: 0,
@@ -1728,18 +1738,21 @@
 					count = d.count;
 					pages = Math.max(1, Math.ceil(d.count / 100));
 				}
-				for (const l of d.results) pulled.set(l.id, l);
+				for (const l of d.results) pulled.set(l.id, stamp(l));
 				state.progress = {
 					done: pulled.size,
 					total: count
 				};
-				if (firstLoad) for (const l of d.results) state.lots.set(l.id, l);
+				if (firstLoad) for (const l of d.results) state.lots.set(l.id, pulled.get(l.id));
 				changed();
 				if (!d.results.length) break;
 			}
 			for (const [id, mine] of state.lots) {
 				const fresh = pulled.get(id);
-				if (fresh && mine.version > fresh.version) pulled.set(id, mine);
+				if (fresh && mine.version > fresh.version) pulled.set(id, {
+					...mine,
+					firstSeenAt: fresh.firstSeenAt
+				});
 			}
 			if (pulled.size < count) {
 				const now = Date.now();
@@ -6297,7 +6310,7 @@
 			open();
 		};
 	}
-	var LotCard = N(function LotCard({ row, onOpen, onToggleHide }) {
+	var LotCard = N(function LotCard({ row, isNew, onOpen, onToggleHide }) {
 		const { lot, matched, hidden } = row;
 		const href = lotHref(lot.auctionPeriod, lot.id);
 		const dim = !!matched || hidden;
@@ -6334,14 +6347,21 @@
 					}),
 					u("div", {
 						class: "media-tr",
-						children: [lot.isWatchlisted && u("span", {
-							class: "pill pill-watch",
-							title: "On your watchlist",
-							children: u(Icon, {
-								name: "star",
-								size: 13
-							})
-						}), u(StandingBadge, { lot })]
+						children: [
+							isNew && u("span", {
+								class: "pill pill-new",
+								children: "New"
+							}),
+							lot.isWatchlisted && u("span", {
+								class: "pill pill-watch",
+								title: "On your watchlist",
+								children: u(Icon, {
+									name: "star",
+									size: 13
+								})
+							}),
+							u(StandingBadge, { lot })
+						]
 					}),
 					(hidden || matched) && u("span", {
 						class: "media-badge",
@@ -6732,7 +6752,8 @@
 		totalMax: null,
 		retailMin: null,
 		ending: "",
-		mine: ""
+		mine: "",
+		newSince: null
 	};
 	function normalizeView(v) {
 		const o = v && typeof v === "object" ? v : {};
@@ -6755,7 +6776,8 @@
 		v.totalMax != null,
 		v.retailMin != null,
 		v.ending,
-		v.mine
+		v.mine,
+		v.newSince != null
 	].filter(Boolean).length;
 	var sortKeys = new Map();
 	function titleKey(title) {
@@ -6796,11 +6818,7 @@
 		return [Math.max(start, now), d.getTime()];
 	}
 	function computeView(lots, view, pickup, ex, now) {
-		const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
-		const win = endingWindow(view.ending, now);
-		const cats = new Set(view.categories);
-		const conds = new Set(view.conditions);
-		const locs = new Set(view.locations);
+		const matches = makeMatcher(view, now);
 		const matchCounts = new Map(ex.words.map((w) => [w, 0]));
 		const compiled = compiledFilters(ex.words);
 		const rows = [];
@@ -6816,7 +6834,7 @@
 				removed++;
 				continue;
 			}
-			if (!passes(row, view, terms, win, cats, conds, locs)) {
+			if (!matches(row)) {
 				filteredOut++;
 				continue;
 			}
@@ -6831,7 +6849,16 @@
 			matchCounts
 		};
 	}
+	function makeMatcher(view, now) {
+		const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
+		const win = endingWindow(view.ending, now);
+		const cats = new Set(view.categories);
+		const conds = new Set(view.conditions);
+		const locs = new Set(view.locations);
+		return (row) => passes(row, view, terms, win, cats, conds, locs);
+	}
 	function passes({ lot, total, pickupOnly }, v, terms, win, cats, conds, locs) {
+		if (v.newSince != null && (lot.firstSeenAt ?? 0) <= v.newSince) return false;
 		if (terms.length) {
 			const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
 			if (!terms.every((t) => hay.includes(t))) return false;
@@ -6909,10 +6936,49 @@
 			locations: [...locs.values()].sort((a, b) => b.count - a.count)
 		};
 	}
+	var savedFilters = (v) => {
+		const { newSince, ...rest } = v;
+		return rest;
+	};
+	function sameFilters(a, b) {
+		const strip = ({ sort, ...rest }) => rest;
+		return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
+	}
+	function suggestName(v, facets) {
+		const parts = [];
+		if (v.search.trim()) parts.push(v.search.trim());
+		for (const c of v.categories) parts.push(facets.categories.find((f) => f.value === c)?.label ?? c);
+		if (v.locations.length) parts.push(v.locations.join("/"));
+		if (v.priceMax != null) parts.push(`≤ $${v.priceMax}`);
+		if (v.totalMax != null) parts.push(`total ≤ $${v.totalMax}`);
+		return parts.join(" · ") || "Saved search";
+	}
+	function savedSearchStats(lots, searches, pickup, ex, now) {
+		const matchers = searches.map((s) => ({
+			s,
+			m: makeMatcher(normalizeView(s.view), now),
+			st: {
+				total: 0,
+				fresh: 0
+			}
+		}));
+		for (const lot of lots) {
+			if (lot.endsAt <= now) continue;
+			const row = makeRow(lot, pickup, ex);
+			if (row.hidden || row.matched) continue;
+			for (const { s, m, st } of matchers) {
+				if (!m(row)) continue;
+				st.total++;
+				if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) st.fresh++;
+			}
+		}
+		return new Map(matchers.map(({ s, st }) => [s.id, st]));
+	}
 	function Sidebar(props) {
 		return u("div", {
 			class: "sidebar-inner",
 			children: [
+				u(SavedSearchesSection, { ...props.saved }),
 				u(FiltersSection, { ...props }),
 				u(HideFilterSection, {
 					matchCounts: props.matchCounts,
@@ -7385,6 +7451,133 @@
 			})
 		});
 	}
+	function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedName, onSave, onOpen, onDelete, onRename }) {
+		const [naming, setNaming] = d(false);
+		const [name, setName] = d("");
+		const [renaming, setRenaming] = d(null);
+		const input = A$1(null);
+		h(() => {
+			if (naming || renaming) input.current?.select();
+		}, [naming, renaming]);
+		const startSave = () => {
+			setName(suggestedName);
+			setNaming(true);
+		};
+		const commitSave = () => {
+			if (!naming) return;
+			setNaming(false);
+			if (name.trim()) onSave(name.trim());
+		};
+		const commitRename = (id) => {
+			if (renaming !== id) return;
+			setRenaming(null);
+			if (name.trim()) onRename(id, name.trim());
+		};
+		const keys = (commit, cancel) => (e) => {
+			if (e.key === "Enter") {
+				e.preventDefault();
+				commit();
+			} else if (e.key === "Escape") {
+				e.preventDefault();
+				cancel();
+			}
+		};
+		return u("section", {
+			class: "panel",
+			children: [
+				u("div", {
+					class: "panel-head",
+					children: [u("h2", { children: "Saved searches" }), !naming && u("button", {
+						type: "button",
+						class: "btn-text",
+						disabled: !canSave,
+						onClick: startSave,
+						title: canSave ? "Save the current filters" : "Set some filters first, or this search is already saved",
+						children: "Save current"
+					})]
+				}),
+				naming && u("div", {
+					class: "add-filter",
+					children: [u("input", {
+						ref: input,
+						type: "text",
+						"aria-label": "Name for saved search",
+						value: name,
+						onInput: (e) => setName(e.currentTarget.value),
+						onKeyDown: keys(commitSave, () => setNaming(false)),
+						onBlur: commitSave
+					}), u("button", {
+						type: "button",
+						class: "btn-text",
+						onMouseDown: (e) => e.preventDefault(),
+						onClick: commitSave,
+						children: "Save"
+					})]
+				}),
+				searches.length === 0 && !naming && u("p", {
+					class: "muted small",
+					children: "Set filters or a search, then save them here. New listings that match show up as a count after each catalog refresh."
+				}),
+				u("ul", {
+					class: "filter-list",
+					children: searches.map((s) => {
+						const st = stats.get(s.id) ?? {
+							total: 0,
+							fresh: 0
+						};
+						return u("li", {
+							class: `filter-row saved-row ${s.id === activeId ? "active" : ""}`,
+							children: [
+								u("button", {
+									type: "button",
+									class: "filter-remove",
+									"aria-label": `Delete ${s.name}`,
+									title: "Delete saved search",
+									onClick: () => confirm(`Delete saved search “${s.name}”?`) && onDelete(s.id),
+									children: u(Icon, {
+										name: "cancel",
+										size: 16
+									})
+								}),
+								renaming === s.id ? u("input", {
+									ref: input,
+									class: "rename",
+									type: "text",
+									"aria-label": "Rename saved search",
+									value: name,
+									onInput: (e) => setName(e.currentTarget.value),
+									onKeyDown: keys(() => commitRename(s.id), () => setRenaming(null)),
+									onBlur: () => commitRename(s.id)
+								}) : u("button", {
+									type: "button",
+									class: "saved-name",
+									title: "Click to open · double-click to rename",
+									onClick: () => onOpen(s, false),
+									onDblClick: () => {
+										setName(s.name);
+										setRenaming(s.id);
+									},
+									children: s.name
+								}),
+								st.fresh > 0 && u("button", {
+									type: "button",
+									class: "pill pill-new",
+									title: "Show only the new matches",
+									onClick: () => onOpen(s, true),
+									children: [fmtCount(st.fresh), " new"]
+								}),
+								u("span", {
+									class: "count",
+									title: "Open lots matching, not counting hidden or regex-filtered lots",
+									children: fmtCount(st.total)
+								})
+							]
+						});
+					})
+				})
+			]
+		});
+	}
 	var PAGE_SIZE = 60;
 	var DAY = 864e5;
 	function useAccountPickup(lots) {
@@ -7422,6 +7615,9 @@
 		const [search, setSearch] = d(view.search);
 		const gridTop = A$1(null);
 		const now30 = useNow(3e4);
+		const [savedRaw, setSavedRaw] = useSetting(KEYS.savedSearches);
+		const saved = savedRaw;
+		const [highlight, setHighlight] = d(null);
 		const setView = q$1((patch) => {
 			setStoredView({
 				...normalizeView(getSetting(KEYS.view)),
@@ -7461,6 +7657,62 @@
 			catalog.loaded,
 			now30
 		]);
+		const savedStats = T$1(() => savedSearchStats(catalog.lots.values(), saved, pickup, exclusions, now30), [
+			catalog.rev,
+			saved,
+			pickup,
+			exclusions,
+			now30
+		]);
+		const totalNew = [...savedStats.values()].reduce((n, s) => n + s.fresh, 0);
+		const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
+		const newSince = view.newSince ?? (highlight && activeSaved?.id === highlight.id ? highlight.since : null);
+		h(() => {
+			document.title = totalNew ? `(${totalNew}) TL Catalog` : "TL Catalog";
+		}, [totalNew]);
+		const updateSaved = (fn) => setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches)));
+		const savedProps = {
+			searches: saved,
+			stats: savedStats,
+			activeId: activeSaved?.id ?? null,
+			canSave: activeFilterCount({
+				...view,
+				newSince: null
+			}) > 0 && !activeSaved,
+			suggestedName: suggestName(view, facets),
+			onSave: (name) => {
+				const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+				updateSaved((l) => [...l, {
+					id,
+					name,
+					view: savedFilters(view),
+					lastViewedAt: Date.now()
+				}]);
+			},
+			onOpen: (s, newOnly) => {
+				setStoredView({
+					...normalizeView(s.view),
+					newSince: newOnly ? s.lastViewedAt : null
+				});
+				setSearch(s.view.search);
+				setPage(1);
+				setHighlight({
+					id: s.id,
+					since: s.lastViewedAt
+				});
+				updateSaved((l) => l.map((x) => x.id === s.id ? {
+					...x,
+					lastViewedAt: Date.now()
+				} : x));
+				setSidebarOpen(false);
+				gridTop.current?.scrollIntoView({ block: "start" });
+			},
+			onDelete: (id) => updateSaved((l) => l.filter((x) => x.id !== id)),
+			onRename: (id, name) => updateSaved((l) => l.map((x) => x.id === id ? {
+				...x,
+				name
+			} : x))
+		};
 		const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
 		const curPage = Math.min(page, pages);
 		const pageRows = result.rows.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
@@ -7531,7 +7783,11 @@
 							children: [
 								u(Icon, { name: "filter" }),
 								" Filters",
-								nFilters ? ` (${nFilters})` : ""
+								nFilters ? ` (${nFilters})` : "",
+								totalNew > 0 && u("span", {
+									class: "pill pill-new",
+									children: [fmtCount(totalNew), " new"]
+								})
 							]
 						})
 					]
@@ -7548,7 +7804,8 @@
 							pickup,
 							accountPickup,
 							authed,
-							onOpenHidden: openHidden
+							onOpenHidden: openHidden,
+							saved: savedProps
 						})
 					}), u("main", {
 						class: "main",
@@ -7568,7 +7825,7 @@
 							u("div", {
 								class: "results-line",
 								ref: gridTop,
-								children: u("span", { children: [
+								children: [u("span", { children: [
 									result.rows.length ? `${fmtCount((curPage - 1) * PAGE_SIZE + 1)}–${fmtCount((curPage - 1) * PAGE_SIZE + pageRows.length)} of ${fmtCount(result.rows.length)}` : catalog.loaded && !catalog.progress ? "No lots match" : "",
 									result.removed > 0 && u("span", {
 										class: "muted",
@@ -7586,12 +7843,46 @@
 											" outside filters"
 										]
 									})
-								] })
+								] }), view.newSince != null ? u("span", {
+									class: "new-line",
+									children: [
+										"Only lots listed since ",
+										new Date(view.newSince).toLocaleString([], {
+											weekday: "short",
+											hour: "numeric",
+											minute: "2-digit"
+										}),
+										u("button", {
+											type: "button",
+											class: "btn-text",
+											onClick: () => setView({ newSince: null }),
+											children: "Show all"
+										})
+									]
+								}) : activeSaved && newSince != null && (() => {
+									const n = result.rows.filter((r) => (r.lot.firstSeenAt ?? 0) > newSince).length;
+									return n > 0 ? u("span", {
+										class: "new-line",
+										children: [
+											fmtCount(n),
+											" new since your last look at “",
+											activeSaved.name,
+											"”",
+											u("button", {
+												type: "button",
+												class: "btn-text",
+												onClick: () => setView({ newSince }),
+												children: "Show only new"
+											})
+										]
+									}) : null;
+								})()]
 							}),
 							u("div", {
 								class: "grid",
 								children: pageRows.map((row) => u(LotCard, {
 									row,
+									isNew: newSince != null && (row.lot.firstSeenAt ?? 0) > newSince,
 									onOpen: openLot,
 									onToggleHide: toggleHide
 								}, row.lot.id))

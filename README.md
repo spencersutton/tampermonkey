@@ -14,6 +14,7 @@ A separate, faster catalog that replaces the site's interface on that one URL. E
 - **Sort** by ending time, newly listed, title (A–Z / Z–A, leading specs moved to the end), estimated total cost, % of retail, retail price, or bid count.
 - **Filters:** search, category, condition, location, "available at my pickup location", bid / total / retail ranges, ending window, and *my lots* (bid on / winning / outbid / watchlist).
 - **Hide lots and regex filters** shared with the site pages below. Filters are listed one per line with how many lots each matches; click a pattern to edit it (Enter saves, Esc cancels).
+- **Saved searches:** save the current filters and search, then see at a glance how many matching lots were listed since you last opened each one (also shown in the tab title, e.g. “(3) TL Catalog”). Opening a search badges the new lots; “Show only new” narrows to them. Hidden and regex-filtered lots never count. A lot is new if it first appears in a full catalog refresh, so new listings show up within one refresh interval.
 - **Live prices** for the lots on screen over the site's own websocket, plus outbid/winning updates when logged in.
 - **Lot details** (images, description, bid history) in a popup; bidding links to the real lot page.
 

@@ -5,7 +5,16 @@ import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { useSetting } from './gm';
 import { Icon } from './icons';
 import { fmtCount, parseNum } from './util';
-import { activeFilterCount, DEFAULT_VIEW, ENDING, MINE, type Facets, type ViewState } from './view';
+import {
+  activeFilterCount,
+  DEFAULT_VIEW,
+  ENDING,
+  MINE,
+  type Facets,
+  type SavedSearch,
+  type SavedSearchStats,
+  type ViewState,
+} from './view';
 
 interface Props {
   view: ViewState;
@@ -16,11 +25,13 @@ interface Props {
   accountPickup: string | null;
   authed: boolean;
   onOpenHidden: (id: number) => void;
+  saved: SavedSearchesProps;
 }
 
 export function Sidebar(props: Props) {
   return (
     <div class="sidebar-inner">
+      <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
       <HideFilterSection matchCounts={props.matchCounts} onOpenHidden={props.onOpenHidden} />
       <SettingsSection pickup={props.pickup} accountPickup={props.accountPickup} locations={props.facets.locations.map((l) => l.name)} />
@@ -393,6 +404,129 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
           </select>
         </label>
       </Collapsible>
+    </section>
+  );
+}
+
+export interface SavedSearchesProps {
+  searches: SavedSearch[];
+  stats: Map<string, SavedSearchStats>;
+  activeId: string | null;
+  canSave: boolean; // current view has filters and isn't already saved
+  suggestedName: string;
+  onSave: (name: string) => void;
+  onOpen: (s: SavedSearch, newOnly: boolean) => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+}
+
+function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedName, onSave, onOpen, onDelete, onRename }: SavedSearchesProps) {
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState('');
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (naming || renaming) input.current?.select();
+  }, [naming, renaming]);
+
+  const startSave = () => {
+    setName(suggestedName);
+    setNaming(true);
+  };
+  const commitSave = () => {
+    if (!naming) return;
+    setNaming(false);
+    if (name.trim()) onSave(name.trim());
+  };
+  const commitRename = (id: string) => {
+    if (renaming !== id) return;
+    setRenaming(null);
+    if (name.trim()) onRename(id, name.trim());
+  };
+  const keys = (commit: () => void, cancel: () => void) => (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancel();
+    }
+  };
+
+  return (
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Saved searches</h2>
+        {!naming && (
+          <button type="button" class="btn-text" disabled={!canSave} onClick={startSave} title={canSave ? 'Save the current filters' : 'Set some filters first, or this search is already saved'}>
+            Save current
+          </button>
+        )}
+      </div>
+      {naming && (
+        <div class="add-filter">
+          <input
+            ref={input}
+            type="text"
+            aria-label="Name for saved search"
+            value={name}
+            onInput={(e) => setName(e.currentTarget.value)}
+            onKeyDown={keys(commitSave, () => setNaming(false))}
+            onBlur={commitSave}
+          />
+          <button type="button" class="btn-text" onMouseDown={(e) => e.preventDefault()} onClick={commitSave}>
+            Save
+          </button>
+        </div>
+      )}
+      {searches.length === 0 && !naming && (
+        <p class="muted small">Set filters or a search, then save them here. New listings that match show up as a count after each catalog refresh.</p>
+      )}
+      <ul class="filter-list">
+        {searches.map((s) => {
+          const st = stats.get(s.id) ?? { total: 0, fresh: 0 };
+          return (
+            <li class={`filter-row saved-row ${s.id === activeId ? 'active' : ''}`}>
+              <button type="button" class="filter-remove" aria-label={`Delete ${s.name}`} title="Delete saved search" onClick={() => confirm(`Delete saved search “${s.name}”?`) && onDelete(s.id)}>
+                <Icon name="cancel" size={16} />
+              </button>
+              {renaming === s.id ? (
+                <input
+                  ref={input}
+                  class="rename"
+                  type="text"
+                  aria-label="Rename saved search"
+                  value={name}
+                  onInput={(e) => setName(e.currentTarget.value)}
+                  onKeyDown={keys(() => commitRename(s.id), () => setRenaming(null))}
+                  onBlur={() => commitRename(s.id)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  class="saved-name"
+                  title="Click to open · double-click to rename"
+                  onClick={() => onOpen(s, false)}
+                  onDblClick={() => {
+                    setName(s.name);
+                    setRenaming(s.id);
+                  }}
+                >
+                  {s.name}
+                </button>
+              )}
+              {st.fresh > 0 && (
+                <button type="button" class="pill pill-new" title="Show only the new matches" onClick={() => onOpen(s, true)}>
+                  {fmtCount(st.fresh)} new
+                </button>
+              )}
+              <span class="count" title="Open lots matching, not counting hidden or regex-filtered lots">
+                {fmtCount(st.total)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

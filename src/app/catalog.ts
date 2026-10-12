@@ -136,7 +136,14 @@ async function runPull(): Promise<PullResult> {
   channel?.postMessage({ type: 'meta' } satisfies Msg);
 
   const firstLoad = state.lots.size === 0;
+  const startedAt = Date.now();
   const pulled = new Map<number, Lot>();
+  // Lots not in the previous pull are new (saved searches count them); on the
+  // very first pull everything is treated as already listed.
+  const stamp = (l: Lot): Lot => {
+    const prev = state.lots.get(l.id);
+    return { ...l, firstSeenAt: prev ? (prev.firstSeenAt ?? 0) : firstLoad ? 0 : startedAt };
+  };
   state.error = null;
   state.progress = { done: 0, total: null };
   changed();
@@ -149,10 +156,10 @@ async function runPull(): Promise<PullResult> {
         count = d.count;
         pages = Math.max(1, Math.ceil(d.count / LIST_PAGE_SIZE));
       }
-      for (const l of d.results) pulled.set(l.id, l);
+      for (const l of d.results) pulled.set(l.id, stamp(l));
       state.progress = { done: pulled.size, total: count };
       // With nothing cached yet, show lots as they arrive.
-      if (firstLoad) for (const l of d.results) state.lots.set(l.id, l);
+      if (firstLoad) for (const l of d.results) state.lots.set(l.id, pulled.get(l.id)!);
       changed();
       if (!d.results.length) break;
     }
@@ -160,7 +167,7 @@ async function runPull(): Promise<PullResult> {
     // Websocket updates that arrived during the pull may be newer.
     for (const [id, mine] of state.lots) {
       const fresh = pulled.get(id);
-      if (fresh && mine.version > fresh.version) pulled.set(id, mine);
+      if (fresh && mine.version > fresh.version) pulled.set(id, { ...mine, firstSeenAt: fresh.firstSeenAt });
     }
     // If lots closed mid-pull, page boundaries shift and a few lots can be
     // skipped; keep still-open ones from the previous pull until next time.

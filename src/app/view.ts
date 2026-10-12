@@ -50,6 +50,7 @@ export interface ViewState {
   retailMin: number | null;
   ending: EndingId;
   mine: MineId;
+  newSince: number | null; // only lots first seen after this time (not saved with searches)
 }
 
 export const DEFAULT_VIEW: ViewState = {
@@ -65,6 +66,7 @@ export const DEFAULT_VIEW: ViewState = {
   retailMin: null,
   ending: '',
   mine: '',
+  newSince: null,
 };
 
 export function normalizeView(v: unknown): ViewState {
@@ -88,6 +90,7 @@ export const activeFilterCount = (v: ViewState) =>
     v.retailMin != null,
     v.ending,
     v.mine,
+    v.newSince != null,
   ].filter(Boolean).length;
 
 /** A lot with everything the grid needs computed once. */
@@ -157,11 +160,7 @@ export interface ViewResult {
 }
 
 export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: number): ViewResult {
-  const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
-  const win = endingWindow(view.ending, now);
-  const cats = new Set(view.categories);
-  const conds = new Set(view.conditions);
-  const locs = new Set(view.locations);
+  const matches = makeMatcher(view, now);
   const matchCounts = new Map<string, number>(ex.words.map((w) => [w, 0]));
   const compiled = compiledFilters(ex.words);
 
@@ -179,7 +178,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       removed++;
       continue;
     }
-    if (!passes(row, view, terms, win, cats, conds, locs)) {
+    if (!matches(row)) {
       filteredOut++;
       continue;
     }
@@ -187,6 +186,16 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   }
   rows.sort(comparator(view.sort));
   return { rows, open, removed, filteredOut, matchCounts };
+}
+
+/** Predicate for the view's own filters (not hide / regex exclusions). */
+export function makeMatcher(view: ViewState, now: number): (row: Row) => boolean {
+  const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
+  const win = endingWindow(view.ending, now);
+  const cats = new Set(view.categories);
+  const conds = new Set(view.conditions);
+  const locs = new Set(view.locations);
+  return (row) => passes(row, view, terms, win, cats, conds, locs);
 }
 
 function passes(
@@ -198,6 +207,7 @@ function passes(
   conds: Set<number>,
   locs: Set<string>,
 ): boolean {
+  if (v.newSince != null && (lot.firstSeenAt ?? 0) <= v.newSince) return false;
   if (terms.length) {
     const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
     if (!terms.every((t) => hay.includes(t))) return false;
@@ -285,4 +295,62 @@ export function computeFacets(lots: Iterable<Lot>, now: number): Facets {
     conditions: [...conds.values()].sort((a, b) => a.value - b.value),
     locations: [...locs.values()].sort((a, b) => b.count - a.count),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Saved searches
+// ---------------------------------------------------------------------------
+export interface SavedSearch {
+  id: string;
+  name: string;
+  view: Omit<ViewState, 'newSince'>;
+  lastViewedAt: number; // lots first seen after this count as new
+}
+
+export const savedFilters = (v: ViewState): Omit<ViewState, 'newSince'> => {
+  const { newSince, ...rest } = v;
+  return rest;
+};
+
+/** Same filters (ignoring sort and the "new only" toggle)? */
+export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boolean {
+  const strip = ({ sort, ...rest }: Omit<ViewState, 'newSince'>) => rest;
+  return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
+}
+
+export function suggestName(v: ViewState, facets: Facets): string {
+  const parts: string[] = [];
+  if (v.search.trim()) parts.push(v.search.trim());
+  for (const c of v.categories) parts.push(facets.categories.find((f) => f.value === c)?.label ?? c);
+  if (v.locations.length) parts.push(v.locations.join('/'));
+  if (v.priceMax != null) parts.push(`≤ $${v.priceMax}`);
+  if (v.totalMax != null) parts.push(`total ≤ $${v.totalMax}`);
+  return parts.join(' · ') || 'Saved search';
+}
+
+export interface SavedSearchStats {
+  total: number;
+  fresh: number; // matches first seen since lastViewedAt
+}
+
+/** Counts for each saved search; hidden lots and regex-filtered lots never count. */
+export function savedSearchStats(
+  lots: Iterable<Lot>,
+  searches: SavedSearch[],
+  pickup: string,
+  ex: Exclusions,
+  now: number,
+): Map<string, SavedSearchStats> {
+  const matchers = searches.map((s) => ({ s, m: makeMatcher(normalizeView(s.view), now), st: { total: 0, fresh: 0 } }));
+  for (const lot of lots) {
+    if (lot.endsAt <= now) continue;
+    const row = makeRow(lot, pickup, ex);
+    if (row.hidden || row.matched) continue;
+    for (const { s, m, st } of matchers) {
+      if (!m(row)) continue;
+      st.total++;
+      if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) st.fresh++;
+    }
+  }
+  return new Map(matchers.map(({ s, st }) => [s.id, st]));
 }

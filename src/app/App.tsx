@@ -9,7 +9,20 @@ import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { ago, countdown, fmtCount, useNow } from './util';
-import { computeFacets, computeView, makeRow, normalizeView, SORTS, activeFilterCount, type ViewState } from './view';
+import {
+  activeFilterCount,
+  computeFacets,
+  computeView,
+  makeRow,
+  normalizeView,
+  sameFilters,
+  savedFilters,
+  savedSearchStats,
+  SORTS,
+  suggestName,
+  type SavedSearch,
+  type ViewState,
+} from './view';
 import type { Lot } from './types';
 
 const PAGE_SIZE = 60;
@@ -52,6 +65,11 @@ export function App() {
   // Closed lots drop out on this cadence; countdowns tick on their own.
   const now30 = useNow(30_000);
 
+  const [savedRaw, setSavedRaw] = useSetting(KEYS.savedSearches);
+  const saved = savedRaw as SavedSearch[];
+  // While a saved search is open, lots that are new since its previous visit get a badge.
+  const [highlight, setHighlight] = useState<{ id: string; since: number } | null>(null);
+
   const setView = useCallback((patch: Partial<ViewState>) => {
     setStoredView({ ...normalizeView(getSetting(KEYS.view)), ...patch });
     setPage(1);
@@ -74,6 +92,43 @@ export function App() {
     [catalog.rev, view, pickup, exclusions, now30],
   );
   const facets = useMemo(() => computeFacets(catalog.lots.values(), now30), [catalog.lots, catalog.meta.fetchedAt, catalog.loaded, now30]);
+
+  const savedStats = useMemo(
+    () => savedSearchStats(catalog.lots.values(), saved, pickup, exclusions, now30),
+    [catalog.rev, saved, pickup, exclusions, now30],
+  );
+  const totalNew = [...savedStats.values()].reduce((n, s) => n + s.fresh, 0);
+  const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
+  const newSince = view.newSince ?? (highlight && activeSaved?.id === highlight.id ? highlight.since : null);
+
+  useEffect(() => {
+    document.title = totalNew ? `(${totalNew}) TL Catalog` : 'TL Catalog';
+  }, [totalNew]);
+
+  const updateSaved = (fn: (list: SavedSearch[]) => SavedSearch[]) =>
+    setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches) as SavedSearch[]));
+  const savedProps = {
+    searches: saved,
+    stats: savedStats,
+    activeId: activeSaved?.id ?? null,
+    canSave: activeFilterCount({ ...view, newSince: null }) > 0 && !activeSaved,
+    suggestedName: suggestName(view, facets),
+    onSave: (name: string) => {
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      updateSaved((l) => [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }]);
+    },
+    onOpen: (s: SavedSearch, newOnly: boolean) => {
+      setStoredView({ ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
+      setSearch(s.view.search);
+      setPage(1);
+      setHighlight({ id: s.id, since: s.lastViewedAt });
+      updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
+      setSidebarOpen(false);
+      gridTop.current?.scrollIntoView({ block: 'start' });
+    },
+    onDelete: (id: string) => updateSaved((l) => l.filter((x) => x.id !== id)),
+    onRename: (id: string, name: string) => updateSaved((l) => l.map((x) => (x.id === id ? { ...x, name } : x))),
+  };
 
   const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
   const curPage = Math.min(page, pages);
@@ -131,6 +186,7 @@ export function App() {
         </select>
         <button type="button" class="btn btn-outline filters-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} aria-expanded={sidebarOpen}>
           <Icon name="filter" /> Filters{nFilters ? ` (${nFilters})` : ''}
+          {totalNew > 0 && <span class="pill pill-new">{fmtCount(totalNew)} new</span>}
         </button>
       </header>
 
@@ -145,6 +201,7 @@ export function App() {
             accountPickup={accountPickup}
             authed={authed}
             onOpenHidden={openHidden}
+            saved={savedProps}
           />
         </aside>
 
@@ -165,11 +222,39 @@ export function App() {
               {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
               {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
             </span>
+            {view.newSince != null ? (
+              <span class="new-line">
+                Only lots listed since {new Date(view.newSince).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                <button type="button" class="btn-text" onClick={() => setView({ newSince: null })}>
+                  Show all
+                </button>
+              </span>
+            ) : (
+              activeSaved &&
+              newSince != null &&
+              (() => {
+                const n = result.rows.filter((r) => (r.lot.firstSeenAt ?? 0) > newSince).length;
+                return n > 0 ? (
+                  <span class="new-line">
+                    {fmtCount(n)} new since your last look at “{activeSaved.name}”
+                    <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
+                      Show only new
+                    </button>
+                  </span>
+                ) : null;
+              })()
+            )}
           </div>
 
           <div class="grid">
             {pageRows.map((row) => (
-              <LotCard key={row.lot.id} row={row} onOpen={openLot} onToggleHide={toggleHide} />
+              <LotCard
+                key={row.lot.id}
+                row={row}
+                isNew={newSince != null && (row.lot.firstSeenAt ?? 0) > newSince}
+                onOpen={openLot}
+                onToggleHide={toggleHide}
+              />
             ))}
           </div>
 

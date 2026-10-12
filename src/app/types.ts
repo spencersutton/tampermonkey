@@ -31,6 +31,7 @@ export interface Lot {
   isWatchlisted: boolean;
   hasBid: boolean;
   images: LotImage[];
+  firstSeenAt?: number; // when a full pull first saw this lot (0 = already there on the first pull)
 }
 
 export interface BidHistoryEntry {

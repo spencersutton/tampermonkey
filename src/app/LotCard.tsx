@@ -41,11 +41,12 @@ export function openHandler(open: () => void) {
 
 interface Props {
   row: Row;
+  isNew?: boolean;
   onOpen: (lot: Lot) => void;
   onToggleHide: (lot: Lot) => void;
 }
 
-export const LotCard = memo(function LotCard({ row, onOpen, onToggleHide }: Props) {
+export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide }: Props) {
   const { lot, matched, hidden } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
   const dim = !!matched || hidden;
@@ -67,6 +68,7 @@ export const LotCard = memo(function LotCard({ row, onOpen, onToggleHide }: Prop
           <Icon name={hidden ? 'visibility' : 'visibilityOff'} />
         </button>
         <div class="media-tr">
+          {isNew && <span class="pill pill-new">New</span>}
           {lot.isWatchlisted && (
             <span class="pill pill-watch" title="On your watchlist">
               <Icon name="star" size={13} />

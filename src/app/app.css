@@ -156,6 +156,21 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 }
 .filter-edit textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
 .filter-edit textarea.has-error { border-color: var(--bad); outline-color: var(--bad); }
+.saved-row { align-items: center; border-radius: 6px; }
+.saved-row.active { background: var(--primary-soft); }
+.saved-name {
+  flex: 1 1 auto; min-width: 0; padding: 3px 6px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+  text-align: left; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.saved-name:hover { background: var(--hover); }
+.saved-row .count { margin-top: 0; }
+.saved-row .rename { flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.saved-row .filter-remove { margin-top: 0; }
+.pill-new { flex: none; border: 0; background: var(--primary); color: var(--on-primary); cursor: pointer; font-size: 11.5px; padding: 1px 7px; }
+.card-media .pill-new { background: var(--primary); color: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+.filters-toggle .pill-new { margin-left: 2px; }
+.results-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; }
+.new-line { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--primary); }
 .hidden-list { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto; }
 .hidden-list li { display: flex; align-items: center; gap: 4px; }
 .hidden-list a { flex: 1; min-width: 0; color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }

@@ -10,6 +10,7 @@ export const KEYS = {
   syncMinutes: 'tlxSyncMinutes', // number – minimum minutes between full catalog pulls
   pickup: 'tlxPickup', // string | null – pickup location name; null = from account, else Raleigh
   view: 'tlxView', // persisted catalog view state (sort, filters)
+  savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
 } as const;
 
@@ -34,6 +35,7 @@ export const DEFAULTS = {
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.pickup]: null as string | null,
   [KEYS.view]: null as unknown,
+  [KEYS.savedSearches]: [] as unknown[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
 };
 
