@@ -75,13 +75,24 @@ export function App() {
     setPage(1);
   }, []);
 
-  // Debounce the search box into the view.
+  // Debounce the search box into the view. `pushed` remembers what the box
+  // itself sent, so only outside changes (saved search, Clear, another tab)
+  // are copied back into the box – otherwise a debounced value arriving
+  // mid-typing would overwrite what was typed since.
+  const pushed = useRef(view.search);
   useEffect(() => {
     if (search === view.search) return;
-    const t = setTimeout(() => setView({ search }), 200);
+    const t = setTimeout(() => {
+      pushed.current = search;
+      setView({ search });
+    }, 200);
     return () => clearTimeout(t);
   }, [search]);
-  useEffect(() => setSearch(view.search), [view.search]);
+  useEffect(() => {
+    if (view.search === pushed.current) return;
+    pushed.current = view.search;
+    setSearch(view.search);
+  }, [view.search]);
 
   const exclusions = useMemo(
     () => ({ words, filterOn: !!filterOn, removeFiltered: !!removeFiltered, hidden: hiddenLots, showHidden: !!showHidden }),

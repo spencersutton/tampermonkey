@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      2.2.1
+// @version      2.2.2
 // @description  Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -7642,12 +7642,20 @@
 			});
 			setPage(1);
 		}, []);
+		const pushed = A$1(view.search);
 		h(() => {
 			if (search === view.search) return;
-			const t = setTimeout(() => setView({ search }), 200);
+			const t = setTimeout(() => {
+				pushed.current = search;
+				setView({ search });
+			}, 200);
 			return () => clearTimeout(t);
 		}, [search]);
-		h(() => setSearch(view.search), [view.search]);
+		h(() => {
+			if (view.search === pushed.current) return;
+			pushed.current = view.search;
+			setSearch(view.search);
+		}, [view.search]);
 		const exclusions = T$1(() => ({
 			words,
 			filterOn: !!filterOn,
