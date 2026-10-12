@@ -1,239 +1,198 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      1.6.2
-// @description  Hide individual lots, gray out lots matching filter words, confirm bids, and show estimated total cost.
+// @version      2.0.0
+// @description  Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.
+// @homepageURL  https://github.com/spencersutton/tampermonkey
+// @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
+// @updateURL    https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
 // @match        https://triangleliquidators.com/*
 // @match        https://www.triangleliquidators.com/*
-// @homepageURL  https://github.com/spencersutton/tampermonkey
-// @updateURL    https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
-// @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
-// @run-at       document-idle
-// @grant        GM_getValue
-// @grant        GM_setValue
 // @grant        GM_addStyle
 // @grant        GM_addValueChangeListener
+// @grant        GM_getValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_setValue
+// @run-at       document-start
 // ==/UserScript==
 
-(function () {
-  'use strict';
-
-  // ---------------------------------------------------------------------------
-  // Settings (persisted via GM storage, synced across tabs)
-  // ---------------------------------------------------------------------------
-  const KEYS = {
-    hidden: 'hiddenLots',        // { [lotId]: { title, href, ts } }
-    words: 'filterWords',        // string[]
-    filterOn: 'filterEnabled',   // boolean
-    confirm: 'confirmBids',      // boolean
-    showHidden: 'showHidden',    // boolean
-    removeFiltered: 'removeFiltered', // boolean – drop filtered lots from the page entirely
-    titleSort: 'titleSort',      // null | 'asc' | 'desc' – sort all matching lots by title
-    collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
-  };
-  const DEFAULTS = {
-    [KEYS.hidden]: {},
-    [KEYS.words]: [],
-    [KEYS.filterOn]: true,
-    [KEYS.confirm]: true,
-    [KEYS.showHidden]: false,
-    [KEYS.removeFiltered]: false,
-    [KEYS.titleSort]: null,
-    [KEYS.collapsed]: { words: false, hidden: false },
-  };
-
-  // Estimated total cost = (bid + buyer's premium + lot fee [+ transfer fee]) × (1 + sales tax)
-  const FEES = {
-    premium: 0.15,     // 15% buyer's premium
-    lotFee: 1,         // $1 per lot
-    transferFee: 5,    // $5 for Anderson / Transferable lots
-    salesTax: 0.0725,  // 7.25% NC sales tax
-  };
-
-  const state = {};
-  for (const k of Object.values(KEYS)) state[k] = GM_getValue(k, DEFAULTS[k]);
-
-  function apply(key, value) {
-    state[key] = value;
-    if (key === KEYS.words) wordRegexes = buildRegexes(value);
-    scheduleScan();
-  }
-
-  function save(key, value) {
-    GM_setValue(key, value);
-    apply(key, value);
-  }
-
-  if (typeof GM_addValueChangeListener === 'function') {
-    for (const k of Object.values(KEYS)) {
-      GM_addValueChangeListener(k, (_name, _old, val, remote) => {
-        if (remote) apply(k, val);
-      });
-    }
-  }
-
-  // Each filter is a case-insensitive regex tested against the lot title.
-  // Every pattern is implicitly whole-word: \b(?:pattern)\b.
-  // Returns null for an invalid pattern.
-  function compileFilter(pattern) {
-    const src = `\\b(?:${pattern})\\b`;
-    try {
-      return new RegExp(src, 'i');
-    } catch {
-      return null;
-    }
-  }
-
-  function buildRegexes(words) {
-    return words
-      .filter((w) => w.trim())
-      .map((w) => ({ word: w, re: compileFilter(w) }));
-  }
-  let wordRegexes = buildRegexes(state[KEYS.words]);
-
-  // Split a comma-separated filter list. Commas inside (...), [...], {...} or
-  // escaped as \, stay part of the pattern, so quantifiers like {1,3} survive.
-  function splitFilters(text) {
-    const out = [];
-    let cur = '';
-    let depth = 0;
-    let inClass = false;
-    let escaped = false;
-    for (const ch of text) {
-      if (escaped) {
-        cur += ch;
-        escaped = false;
-      } else if (ch === '\\') {
-        cur += ch;
-        escaped = true;
-      } else if (inClass) {
-        if (ch === ']') inClass = false;
-        cur += ch;
-      } else if (ch === '[') {
-        inClass = true;
-        cur += ch;
-      } else if (ch === ',' && depth === 0) {
-        out.push(cur);
-        cur = '';
-      } else {
-        if (ch === '(' || ch === '{') depth++;
-        else if ((ch === ')' || ch === '}') && depth > 0) depth--;
-        cur += ch;
-      }
-    }
-    out.push(cur);
-    return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
-  }
-
-  // Adds a pattern; returns false if it isn't a valid regex.
-  function addFilter(pattern) {
-    if (!compileFilter(pattern)) return false;
-    if (!state[KEYS.words].includes(pattern)) save(KEYS.words, [...state[KEYS.words], pattern]);
-    return true;
-  }
-
-  function matchFilter(title) {
-    if (!state[KEYS.filterOn]) return null;
-    for (const { word, re } of wordRegexes) if (re && re.test(title)) return word;
-    return null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Small DOM helpers
-  // ---------------------------------------------------------------------------
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-  const ICONS = {
-    visibilityOff:
-      'M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7M2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2m4.31-.78 3.15 3.15.02-.16c0-1.66-1.34-3-3-3z',
-    visibility:
-      'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5m0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3',
-    cancel:
-      'M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2m5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12z',
-    filter: 'M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z',
-    expandMore: 'M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z',
-  };
-
-  function icon(name, size = 16) {
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('width', size);
-    svg.setAttribute('height', size);
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    const p = document.createElementNS(SVG_NS, 'path');
-    p.setAttribute('d', ICONS[name]);
-    p.setAttribute('fill', 'currentColor');
-    svg.appendChild(p);
-    return svg;
-  }
-
-  function el(tag, props = {}, ...children) {
-    const node = document.createElement(tag);
-    for (const [k, v] of Object.entries(props)) {
-      if (k === 'class') node.className = v;
-      else if (k === 'text') node.textContent = v;
-      else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
-      else if (v !== false && v != null) node.setAttribute(k, v === true ? '' : v);
-    }
-    for (const c of children) if (c != null) node.append(c);
-    return node;
-  }
-
-  // Stop the event from reaching the site's own handlers (carousel drag, card link, etc.)
-  function swallow(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Styles – built on the site's MUI CSS variables so light/dark both work
-  // ---------------------------------------------------------------------------
-  GM_addStyle(`
-    .tlx-slot-hidden, .tlx-native-hidden { display: none !important; }
-
-    /* Title sort */
-    .tlx-sort-toggle {
-      display: inline-flex; margin-left: 12px; vertical-align: middle; overflow: hidden;
-      border: 1px solid var(--mui-palette-divider); border-radius: var(--mui-shape-borderRadius, 4px);
-    }
-    .tlx-sort-toggle button {
-      padding: 3px 10px; border: 0; background: none; cursor: pointer;
+(function() {
+	"use strict";
+	var KEYS = {
+		hidden: "hiddenLots",
+		words: "filterWords",
+		filterOn: "filterEnabled",
+		confirm: "confirmBids",
+		showHidden: "showHidden",
+		removeFiltered: "removeFiltered",
+		collapsed: "collapsedLists",
+		syncMinutes: "tlxSyncMinutes",
+		pickup: "tlxPickup",
+		view: "tlxView",
+		accountPickup: "tlxAccountPickup"
+	};
+	var DEFAULTS = {
+		[KEYS.hidden]: {},
+		[KEYS.words]: [],
+		[KEYS.filterOn]: true,
+		[KEYS.confirm]: true,
+		[KEYS.showHidden]: false,
+		[KEYS.removeFiltered]: false,
+		[KEYS.collapsed]: {
+			words: false,
+			hidden: false
+		},
+		[KEYS.syncMinutes]: 5,
+		[KEYS.pickup]: null,
+		[KEYS.view]: null,
+		[KEYS.accountPickup]: null
+	};
+	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
+	function compileFilter(pattern) {
+		try {
+			return new RegExp(`\\b(?:${pattern})\\b`, "i");
+		} catch {
+			return null;
+		}
+	}
+	function buildRegexes(words) {
+		return words.filter((w) => w.trim()).map((w) => ({
+			word: w,
+			re: compileFilter(w)
+		}));
+	}
+	function firstMatch(filters, title) {
+		for (const { word, re } of filters) if (re && re.test(title)) return word;
+		return null;
+	}
+	function splitFilters(text) {
+		const out = [];
+		let cur = "";
+		let depth = 0;
+		let inClass = false;
+		let escaped = false;
+		for (const ch of text) if (escaped) {
+			cur += ch;
+			escaped = false;
+		} else if (ch === "\\") {
+			cur += ch;
+			escaped = true;
+		} else if (inClass) {
+			if (ch === "]") inClass = false;
+			cur += ch;
+		} else if (ch === "[") {
+			inClass = true;
+			cur += ch;
+		} else if (ch === "," && depth === 0) {
+			out.push(cur);
+			cur = "";
+		} else {
+			if (ch === "(" || ch === "{") depth++;
+			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
+			cur += ch;
+		}
+		out.push(cur);
+		return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
+	}
+	var FEES = {
+		premium: .15,
+		lotFee: 1,
+		transferFee: 5,
+		salesTax: .0725
+	};
+	function totalCost(bid, transferFee = 0) {
+		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
+	}
+	function costBreakdown(bid, transferFee = 0) {
+		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
+	}
+	var money = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD"
+	});
+	var dollars = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		maximumFractionDigits: 0
+	});
+	function runLegacy() {
+		"use strict";
+		const KEYS$1 = {
+			hidden: KEYS.hidden,
+			words: KEYS.words,
+			filterOn: KEYS.filterOn,
+			confirm: KEYS.confirm,
+			showHidden: KEYS.showHidden,
+			removeFiltered: KEYS.removeFiltered,
+			collapsed: KEYS.collapsed
+		};
+		const DEFAULTS$1 = DEFAULTS;
+		const state = {};
+		for (const k of Object.values(KEYS$1)) state[k] = GM_getValue(k, DEFAULTS$1[k]);
+		function apply(key, value) {
+			state[key] = value;
+			if (key === KEYS$1.words) wordRegexes = buildRegexes(value);
+			scheduleScan();
+		}
+		function save(key, value) {
+			GM_setValue(key, value);
+			apply(key, value);
+		}
+		if (typeof GM_addValueChangeListener === "function") for (const k of Object.values(KEYS$1)) GM_addValueChangeListener(k, (_name, _old, val, remote) => {
+			if (remote) apply(k, val);
+		});
+		let wordRegexes = buildRegexes(state[KEYS$1.words]);
+		function addFilter(pattern) {
+			if (!compileFilter(pattern)) return false;
+			if (!state[KEYS$1.words].includes(pattern)) save(KEYS$1.words, [...state[KEYS$1.words], pattern]);
+			return true;
+		}
+		function matchFilter(title) {
+			if (!state[KEYS$1.filterOn]) return null;
+			return firstMatch(wordRegexes, title);
+		}
+		const SVG_NS = "http://www.w3.org/2000/svg";
+		const ICONS = {
+			visibilityOff: "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7M2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2m4.31-.78 3.15 3.15.02-.16c0-1.66-1.34-3-3-3z",
+			visibility: "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5m0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3",
+			cancel: "M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2m5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12z",
+			filter: "M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z",
+			expandMore: "M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"
+		};
+		function icon(name, size = 16) {
+			const svg = document.createElementNS(SVG_NS, "svg");
+			svg.setAttribute("viewBox", "0 0 24 24");
+			svg.setAttribute("width", size);
+			svg.setAttribute("height", size);
+			svg.setAttribute("aria-hidden", "true");
+			svg.setAttribute("focusable", "false");
+			const p = document.createElementNS(SVG_NS, "path");
+			p.setAttribute("d", ICONS[name]);
+			p.setAttribute("fill", "currentColor");
+			svg.appendChild(p);
+			return svg;
+		}
+		function el(tag, props = {}, ...children) {
+			const node = document.createElement(tag);
+			for (const [k, v] of Object.entries(props)) if (k === "class") node.className = v;
+			else if (k === "text") node.textContent = v;
+			else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+			else if (v !== false && v != null) node.setAttribute(k, v === true ? "" : v);
+			for (const c of children) if (c != null) node.append(c);
+			return node;
+		}
+		function swallow(e) {
+			e.preventDefault();
+			e.stopPropagation();
+		}
+		GM_addStyle(`
+    .tlx-slot-hidden { display: none !important; }
+    .tlx-catalog-link {
+      margin-left: 12px; vertical-align: middle; text-decoration: none; white-space: nowrap;
       font: 500 13px/1.75 Roboto, Helvetica, Arial, sans-serif; letter-spacing: .02857em;
-      color: var(--mui-palette-text-secondary);
+      color: var(--mui-palette-primary-main);
     }
-    .tlx-sort-toggle button + button { border-left: 1px solid var(--mui-palette-divider); }
-    .tlx-sort-toggle button:hover { background: var(--mui-palette-action-hover); }
-    .tlx-sort-toggle button[aria-pressed="true"] {
-      color: var(--mui-palette-primary-main); background: rgba(var(--mui-palette-primary-mainChannel) / .08);
-    }
-    .tlx-sorted-bar {
-      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px;
-      font: 400 14px/1.43 Roboto, Helvetica, Arial, sans-serif; color: var(--mui-palette-text-secondary);
-    }
-    .tlx-sorted-error { color: var(--mui-palette-error-main); }
-    .tlx-progress {
-      flex-basis: 100%; height: 4px; border-radius: 2px; overflow: hidden;
-      background: rgba(var(--mui-palette-primary-mainChannel) / .2);
-    }
-    .tlx-progress > span { display: block; height: 100%; background: var(--mui-palette-primary-main); transition: width .2s; }
-    .tlx-view-btn {
-      display: flex; align-items: center; justify-content: center; min-height: 36px; padding: 6px 16px;
-      border-radius: var(--mui-shape-borderRadius, 4px); text-decoration: none; box-sizing: border-box;
-      font: 500 14px/1.75 Roboto, Helvetica, Arial, sans-serif; letter-spacing: .02857em; text-transform: uppercase;
-      background: var(--mui-palette-primary-main); color: var(--mui-palette-primary-contrastText, #fff);
-      box-shadow: var(--mui-shadows-2, 0 1px 3px rgba(0,0,0,.3));
-    }
-    .tlx-view-btn:hover { box-shadow: var(--mui-shadows-4, 0 2px 6px rgba(0,0,0,.3)); filter: brightness(1.1); }
-    .tlx-pager { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; margin-top: 32px; }
-    .tlx-pager button {
-      min-width: 40px; height: 40px; padding: 0 10px; border: 0; border-radius: 20px; background: none; cursor: pointer;
-      font: 400 15px/1 Roboto, Helvetica, Arial, sans-serif; color: var(--mui-palette-text-primary);
-    }
-    .tlx-pager button:hover:not(:disabled) { background: var(--mui-palette-action-hover); }
-    .tlx-pager button[aria-current="page"] { background: var(--mui-palette-action-selected, rgba(0,0,0,.08)); }
-    .tlx-pager button:disabled { opacity: .38; cursor: default; }
-    .tlx-pager-gap { min-width: 32px; text-align: center; color: var(--mui-palette-text-primary); }
+    .tlx-catalog-link:hover { text-decoration: underline; }
 
     /* Compact grid: the catalog grid separates rows with full-width <hr>s at
        fixed DOM positions (one set per breakpoint). Once cards are removed
@@ -396,1285 +355,7325 @@
     .tlx-contained-btn:hover { box-shadow: var(--mui-shadows-4, 0 2px 6px rgba(0,0,0,.3)); filter: brightness(1.1); }
     .tlx-dialog button:focus-visible { outline: 2px solid var(--mui-palette-primary-main); outline-offset: 2px; }
   `);
-
-  // ---------------------------------------------------------------------------
-  // Lot cards
-  // ---------------------------------------------------------------------------
-  // Every card (catalog grid, Featured carousel, Similar auctions carousel) has a
-  // title <a class="MuiLink-root" href="/lots/<date>/<id>">. The card "slot" is
-  // the largest ancestor that contains only that one title link, i.e. the grid
-  // cell / carousel slide we can hide.
-  const TITLE_SEL = 'a.MuiLink-root[href^="/lots/"]';
-
-  function lotIdFromHref(href) {
-    const m = href.match(/\/lots\/[^/]+\/(\d+)/);
-    return m ? m[1] : null;
-  }
-
-  function slotFor(link) {
-    let node = link;
-    while (node.parentElement && node.parentElement !== document.body) {
-      if (node.parentElement.querySelectorAll(TITLE_SEL).length > 1) break;
-      node = node.parentElement;
-    }
-    return node;
-  }
-
-  function imageAreaFor(slot) {
-    const fav = slot.querySelector('[aria-label="Add to watchlist"], [aria-label="Remove from watchlist"]');
-    if (fav?.parentElement?.parentElement) return fav.parentElement.parentElement;
-    return slot.querySelector('[aria-label="Lot images"]')?.parentElement ?? null;
-  }
-
-  function hideLot(id, title, href) {
-    save(KEYS.hidden, { ...state[KEYS.hidden], [id]: { title, href, ts: Date.now() } });
-  }
-
-  function unhideAll() {
-    if (confirm('Unhide all hidden lots?')) save(KEYS.hidden, {});
-  }
-
-  function unhideLot(id) {
-    const next = { ...state[KEYS.hidden] };
-    delete next[id];
-    save(KEYS.hidden, next);
-  }
-
-  function ensureHideButton(slot, id, title, href, isHidden) {
-    const area = imageAreaFor(slot);
-    if (!area) return;
-    let btn = area.querySelector(':scope > .tlx-hide-btn');
-    if (!btn) {
-      btn = el('button', { type: 'button', class: 'tlx-hide-btn', 'data-tlx-own': '' });
-      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
-      btn.addEventListener('mousedown', (e) => e.stopPropagation());
-      btn.addEventListener('click', (e) => {
-        swallow(e);
-        const { tlxId, tlxTitle, tlxHref } = btn.dataset;
-        if (state[KEYS.hidden][tlxId]) unhideLot(tlxId);
-        else hideLot(tlxId, tlxTitle, tlxHref);
-      });
-      area.appendChild(btn);
-    }
-    btn.dataset.tlxId = id;
-    btn.dataset.tlxTitle = title;
-    btn.dataset.tlxHref = href;
-    const mode = isHidden ? 'unhide' : 'hide';
-    if (btn.dataset.mode !== mode) {
-      btn.dataset.mode = mode;
-      btn.replaceChildren(icon(isHidden ? 'visibility' : 'visibilityOff'));
-      const label = isHidden ? 'Unhide this lot' : 'Hide this lot';
-      btn.setAttribute('aria-label', label);
-      btn.title = label;
-    }
-  }
-
-  function setBadge(slot, text) {
-    const area = imageAreaFor(slot);
-    if (!area) return;
-    let badge = area.querySelector(':scope > .tlx-badge');
-    if (!text) {
-      badge?.remove();
-      return;
-    }
-    if (!badge) {
-      badge = el('span', { class: 'tlx-badge', 'data-tlx-own': '' });
-      area.appendChild(badge);
-    }
-    if (badge.textContent !== text) badge.textContent = text;
-  }
-
-  // Disable every native control in a card (bid buttons, max-bid input, watchlist,
-  // image arrows). We only touch elements we marked, so restoring is exact.
-  function setControlsDisabled(slot, disabled) {
-    if (disabled) {
-      for (const c of slot.querySelectorAll('button, input')) {
-        if (c.closest('[data-tlx-own]') || c.hasAttribute('data-tlx-disabled')) continue;
-        if (c.disabled) continue; // already disabled by the site – leave it alone
-        c.setAttribute('data-tlx-disabled', '');
-        c.disabled = true;
-        c.setAttribute('aria-disabled', 'true');
-        c.classList.add('Mui-disabled');
-        c.tabIndex = -1;
-      }
-    } else {
-      for (const c of slot.querySelectorAll('[data-tlx-disabled]')) {
-        c.removeAttribute('data-tlx-disabled');
-        c.disabled = false;
-        c.removeAttribute('aria-disabled');
-        c.classList.remove('Mui-disabled');
-        c.tabIndex = 0;
-      }
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Estimated total cost
-  // ---------------------------------------------------------------------------
-  // Location appears as an icon + caption ("Raleigh", "Anderson", "Transferable").
-  // Captions belonging to other lot cards inside `root` are skipped.
-  function locationIn(root) {
-    for (const cap of root.querySelectorAll('svg + span.MuiTypography-caption')) {
-      const owner = cap.closest('[data-tlx-lot]');
-      if (owner && owner !== root) continue;
-      const t = cap.textContent.trim();
-      if (/anderson|transferable/i.test(t)) return 'transfer';
-      if (/raleigh/i.test(t)) return 'raleigh';
-    }
-    return null;
-  }
-
-  function parseDollars(text) {
-    const n = parseFloat((text || '').replace(/[^\d.]/g, ''));
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function totalCost(bid, loc) {
-    const fees = FEES.lotFee + (loc === 'transfer' ? FEES.transferFee : 0);
-    return (bid * (1 + FEES.premium) + fees) * (1 + FEES.salesTax);
-  }
-
-  const money = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-
-  // Insert/update a "≈ $X total" caption right after `anchor` (defaults to the price element).
-  function setTotal(priceEl, loc, anchor = priceEl) {
-    let tag = anchor.nextElementSibling?.classList.contains('tlx-total') ? anchor.nextElementSibling : null;
-    const bid = parseDollars(priceEl.textContent);
-    if (bid == null || !loc) {
-      tag?.remove();
-      return;
-    }
-    if (!tag) {
-      tag = el('span', { class: 'tlx-total', 'data-tlx-own': '' }, '≈ ', el('b'), ' total');
-      anchor.after(tag);
-    }
-    const value = money(totalCost(bid, loc));
-    const b = tag.querySelector('b');
-    if (b.textContent !== value) b.textContent = value;
-    const tip =
-      `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` +
-      (loc === 'transfer' ? ` + ${money(FEES.transferFee)} transfer` : '') +
-      `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
-    if (tag.title !== tip) tag.title = tip;
-  }
-
-  let filteredCount = 0;
-
-  function compactGrids(slots) {
-    const grids = new Set();
-    for (const slot of slots) {
-      const parent = slot.parentElement;
-      if (parent && getComputedStyle(parent).display === 'grid') grids.add(parent);
-    }
-    for (const grid of document.querySelectorAll('.tlx-compact')) grids.add(grid);
-
-    for (const grid of grids) {
-      const cards = [...grid.children].filter((c) => c.dataset.tlxLot);
-      const visible = cards.filter((c) => !c.classList.contains('tlx-slot-hidden'));
-      // The sorted view's grid has no native dividers, so it always draws its own.
-      const compact = grid.hasAttribute('data-tlx-sorted-grid') || visible.length < cards.length;
-      grid.classList.toggle('tlx-compact', compact);
-      if (!compact) {
-        cards.forEach((c) => c.classList.remove('tlx-row-start', 'tlx-later-row'));
-        continue;
-      }
-      const cs = getComputedStyle(grid);
-      const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
-      // Native rows are separated by gap + <hr> (with its margins) + gap; reproduce that spacing.
-      const hr = grid.querySelector(':scope > hr');
-      const hcs = hr && getComputedStyle(hr);
-      const hrSpace = hcs
-        ? ['marginTop', 'marginBottom', 'borderTopWidth', 'borderBottomWidth'].reduce((n, k) => n + (parseFloat(hcs[k]) || 0), 0)
-        : 0;
-      const rowGap = parseFloat(cs.rowGap) || 0;
-      const vars = {
-        '--tlx-cols': String(cols),
-        '--tlx-row-gap': `${rowGap}px`,
-        '--tlx-row-sep': `${rowGap + hrSpace}px`,
-        '--tlx-col-gap': cs.columnGap,
-      };
-      for (const [k, v] of Object.entries(vars)) if (grid.style.getPropertyValue(k) !== v) grid.style.setProperty(k, v);
-      cards.forEach((c) => {
-        const i = visible.indexOf(c);
-        c.classList.toggle('tlx-later-row', i >= cols);
-        c.classList.toggle('tlx-row-start', i >= cols && i % cols === 0);
-      });
-    }
-  }
-
-  function processCards() {
-    const seen = new Set();
-    let filtered = 0;
-    for (const link of document.querySelectorAll(TITLE_SEL)) {
-      const href = link.getAttribute('href');
-      const id = lotIdFromHref(href);
-      if (!id) continue;
-      const slot = slotFor(link);
-      if (seen.has(slot)) continue;
-      seen.add(slot);
-
-      const title = link.textContent.trim();
-      // Card titles are line-clamped; expose the full name as a tooltip.
-      if (link.title !== title) link.title = title;
-      const isHidden = !!state[KEYS.hidden][id];
-      const matched = matchFilter(title);
-      const showHidden = state[KEYS.showHidden];
-
-      slot.dataset.tlxLot = id;
-      const removed = (isHidden && !showHidden) || (!!matched && state[KEYS.removeFiltered]);
-      slot.classList.toggle('tlx-slot-hidden', removed);
-      const dim = !!matched || (isHidden && showHidden);
-      slot.classList.toggle('tlx-dim', dim);
-
-      // Filtered lots and revealed-hidden lots both get their controls disabled.
-      setControlsDisabled(slot, dim);
-
-      ensureHideButton(slot, id, title, href, isHidden);
-      setBadge(slot, isHidden && showHidden ? 'Hidden' : matched ? `Filtered: ${matched}` : null);
-
-      const priceEl = slot.querySelector('p.MuiTypography-h6');
-      if (priceEl) setTotal(priceEl, locationIn(slot));
-
-      if (matched && !isHidden) filtered++;
-    }
-
-    // Clean up slots that are no longer lot cards (React reused the node).
-    for (const slot of document.querySelectorAll('[data-tlx-lot]')) {
-      if (seen.has(slot)) continue;
-      delete slot.dataset.tlxLot;
-      slot.classList.remove('tlx-slot-hidden', 'tlx-dim', 'tlx-row-start', 'tlx-later-row');
-      setControlsDisabled(slot, false);
-      slot.querySelectorAll('.tlx-hide-btn, .tlx-badge, .tlx-total').forEach((n) => n.remove());
-    }
-
-    compactGrids(seen);
-    filteredCount = filtered;
-  }
-
-  // ---------------------------------------------------------------------------
-  // "Hide & Filter" section injected into the native Filters sidebar
-  // ---------------------------------------------------------------------------
-  function switchRow(labelText, key, extraClass = '') {
-    const input = el('input', { type: 'checkbox', role: 'switch' });
-    input.checked = !!state[key];
-    input.addEventListener('change', () => save(key, input.checked));
-    return el(
-      'label',
-      { class: `tlx-switch-row ${extraClass}`.trim(), 'data-tlx-key': key },
-      el('span', { text: labelText }),
-      el('span', { class: 'tlx-switch' }, input, el('span', { class: 'tlx-track' }), el('span', { class: 'tlx-thumb' }))
-    );
-  }
-
-  // Header button + body; open/closed state is persisted per list.
-  function collapsible(name, ...children) {
-    const head = el(
-      'button',
-      { type: 'button', class: 'tlx-collapse-head', 'data-tlx-collapse': name },
-      el('span', { 'data-tlx-collapse-label': '' }),
-      icon('expandMore', 20)
-    );
-    head.addEventListener('click', () => {
-      const cur = state[KEYS.collapsed] || {};
-      save(KEYS.collapsed, { ...cur, [name]: !cur[name] });
-    });
-    const body = el('div', { class: 'tlx-collapse-body', 'data-tlx-collapse-body': name }, ...children);
-    return [head, body];
-  }
-
-  function buildSection() {
-    const section = el('section', { class: 'tlx-section', 'data-tlx-own': '', 'data-tlx-panel': '' });
-
-    const wordInput = el('input', {
-      type: 'text',
-      placeholder: 'e.g. batter(y|ies)',
-      'aria-label': 'Add filter regex',
-      autocomplete: 'off',
-      spellcheck: 'false',
-    });
-    const inputLabel = el('label', { text: 'Filter regex' });
-    const inputWrap = el('div', { class: 'tlx-input-wrap' }, inputLabel, wordInput);
-    const setError = (msg) => {
-      inputWrap.classList.toggle('tlx-error', !!msg);
-      inputLabel.textContent = msg || 'Filter regex';
-    };
-    const addWords = () => {
-      const pattern = wordInput.value.trim();
-      if (!pattern) return;
-      if (addFilter(pattern)) wordInput.value = '';
-      else setError('Invalid regex');
-    };
-    wordInput.addEventListener('input', () => setError(null));
-    wordInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        addWords();
-      }
-    });
-    inputWrap.append(el('button', { type: 'button', class: 'tlx-text-btn', onclick: addWords, text: 'Add' }));
-
-    section.append(
-      el('p', { class: 'tlx-section-title', text: 'Hide & Filter' }),
-      inputWrap,
-      ...collapsible('words', el('div', { class: 'tlx-chips', 'data-tlx-chips': '' })),
-      el('p', { class: 'tlx-caption', 'data-tlx-stats': '' }),
-      switchRow('Apply filters', KEYS.filterOn),
-      switchRow('Remove filtered lots instead of graying out', KEYS.removeFiltered),
-      switchRow('Confirm before bidding', KEYS.confirm),
-      switchRow('Show hidden lots', KEYS.showHidden),
-      ...collapsible(
-        'hidden',
-        el('ul', { class: 'tlx-hidden-list', 'data-tlx-hidden-list': '' }),
-        el('button', {
-          type: 'button',
-          class: 'tlx-text-btn',
-          'data-tlx-unhide-all': '',
-          text: 'Unhide all',
-          onclick: unhideAll,
-        })
-      )
-    );
-    return section;
-  }
-
-  // Each "alternative|" is its own inline-block, so long alternations wrap
-  // between alternatives (with "|" ending the line) rather than mid-word.
-  function patternText(pattern) {
-    const parts = pattern.split('|');
-    return el(
-      'span',
-      {},
-      ...parts.map((part, i) => el('span', { class: 'tlx-seg', text: i < parts.length - 1 ? `${part}|` : part }))
-    );
-  }
-
-  function renderSection(section) {
-    // Chips
-    const chips = section.querySelector('[data-tlx-chips]');
-    const words = state[KEYS.words];
-    const chipKey = words.join('\u0000');
-    if (chips.dataset.key !== chipKey) {
-      chips.dataset.key = chipKey;
-      chips.replaceChildren(
-        ...words.map((w) =>
-          el(
-            'span',
-            compileFilter(w)
-              ? { class: 'tlx-chip', title: `/\\b(?:${w})\\b/i` }
-              : { class: 'tlx-chip tlx-error', title: 'Invalid regex – ignored' },
-            patternText(w),
-            el(
-              'button',
-              {
-                type: 'button',
-                'aria-label': `Remove ${w}`,
-                onclick: () => save(KEYS.words, state[KEYS.words].filter((x) => x !== w)),
-              },
-              icon('cancel')
-            )
-          )
-        )
-      );
-    }
-
-    // Switches
-    for (const row of section.querySelectorAll('[data-tlx-key]')) {
-      const input = row.querySelector('input');
-      const v = !!state[row.dataset.tlxKey];
-      if (input.checked !== v) input.checked = v;
-    }
-
-    // Stats
-    const stats = section.querySelector('[data-tlx-stats]');
-    const statText = words.length
-      ? `${filteredCount} lot${filteredCount === 1 ? '' : 's'} ${state[KEYS.removeFiltered] ? 'removed' : 'filtered'} on this page.`
-      : 'Case-insensitive regex on the lot title, matched as whole words: \\b(?:pattern)\\b.';
-    if (stats.textContent !== statText) stats.textContent = statText;
-
-    // Hidden list
-    const hidden = Object.entries(state[KEYS.hidden]).sort((a, b) => b[1].ts - a[1].ts);
-
-    // Collapsible headers
-    const labels = { words: `Filter patterns (${words.length})`, hidden: `Hidden lots (${hidden.length})` };
-    const collapsed = state[KEYS.collapsed] || {};
-    for (const head of section.querySelectorAll('[data-tlx-collapse]')) {
-      const name = head.dataset.tlxCollapse;
-      const label = head.querySelector('[data-tlx-collapse-label]');
-      if (label.textContent !== labels[name]) label.textContent = labels[name];
-      const open = !collapsed[name];
-      if (head.getAttribute('aria-expanded') !== String(open)) head.setAttribute('aria-expanded', String(open));
-      const body = section.querySelector(`[data-tlx-collapse-body="${name}"]`);
-      if (body.hidden === open) body.hidden = !open;
-    }
-
-    const list = section.querySelector('[data-tlx-hidden-list]');
-    const listKey = hidden.map(([id]) => id).join(',');
-    if (list.dataset.key !== listKey) {
-      list.dataset.key = listKey;
-      list.replaceChildren(
-        ...hidden.map(([id, info]) =>
-          el(
-            'li',
-            {},
-            el('a', { href: info.href, title: info.title, text: info.title || `Lot ${id}` }),
-            el(
-              'button',
-              { type: 'button', title: 'Unhide', 'aria-label': `Unhide ${info.title}`, onclick: () => unhideLot(id) },
-              icon('visibility', 18)
-            )
-          )
-        )
-      );
-    }
-    section.querySelector('[data-tlx-unhide-all]').disabled = hidden.length === 0;
-  }
-
-  // The filter sections live in a desktop <aside> and, on narrow screens, in a
-  // bottom drawer with a different layout. Find the stack that holds the native
-  // filter <section>s in either case.
-  function filterStacks() {
-    const stacks = new Set();
-    for (const p of document.querySelectorAll('section p')) {
-      if (!/^(Location|Categories|Time-to-end|Condition|Pricing)\b/.test(p.textContent.trim())) continue;
-      const stack = p.closest('section')?.parentElement;
-      if (stack && stack.querySelectorAll(':scope > section:not([data-tlx-panel])').length >= 3) stacks.add(stack);
-    }
-    return stacks;
-  }
-
-  function processSidebar() {
-    for (const stack of filterStacks()) {
-      let section = stack.querySelector(':scope > [data-tlx-panel]');
-      if (!section) {
-        section = buildSection();
-        stack.prepend(section);
-      }
-      renderSection(section);
-    }
-  }
-
-  // Lot detail page: small inline "Confirm before bidding" switch under the bid buttons.
-  function processDetailPage() {
-    if (!/^\/lots\//.test(location.pathname)) return;
-
-    const current = document.querySelector('h2[aria-label^="Current bid"]');
-    if (current && !current.closest('[data-tlx-lot]')) {
-      // Place it after the "Current Bid" label that follows the price.
-      const label = current.nextElementSibling?.classList.contains('MuiTypography-caption') ? current.nextElementSibling : current;
-      setTotal(current, locationIn(document), label);
-    }
-
-    for (const btn of document.querySelectorAll('button.MuiButton-root')) {
-      if (!/^(set|raise) max bid$/i.test(btn.textContent.trim())) continue;
-      if (btn.closest('[data-tlx-lot]')) continue;
-      const container = btn.parentElement?.parentElement;
-      if (!container) continue;
-      let row = container.querySelector(':scope > .tlx-inline-confirm');
-      if (!row) {
-        row = switchRow('Confirm before bidding', KEYS.confirm, 'tlx-inline-confirm');
-        row.setAttribute('data-tlx-own', '');
-        container.appendChild(row);
-      }
-      const input = row.querySelector('input');
-      if (input.checked !== !!state[KEYS.confirm]) input.checked = !!state[KEYS.confirm];
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Bid interception
-  // ---------------------------------------------------------------------------
-  // The site's bid buttons (from its LotBidControls component):
-  //   "Max bid" / "Raise max bid" / "Set max bid"  -> submits the value in the "Max bid amount" input
-  //   "$N" with an arrow start-icon                -> straight bid at current price + $N increment
-  function bidKind(btn) {
-    if (!btn.classList.contains('MuiButton-root')) return null;
-    const txt = btn.textContent.trim();
-    if (/^(set |raise )?max bid$/i.test(txt)) return 'max';
-    if (/^\$[\d,]+$/.test(txt) && btn.querySelector('.MuiButton-startIcon')) return 'straight';
-    return null;
-  }
-
-  function bidContext(btn) {
-    // Card slot, or the detail page's main column
-    const slot = btn.closest('[data-tlx-lot]');
-    let title = '';
-    let current = '';
-    if (slot) {
-      title = slot.querySelector(TITLE_SEL)?.textContent.trim() ?? '';
-      current = slot.querySelector('p.MuiTypography-h6')?.textContent.trim() ?? '';
-    } else if (/^\/lots\//.test(location.pathname)) {
-      title = document.querySelector('h1')?.textContent.trim() ?? '';
-      current = document.querySelector('[aria-label^="Current bid"]')?.textContent.trim() ?? '';
-    }
-    // Nearest ancestor containing the max-bid input belongs to this button.
-    let node = btn.parentElement;
-    let input = null;
-    while (node && node !== document.body) {
-      input = node.querySelector('input[aria-label="Max bid amount"]');
-      if (input) break;
-      node = node.parentElement;
-    }
-    return { title, current, input };
-  }
-
-  const approved = new WeakSet();
-  let dialogOpen = false;
-
-  function onClickCapture(e) {
-    const btn = e.target instanceof Element ? e.target.closest('button') : null;
-    if (!btn || btn.closest('[data-tlx-own]')) return;
-
-    // Block anything we disabled on filtered / revealed-hidden cards.
-    if (btn.hasAttribute('data-tlx-disabled')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
-
-    const kind = bidKind(btn);
-    if (!kind) return;
-
-    if (approved.has(btn)) {
-      approved.delete(btn);
-      return; // let the site handle the confirmed click
-    }
-
-    // Safety net: never allow bids on filtered or hidden lots, even if the
-    // site re-rendered the button and our disabled marker got lost.
-    const slot = btn.closest('[data-tlx-lot]');
-    if (slot && slot.classList.contains('tlx-dim')) {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      return;
-    }
-
-    if (!state[KEYS.confirm] || btn.disabled) return;
-
-    const ctx = bidContext(btn);
-    // Empty max-bid field: let the site show its own "required" validation.
-    if (kind === 'max' && ctx.input && ctx.input.value.trim() === '') return;
-
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    if (dialogOpen) return;
-
-    const amount =
-      kind === 'max'
-        ? { label: 'Max bid', value: `$${Number(ctx.input?.value || 0).toLocaleString()}` }
-        : { label: 'Quick bid', value: `+${btn.textContent.trim()}` };
-
-    showConfirm({ ...ctx, ...amount }).then((ok) => {
-      if (!ok) return;
-      if (!btn.isConnected) {
-        alert('The bid button changed while the confirmation was open. Please try again.');
-        return;
-      }
-      approved.add(btn);
-      btn.click();
-    });
-  }
-  window.addEventListener('click', onClickCapture, true);
-
-  function showConfirm({ title, current, label, value }) {
-    dialogOpen = true;
-    return new Promise((resolve) => {
-      const prevFocus = document.activeElement;
-      const skip = el('input', { type: 'checkbox' });
-      const cancelBtn = el('button', { type: 'button', class: 'tlx-text-btn', text: 'Cancel' });
-      const okBtn = el('button', { type: 'button', class: 'tlx-contained-btn', text: 'Place bid' });
-
-      const dialog = el(
-        'div',
-        { class: 'tlx-dialog', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'tlx-dialog-title' },
-        el('h2', { id: 'tlx-dialog-title', text: 'Confirm bid' }),
-        el(
-          'div',
-          { class: 'tlx-dialog-body' },
-          el('div', { class: 'tlx-dialog-lot', text: title || 'This lot' }),
-          el('div', {}, el('span', { class: 'tlx-caption', text: `${label}  ` }), el('span', { class: 'tlx-dialog-amount', text: value })),
-          current ? el('div', { class: 'tlx-caption', text: `Current bid: ${current}` }) : null
-        ),
-        el(
-          'div',
-          { class: 'tlx-dialog-actions' },
-          el('label', { class: 'tlx-skip' }, skip, el('span', { text: 'Don’t ask again' })),
-          cancelBtn,
-          okBtn
-        )
-      );
-      const backdrop = el('div', { class: 'tlx-backdrop', 'data-tlx-own': '' }, dialog);
-
-      const close = (ok) => {
-        document.removeEventListener('keydown', onKey, true);
-        backdrop.remove();
-        dialogOpen = false;
-        if (ok && skip.checked) save(KEYS.confirm, false);
-        prevFocus?.focus?.();
-        resolve(ok);
-      };
-      const onKey = (e) => {
-        if (e.key === 'Escape') {
-          swallow(e);
-          close(false);
-        } else if (e.key === 'Tab') {
-          // keep focus inside the dialog
-          const items = [skip, cancelBtn, okBtn];
-          const i = items.indexOf(document.activeElement);
-          e.preventDefault();
-          items[(i + (e.shiftKey ? items.length - 1 : 1)) % items.length].focus();
-        }
-      };
-
-      cancelBtn.addEventListener('click', () => close(false));
-      okBtn.addEventListener('click', () => close(true));
-      backdrop.addEventListener('mousedown', (e) => {
-        if (e.target === backdrop) close(false);
-      });
-      document.addEventListener('keydown', onKey, true);
-
-      document.body.appendChild(backdrop);
-      cancelBtn.focus(); // default to the safe choice
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sort all matching lots by title
-  // ---------------------------------------------------------------------------
-  // The API has no title ordering, so we fetch every lot matching the catalog's
-  // current built-in filters and sort client-side. To stay exactly in sync with
-  // the site (including account-dependent defaults like "Transferable only") and
-  // to avoid touching auth tokens, a small bridge runs in the page's JS context
-  // and uses the site's own React Query client: it reads the params of the
-  // active lots query and fetches extra pages through the site's authenticated
-  // API client.
-  const SORT = { pageSize: 80, fetchSize: 100, concurrency: 4, cacheEntries: 3 };
-
-  function pageBridge() {
-    const KEY = '/v1/auctions/lots';
-    let client = null;
-    const findClient = () => {
-      const root = document.getElementById('__next');
-      const prop = root && Object.keys(root).find((k) => k.startsWith('__reactContainer$'));
-      const stack = prop ? [root[prop]] : [];
-      for (let n = 0; stack.length && n < 50000; n++) {
-        const f = stack.pop();
-        if (!f) continue;
-        const c = f.memoizedProps && f.memoizedProps.client;
-        if (c && typeof c.getQueryCache === 'function') return c;
-        if (f.child) stack.push(f.child);
-        if (f.sibling) stack.push(f.sibling);
-      }
-      return null;
-    };
-    const getClient = () => client || (client = findClient());
-    const ops = {
-      active() {
-        const c = getClient();
-        if (!c) return null;
-        const qs = c
-          .getQueryCache()
-          .findAll({ queryKey: [KEY] })
-          .filter((q) => q.getObserversCount() > 0 && q.queryKey[1] && typeof q.queryKey[1] === 'object');
-        const q = qs.find((x) => x.queryKey[1].perPage === 80) || qs[0];
-        return q ? q.queryKey[1] : null;
-      },
-      async fetch({ params }) {
-        const c = getClient();
-        if (!c) throw new Error('Site query client not found');
-        const d = await c.fetchQuery({ queryKey: [KEY, params], staleTime: 0, gcTime: 0 });
-        return { count: d.count, results: d.results };
-      },
-    };
-    document.addEventListener('tlx:req', async (e) => {
-      let msg;
-      try {
-        msg = JSON.parse(e.detail);
-      } catch {
-        return;
-      }
-      const reply = (body) =>
-        document.dispatchEvent(new CustomEvent('tlx:res', { detail: JSON.stringify({ id: msg.id, ...body }) }));
-      try {
-        reply({ ok: true, data: await ops[msg.op](msg.args || {}) });
-      } catch (err) {
-        reply({ ok: false, error: String((err && err.message) || err) });
-      }
-    });
-  }
-
-  const bridgeWaiters = new Map();
-  let bridgeSeq = 0;
-  document.addEventListener('tlx:res', (e) => {
-    let msg;
-    try {
-      msg = JSON.parse(e.detail);
-    } catch {
-      return;
-    }
-    const w = bridgeWaiters.get(msg.id);
-    if (!w) return;
-    bridgeWaiters.delete(msg.id);
-    msg.ok ? w.resolve(msg.data) : w.reject(new Error(msg.error));
-  });
-  {
-    const s = document.createElement('script');
-    s.textContent = `(${pageBridge.toString()})();`;
-    (document.head || document.documentElement).appendChild(s);
-    s.remove();
-  }
-
-  function callBridge(op, args) {
-    return new Promise((resolve, reject) => {
-      const id = ++bridgeSeq;
-      const timer = setTimeout(() => {
-        bridgeWaiters.delete(id);
-        reject(new Error('Timed out talking to the page'));
-      }, 30000);
-      bridgeWaiters.set(id, {
-        resolve: (v) => (clearTimeout(timer), resolve(v)),
-        reject: (e) => (clearTimeout(timer), reject(e)),
-      });
-      document.dispatchEvent(new CustomEvent('tlx:req', { detail: JSON.stringify({ id, op, args }) }));
-    });
-  }
-
-  const stableKey = (o) => JSON.stringify(Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b))));
-  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-  // Sort key: move leading specs (measurements, pack counts, "Set of 3",
-  // parentheticals like "(2026 Upgraded)") to the end, so "1 in. Copper Tubing
-  // Cutter" sorts with other "Copper Tubing Cutter"s. Bare numbers (years,
-  // model numbers), "3-in-1"/"2 in 1", and brands like "3M" stay put.
-  // Number: 1,200 / 2.5 / 5/8 / 1-3/8, optionally a range (33-39, 2500-5000).
-  const SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
-  const SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
-  const SORT_UNIT = [
-    String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`, // not "3-in-1" / "2 in 1"
-    String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
-    String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
-    String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,
-    String.raw`v|volts?|w|watts?|kw|amps?|a|ah|mah|wh|btus?|psi|gpm|cfm|mph|hp|lm|lumens?`,
-    String.raw`[mg]bps|[gkm]?hz|rpm|db|deg(?:rees?)?|°|%`,
-    String.raw`pcs?\.?|pieces?|pk|packs?|count|ct|pairs?|tiers?|panels?|channels?`,
-  ].join('|');
-  // Counts that only read as a spec when hyphenated ("4-Light", "2-Cycle", "2-Tools").
-  const SORT_HYPHEN_UNIT = String.raw`(?:light|bulb|gang|outlet|port|drawer|shelf|shelves|cube|seat|person|burner|speed|blade|tool|bottle|door|zone|way|step|cutter|cycle|stroke|handle|row|tooth|teeth)s?`;
-  const SORT_MARK = String.raw`(?:"|''|”|″|'|′)`; // inch / foot marks
-  const SORT_MEASURE = String.raw`${SORT_NUM}\s*(?:${SORT_MARK}|-?\s*(?:${SORT_UNIT}))?`;
-  const SORT_LEAD = new RegExp(
-    '^(?:' +
-      [
-        String.raw`[(\[][^)\]]*[)\]]`, // (2026 Upgraded)
-        String.raw`(?:set|pack|box|case|lot)\s+of\s+\d+`, // Set of 3
-        // Dimensions: 24 x 36 / 12x12 in. / 56"x15" / 6FTx300FT
-        `${SORT_MEASURE}(?:\\s*[x×]\\s*${SORT_MEASURE})+(?=[\\s,.)/]|$)`,
-        `${SORT_NUM}\\s*${SORT_MARK}`, // 15" / 6'
-        `${SORT_NUM}-${SORT_HYPHEN_UNIT}(?=[\\s,.)/]|$)`, // 4-Light
-        `${SORT_NUM}[\\s-]?(?:${SORT_UNIT})(?=[\\s,.)/x×]|$)`, // 1 in. / 20V / 5-Pack / 80,000 BTU
-        `${SORT_NUM}\\s*[x×](?=\\s*\\d)`, // multiplier: 2x180W
-      ].join('|') +
-      ')',
-    'iu'
-  );
-  // "x" between measurements ("12 in. x 12 in."); only after a measurement was
-  // moved, so model names like "X20" or "X2 Robotic Pool Vacuum" stay put.
-  const SORT_SEP = /^[x×]\s*(?=\d)/i;
-
-  function sortKey(title) {
-    let rest = title.trim();
-    const moved = [];
-    for (let i = 0; i < 12; i++) {
-      const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
-      if (!m || !m[0]) break;
-      moved.push(m[0].trim());
-      rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, '');
-    }
-    const key = rest ? (moved.length ? `${rest} ${moved.join(' ')}` : rest) : title;
-    return key.replace(/^[^\p{L}\p{N}]+/u, '');
-  }
-
-  const lotCache = new Map(); // filterKey -> { lots, fetchedAt }
-  const sv = {
-    filterKey: null,
-    filters: null,
-    orderBy: undefined,
-    orderSeen: false,
-    lots: null,
-    fetchedAt: 0,
-    loading: false,
-    progress: null,
-    error: null,
-    gen: 0,
-    page: 1,
-    renderKey: null,
-    sorted: null, // { lots, dir, arr }
-  };
-  let syncing = false;
-  let resync = false;
-
-  async function loadLots(filters, key, force = false) {
-    const cached = lotCache.get(key);
-    if (cached && !force) {
-      Object.assign(sv, { lots: cached.lots, fetchedAt: cached.fetchedAt, loading: false, error: null });
-      return;
-    }
-    const gen = ++sv.gen;
-    Object.assign(sv, { lots: null, loading: true, error: null, progress: { done: 0, total: null } });
-    scheduleScan();
-    try {
-      const fetchPage = (page) => callBridge('fetch', { params: { ...filters, page, perPage: SORT.fetchSize } });
-      const first = await fetchPage(1);
-      if (gen !== sv.gen) return;
-      const byId = new Map(first.results.map((l) => [l.id, l]));
-      const pages = Math.ceil(first.count / SORT.fetchSize);
-      sv.progress = { done: byId.size, total: first.count };
-      scheduleScan();
-      let next = 2;
-      const worker = async () => {
-        while (next <= pages && gen === sv.gen) {
-          const d = await fetchPage(next++);
-          d.results.forEach((l) => byId.set(l.id, l));
-          sv.progress = { done: byId.size, total: first.count };
-          scheduleScan();
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(SORT.concurrency, Math.max(pages - 1, 0)) }, worker));
-      if (gen !== sv.gen) return;
-      const entry = { lots: [...byId.values()], fetchedAt: Date.now() };
-      lotCache.set(key, entry);
-      while (lotCache.size > SORT.cacheEntries) lotCache.delete(lotCache.keys().next().value);
-      Object.assign(sv, entry, { loading: false });
-    } catch (err) {
-      if (gen === sv.gen) Object.assign(sv, { loading: false, error: err.message || String(err) });
-    }
-    scheduleScan();
-  }
-
-  function sortedLots(dir) {
-    if (!sv.lots) return [];
-    if (sv.sorted && sv.sorted.lots === sv.lots && sv.sorted.dir === dir) return sv.sorted.arr;
-    const arr = [...sv.lots].sort((a, b) => collator.compare(sortKey(a.title), sortKey(b.title)) || a.id - b.id);
-    if (dir === 'desc') arr.reverse();
-    sv.sorted = { lots: sv.lots, dir, arr };
-    return arr;
-  }
-
-  // Lots shown in the sorted view: drop hidden lots (unless revealed) and, when
-  // "remove filtered" is on, filtered lots – before paging, so pages stay full.
-  function visibleSortedLots(dir) {
-    return sortedLots(dir).filter((l) => {
-      if (state[KEYS.hidden][l.id] && !state[KEYS.showHidden]) return false;
-      if (state[KEYS.removeFiltered] && matchFilter(l.title)) return false;
-      return true;
-    });
-  }
-
-  const onCatalog = () => location.pathname === '/';
-
-  function nativeLotsGrid() {
-    for (const c of document.querySelectorAll('[data-lot-id]')) {
-      if (c.closest('[aria-roledescription="carousel"], .tlx-sorted')) continue;
-      return c.parentElement;
-    }
-    return null;
-  }
-
-  function resultsHeading() {
-    return [...document.querySelectorAll('h2')].find((h) => h.textContent.trim() === 'All Auctions') || null;
-  }
-
-  function ensureSortToggle() {
-    const h2 = onCatalog() ? resultsHeading() : null;
-    if (!h2) return;
-    let group = h2.parentElement.querySelector(':scope > .tlx-sort-toggle');
-    if (!group) {
-      const btn = (dir, text, label) =>
-        el('button', {
-          type: 'button',
-          'data-dir': dir,
-          title: label,
-          'aria-label': label,
-          text,
-          onclick: () => {
-            const next = state[KEYS.titleSort] === dir ? null : dir;
-            sv.page = 1;
-            sv.orderSeen = false;
-            save(KEYS.titleSort, next);
-          },
-        });
-      group = el(
-        'span',
-        { class: 'tlx-sort-toggle', role: 'group', 'aria-label': 'Sort all lots by title', 'data-tlx-own': '' },
-        btn('asc', 'A–Z', 'Sort all matching lots by title, A to Z'),
-        btn('desc', 'Z–A', 'Sort all matching lots by title, Z to A')
-      );
-      h2.parentElement.appendChild(group);
-    }
-    for (const b of group.querySelectorAll('button')) {
-      const on = String(state[KEYS.titleSort] === b.dataset.dir);
-      if (b.getAttribute('aria-pressed') !== on) b.setAttribute('aria-pressed', on);
-    }
-  }
-
-  // Native siblings of the grid that the sorted view replaces: page status and pagination.
-  function nativeExtras(grid) {
-    return [...grid.parentElement.children].filter(
-      (c) => c !== grid && !c.classList.contains('tlx-sorted') && (c.matches('[role="status"]') || c.querySelector('nav[aria-label="Auctions pages"]'))
-    );
-  }
-
-  function teardownSorted() {
-    document.querySelectorAll('.tlx-sorted').forEach((n) => n.remove());
-    document.querySelectorAll('.tlx-native-hidden').forEach((n) => n.classList.remove('tlx-native-hidden'));
-    sv.renderKey = null;
-  }
-
-  async function syncSortedView() {
-    const dir = state[KEYS.titleSort];
-    const grid = dir && onCatalog() ? nativeLotsGrid() : null;
-    if (!grid) {
-      if (document.querySelector('.tlx-sorted')) teardownSorted();
-      return;
-    }
-    if (syncing) {
-      resync = true;
-      return;
-    }
-    syncing = true;
-    try {
-      const params = await callBridge('active');
-      if (!params) return;
-      const { page, perPage, orderBy, ...filters } = params;
-      // Picking one of the site's own sort options turns title sort off. The site
-      // omits orderBy for its default/relevance sort but sends it explicitly once
-      // a search is active, so treat those as the same "default" sort.
-      const sortChoice = !orderBy || orderBy === 'relevance' || orderBy === 'ending-soonest' ? 'default' : orderBy;
-      if (sv.orderSeen && sortChoice !== sv.orderBy) {
-        sv.orderBy = sortChoice;
-        save(KEYS.titleSort, null);
-        return;
-      }
-      sv.orderBy = sortChoice;
-      sv.orderSeen = true;
-      const key = stableKey(filters);
-      if (key !== sv.filterKey) {
-        sv.filterKey = key;
-        sv.filters = filters;
-        sv.page = 1;
-        loadLots(filters, key);
-      }
-      renderSorted(grid, dir);
-    } catch (err) {
-      sv.error = err.message || String(err);
-      renderSorted(grid, dir);
-    } finally {
-      syncing = false;
-      if (resync) {
-        resync = false;
-        scheduleScan();
-      }
-    }
-  }
-
-  // Native cards label non-default-location transferable lots "Transferable".
-  function defaultLocationName() {
-    const counts = {};
-    for (const c of document.querySelectorAll('[data-lot-id]:not(.tlx-sorted *) svg + span.MuiTypography-caption')) {
-      const t = c.textContent.trim();
-      if (/^(Raleigh|Anderson)$/i.test(t)) counts[t] = (counts[t] || 0) + 1;
-    }
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Raleigh';
-  }
-
-  function timeLabel(endsAt) {
-    const ms = new Date(endsAt).getTime() - Date.now();
-    if (ms <= 0) return { text: 'Closed', soon: true };
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    const soon = ms <= 3600000;
-    if (ms >= 86400000) return { text: `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h`, soon };
-    if (m >= 60) return { text: `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`, soon };
-    return { text: `${m}m ${String(s % 60).padStart(2, '0')}s`, soon };
-  }
-
-  function setTime(span, endsAt) {
-    const { text, soon } = timeLabel(endsAt);
-    if (span.textContent !== text) span.textContent = text;
-    const color = soon ? 'var(--mui-palette-error-main)' : '';
-    if (span.style.color !== color) {
-      span.style.color = color;
-      if (span.previousElementSibling) span.previousElementSibling.style.color = color;
-    }
-  }
-
-  const CDN = 'https://cdn.triangleliquidators.com';
-
-  // Build a card for `lot` by cloning a native card (exact styling at every
-  // breakpoint) and filling in its fields. Bid controls, watchlist and image
-  // navigation are dropped – their React handlers don't survive cloning – and
-  // replaced by a link to the lot page.
-  function buildCard(tpl, lot, defaultLoc) {
-    const card = tpl.cloneNode(true);
-    card.querySelectorAll('[data-tlx-own]').forEach((n) => n.remove());
-    for (const n of [card, ...card.querySelectorAll('*')]) {
-      for (const a of [...n.attributes]) if (a.name.startsWith('data-tlx') || a.name === 'data-lot-id' || a.name === 'data-position') n.removeAttribute(a.name);
-      if (typeof n.className === 'string' && n.className.includes('tlx-')) n.className = n.className.replace(/\btlx-[\w-]+/g, '').trim();
-    }
-    const href = `/lots/${lot.auctionPeriod}/${lot.id}`;
-
-    // Image: keep a single slide.
-    const group = card.querySelector('[aria-label="Lot images"]');
-    if (group) {
-      const anchors = [...group.querySelectorAll('a')];
-      anchors.slice(1).forEach((a) => a.remove());
-      const a = anchors[0];
-      if (a) {
-        a.href = href;
-        let img = a.querySelector('img');
-        if (!img) {
-          img = el('img', { loading: 'lazy', decoding: 'async', draggable: 'false' });
-          img.style.cssText = 'position:absolute;height:100%;width:100%;inset:0;object-fit:contain;color:transparent';
-          a.appendChild(img);
-        }
-        const first = [...(lot.images || [])].sort((x, y) => x.position - y.position)[0];
-        img.removeAttribute('srcset');
-        img.src = first ? `${CDN}/${first.imageCard}` : '';
-        img.alt = lot.title;
-      }
-      group.querySelectorAll('button').forEach((b) => b.remove());
-      group.querySelectorAll('[aria-live]').forEach((n) => n.remove());
-      group.querySelectorAll('.MuiStack-root:empty').forEach((n) => n.remove());
-    }
-    card.querySelector('[aria-label="Add to watchlist"], [aria-label="Remove from watchlist"]')?.parentElement?.remove();
-
-    // Condition chip
-    const chip = card.querySelector('.MuiChip-root');
-    if (chip) {
-      const cond = lot.condition || {};
-      const label = chip.querySelector('.MuiChip-label');
-      if (label) label.textContent = cond.displayName || cond.display || '';
-      const tone = { 1: 'primary', 2: 'success', 3: 'warning' }[cond.value];
-      chip.style.color = tone ? `var(--mui-palette-${tone}-main)` : 'var(--mui-palette-text-secondary)';
-      chip.style.borderColor = tone ? `var(--mui-palette-${tone}-main)` : 'var(--mui-palette-divider)';
-      if (!label?.textContent) chip.remove();
-    }
-
-    // Location + time
-    const caps = card.querySelectorAll('svg + span.MuiTypography-caption');
-    const locName = lot.location?.name || '';
-    if (caps[0]) caps[0].textContent = lot.isTransferable && locName !== defaultLoc ? 'Transferable' : locName;
-    if (caps[1]) {
-      caps[1].setAttribute('data-tlx-ends', lot.endsAt);
-      setTime(caps[1], lot.endsAt);
-    }
-
-    // Title
-    const link = card.querySelector(TITLE_SEL);
-    if (link) {
-      link.href = href;
-      link.textContent = lot.title;
-    }
-
-    // Price + est. retail
-    const price = card.querySelector('p.MuiTypography-h6');
-    if (price) {
-      price.textContent = `$${lot.currentPrice}`;
-      const retail = price.nextElementSibling;
-      if (retail) {
-        if (lot.estimatedRetailPrice == null) retail.remove();
-        else {
-          const sep = retail.firstElementChild;
-          retail.replaceChildren(...(sep ? [sep] : []), `est. retail $${lot.estimatedRetailPrice}`);
-        }
-      }
-      const priceRow = price.parentElement;
-      while (priceRow.nextElementSibling) priceRow.nextElementSibling.remove();
-      priceRow.after(el('a', { class: 'tlx-view-btn', href, text: 'View lot' }));
-    }
-    return card;
-  }
-
-  function pagerItems(page, pages) {
-    const items = new Set([1, pages, page - 1, page, page + 1]);
-    const nums = [...items].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
-    const out = [];
-    nums.forEach((n, i) => {
-      if (i && n - nums[i - 1] > 1) out.push('…');
-      out.push(n);
-    });
-    return out;
-  }
-
-  function renderSorted(grid, dir) {
-    // Copy the native grid's layout classes (not our own state classes).
-    const gridClass = [...grid.classList].filter((c) => !c.startsWith('tlx-')).join(' ');
-    grid.classList.add('tlx-native-hidden');
-    nativeExtras(grid).forEach((n) => n.classList.add('tlx-native-hidden'));
-
-    let box = grid.parentElement.querySelector(':scope > .tlx-sorted');
-    if (!box) {
-      box = el(
-        'div',
-        { class: 'tlx-sorted' },
-        el('div', { class: 'tlx-sorted-bar' }),
-        el('div', { class: gridClass, 'data-tlx-sorted-grid': '' }),
-        el('nav', { class: 'tlx-pager', 'aria-label': 'Sorted lots pages' })
-      );
-      grid.after(box);
-    }
-    const bar = box.querySelector('.tlx-sorted-bar');
-    const sgrid = box.querySelector('[data-tlx-sorted-grid]');
-    const pager = box.querySelector('.tlx-pager');
-    for (const c of gridClass.split(' ')) if (c && !sgrid.classList.contains(c)) sgrid.classList.add(c);
-
-    if (sv.loading || sv.error || !sv.lots) {
-      const key = `status|${sv.loading}|${sv.error}|${sv.progress?.done}|${sv.progress?.total}`;
-      if (sv.renderKey === key) return;
-      sv.renderKey = key;
-      sgrid.replaceChildren();
-      pager.replaceChildren();
-      if (sv.error) {
-        bar.replaceChildren(
-          el('span', { class: 'tlx-sorted-error', text: `Couldn’t load lots for sorting: ${sv.error}` }),
-          el('button', { type: 'button', class: 'tlx-text-btn', text: 'Retry', onclick: () => sv.filters && loadLots(sv.filters, sv.filterKey, true) })
-        );
-      } else {
-        const { done = 0, total = null } = sv.progress || {};
-        const pct = total ? Math.round((done / total) * 100) : 0;
-        const bg = el('span');
-        bg.style.width = `${pct}%`;
-        bar.replaceChildren(
-          el('span', { text: total ? `Loading lots for title sort… ${done.toLocaleString()} of ${total.toLocaleString()}` : 'Loading lots for title sort…' }),
-          el('span', { class: 'tlx-progress', role: 'progressbar', 'aria-valuenow': String(pct), 'aria-valuemin': '0', 'aria-valuemax': '100' }, bg)
-        );
-      }
-      return;
-    }
-
-    const list = visibleSortedLots(dir);
-    const pages = Math.max(1, Math.ceil(list.length / SORT.pageSize));
-    if (sv.page > pages) sv.page = pages;
-    const excludedSig = JSON.stringify([
-      Object.keys(state[KEYS.hidden]).length,
-      state[KEYS.words],
-      state[KEYS.filterOn],
-      state[KEYS.removeFiltered],
-      state[KEYS.showHidden],
-      list.length,
-    ]);
-    const key = [sv.filterKey, dir, sv.page, sv.fetchedAt, excludedSig].join('|');
-    if (sv.renderKey === key) return;
-    sv.renderKey = key;
-
-    const tpl = grid.querySelector(':scope > [data-lot-id]');
-    const start = (sv.page - 1) * SORT.pageSize;
-    const slice = list.slice(start, start + SORT.pageSize);
-    const defaultLoc = defaultLocationName();
-    const hr = grid.querySelector(':scope > hr');
-    sgrid.replaceChildren(...(hr ? [hr.cloneNode(true)] : []), ...(tpl ? slice.map((l) => buildCard(tpl, l, defaultLoc)) : []));
-
-    const excluded = sv.lots.length - list.length;
-    const time = new Date(sv.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    bar.replaceChildren(
-      el('span', {
-        text:
-          `Title ${dir === 'asc' ? 'A–Z' : 'Z–A'} · ` +
-          (list.length ? `${(start + 1).toLocaleString()}–${(start + slice.length).toLocaleString()} of ${list.length.toLocaleString()}` : 'No lots') +
-          (excluded ? ` (${excluded.toLocaleString()} hidden or filtered out)` : '') +
-          ` · prices as of ${time}`,
-      }),
-      el('button', { type: 'button', class: 'tlx-text-btn', text: 'Refresh', onclick: () => loadLots(sv.filters, sv.filterKey, true) })
-    );
-
-    const go = (p) => {
-      sv.page = p;
-      scheduleScan();
-      box.scrollIntoView({ block: 'start' });
-      window.scrollBy(0, -140);
-    };
-    const navBtn = (label, target, disabled, text) =>
-      el('button', { type: 'button', 'aria-label': label, disabled: disabled || null, text, onclick: () => go(target) });
-    pager.replaceChildren(
-      ...(pages > 1
-        ? [
-            navBtn('Go to first page', 1, sv.page === 1, '«'),
-            navBtn('Go to previous page', sv.page - 1, sv.page === 1, '‹'),
-            ...pagerItems(sv.page, pages).map((n) =>
-              n === '…'
-                ? el('span', { class: 'tlx-pager-gap', text: '…' })
-                : el('button', {
-                    type: 'button',
-                    'aria-label': `Go to page ${n}`,
-                    'aria-current': n === sv.page ? 'page' : null,
-                    text: String(n),
-                    onclick: () => go(n),
-                  })
-            ),
-            navBtn('Go to next page', sv.page + 1, sv.page === pages, '›'),
-            navBtn('Go to last page', pages, sv.page === pages, '»'),
-          ]
-        : [])
-    );
-  }
-
-  // Keep countdowns in the sorted view ticking.
-  setInterval(() => {
-    for (const span of document.querySelectorAll('.tlx-sorted [data-tlx-ends]')) setTime(span, span.dataset.tlxEnds);
-  }, 1000);
-
-  // ---------------------------------------------------------------------------
-  // Tampermonkey menu
-  // ---------------------------------------------------------------------------
-  GM_registerMenuCommand('Toggle bid confirmation', () => {
-    save(KEYS.confirm, !state[KEYS.confirm]);
-    alert(`Bid confirmation is now ${state[KEYS.confirm] ? 'ON' : 'OFF'}.`);
-  });
-  GM_registerMenuCommand('Edit all filters…', () => {
-    let text = state[KEYS.words].join(', ');
-    for (;;) {
-      const v = prompt('All filter regexes, comma separated (case-insensitive, whole words):', text);
-      if (v === null) return;
-      const list = splitFilters(v);
-      const bad = list.filter((p) => !compileFilter(p));
-      if (!bad.length) return save(KEYS.words, list);
-      alert(`Invalid regex – fix and try again:\n\n${bad.join('\n')}`);
-      text = v;
-    }
-  });
-  GM_registerMenuCommand('Add filter regex…', () => {
-    const v = prompt('Filter regex (case-insensitive, whole words):', '');
-    const pattern = v?.trim();
-    if (!pattern) return;
-    if (!addFilter(pattern)) alert(`Invalid regex: ${pattern}`);
-  });
-  GM_registerMenuCommand('Unhide all lots', unhideAll);
-
-  // ---------------------------------------------------------------------------
-  // Main loop – the site is a Next.js/React SPA, so react to DOM changes.
-  // ---------------------------------------------------------------------------
-  let scheduled = false;
-  function scheduleScan() {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      observer.disconnect();
-      try {
-        ensureSortToggle();
-        syncSortedView();
-        processCards();
-        processSidebar();
-        processDetailPage();
-      } finally {
-        observer.observe(document.body, OBSERVE);
-      }
-    });
-  }
-
-  // characterData: React updates live prices by editing text nodes in place.
-  const OBSERVE = { childList: true, subtree: true, characterData: true };
-  const observer = new MutationObserver(scheduleScan);
-  // Column count changes at breakpoints; recompute compact-grid row separators.
-  window.addEventListener('resize', scheduleScan);
-  observer.observe(document.body, OBSERVE);
-  scheduleScan();
+		const TITLE_SEL = "a.MuiLink-root[href^=\"/lots/\"]";
+		function lotIdFromHref(href) {
+			const m = href.match(/\/lots\/[^/]+\/(\d+)/);
+			return m ? m[1] : null;
+		}
+		function slotFor(link) {
+			let node = link;
+			while (node.parentElement && node.parentElement !== document.body) {
+				if (node.parentElement.querySelectorAll(TITLE_SEL).length > 1) break;
+				node = node.parentElement;
+			}
+			return node;
+		}
+		function imageAreaFor(slot) {
+			const fav = slot.querySelector("[aria-label=\"Add to watchlist\"], [aria-label=\"Remove from watchlist\"]");
+			if (fav?.parentElement?.parentElement) return fav.parentElement.parentElement;
+			return slot.querySelector("[aria-label=\"Lot images\"]")?.parentElement ?? null;
+		}
+		function hideLot(id, title, href) {
+			save(KEYS$1.hidden, {
+				...state[KEYS$1.hidden],
+				[id]: {
+					title,
+					href,
+					ts: Date.now()
+				}
+			});
+		}
+		function unhideAll() {
+			if (confirm("Unhide all hidden lots?")) save(KEYS$1.hidden, {});
+		}
+		function unhideLot(id) {
+			const next = { ...state[KEYS$1.hidden] };
+			delete next[id];
+			save(KEYS$1.hidden, next);
+		}
+		function ensureHideButton(slot, id, title, href, isHidden) {
+			const area = imageAreaFor(slot);
+			if (!area) return;
+			let btn = area.querySelector(":scope > .tlx-hide-btn");
+			if (!btn) {
+				btn = el("button", {
+					type: "button",
+					class: "tlx-hide-btn",
+					"data-tlx-own": ""
+				});
+				btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+				btn.addEventListener("mousedown", (e) => e.stopPropagation());
+				btn.addEventListener("click", (e) => {
+					swallow(e);
+					const { tlxId, tlxTitle, tlxHref } = btn.dataset;
+					if (state[KEYS$1.hidden][tlxId]) unhideLot(tlxId);
+					else hideLot(tlxId, tlxTitle, tlxHref);
+				});
+				area.appendChild(btn);
+			}
+			btn.dataset.tlxId = id;
+			btn.dataset.tlxTitle = title;
+			btn.dataset.tlxHref = href;
+			const mode = isHidden ? "unhide" : "hide";
+			if (btn.dataset.mode !== mode) {
+				btn.dataset.mode = mode;
+				btn.replaceChildren(icon(isHidden ? "visibility" : "visibilityOff"));
+				const label = isHidden ? "Unhide this lot" : "Hide this lot";
+				btn.setAttribute("aria-label", label);
+				btn.title = label;
+			}
+		}
+		function setBadge(slot, text) {
+			const area = imageAreaFor(slot);
+			if (!area) return;
+			let badge = area.querySelector(":scope > .tlx-badge");
+			if (!text) {
+				badge?.remove();
+				return;
+			}
+			if (!badge) {
+				badge = el("span", {
+					class: "tlx-badge",
+					"data-tlx-own": ""
+				});
+				area.appendChild(badge);
+			}
+			if (badge.textContent !== text) badge.textContent = text;
+		}
+		function setControlsDisabled(slot, disabled) {
+			if (disabled) for (const c of slot.querySelectorAll("button, input")) {
+				if (c.closest("[data-tlx-own]") || c.hasAttribute("data-tlx-disabled")) continue;
+				if (c.disabled) continue;
+				c.setAttribute("data-tlx-disabled", "");
+				c.disabled = true;
+				c.setAttribute("aria-disabled", "true");
+				c.classList.add("Mui-disabled");
+				c.tabIndex = -1;
+			}
+			else for (const c of slot.querySelectorAll("[data-tlx-disabled]")) {
+				c.removeAttribute("data-tlx-disabled");
+				c.disabled = false;
+				c.removeAttribute("aria-disabled");
+				c.classList.remove("Mui-disabled");
+				c.tabIndex = 0;
+			}
+		}
+		function locationIn(root) {
+			for (const cap of root.querySelectorAll("svg + span.MuiTypography-caption")) {
+				const owner = cap.closest("[data-tlx-lot]");
+				if (owner && owner !== root) continue;
+				const t = cap.textContent.trim();
+				if (/anderson|transferable/i.test(t)) return "transfer";
+				if (/raleigh/i.test(t)) return "raleigh";
+			}
+			return null;
+		}
+		function parseDollars(text) {
+			const n = parseFloat((text || "").replace(/[^\d.]/g, ""));
+			return Number.isFinite(n) ? n : null;
+		}
+		function setTotal(priceEl, loc, anchor = priceEl) {
+			let tag = anchor.nextElementSibling?.classList.contains("tlx-total") ? anchor.nextElementSibling : null;
+			const bid = parseDollars(priceEl.textContent);
+			if (bid == null || !loc) {
+				tag?.remove();
+				return;
+			}
+			if (!tag) {
+				tag = el("span", {
+					class: "tlx-total",
+					"data-tlx-own": ""
+				}, "≈ ", el("b"), " total");
+				anchor.after(tag);
+			}
+			const transferFee = loc === "transfer" ? FEES.transferFee : 0;
+			const value = money(totalCost(bid, transferFee));
+			const b = tag.querySelector("b");
+			if (b.textContent !== value) b.textContent = value;
+			const tip = costBreakdown(bid, transferFee);
+			if (tag.title !== tip) tag.title = tip;
+		}
+		let filteredCount = 0;
+		function compactGrids(slots) {
+			const grids = new Set();
+			for (const slot of slots) {
+				const parent = slot.parentElement;
+				if (parent && getComputedStyle(parent).display === "grid") grids.add(parent);
+			}
+			for (const grid of document.querySelectorAll(".tlx-compact")) grids.add(grid);
+			for (const grid of grids) {
+				const cards = [...grid.children].filter((c) => c.dataset.tlxLot);
+				const visible = cards.filter((c) => !c.classList.contains("tlx-slot-hidden"));
+				const compact = visible.length < cards.length;
+				grid.classList.toggle("tlx-compact", compact);
+				if (!compact) {
+					cards.forEach((c) => c.classList.remove("tlx-row-start", "tlx-later-row"));
+					continue;
+				}
+				const cs = getComputedStyle(grid);
+				const cols = cs.gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+				const hr = grid.querySelector(":scope > hr");
+				const hcs = hr && getComputedStyle(hr);
+				const hrSpace = hcs ? [
+					"marginTop",
+					"marginBottom",
+					"borderTopWidth",
+					"borderBottomWidth"
+				].reduce((n, k) => n + (parseFloat(hcs[k]) || 0), 0) : 0;
+				const rowGap = parseFloat(cs.rowGap) || 0;
+				const vars = {
+					"--tlx-cols": String(cols),
+					"--tlx-row-gap": `${rowGap}px`,
+					"--tlx-row-sep": `${rowGap + hrSpace}px`,
+					"--tlx-col-gap": cs.columnGap
+				};
+				for (const [k, v] of Object.entries(vars)) if (grid.style.getPropertyValue(k) !== v) grid.style.setProperty(k, v);
+				cards.forEach((c) => {
+					const i = visible.indexOf(c);
+					c.classList.toggle("tlx-later-row", i >= cols);
+					c.classList.toggle("tlx-row-start", i >= cols && i % cols === 0);
+				});
+			}
+		}
+		function processCards() {
+			const seen = new Set();
+			let filtered = 0;
+			for (const link of document.querySelectorAll(TITLE_SEL)) {
+				const href = link.getAttribute("href");
+				const id = lotIdFromHref(href);
+				if (!id) continue;
+				const slot = slotFor(link);
+				if (seen.has(slot)) continue;
+				seen.add(slot);
+				const title = link.textContent.trim();
+				if (link.title !== title) link.title = title;
+				const isHidden = !!state[KEYS$1.hidden][id];
+				const matched = matchFilter(title);
+				const showHidden = state[KEYS$1.showHidden];
+				slot.dataset.tlxLot = id;
+				const removed = isHidden && !showHidden || !!matched && state[KEYS$1.removeFiltered];
+				slot.classList.toggle("tlx-slot-hidden", removed);
+				const dim = !!matched || isHidden && showHidden;
+				slot.classList.toggle("tlx-dim", dim);
+				setControlsDisabled(slot, dim);
+				ensureHideButton(slot, id, title, href, isHidden);
+				setBadge(slot, isHidden && showHidden ? "Hidden" : matched ? `Filtered: ${matched}` : null);
+				const priceEl = slot.querySelector("p.MuiTypography-h6");
+				if (priceEl) setTotal(priceEl, locationIn(slot));
+				if (matched && !isHidden) filtered++;
+			}
+			for (const slot of document.querySelectorAll("[data-tlx-lot]")) {
+				if (seen.has(slot)) continue;
+				delete slot.dataset.tlxLot;
+				slot.classList.remove("tlx-slot-hidden", "tlx-dim", "tlx-row-start", "tlx-later-row");
+				setControlsDisabled(slot, false);
+				slot.querySelectorAll(".tlx-hide-btn, .tlx-badge, .tlx-total").forEach((n) => n.remove());
+			}
+			compactGrids(seen);
+			filteredCount = filtered;
+		}
+		function switchRow(labelText, key, extraClass = "") {
+			const input = el("input", {
+				type: "checkbox",
+				role: "switch"
+			});
+			input.checked = !!state[key];
+			input.addEventListener("change", () => save(key, input.checked));
+			return el("label", {
+				class: `tlx-switch-row ${extraClass}`.trim(),
+				"data-tlx-key": key
+			}, el("span", { text: labelText }), el("span", { class: "tlx-switch" }, input, el("span", { class: "tlx-track" }), el("span", { class: "tlx-thumb" })));
+		}
+		function collapsible(name, ...children) {
+			const head = el("button", {
+				type: "button",
+				class: "tlx-collapse-head",
+				"data-tlx-collapse": name
+			}, el("span", { "data-tlx-collapse-label": "" }), icon("expandMore", 20));
+			head.addEventListener("click", () => {
+				const cur = state[KEYS$1.collapsed] || {};
+				save(KEYS$1.collapsed, {
+					...cur,
+					[name]: !cur[name]
+				});
+			});
+			return [head, el("div", {
+				class: "tlx-collapse-body",
+				"data-tlx-collapse-body": name
+			}, ...children)];
+		}
+		function buildSection() {
+			const section = el("section", {
+				class: "tlx-section",
+				"data-tlx-own": "",
+				"data-tlx-panel": ""
+			});
+			const wordInput = el("input", {
+				type: "text",
+				placeholder: "e.g. batter(y|ies)",
+				"aria-label": "Add filter regex",
+				autocomplete: "off",
+				spellcheck: "false"
+			});
+			const inputLabel = el("label", { text: "Filter regex" });
+			const inputWrap = el("div", { class: "tlx-input-wrap" }, inputLabel, wordInput);
+			const setError = (msg) => {
+				inputWrap.classList.toggle("tlx-error", !!msg);
+				inputLabel.textContent = msg || "Filter regex";
+			};
+			const addWords = () => {
+				const pattern = wordInput.value.trim();
+				if (!pattern) return;
+				if (addFilter(pattern)) wordInput.value = "";
+				else setError("Invalid regex");
+			};
+			wordInput.addEventListener("input", () => setError(null));
+			wordInput.addEventListener("keydown", (e) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					addWords();
+				}
+			});
+			inputWrap.append(el("button", {
+				type: "button",
+				class: "tlx-text-btn",
+				onclick: addWords,
+				text: "Add"
+			}));
+			section.append(el("p", {
+				class: "tlx-section-title",
+				text: "Hide & Filter"
+			}), inputWrap, ...collapsible("words", el("div", {
+				class: "tlx-chips",
+				"data-tlx-chips": ""
+			})), el("p", {
+				class: "tlx-caption",
+				"data-tlx-stats": ""
+			}), switchRow("Apply filters", KEYS$1.filterOn), switchRow("Remove filtered lots instead of graying out", KEYS$1.removeFiltered), switchRow("Confirm before bidding", KEYS$1.confirm), switchRow("Show hidden lots", KEYS$1.showHidden), ...collapsible("hidden", el("ul", {
+				class: "tlx-hidden-list",
+				"data-tlx-hidden-list": ""
+			}), el("button", {
+				type: "button",
+				class: "tlx-text-btn",
+				"data-tlx-unhide-all": "",
+				text: "Unhide all",
+				onclick: unhideAll
+			})));
+			return section;
+		}
+		function patternText(pattern) {
+			const parts = pattern.split("|");
+			return el("span", {}, ...parts.map((part, i) => el("span", {
+				class: "tlx-seg",
+				text: i < parts.length - 1 ? `${part}|` : part
+			})));
+		}
+		function renderSection(section) {
+			const chips = section.querySelector("[data-tlx-chips]");
+			const words = state[KEYS$1.words];
+			const chipKey = words.join("\0");
+			if (chips.dataset.key !== chipKey) {
+				chips.dataset.key = chipKey;
+				chips.replaceChildren(...words.map((w) => el("span", compileFilter(w) ? {
+					class: "tlx-chip",
+					title: `/\\b(?:${w})\\b/i`
+				} : {
+					class: "tlx-chip tlx-error",
+					title: "Invalid regex – ignored"
+				}, patternText(w), el("button", {
+					type: "button",
+					"aria-label": `Remove ${w}`,
+					onclick: () => save(KEYS$1.words, state[KEYS$1.words].filter((x) => x !== w))
+				}, icon("cancel")))));
+			}
+			for (const row of section.querySelectorAll("[data-tlx-key]")) {
+				const input = row.querySelector("input");
+				const v = !!state[row.dataset.tlxKey];
+				if (input.checked !== v) input.checked = v;
+			}
+			const stats = section.querySelector("[data-tlx-stats]");
+			const statText = words.length ? `${filteredCount} lot${filteredCount === 1 ? "" : "s"} ${state[KEYS$1.removeFiltered] ? "removed" : "filtered"} on this page.` : "Case-insensitive regex on the lot title, matched as whole words: \\b(?:pattern)\\b.";
+			if (stats.textContent !== statText) stats.textContent = statText;
+			const hidden = Object.entries(state[KEYS$1.hidden]).sort((a, b) => b[1].ts - a[1].ts);
+			const labels = {
+				words: `Filter patterns (${words.length})`,
+				hidden: `Hidden lots (${hidden.length})`
+			};
+			const collapsed = state[KEYS$1.collapsed] || {};
+			for (const head of section.querySelectorAll("[data-tlx-collapse]")) {
+				const name = head.dataset.tlxCollapse;
+				const label = head.querySelector("[data-tlx-collapse-label]");
+				if (label.textContent !== labels[name]) label.textContent = labels[name];
+				const open = !collapsed[name];
+				if (head.getAttribute("aria-expanded") !== String(open)) head.setAttribute("aria-expanded", String(open));
+				const body = section.querySelector(`[data-tlx-collapse-body="${name}"]`);
+				if (body.hidden === open) body.hidden = !open;
+			}
+			const list = section.querySelector("[data-tlx-hidden-list]");
+			const listKey = hidden.map(([id]) => id).join(",");
+			if (list.dataset.key !== listKey) {
+				list.dataset.key = listKey;
+				list.replaceChildren(...hidden.map(([id, info]) => el("li", {}, el("a", {
+					href: info.href,
+					title: info.title,
+					text: info.title || `Lot ${id}`
+				}), el("button", {
+					type: "button",
+					title: "Unhide",
+					"aria-label": `Unhide ${info.title}`,
+					onclick: () => unhideLot(id)
+				}, icon("visibility", 18)))));
+			}
+			section.querySelector("[data-tlx-unhide-all]").disabled = hidden.length === 0;
+		}
+		function filterStacks() {
+			const stacks = new Set();
+			for (const p of document.querySelectorAll("section p")) {
+				if (!/^(Location|Categories|Time-to-end|Condition|Pricing)\b/.test(p.textContent.trim())) continue;
+				const stack = p.closest("section")?.parentElement;
+				if (stack && stack.querySelectorAll(":scope > section:not([data-tlx-panel])").length >= 3) stacks.add(stack);
+			}
+			return stacks;
+		}
+		function processSidebar() {
+			for (const stack of filterStacks()) {
+				let section = stack.querySelector(":scope > [data-tlx-panel]");
+				if (!section) {
+					section = buildSection();
+					stack.prepend(section);
+				}
+				renderSection(section);
+			}
+		}
+		function processDetailPage() {
+			if (!/^\/lots\//.test(location.pathname)) return;
+			const current = document.querySelector("h2[aria-label^=\"Current bid\"]");
+			if (current && !current.closest("[data-tlx-lot]")) {
+				const label = current.nextElementSibling?.classList.contains("MuiTypography-caption") ? current.nextElementSibling : current;
+				setTotal(current, locationIn(document), label);
+			}
+			for (const btn of document.querySelectorAll("button.MuiButton-root")) {
+				if (!/^(set|raise) max bid$/i.test(btn.textContent.trim())) continue;
+				if (btn.closest("[data-tlx-lot]")) continue;
+				const container = btn.parentElement?.parentElement;
+				if (!container) continue;
+				let row = container.querySelector(":scope > .tlx-inline-confirm");
+				if (!row) {
+					row = switchRow("Confirm before bidding", KEYS$1.confirm, "tlx-inline-confirm");
+					row.setAttribute("data-tlx-own", "");
+					container.appendChild(row);
+				}
+				const input = row.querySelector("input");
+				if (input.checked !== !!state[KEYS$1.confirm]) input.checked = !!state[KEYS$1.confirm];
+			}
+		}
+		function bidKind(btn) {
+			if (!btn.classList.contains("MuiButton-root")) return null;
+			const txt = btn.textContent.trim();
+			if (/^(set |raise )?max bid$/i.test(txt)) return "max";
+			if (/^\$[\d,]+$/.test(txt) && btn.querySelector(".MuiButton-startIcon")) return "straight";
+			return null;
+		}
+		function bidContext(btn) {
+			const slot = btn.closest("[data-tlx-lot]");
+			let title = "";
+			let current = "";
+			if (slot) {
+				title = slot.querySelector(TITLE_SEL)?.textContent.trim() ?? "";
+				current = slot.querySelector("p.MuiTypography-h6")?.textContent.trim() ?? "";
+			} else if (/^\/lots\//.test(location.pathname)) {
+				title = document.querySelector("h1")?.textContent.trim() ?? "";
+				current = document.querySelector("[aria-label^=\"Current bid\"]")?.textContent.trim() ?? "";
+			}
+			let node = btn.parentElement;
+			let input = null;
+			while (node && node !== document.body) {
+				input = node.querySelector("input[aria-label=\"Max bid amount\"]");
+				if (input) break;
+				node = node.parentElement;
+			}
+			return {
+				title,
+				current,
+				input
+			};
+		}
+		const approved = new WeakSet();
+		let dialogOpen = false;
+		function onClickCapture(e) {
+			const btn = e.target instanceof Element ? e.target.closest("button") : null;
+			if (!btn || btn.closest("[data-tlx-own]")) return;
+			if (btn.hasAttribute("data-tlx-disabled")) {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				return;
+			}
+			const kind = bidKind(btn);
+			if (!kind) return;
+			if (approved.has(btn)) {
+				approved.delete(btn);
+				return;
+			}
+			const slot = btn.closest("[data-tlx-lot]");
+			if (slot && slot.classList.contains("tlx-dim")) {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				return;
+			}
+			if (!state[KEYS$1.confirm] || btn.disabled) return;
+			const ctx = bidContext(btn);
+			if (kind === "max" && ctx.input && ctx.input.value.trim() === "") return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			if (dialogOpen) return;
+			const amount = kind === "max" ? {
+				label: "Max bid",
+				value: `$${Number(ctx.input?.value || 0).toLocaleString()}`
+			} : {
+				label: "Quick bid",
+				value: `+${btn.textContent.trim()}`
+			};
+			showConfirm({
+				...ctx,
+				...amount
+			}).then((ok) => {
+				if (!ok) return;
+				if (!btn.isConnected) {
+					alert("The bid button changed while the confirmation was open. Please try again.");
+					return;
+				}
+				approved.add(btn);
+				btn.click();
+			});
+		}
+		window.addEventListener("click", onClickCapture, true);
+		function showConfirm({ title, current, label, value }) {
+			dialogOpen = true;
+			return new Promise((resolve) => {
+				const prevFocus = document.activeElement;
+				const skip = el("input", { type: "checkbox" });
+				const cancelBtn = el("button", {
+					type: "button",
+					class: "tlx-text-btn",
+					text: "Cancel"
+				});
+				const okBtn = el("button", {
+					type: "button",
+					class: "tlx-contained-btn",
+					text: "Place bid"
+				});
+				const backdrop = el("div", {
+					class: "tlx-backdrop",
+					"data-tlx-own": ""
+				}, el("div", {
+					class: "tlx-dialog",
+					role: "alertdialog",
+					"aria-modal": "true",
+					"aria-labelledby": "tlx-dialog-title"
+				}, el("h2", {
+					id: "tlx-dialog-title",
+					text: "Confirm bid"
+				}), el("div", { class: "tlx-dialog-body" }, el("div", {
+					class: "tlx-dialog-lot",
+					text: title || "This lot"
+				}), el("div", {}, el("span", {
+					class: "tlx-caption",
+					text: `${label}  `
+				}), el("span", {
+					class: "tlx-dialog-amount",
+					text: value
+				})), current ? el("div", {
+					class: "tlx-caption",
+					text: `Current bid: ${current}`
+				}) : null), el("div", { class: "tlx-dialog-actions" }, el("label", { class: "tlx-skip" }, skip, el("span", { text: "Don’t ask again" })), cancelBtn, okBtn)));
+				const close = (ok) => {
+					document.removeEventListener("keydown", onKey, true);
+					backdrop.remove();
+					dialogOpen = false;
+					if (ok && skip.checked) save(KEYS$1.confirm, false);
+					prevFocus?.focus?.();
+					resolve(ok);
+				};
+				const onKey = (e) => {
+					if (e.key === "Escape") {
+						swallow(e);
+						close(false);
+					} else if (e.key === "Tab") {
+						const items = [
+							skip,
+							cancelBtn,
+							okBtn
+						];
+						const i = items.indexOf(document.activeElement);
+						e.preventDefault();
+						items[(i + (e.shiftKey ? items.length - 1 : 1)) % items.length].focus();
+					}
+				};
+				cancelBtn.addEventListener("click", () => close(false));
+				okBtn.addEventListener("click", () => close(true));
+				backdrop.addEventListener("mousedown", (e) => {
+					if (e.target === backdrop) close(false);
+				});
+				document.addEventListener("keydown", onKey, true);
+				document.body.appendChild(backdrop);
+				cancelBtn.focus();
+			});
+		}
+		function ensureCatalogLink() {
+			if (location.pathname !== "/") return;
+			const h2 = [...document.querySelectorAll("h2")].find((h) => h.textContent.trim() === "All Auctions");
+			if (!h2 || h2.parentElement.querySelector(":scope > .tlx-catalog-link")) return;
+			h2.parentElement.appendChild(el("a", {
+				class: "tlx-catalog-link",
+				href: "/tlx",
+				"data-tlx-own": "",
+				title: "All lots, cached locally: sort by title or cost, regex filters, live prices",
+				text: "Catalog view →"
+			}));
+		}
+		GM_registerMenuCommand("Toggle bid confirmation", () => {
+			save(KEYS$1.confirm, !state[KEYS$1.confirm]);
+			alert(`Bid confirmation is now ${state[KEYS$1.confirm] ? "ON" : "OFF"}.`);
+		});
+		GM_registerMenuCommand("Edit all filters…", () => {
+			let text = state[KEYS$1.words].join(", ");
+			for (;;) {
+				const v = prompt("All filter regexes, comma separated (case-insensitive, whole words):", text);
+				if (v === null) return;
+				const list = splitFilters(v);
+				const bad = list.filter((p) => !compileFilter(p));
+				if (!bad.length) return save(KEYS$1.words, list);
+				alert(`Invalid regex – fix and try again:\n\n${bad.join("\n")}`);
+				text = v;
+			}
+		});
+		GM_registerMenuCommand("Add filter regex…", () => {
+			const pattern = prompt("Filter regex (case-insensitive, whole words):", "")?.trim();
+			if (!pattern) return;
+			if (!addFilter(pattern)) alert(`Invalid regex: ${pattern}`);
+		});
+		GM_registerMenuCommand("Unhide all lots", unhideAll);
+		let scheduled = false;
+		function scheduleScan() {
+			if (scheduled) return;
+			scheduled = true;
+			requestAnimationFrame(() => {
+				scheduled = false;
+				observer.disconnect();
+				try {
+					ensureCatalogLink();
+					processCards();
+					processSidebar();
+					processDetailPage();
+				} finally {
+					observer.observe(document.body, OBSERVE);
+				}
+			});
+		}
+		const OBSERVE = {
+			childList: true,
+			subtree: true,
+			characterData: true
+		};
+		const observer = new MutationObserver(scheduleScan);
+		window.addEventListener("resize", scheduleScan);
+		observer.observe(document.body, OBSERVE);
+		scheduleScan();
+	}
+	var n;
+	var l$1;
+	var u$2;
+	var i$2;
+	var r$1;
+	var o$1;
+	var e$1;
+	var f$2;
+	var c$1;
+	var a$1;
+	var s$1;
+	var h$1;
+	var p$1;
+	var v$1;
+	var d$1 = {};
+	var w$1 = [];
+	var _ = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
+	var g$1 = Array.isArray;
+	function m$1(n, l) {
+		for (var u in l) n[u] = l[u];
+		return n;
+	}
+	function b(n) {
+		n && n.parentNode && n.parentNode.removeChild(n);
+	}
+	function k$1(l, u, t) {
+		var i, r, o, e = {};
+		for (o in u) "key" == o ? i = u[o] : "ref" == o ? r = u[o] : e[o] = u[o];
+		if (arguments.length > 2 && (e.children = arguments.length > 3 ? n.call(arguments, 2) : t), "function" == typeof l && null != l.defaultProps) for (o in l.defaultProps) void 0 === e[o] && (e[o] = l.defaultProps[o]);
+		return x(l, e, i, r, null);
+	}
+	function x(n, t, i, r, o) {
+		var e = {
+			type: n,
+			props: t,
+			key: i,
+			ref: r,
+			__k: null,
+			__: null,
+			__b: 0,
+			__e: null,
+			__c: null,
+			constructor: void 0,
+			__v: null == o ? ++u$2 : o,
+			__i: -1,
+			__u: 0
+		};
+		return null == o && null != l$1.vnode && l$1.vnode(e), e;
+	}
+	function S(n) {
+		return n.children;
+	}
+	function C$1(n, l) {
+		this.props = n, this.context = l;
+	}
+	function $(n, l) {
+		if (null == l) return n.__ ? $(n.__, n.__i + 1) : null;
+		for (var u; l < n.__k.length; l++) if (null != (u = n.__k[l]) && null != u.__e) return u.__e;
+		return "function" == typeof n.type ? $(n) : null;
+	}
+	function I(n) {
+		if (n.__P && n.__d) {
+			var u = n.__v, t = u.__e, i = [], r = [], o = m$1({}, u);
+			o.__v = u.__v + 1, l$1.vnode && l$1.vnode(o), q$2(n.__P, o, u, n.__n, n.__P.namespaceURI, 32 & u.__u ? [t] : null, i, null == t ? $(u) : t, !!(32 & u.__u), r), o.__v = u.__v, o.__.__k[o.__i] = o, D$1(i, o, r), u.__e = u.__ = null, o.__e != t && P$1(o);
+		}
+	}
+	function P$1(n) {
+		if (null != (n = n.__) && null != n.__c) return n.__e = n.__c.base = null, n.__k.some(function(l) {
+			if (null != l && null != l.__e) return n.__e = n.__c.base = l.__e;
+		}), P$1(n);
+	}
+	function A$2(n) {
+		(!n.__d && (n.__d = !0) && i$2.push(n) && !H$1.__r++ || r$1 != l$1.debounceRendering) && ((r$1 = l$1.debounceRendering) || o$1)(H$1);
+	}
+	function H$1() {
+		try {
+			for (var n, l = 1; i$2.length;) i$2.length > l && i$2.sort(e$1), n = i$2.shift(), l = i$2.length, I(n);
+		} finally {
+			i$2.length = H$1.__r = 0;
+		}
+	}
+	function L(n, l, u, t, i, r, o, e, f, c, a) {
+		var s, h, p, v, y, _, g = t && t.__k || w$1, m = l.length;
+		for (f = T$2(u, l, g, f, m), s = 0; s < m; s++) null != (p = u.__k[s]) && (h = -1 != p.__i && g[p.__i] || d$1, p.__i = s, _ = q$2(n, p, h, i, r, o, e, f, c, a), v = p.__e, p.ref && h.ref != p.ref && (h.ref && J$1(h.ref, null, p), a.push(p.ref, p.__c || v, p)), null == y && null != v && (y = v), 4 & p.__u ? (f = j$2(p, f, n), h.__e && (h.__e = null)) : "function" == typeof p.type && void 0 !== _ ? f = _ : v && (f = v.nextSibling), p.__u &= -7);
+		return u.__e = y, f;
+	}
+	function T$2(n, l, u, t, i) {
+		var r, o, e, f, c, a = u.length, s = a, h = 0;
+		for (n.__k = new Array(i), r = 0; r < i; r++) null != (o = l[r]) && "boolean" != typeof o && "function" != typeof o ? ("string" == typeof o || "number" == typeof o || "bigint" == typeof o || o.constructor == String ? o = n.__k[r] = x(null, o, null, null, null) : g$1(o) ? o = n.__k[r] = x(S, { children: o }, null, null, null) : void 0 === o.constructor && o.__b > 0 ? o = n.__k[r] = x(o.type, o.props, o.key, o.ref ? o.ref : null, o.__v) : n.__k[r] = o, f = r + h, o.__ = n, o.__b = n.__b + 1, e = null, -1 != (c = o.__i = O$1(o, u, f, s)) && (s--, (e = u[c]) && (e.__u |= 2)), null == e || null == e.__v ? (-1 == c && (i > a ? h-- : i < a && h++), "function" != typeof o.type && (o.__u |= 4)) : c != f && (c == f - 1 ? h-- : c == f + 1 ? h++ : (c > f ? h-- : h++, o.__u |= 4))) : n.__k[r] = null;
+		if (s) for (r = 0; r < a; r++) null != (e = u[r]) && 0 == (2 & e.__u) && (e.__e == t && (t = $(e)), K$1(e, e));
+		return t;
+	}
+	function j$2(n, l, u) {
+		var t, i;
+		if ("function" == typeof n.type) {
+			for (t = n.__k, i = 0; t && i < t.length; i++) t[i] && (t[i].__ = n, l = j$2(t[i], l, u));
+			return l;
+		}
+		n.__e != l && (l && n.type && !l.parentNode && (l = $(n)), l = u.insertBefore(n.__e, l || null));
+		do
+			l = l && l.nextSibling;
+		while (null != l && 8 == l.nodeType);
+		return l;
+	}
+	function F(n, l) {
+		return l = l || [], null == n || "boolean" == typeof n || (g$1(n) ? n.some(function(n) {
+			F(n, l);
+		}) : l.push(n)), l;
+	}
+	function O$1(n, l, u, t) {
+		var i, r, o, e = n.key, f = n.type, c = l[u], a = null != c && 0 == (2 & c.__u);
+		if (null === c && null == e || a && e == c.key && f == c.type) return u;
+		if (t > (a ? 1 : 0)) {
+			for (i = u - 1, r = u + 1; i >= 0 || r < l.length;) if (null != (c = l[o = i >= 0 ? i-- : r++]) && 0 == (2 & c.__u) && e == c.key && f == c.type) return o;
+		}
+		return -1;
+	}
+	function z$1(n, l, u) {
+		"-" == l[0] ? n.setProperty(l, null == u ? "" : u) : n[l] = null == u ? "" : "number" != typeof u || _.test(l) ? u : u + "px";
+	}
+	function N$1(n, l, u, t, i) {
+		var r, o;
+		n: if ("style" == l) if ("string" == typeof u) n.style.cssText = u;
+		else {
+			if ("string" == typeof t && (n.style.cssText = t = ""), t) for (l in t) u && l in u || z$1(n.style, l, "");
+			if (u) for (l in u) t && u[l] == t[l] || z$1(n.style, l, u[l]);
+		}
+		else if ("o" == l[0] && "n" == l[1]) r = l != (l = l.replace(s$1, "$1")), o = l.toLowerCase(), l = o in n || "onFocusOut" == l || "onFocusIn" == l ? o.slice(2) : l.slice(2), n.l || (n.l = {}), n.l[l + r] = u, u ? t ? u[a$1] = t[a$1] : (u[a$1] = h$1, n.addEventListener(l, r ? v$1 : p$1, r)) : n.removeEventListener(l, r ? v$1 : p$1, r);
+		else {
+			if ("http://www.w3.org/2000/svg" == i) l = l.replace(/xlink(H|:h)/, "h").replace(/sName$/, "s");
+			else if ("width" != l && "height" != l && "href" != l && "list" != l && "form" != l && "tabIndex" != l && "download" != l && "rowSpan" != l && "colSpan" != l && "role" != l && "popover" != l && l in n) try {
+				n[l] = null == u ? "" : u;
+				break n;
+			} catch (n) {}
+			"function" == typeof u || (null == u || !1 === u && "-" != l[4] ? n.removeAttribute(l) : n.setAttribute(l, "popover" == l && 1 == u ? "" : u));
+		}
+	}
+	function V$1(n) {
+		return function(u) {
+			if (this.l) {
+				var t = this.l[u.type + n];
+				if (null == u[c$1]) u[c$1] = h$1++;
+				else if (u[c$1] < t[a$1]) return;
+				return t(l$1.event ? l$1.event(u) : u);
+			}
+		};
+	}
+	function q$2(n, u, t, i, r, o, e, f, c, a) {
+		var s, h, p, v, y, d, _, k, x, M, I, P, A, H, T, j, F = u.type;
+		if (void 0 !== u.constructor) return null;
+		128 & t.__u && (c = !!(32 & t.__u), o = [f = u.__e = t.__e]), (s = l$1.__b) && s(u);
+		n: if ("function" == typeof F) {
+			h = e.length;
+			try {
+				if (x = u.props, M = F.prototype && F.prototype.render, I = (s = F.contextType) && i[s.__c], P = s ? I ? I.props.value : s.__ : i, t.__c ? k = (p = u.__c = t.__c).__ = p.__E : (M ? u.__c = p = new F(x, P) : (u.__c = p = new C$1(x, P), p.constructor = F, p.render = Q$1), I && I.sub(p), p.state || (p.state = {}), p.__n = i, v = p.__d = !0, p.__h = [], p._sb = []), M && null == p.__s && (p.__s = p.state), M && null != F.getDerivedStateFromProps && (p.__s == p.state && (p.__s = m$1({}, p.__s)), m$1(p.__s, F.getDerivedStateFromProps(x, p.__s))), y = p.props, d = p.state, p.__v = u, v) M && null == F.getDerivedStateFromProps && null != p.componentWillMount && p.componentWillMount(), M && null != p.componentDidMount && p.__h.push(p.componentDidMount);
+				else {
+					if (M && null == F.getDerivedStateFromProps && x !== y && null != p.componentWillReceiveProps && p.componentWillReceiveProps(x, P), u.__v == t.__v || !p.__e && null != p.shouldComponentUpdate && !1 === p.shouldComponentUpdate(x, p.__s, P)) {
+						u.__v != t.__v && (p.props = x, p.state = p.__s, p.__d = !1), u.__e = t.__e, u.__k = t.__k, u.__k.some(function(n) {
+							n && (n.__ = u);
+						}), w$1.push.apply(p.__h, p._sb), p._sb = [], p.__h.length && e.push(p), f = $(t);
+						break n;
+					}
+					null != p.componentWillUpdate && p.componentWillUpdate(x, p.__s, P), M && null != p.componentDidUpdate && p.__h.push(function() {
+						p.componentDidUpdate(y, d, _);
+					});
+				}
+				if (p.context = P, p.props = x, p.__P = n, p.__e = !1, A = l$1.__r, H = 0, M) p.state = p.__s, p.__d = !1, A && A(u), s = p.render(p.props, p.state, p.context), w$1.push.apply(p.__h, p._sb), p._sb = [];
+				else do
+					p.__d = !1, A && A(u), s = p.render(p.props, p.state, p.context), p.state = p.__s;
+				while (p.__d && ++H < 25);
+				p.state = p.__s, null != p.getChildContext && (i = m$1(m$1({}, i), p.getChildContext())), M && !v && null != p.getSnapshotBeforeUpdate && (_ = p.getSnapshotBeforeUpdate(y, d)), T = null != s && s.type === S && null == s.key ? E$1(s.props.children) : s, f = L(n, g$1(T) ? T : [T], u, t, i, r, o, e, f, c, a), p.base = u.__e, u.__u &= -161, p.__h.length && e.push(p), k && (p.__E = p.__ = null);
+			} catch (n) {
+				if (e.length = h, u.__v = null, c || null != o) {
+					if (n.then) {
+						for (u.__u |= c ? 160 : 128; f && 8 == f.nodeType && f.nextSibling;) f = f.nextSibling;
+						null != o && (o[o.indexOf(f)] = null), u.__e = f;
+					} else if (null != o) for (j = o.length; j--;) b(o[j]);
+				} else u.__e = t.__e;
+				u.__k ??= t.__k || [], n.then || B$2(u), l$1.__e(n, u, t);
+			}
+		} else null == o && u.__v == t.__v ? (u.__k = t.__k, u.__e = t.__e) : f = u.__e = G$1(t.__e, u, t, i, r, o, e, c, a);
+		return (s = l$1.diffed) && s(u), 128 & u.__u ? void 0 : f;
+	}
+	function B$2(n) {
+		n && (n.__c && (n.__c.__e = !0), n.__k && n.__k.some(B$2));
+	}
+	function D$1(n, u, t) {
+		for (var i = 0; i < t.length; i++) J$1(t[i], t[++i], t[++i]);
+		l$1.__c && l$1.__c(u, n), n.some(function(u) {
+			try {
+				n = u.__h, u.__h = [], n.some(function(n) {
+					n.call(u);
+				});
+			} catch (n) {
+				l$1.__e(n, u.__v);
+			}
+		});
+	}
+	function E$1(n) {
+		return "object" != typeof n || null == n || n.__b > 0 ? n : g$1(n) ? n.map(E$1) : void 0 !== n.constructor ? null : m$1({}, n);
+	}
+	function G$1(u, t, i, r, o, e, f, c, a) {
+		var s, h, p, v, y, w, _, m = i.props || d$1, k = t.props, x = t.type;
+		if ("svg" == x ? o = "http://www.w3.org/2000/svg" : "math" == x ? o = "http://www.w3.org/1998/Math/MathML" : o || (o = "http://www.w3.org/1999/xhtml"), null != e) {
+			for (s = 0; s < e.length; s++) if ((y = e[s]) && "setAttribute" in y == !!x && (x ? y.localName == x : 3 == y.nodeType)) {
+				u = y, e[s] = null;
+				break;
+			}
+		}
+		if (null == u) {
+			if (null == x) return document.createTextNode(k);
+			u = document.createElementNS(o, x, k.is && k), c && (l$1.__m && l$1.__m(t, e), c = !1), e = null;
+		}
+		if (null == x) m === k || c && u.data == k || (u.data = k);
+		else {
+			if (e = "textarea" == x && null != k.defaultValue ? null : e && n.call(u.childNodes), !c && null != e) for (m = {}, s = 0; s < u.attributes.length; s++) m[(y = u.attributes[s]).name] = y.value;
+			for (s in m) y = m[s], "dangerouslySetInnerHTML" == s ? p = y : "children" == s || s in k || "value" == s && "defaultValue" in k || "checked" == s && "defaultChecked" in k || N$1(u, s, null, y, o);
+			for (s in k) y = k[s], "children" == s ? v = y : "dangerouslySetInnerHTML" == s ? h = y : "value" == s ? w = y : "checked" == s ? _ = y : c && "function" != typeof y || m[s] === y || N$1(u, s, y, m[s], o);
+			if (h) c || p && (h.__html == p.__html || h.__html == u.innerHTML) || (u.innerHTML = h.__html), t.__k = [];
+			else if (p && (u.innerHTML = ""), L("template" == t.type ? u.content : u, g$1(v) ? v : [v], t, i, r, "foreignObject" == x ? "http://www.w3.org/1999/xhtml" : o, e, f, e ? e[0] : i.__k && $(i, 0), c, a), null != e) for (s = e.length; s--;) b(e[s]);
+			c && "textarea" != x || (s = "value", "progress" == x && null == w ? u.removeAttribute("value") : null != w && (w !== u[s] || "progress" == x && !w || "option" == x && w != m[s]) && N$1(u, s, w, m[s], o), s = "checked", null != _ && _ != u[s] && N$1(u, s, _, m[s], o));
+		}
+		return u;
+	}
+	function J$1(n, u, t) {
+		try {
+			if ("function" == typeof n) {
+				var i = "function" == typeof n.__u;
+				i && n.__u(), i && null == u || (n.__u = n(u));
+			} else n.current = u;
+		} catch (n) {
+			l$1.__e(n, t);
+		}
+	}
+	function K$1(n, u, t) {
+		var i, r;
+		if (l$1.unmount && l$1.unmount(n), (i = n.ref) && (i.current && i.current != n.__e || J$1(i, null, u)), null != (i = n.__c)) {
+			if (i.componentWillUnmount) try {
+				i.componentWillUnmount();
+			} catch (n) {
+				l$1.__e(n, u);
+			}
+			i.base = i.__P = i.__n = null;
+		}
+		if (i = n.__k) for (r = 0; r < i.length; r++) i[r] && K$1(i[r], u, t || "function" != typeof n.type);
+		t || b(n.__e), n.__c = n.__ = n.__e = void 0;
+	}
+	function Q$1(n, l, u) {
+		return this.constructor(n, u);
+	}
+	function R(u, t, i) {
+		var r, o, e, f;
+		t == document && (t = document.documentElement), l$1.__ && l$1.__(u, t), o = (r = "function" == typeof i) ? null : i && i.__k || t.__k, e = [], f = [], q$2(t, u = (!r && i || t).__k = k$1(S, null, [u]), o || d$1, d$1, t.namespaceURI, !r && i ? [i] : o ? null : t.firstChild ? n.call(t.childNodes) : null, e, !r && i ? i : o ? o.__e : t.firstChild, r, f), D$1(e, u, f), u.props.children = null;
+	}
+	n = w$1.slice, l$1 = { __e: function(n, l, u, t) {
+		for (var i, r, o; l = l.__;) if ((i = l.__c) && !i.__) try {
+			if ((r = i.constructor) && null != r.getDerivedStateFromError && (i.setState(r.getDerivedStateFromError(n)), o = i.__d), null != i.componentDidCatch && (i.componentDidCatch(n, t || {}), o = i.__d), o) return i.__E = i;
+		} catch (l) {
+			n = l;
+		}
+		throw n;
+	} }, u$2 = 0, C$1.prototype.setState = function(n, l) {
+		var u = null != this.__s && this.__s != this.state ? this.__s : this.__s = m$1({}, this.state);
+		"function" == typeof n && (n = n(m$1({}, u), this.props)), n && m$1(u, n), null != n && this.__v && (l && this._sb.push(l), A$2(this));
+	}, C$1.prototype.forceUpdate = function(n) {
+		this.__v && (this.__e = !0, n && this.__h.push(n), A$2(this));
+	}, C$1.prototype.render = S, i$2 = [], o$1 = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e$1 = function(n, l) {
+		return n.__v.__b - l.__v.__b;
+	}, H$1.__r = 0, f$2 = Math.random().toString(8), c$1 = "__d" + f$2, a$1 = "__a" + f$2, s$1 = /(PointerCapture)$|Capture$/i, h$1 = 0, p$1 = V$1(!1), v$1 = V$1(!0);
+	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.chips{flex-wrap:wrap;gap:6px;display:flex}.chip{border:1px solid var(--line);border-radius:12px;align-items:flex-start;gap:6px;max-width:100%;padding:3px 4px 3px 10px;font-size:12px;display:inline-flex}.chip .pattern{overflow-wrap:anywhere;flex:auto;min-width:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;line-height:18px}.chip .seg{max-width:100%;display:inline-block}.chip .count{color:var(--muted);font-variant-numeric:tabular-nums;line-height:18px}.chip button{color:var(--muted);cursor:pointer;background:0 0;border:0;flex:none;padding:1px;display:inline-flex}.chip button:hover{color:var(--text)}.chip-error{border-color:var(--bad);color:var(--bad);text-decoration:line-through}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
+	var t;
+	var r;
+	var u$1;
+	var i$1;
+	var o = 0;
+	var f$1 = [];
+	var c = l$1;
+	var e = c.__b;
+	var a = c.__r;
+	var v = c.diffed;
+	var l = c.__c;
+	var m = c.unmount;
+	var p = c.__;
+	function s(n, t) {
+		c.__h && c.__h(r, n, o || t), o = 0;
+		var u = r.__H || (r.__H = {
+			__: [],
+			__h: []
+		});
+		return n >= u.__.length && u.__.push({}), u.__[n];
+	}
+	function d(n) {
+		return o = 1, y(D, n);
+	}
+	function y(n, u, i) {
+		var o = s(t++, 2);
+		if (o.t = n, !o.__c && (o.__ = [i ? i(u) : D(void 0, u), function(n) {
+			var t = o.__N ? o.__N[0] : o.__[0], r = o.t(t, n);
+			t !== r && (o.__N = [r, o.__[1]], o.__c.setState({}));
+		}], o.__c = r, !r.__f)) {
+			var f = function(n, t, r) {
+				if (!o.__c.__H) return !0;
+				var u = !1, i = o.__c.props !== n;
+				if (o.__c.__H.__.some(function(n) {
+					if (n.__N) {
+						u = !0;
+						var t = n.__[0];
+						n.__ = n.__N, n.__N = void 0, t !== n.__[0] && (i = !0);
+					}
+				}), c) {
+					var f = c.call(this, n, t, r);
+					return u ? f || i : f;
+				}
+				return !u || i;
+			};
+			r.__f = !0;
+			var c = r.shouldComponentUpdate, e = r.componentWillUpdate;
+			r.componentWillUpdate = function(n, t, r) {
+				if (this.__e) {
+					var u = c;
+					c = void 0, f(n, t, r), c = u;
+				}
+				e && e.call(this, n, t, r);
+			}, r.shouldComponentUpdate = f;
+		}
+		return o.__N || o.__;
+	}
+	function h(n, u) {
+		var i = s(t++, 3);
+		!c.__s && C(i.__H, u) && (i.__ = n, i.u = u, r.__H.__h.push(i));
+	}
+	function A$1(n) {
+		return o = 5, T$1(function() {
+			return { current: n };
+		}, []);
+	}
+	function T$1(n, r) {
+		var u = s(t++, 7);
+		return C(u.__H, r) && (u.__ = n(), u.__H = r, u.__h = n), u.__;
+	}
+	function q$1(n, t) {
+		return o = 8, T$1(function() {
+			return n;
+		}, t);
+	}
+	function j$1() {
+		for (var n; n = f$1.shift();) {
+			var t = n.__H;
+			if (n.__P && t) try {
+				t.__h.some(z), t.__h.some(B$1), t.__h = [];
+			} catch (r) {
+				t.__h = [], c.__e(r, n.__v);
+			}
+		}
+	}
+	c.__b = function(n) {
+		r = null, e && e(n);
+	}, c.__ = function(n, t) {
+		n && t.__k && t.__k.__m && (n.__m = t.__k.__m), p && p(n, t);
+	}, c.__r = function(n) {
+		a && a(n), t = 0;
+		var i = (r = n.__c).__H;
+		i && (u$1 === r ? (i.__h = [], r.__h = [], i.__.some(function(n) {
+			n.__N && (n.__ = n.__N), n.u = n.__N = void 0;
+		})) : (i.__h.some(z), i.__h.some(B$1), i.__h = [], t = 0)), u$1 = r;
+	}, c.diffed = function(n) {
+		v && v(n);
+		var t = n.__c;
+		t && t.__H && (t.__H.__h.length && (1 !== f$1.push(t) && i$1 === c.requestAnimationFrame || ((i$1 = c.requestAnimationFrame) || w)(j$1)), t.__H.__.some(function(n) {
+			n.u && (n.__H = n.u, n.u = void 0);
+		})), u$1 = r = null;
+	}, c.__c = function(n, t) {
+		t.some(function(n) {
+			try {
+				n.__h.some(z), n.__h = n.__h.filter(function(n) {
+					return !n.__ || B$1(n);
+				});
+			} catch (r) {
+				t.some(function(n) {
+					n.__h && (n.__h = []);
+				}), t = [], c.__e(r, n.__v);
+			}
+		}), l && l(n, t);
+	}, c.unmount = function(n) {
+		m && m(n);
+		var t, r = n.__c;
+		r && r.__H && (r.__H.__.some(function(n) {
+			try {
+				z(n);
+			} catch (n) {
+				t = n;
+			}
+		}), r.__H = void 0, t && c.__e(t, r.__v));
+	};
+	var k = "function" == typeof requestAnimationFrame;
+	function w(n) {
+		var t, r = function() {
+			clearTimeout(u), k && cancelAnimationFrame(t), setTimeout(n);
+		}, u = setTimeout(r, 35);
+		k && (t = requestAnimationFrame(r));
+	}
+	function z(n) {
+		var t = r, u = n.__c;
+		"function" == typeof u && (n.__c = void 0, u()), r = t;
+	}
+	function B$1(n) {
+		var t = r;
+		n.__c = n.__(), r = t;
+	}
+	function C(n, t) {
+		return !n || n.length !== t.length || t.some(function(t, r) {
+			return t !== n[r];
+		});
+	}
+	function D(n, t) {
+		return "function" == typeof t ? t(n) : t;
+	}
+	var BASE = "/backend";
+	var CDN = "https://cdn.triangleliquidators.com";
+	var ApiError = class extends Error {
+		status;
+		constructor(message, status) {
+			super(message);
+			this.status = status;
+		}
+	};
+	function authToken() {
+		for (const part of document.cookie.split(";")) {
+			const [k, ...v] = part.trim().split("=");
+			if (k === "token") return decodeURIComponent(v.join("=")) || null;
+		}
+		return null;
+	}
+	var tokenRejected = false;
+	var isAuthenticated = () => !tokenRejected && authToken() !== null;
+	async function get(path, params = {}, signal) {
+		const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
+		const url = `${BASE}${path}${qs ? `?${qs}` : ""}`;
+		const send = (withToken) => {
+			const headers = { Accept: "application/json" };
+			const token = withToken ? authToken() : null;
+			if (token) headers.Authorization = `Bearer ${token}`;
+			return fetch(url, {
+				headers,
+				signal,
+				credentials: "same-origin"
+			});
+		};
+		let res = await send(isAuthenticated());
+		if (res.status === 401 && isAuthenticated()) {
+			tokenRejected = true;
+			res = await send(false);
+		}
+		if (!res.ok) throw new ApiError(`${res.status} ${res.statusText || "error"} for ${path}`, res.status);
+		return res.json();
+	}
+	var num = (v, d = 0) => typeof v === "number" && Number.isFinite(v) ? v : d;
+	function normalizeStanding(s) {
+		if (!s || typeof s !== "object") return null;
+		return {
+			isLeading: !!s.is_leading,
+			yourMaxBid: s.your_max_bid ?? null
+		};
+	}
+	function normalizeImages(images) {
+		return [...images || []].sort((a, b) => num(a.position) - num(b.position)).map((i) => ({
+			thumb: i.image_thumb,
+			card: i.image_card,
+			large: i.image_large
+		}));
+	}
+	function normalizeLot(r) {
+		return {
+			id: r.id,
+			auctionPeriod: r.auction_period,
+			title: String(r.title ?? ""),
+			lotNumber: String(r.lot_number ?? ""),
+			category: r.category ? {
+				value: r.category.value,
+				label: r.category.label
+			} : null,
+			condition: r.condition ? {
+				value: r.condition.value,
+				label: r.condition.display_name
+			} : null,
+			location: r.location ? {
+				id: r.location.id,
+				name: r.location.name
+			} : null,
+			isTransferable: !!r.is_transferable,
+			transferFee: num(r.transfer_fee),
+			currentPrice: num(r.current_price),
+			estimatedRetailPrice: r.estimated_retail_price ?? null,
+			endsAt: Date.parse(r.ends_at),
+			status: r.status,
+			version: num(r.version, -1),
+			bidCount: num(r.bid_count),
+			nextMinIncrement: num(r.next_min_increment),
+			yourStanding: normalizeStanding(r.your_standing),
+			isWatchlisted: !!r.is_watchlisted,
+			hasBid: !!r.has_bid,
+			images: normalizeImages(r.images)
+		};
+	}
+	async function fetchLotPage(page, signal) {
+		const d = await get("/v1/auctions/lots/", {
+			page,
+			per_page: 100,
+			order_by: "newly-listed"
+		}, signal);
+		return {
+			count: d.count,
+			results: d.results.map(normalizeLot)
+		};
+	}
+	async function fetchLotDetail(auctionPeriod, id, signal) {
+		const r = await get(`/v1/auctions/lots/${auctionPeriod}/${id}/`, {}, signal);
+		return {
+			...normalizeLot(r),
+			description: String(r.description ?? ""),
+			brand: r.brand || null,
+			model: r.model || null,
+			lotFee: r.lot_fee ?? null,
+			bidHistory: (r.bid_history || []).map((b) => ({
+				bidderLabel: b.bidder_label,
+				amount: num(b.amount),
+				isYou: !!b.is_you
+			}))
+		};
+	}
+	async function fetchPickupLocation() {
+		const p = (await get("/v1/auth/me/")).pickup_location;
+		if (!p) return null;
+		return {
+			id: typeof p.id === "number" ? p.id : null,
+			name: p.name || p.label || null
+		};
+	}
+	async function fetchWsToken() {
+		return (await get("/v1/auth/ws-token/")).token;
+	}
+	var EMPTY_META = {
+		fetchedAt: null,
+		pullStartedAt: null,
+		count: 0,
+		authed: false
+	};
+	var dbp = null;
+	function open$1() {
+		return dbp ??= new Promise((resolve, reject) => {
+			const req = indexedDB.open("tlx-catalog", 1);
+			req.onupgradeneeded = () => {
+				req.result.createObjectStore("lots", { keyPath: "id" });
+				req.result.createObjectStore("meta");
+			};
+			req.onsuccess = () => resolve(req.result);
+			req.onerror = () => reject(req.error);
+		});
+	}
+	function done(tx) {
+		return new Promise((resolve, reject) => {
+			tx.oncomplete = () => resolve();
+			tx.onerror = tx.onabort = () => reject(tx.error);
+		});
+	}
+	var result = (req) => new Promise((resolve, reject) => {
+		req.onsuccess = () => resolve(req.result);
+		req.onerror = () => reject(req.error);
+	});
+	async function readMeta() {
+		const m = await result((await open$1()).transaction("meta").objectStore("meta").get("catalog"));
+		return {
+			...EMPTY_META,
+			...m || {}
+		};
+	}
+	async function writeMeta(patch) {
+		const tx = (await open$1()).transaction("meta", "readwrite");
+		const store = tx.objectStore("meta");
+		const next = {
+			...EMPTY_META,
+			...await result(store.get("catalog")) || {},
+			...patch
+		};
+		store.put(next, "catalog");
+		await done(tx);
+		return next;
+	}
+	async function readAll() {
+		const tx = (await open$1()).transaction(["lots", "meta"]);
+		const [lots, meta] = await Promise.all([result(tx.objectStore("lots").getAll()), result(tx.objectStore("meta").get("catalog"))]);
+		return {
+			lots,
+			meta: {
+				...EMPTY_META,
+				...meta || {}
+			}
+		};
+	}
+	async function replaceAll(lots, meta) {
+		const tx = (await open$1()).transaction(["lots", "meta"], "readwrite");
+		const store = tx.objectStore("lots");
+		store.clear();
+		for (const l of lots) store.put(l);
+		const metaStore = tx.objectStore("meta");
+		const cur = {
+			...EMPTY_META,
+			...await result(metaStore.get("catalog")) || {}
+		};
+		metaStore.put({
+			...cur,
+			...meta
+		}, "catalog");
+		await done(tx);
+	}
+	async function putLots(lots) {
+		if (!lots.length) return;
+		const tx = (await open$1()).transaction("lots", "readwrite");
+		const store = tx.objectStore("lots");
+		for (const l of lots) store.put(l);
+		await done(tx);
+	}
+	var _GM_addValueChangeListener = (() => typeof GM_addValueChangeListener != "undefined" ? GM_addValueChangeListener : void 0)();
+	var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
+	var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
+	var cache = new Map();
+	var listeners = new Map();
+	function getSetting(key) {
+		if (!cache.has(key)) {
+			cache.set(key, _GM_getValue(key, DEFAULTS[key]));
+			_GM_addValueChangeListener(key, (_n, _old, val, remote) => {
+				if (!remote) return;
+				cache.set(key, val ?? DEFAULTS[key]);
+				listeners.get(key)?.forEach((l) => l());
+			});
+		}
+		return cache.get(key);
+	}
+	function setSetting(key, value) {
+		cache.set(key, value);
+		_GM_setValue(key, value);
+		listeners.get(key)?.forEach((l) => l());
+	}
+	function onSetting(key, fn) {
+		getSetting(key);
+		if (!listeners.has(key)) listeners.set(key, new Set());
+		listeners.get(key).add(fn);
+		return () => listeners.get(key).delete(fn);
+	}
+	function useSetting(key) {
+		const [, force] = d(0);
+		const value = getSetting(key);
+		h(() => {
+			const off = onSetting(key, () => force((n) => n + 1));
+			if (getSetting(key) !== value) force((n) => n + 1);
+			return off;
+		}, [key]);
+		return [value, (v) => setSetting(key, v)];
+	}
+	var DETAIL_TTL = 12e4;
+	var ACTIVE_WINDOW = 6e5;
+	var CHECK_EVERY = 15e3;
+	var state = {
+		loaded: false,
+		lots: new Map(),
+		meta: EMPTY_META,
+		progress: null,
+		error: null,
+		rev: 0
+	};
+	var subs$1 = new Set();
+	function changed() {
+		state.rev++;
+		subs$1.forEach((f) => f());
+	}
+	function useCatalog() {
+		const [, force] = d(0);
+		const renderedRev = state.rev;
+		h(() => {
+			const f = () => force((n) => n + 1);
+			subs$1.add(f);
+			if (state.rev !== renderedRev) f();
+			return () => void subs$1.delete(f);
+		}, []);
+		return state;
+	}
+	var getLot = (id) => state.lots.get(id);
+	function syncIntervalMs() {
+		const m = Number(getSetting(KEYS.syncMinutes));
+		return Math.max(5, Number.isFinite(m) ? m : 5) * 6e4;
+	}
+	function nextPullAt(meta = state.meta) {
+		return meta.pullStartedAt == null ? 0 : meta.pullStartedAt + syncIntervalMs();
+	}
+	var channel = typeof BroadcastChannel === "function" ? new BroadcastChannel("tlx-catalog") : null;
+	channel?.addEventListener("message", (e) => {
+		if (e.data?.type === "synced") reloadFromDb();
+		else if (e.data?.type === "meta") readMeta().then((m) => (state.meta = m, changed()));
+	});
+	async function reloadFromDb() {
+		const { lots, meta } = await readAll();
+		const map = new Map(lots.map((l) => [l.id, l]));
+		for (const [id, mine] of state.lots) {
+			const theirs = map.get(id);
+			if (theirs && mine.version > theirs.version) map.set(id, mine);
+		}
+		state.lots = map;
+		state.meta = meta;
+		state.loaded = true;
+		changed();
+	}
+	var pulling = false;
+	async function pullCatalog() {
+		if (pulling) return "busy";
+		pulling = true;
+		try {
+			const run = () => runPull();
+			if (navigator.locks) return await navigator.locks.request("tlx-catalog-pull", { ifAvailable: true }, (lock) => lock ? run() : "busy");
+			return await run();
+		} finally {
+			pulling = false;
+		}
+	}
+	async function runPull() {
+		const meta = await readMeta();
+		if (Date.now() < nextPullAt(meta)) {
+			if (meta.fetchedAt !== state.meta.fetchedAt) await reloadFromDb();
+			return "not-due";
+		}
+		state.meta = await writeMeta({ pullStartedAt: Date.now() });
+		channel?.postMessage({ type: "meta" });
+		const firstLoad = state.lots.size === 0;
+		const pulled = new Map();
+		state.error = null;
+		state.progress = {
+			done: 0,
+			total: null
+		};
+		changed();
+		try {
+			let pages = 1;
+			let count = 0;
+			for (let page = 1; page <= pages; page++) {
+				const d = await fetchLotPage(page);
+				if (page === 1) {
+					count = d.count;
+					pages = Math.max(1, Math.ceil(d.count / 100));
+				}
+				for (const l of d.results) pulled.set(l.id, l);
+				state.progress = {
+					done: pulled.size,
+					total: count
+				};
+				if (firstLoad) for (const l of d.results) state.lots.set(l.id, l);
+				changed();
+				if (!d.results.length) break;
+			}
+			for (const [id, mine] of state.lots) {
+				const fresh = pulled.get(id);
+				if (fresh && mine.version > fresh.version) pulled.set(id, mine);
+			}
+			if (pulled.size < count) {
+				const now = Date.now();
+				for (const [id, l] of state.lots) if (!pulled.has(id) && l.endsAt > now) pulled.set(id, l);
+			}
+			const fetchedAt = Date.now();
+			await replaceAll([...pulled.values()], {
+				fetchedAt,
+				count,
+				authed: isAuthenticated()
+			});
+			state.lots = pulled;
+			state.meta = await readMeta();
+			channel?.postMessage({ type: "synced" });
+			return "done";
+		} catch (err) {
+			state.error = `Catalog refresh failed: ${err.message || err}`;
+			return "error";
+		} finally {
+			state.progress = null;
+			changed();
+		}
+	}
+	var dirty = new Map();
+	var flushTimer = 0;
+	function persistSoon(lot) {
+		dirty.set(lot.id, lot);
+		if (!flushTimer) flushTimer = window.setTimeout(() => {
+			flushTimer = 0;
+			const batch = [...dirty.values()];
+			dirty.clear();
+			putLots(batch).catch(() => {});
+		}, 2e3);
+	}
+	function updateLot(id, patch, opts = {}) {
+		const cur = state.lots.get(id);
+		if (!cur) return;
+		if (!opts.force && patch.version != null && patch.version <= cur.version) return;
+		const next = {
+			...cur,
+			...patch
+		};
+		state.lots.set(id, next);
+		persistSoon(next);
+		changed();
+	}
+	var details = new Map();
+	function loadDetail(lot, signal) {
+		const hit = details.get(lot.id);
+		if (hit && Date.now() - hit.at < DETAIL_TTL) {
+			if (hit.data) return Promise.resolve(hit.data);
+			if (hit.promise) return hit.promise;
+		}
+		const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then((d) => {
+			details.set(lot.id, {
+				at: Date.now(),
+				data: d
+			});
+			const { description, brand, model, lotFee, bidHistory, ...base } = d;
+			const cur = state.lots.get(lot.id);
+			if (cur && base.version >= cur.version) updateLot(lot.id, base, { force: true });
+			return d;
+		}, (err) => {
+			details.delete(lot.id);
+			throw err;
+		});
+		details.set(lot.id, {
+			at: Date.now(),
+			promise
+		});
+		return promise;
+	}
+	function cachedDetail(id) {
+		const hit = details.get(id);
+		return hit && Date.now() - hit.at < DETAIL_TTL ? hit.data : void 0;
+	}
+	var lastActivity = Date.now();
+	var markActive = () => lastActivity = Date.now();
+	function maybeAutoPull() {
+		if (!state.loaded || pulling) return;
+		if (document.visibilityState !== "visible") return;
+		if (Date.now() - lastActivity > ACTIVE_WINDOW) return;
+		if (Date.now() < nextPullAt()) return;
+		pullCatalog();
+	}
+	async function startCatalog() {
+		for (const ev of [
+			"pointerdown",
+			"keydown",
+			"wheel",
+			"touchstart",
+			"scroll"
+		]) window.addEventListener(ev, markActive, {
+			passive: true,
+			capture: true
+		});
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "visible") {
+				markActive();
+				maybeAutoPull();
+			}
+		});
+		onSetting(KEYS.syncMinutes, changed);
+		try {
+			await reloadFromDb();
+		} catch (err) {
+			state.loaded = true;
+			state.error = `Couldn’t read the local cache: ${err.message || err}`;
+			changed();
+		}
+		maybeAutoPull();
+		window.setInterval(maybeAutoPull, CHECK_EVERY);
+	}
+	var f = 0;
+	Array.isArray;
+	function u(e, t, n, o, i, u) {
+		t || (t = {});
+		var a, c, p = t;
+		if ("ref" in p) for (c in p = {}, t) "ref" == c ? a = t[c] : p[c] = t[c];
+		var l = {
+			type: e,
+			props: p,
+			key: n,
+			ref: a,
+			__k: null,
+			__: null,
+			__b: 0,
+			__e: null,
+			__c: null,
+			constructor: void 0,
+			__v: --f,
+			__i: -1,
+			__u: 0,
+			__source: i,
+			__self: u
+		};
+		if ("function" == typeof e && (a = e.defaultProps)) for (c in a) void 0 === p[c] && (p[c] = a[c]);
+		return l$1.vnode && l$1.vnode(l), l;
+	}
+	var PATHS = {
+		visibilityOff: "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7M2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2m4.31-.78 3.15 3.15.02-.16c0-1.66-1.34-3-3-3z",
+		visibility: "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5m0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3",
+		cancel: "M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2m5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12z",
+		close: "M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
+		filter: "M10 18h4v-2h-4zM3 6v2h18V6zm3 7h12v-2H6z",
+		expandMore: "M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z",
+		open: "M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z",
+		refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z",
+		chevronLeft: "M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z",
+		chevronRight: "M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+		star: "M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
+	};
+	function Icon({ name, size = 18 }) {
+		return u("svg", {
+			viewBox: "0 0 24 24",
+			width: size,
+			height: size,
+			"aria-hidden": "true",
+			focusable: "false",
+			children: u("path", {
+				d: PATHS[name],
+				fill: "currentColor"
+			})
+		});
+	}
+	function __awaiter(thisArg, _arguments, P, generator) {
+		function adopt(value) {
+			return value instanceof P ? value : new P(function(resolve) {
+				resolve(value);
+			});
+		}
+		return new (P || (P = Promise))(function(resolve, reject) {
+			function fulfilled(value) {
+				try {
+					step(generator.next(value));
+				} catch (e) {
+					reject(e);
+				}
+			}
+			function rejected(value) {
+				try {
+					step(generator["throw"](value));
+				} catch (e) {
+					reject(e);
+				}
+			}
+			function step(result) {
+				result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected);
+			}
+			step((generator = generator.apply(thisArg, _arguments || [])).next());
+		});
+	}
+	function getDefaultExportFromCjs(x) {
+		return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
+	}
+	var events = { exports: {} };
+	var hasRequiredEvents;
+	function requireEvents() {
+		if (hasRequiredEvents) return events.exports;
+		hasRequiredEvents = 1;
+		var R = typeof Reflect === "object" ? Reflect : null;
+		var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply(target, receiver, args) {
+			return Function.prototype.apply.call(target, receiver, args);
+		};
+		var ReflectOwnKeys;
+		if (R && typeof R.ownKeys === "function") ReflectOwnKeys = R.ownKeys;
+		else if (Object.getOwnPropertySymbols) ReflectOwnKeys = function ReflectOwnKeys(target) {
+			return Object.getOwnPropertyNames(target).concat(Object.getOwnPropertySymbols(target));
+		};
+		else ReflectOwnKeys = function ReflectOwnKeys(target) {
+			return Object.getOwnPropertyNames(target);
+		};
+		function ProcessEmitWarning(warning) {
+			if (console && console.warn) console.warn(warning);
+		}
+		var NumberIsNaN = Number.isNaN || function NumberIsNaN(value) {
+			return value !== value;
+		};
+		function EventEmitter() {
+			EventEmitter.init.call(this);
+		}
+		events.exports = EventEmitter;
+		events.exports.once = once;
+		EventEmitter.EventEmitter = EventEmitter;
+		EventEmitter.prototype._events = void 0;
+		EventEmitter.prototype._eventsCount = 0;
+		EventEmitter.prototype._maxListeners = void 0;
+		var defaultMaxListeners = 10;
+		function checkListener(listener) {
+			if (typeof listener !== "function") throw new TypeError("The \"listener\" argument must be of type Function. Received type " + typeof listener);
+		}
+		Object.defineProperty(EventEmitter, "defaultMaxListeners", {
+			enumerable: true,
+			get: function() {
+				return defaultMaxListeners;
+			},
+			set: function(arg) {
+				if (typeof arg !== "number" || arg < 0 || NumberIsNaN(arg)) throw new RangeError("The value of \"defaultMaxListeners\" is out of range. It must be a non-negative number. Received " + arg + ".");
+				defaultMaxListeners = arg;
+			}
+		});
+		EventEmitter.init = function() {
+			if (this._events === void 0 || this._events === Object.getPrototypeOf(this)._events) {
+				this._events = Object.create(null);
+				this._eventsCount = 0;
+			}
+			this._maxListeners = this._maxListeners || void 0;
+		};
+		EventEmitter.prototype.setMaxListeners = function setMaxListeners(n) {
+			if (typeof n !== "number" || n < 0 || NumberIsNaN(n)) throw new RangeError("The value of \"n\" is out of range. It must be a non-negative number. Received " + n + ".");
+			this._maxListeners = n;
+			return this;
+		};
+		function _getMaxListeners(that) {
+			if (that._maxListeners === void 0) return EventEmitter.defaultMaxListeners;
+			return that._maxListeners;
+		}
+		EventEmitter.prototype.getMaxListeners = function getMaxListeners() {
+			return _getMaxListeners(this);
+		};
+		EventEmitter.prototype.emit = function emit(type) {
+			var args = [];
+			for (var i = 1; i < arguments.length; i++) args.push(arguments[i]);
+			var doError = type === "error";
+			var events = this._events;
+			if (events !== void 0) doError = doError && events.error === void 0;
+			else if (!doError) return false;
+			if (doError) {
+				var er;
+				if (args.length > 0) er = args[0];
+				if (er instanceof Error) throw er;
+				var err = new Error("Unhandled error." + (er ? " (" + er.message + ")" : ""));
+				err.context = er;
+				throw err;
+			}
+			var handler = events[type];
+			if (handler === void 0) return false;
+			if (typeof handler === "function") ReflectApply(handler, this, args);
+			else {
+				var len = handler.length;
+				var listeners = arrayClone(handler, len);
+				for (var i = 0; i < len; ++i) ReflectApply(listeners[i], this, args);
+			}
+			return true;
+		};
+		function _addListener(target, type, listener, prepend) {
+			var m;
+			var events;
+			var existing;
+			checkListener(listener);
+			events = target._events;
+			if (events === void 0) {
+				events = target._events = Object.create(null);
+				target._eventsCount = 0;
+			} else {
+				if (events.newListener !== void 0) {
+					target.emit("newListener", type, listener.listener ? listener.listener : listener);
+					events = target._events;
+				}
+				existing = events[type];
+			}
+			if (existing === void 0) {
+				existing = events[type] = listener;
+				++target._eventsCount;
+			} else {
+				if (typeof existing === "function") existing = events[type] = prepend ? [listener, existing] : [existing, listener];
+				else if (prepend) existing.unshift(listener);
+				else existing.push(listener);
+				m = _getMaxListeners(target);
+				if (m > 0 && existing.length > m && !existing.warned) {
+					existing.warned = true;
+					var w = new Error("Possible EventEmitter memory leak detected. " + existing.length + " " + String(type) + " listeners added. Use emitter.setMaxListeners() to increase limit");
+					w.name = "MaxListenersExceededWarning";
+					w.emitter = target;
+					w.type = type;
+					w.count = existing.length;
+					ProcessEmitWarning(w);
+				}
+			}
+			return target;
+		}
+		EventEmitter.prototype.addListener = function addListener(type, listener) {
+			return _addListener(this, type, listener, false);
+		};
+		EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+		EventEmitter.prototype.prependListener = function prependListener(type, listener) {
+			return _addListener(this, type, listener, true);
+		};
+		function onceWrapper() {
+			if (!this.fired) {
+				this.target.removeListener(this.type, this.wrapFn);
+				this.fired = true;
+				if (arguments.length === 0) return this.listener.call(this.target);
+				return this.listener.apply(this.target, arguments);
+			}
+		}
+		function _onceWrap(target, type, listener) {
+			var state = {
+				fired: false,
+				wrapFn: void 0,
+				target,
+				type,
+				listener
+			};
+			var wrapped = onceWrapper.bind(state);
+			wrapped.listener = listener;
+			state.wrapFn = wrapped;
+			return wrapped;
+		}
+		EventEmitter.prototype.once = function once(type, listener) {
+			checkListener(listener);
+			this.on(type, _onceWrap(this, type, listener));
+			return this;
+		};
+		EventEmitter.prototype.prependOnceListener = function prependOnceListener(type, listener) {
+			checkListener(listener);
+			this.prependListener(type, _onceWrap(this, type, listener));
+			return this;
+		};
+		EventEmitter.prototype.removeListener = function removeListener(type, listener) {
+			var list, events, position, i, originalListener;
+			checkListener(listener);
+			events = this._events;
+			if (events === void 0) return this;
+			list = events[type];
+			if (list === void 0) return this;
+			if (list === listener || list.listener === listener) {
+				if (--this._eventsCount === 0) this._events = Object.create(null);
+				else {
+					delete events[type];
+					if (events.removeListener) this.emit("removeListener", type, list.listener || listener);
+				}
+			} else if (typeof list !== "function") {
+				position = -1;
+				for (i = list.length - 1; i >= 0; i--) if (list[i] === listener || list[i].listener === listener) {
+					originalListener = list[i].listener;
+					position = i;
+					break;
+				}
+				if (position < 0) return this;
+				if (position === 0) list.shift();
+				else spliceOne(list, position);
+				if (list.length === 1) events[type] = list[0];
+				if (events.removeListener !== void 0) this.emit("removeListener", type, originalListener || listener);
+			}
+			return this;
+		};
+		EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
+		EventEmitter.prototype.removeAllListeners = function removeAllListeners(type) {
+			var listeners, events = this._events, i;
+			if (events === void 0) return this;
+			if (events.removeListener === void 0) {
+				if (arguments.length === 0) {
+					this._events = Object.create(null);
+					this._eventsCount = 0;
+				} else if (events[type] !== void 0) {
+					if (--this._eventsCount === 0) this._events = Object.create(null);
+					else delete events[type];
+				}
+				return this;
+			}
+			if (arguments.length === 0) {
+				var keys = Object.keys(events);
+				var key;
+				for (i = 0; i < keys.length; ++i) {
+					key = keys[i];
+					if (key === "removeListener") continue;
+					this.removeAllListeners(key);
+				}
+				this.removeAllListeners("removeListener");
+				this._events = Object.create(null);
+				this._eventsCount = 0;
+				return this;
+			}
+			listeners = events[type];
+			if (typeof listeners === "function") this.removeListener(type, listeners);
+			else if (listeners !== void 0) for (i = listeners.length - 1; i >= 0; i--) this.removeListener(type, listeners[i]);
+			return this;
+		};
+		function _listeners(target, type, unwrap) {
+			var events = target._events;
+			if (events === void 0) return [];
+			var evlistener = events[type];
+			if (evlistener === void 0) return [];
+			if (typeof evlistener === "function") return unwrap ? [evlistener.listener || evlistener] : [evlistener];
+			return unwrap ? unwrapListeners(evlistener) : arrayClone(evlistener, evlistener.length);
+		}
+		EventEmitter.prototype.listeners = function listeners(type) {
+			return _listeners(this, type, true);
+		};
+		EventEmitter.prototype.rawListeners = function rawListeners(type) {
+			return _listeners(this, type, false);
+		};
+		EventEmitter.listenerCount = function(emitter, type) {
+			if (typeof emitter.listenerCount === "function") return emitter.listenerCount(type);
+			else return listenerCount.call(emitter, type);
+		};
+		EventEmitter.prototype.listenerCount = listenerCount;
+		function listenerCount(type) {
+			var events = this._events;
+			if (events !== void 0) {
+				var evlistener = events[type];
+				if (typeof evlistener === "function") return 1;
+				else if (evlistener !== void 0) return evlistener.length;
+			}
+			return 0;
+		}
+		EventEmitter.prototype.eventNames = function eventNames() {
+			return this._eventsCount > 0 ? ReflectOwnKeys(this._events) : [];
+		};
+		function arrayClone(arr, n) {
+			var copy = new Array(n);
+			for (var i = 0; i < n; ++i) copy[i] = arr[i];
+			return copy;
+		}
+		function spliceOne(list, index) {
+			for (; index + 1 < list.length; index++) list[index] = list[index + 1];
+			list.pop();
+		}
+		function unwrapListeners(arr) {
+			var ret = new Array(arr.length);
+			for (var i = 0; i < ret.length; ++i) ret[i] = arr[i].listener || arr[i];
+			return ret;
+		}
+		function once(emitter, name) {
+			return new Promise(function(resolve, reject) {
+				function errorListener(err) {
+					emitter.removeListener(name, resolver);
+					reject(err);
+				}
+				function resolver() {
+					if (typeof emitter.removeListener === "function") emitter.removeListener("error", errorListener);
+					resolve([].slice.call(arguments));
+				}
+				eventTargetAgnosticAddListener(emitter, name, resolver, { once: true });
+				if (name !== "error") addErrorHandlerIfEventEmitter(emitter, errorListener, { once: true });
+			});
+		}
+		function addErrorHandlerIfEventEmitter(emitter, handler, flags) {
+			if (typeof emitter.on === "function") eventTargetAgnosticAddListener(emitter, "error", handler, flags);
+		}
+		function eventTargetAgnosticAddListener(emitter, name, listener, flags) {
+			if (typeof emitter.on === "function") {
+				if (flags.once) emitter.once(name, listener);
+				else emitter.on(name, listener);
+			} else if (typeof emitter.addEventListener === "function") emitter.addEventListener(name, function wrapListener(arg) {
+				if (flags.once) emitter.removeEventListener(name, wrapListener);
+				listener(arg);
+			});
+			else throw new TypeError("The \"emitter\" argument must be of type EventEmitter. Received type " + typeof emitter);
+		}
+		return events.exports;
+	}
+	var EventEmitter = getDefaultExportFromCjs(requireEvents());
+	var errorCodes;
+	(function(errorCodes) {
+		errorCodes[errorCodes["timeout"] = 1] = "timeout";
+		errorCodes[errorCodes["transportClosed"] = 2] = "transportClosed";
+		errorCodes[errorCodes["clientDisconnected"] = 3] = "clientDisconnected";
+		errorCodes[errorCodes["clientClosed"] = 4] = "clientClosed";
+		errorCodes[errorCodes["clientConnectToken"] = 5] = "clientConnectToken";
+		errorCodes[errorCodes["clientRefreshToken"] = 6] = "clientRefreshToken";
+		errorCodes[errorCodes["subscriptionUnsubscribed"] = 7] = "subscriptionUnsubscribed";
+		errorCodes[errorCodes["subscriptionSubscribeToken"] = 8] = "subscriptionSubscribeToken";
+		errorCodes[errorCodes["subscriptionRefreshToken"] = 9] = "subscriptionRefreshToken";
+		errorCodes[errorCodes["transportWriteError"] = 10] = "transportWriteError";
+		errorCodes[errorCodes["connectionClosed"] = 11] = "connectionClosed";
+		errorCodes[errorCodes["badConfiguration"] = 12] = "badConfiguration";
+		errorCodes[errorCodes["subscriptionGetState"] = 13] = "subscriptionGetState";
+		errorCodes[errorCodes["sharedPollGetSignature"] = 14] = "sharedPollGetSignature";
+	})(errorCodes || (errorCodes = {}));
+	var connectingCodes;
+	(function(connectingCodes) {
+		connectingCodes[connectingCodes["connectCalled"] = 0] = "connectCalled";
+		connectingCodes[connectingCodes["transportClosed"] = 1] = "transportClosed";
+		connectingCodes[connectingCodes["noPing"] = 2] = "noPing";
+		connectingCodes[connectingCodes["subscribeTimeout"] = 3] = "subscribeTimeout";
+		connectingCodes[connectingCodes["unsubscribeError"] = 4] = "unsubscribeError";
+	})(connectingCodes || (connectingCodes = {}));
+	var disconnectedCodes;
+	(function(disconnectedCodes) {
+		disconnectedCodes[disconnectedCodes["disconnectCalled"] = 0] = "disconnectCalled";
+		disconnectedCodes[disconnectedCodes["unauthorized"] = 1] = "unauthorized";
+		disconnectedCodes[disconnectedCodes["badProtocol"] = 2] = "badProtocol";
+		disconnectedCodes[disconnectedCodes["messageSizeLimit"] = 3] = "messageSizeLimit";
+		disconnectedCodes[disconnectedCodes["stateInvalidated"] = 3014] = "stateInvalidated";
+	})(disconnectedCodes || (disconnectedCodes = {}));
+	var subscribingCodes;
+	(function(subscribingCodes) {
+		subscribingCodes[subscribingCodes["subscribeCalled"] = 0] = "subscribeCalled";
+		subscribingCodes[subscribingCodes["transportClosed"] = 1] = "transportClosed";
+	})(subscribingCodes || (subscribingCodes = {}));
+	var unsubscribedCodes;
+	(function(unsubscribedCodes) {
+		unsubscribedCodes[unsubscribedCodes["unsubscribeCalled"] = 0] = "unsubscribeCalled";
+		unsubscribedCodes[unsubscribedCodes["unauthorized"] = 1] = "unauthorized";
+		unsubscribedCodes[unsubscribedCodes["clientClosed"] = 2] = "clientClosed";
+		unsubscribedCodes[unsubscribedCodes["stateInvalidated"] = 2502] = "stateInvalidated";
+	})(unsubscribedCodes || (unsubscribedCodes = {}));
+	var subscriptionFlags;
+	(function(subscriptionFlags) {
+		subscriptionFlags[subscriptionFlags["channelCompaction"] = 1] = "channelCompaction";
+		subscriptionFlags[subscriptionFlags["rejectUnrecovered"] = 2] = "rejectUnrecovered";
+	})(subscriptionFlags || (subscriptionFlags = {}));
+	var State;
+	(function(State) {
+		State["Disconnected"] = "disconnected";
+		State["Connecting"] = "connecting";
+		State["Connected"] = "connected";
+	})(State || (State = {}));
+	var SubscriptionState;
+	(function(SubscriptionState) {
+		SubscriptionState["Unsubscribed"] = "unsubscribed";
+		SubscriptionState["Subscribing"] = "subscribing";
+		SubscriptionState["Subscribed"] = "subscribed";
+	})(SubscriptionState || (SubscriptionState = {}));
+	function startsWith(value, prefix) {
+		return value.lastIndexOf(prefix, 0) === 0;
+	}
+	function isFunction(value) {
+		if (value === void 0 || value === null) return false;
+		return typeof value === "function";
+	}
+	function log(level, args) {
+		if (globalThis.console) {
+			const logger = globalThis.console[level];
+			if (isFunction(logger)) logger.apply(globalThis.console, args);
+		}
+	}
+	function randomInt(min, max) {
+		return Math.floor(Math.random() * (max - min + 1) + min);
+	}
+	function backoff(step, min, max) {
+		if (step > 31) step = 31;
+		const interval = randomInt(0, Math.min(max, min * Math.pow(2, step)));
+		return Math.min(max, min + interval);
+	}
+	function errorExists(data) {
+		return "error" in data && data.error !== null;
+	}
+	function ttlMilliseconds(ttl) {
+		return Math.min(ttl * 1e3, 2147483647);
+	}
+	function localStorageItem(key) {
+		try {
+			if (typeof localStorage === "undefined" || localStorage === null || !isFunction(localStorage.getItem)) return null;
+			return localStorage.getItem(key);
+		} catch (e) {
+			return null;
+		}
+	}
+	var MapPhase;
+	(function(MapPhase) {
+		MapPhase[MapPhase["Live"] = 0] = "Live";
+		MapPhase[MapPhase["Stream"] = 1] = "Stream";
+		MapPhase[MapPhase["State"] = 2] = "State";
+	})(MapPhase || (MapPhase = {}));
+	var BaseSubscription = class extends EventEmitter {
+		constructor(centrifuge, channel, options) {
+			super();
+			this._resubscribeTimeout = null;
+			this._refreshTimeout = null;
+			this._getState = null;
+			this._map = false;
+			this._mapPresenceType = 1;
+			this._mapPhase = null;
+			this._mapStateBuffer = [];
+			this._mapStreamBuffer = [];
+			this._mapCursor = "";
+			this._mapPageSize = 0;
+			this._mapUnrecoverableStrategy = "from_scratch";
+			this._debounceMs = 0;
+			this._debouncePending = new Map();
+			this._sharedPoll = false;
+			this._sharedPollEpoch = "";
+			this._sharedPollTrackedItems = new Map();
+			this._sharedPollGetSignature = null;
+			this._sharedPollSignatureRefreshTimeout = null;
+			this._sharedPollSignatureRefreshAttempts = 0;
+			this._sharedPollTrackRetryTimeout = null;
+			this._sharedPollTrackRetryAttempts = 0;
+			this._sharedPollReplayRetryTimeout = null;
+			this._sharedPollReplayRetryAttempts = 0;
+			this._sharedPollSignatures = [];
+			this._sharedPollSignatureRefreshTargetMs = null;
+			this._sharedPollSignatureRefreshInFlight = false;
+			this.channel = channel;
+			this.state = SubscriptionState.Unsubscribed;
+			this._centrifuge = centrifuge;
+			this._token = "";
+			this._getToken = null;
+			this._data = null;
+			this._getData = null;
+			this._recover = false;
+			this._offset = null;
+			this._epoch = null;
+			this._id = 0;
+			this._recoverable = false;
+			this._positioned = false;
+			this._joinLeave = false;
+			this._minResubscribeDelay = 500;
+			this._maxResubscribeDelay = 2e4;
+			this._resubscribeTimeout = null;
+			this._resubscribeAttempts = 0;
+			this._promises = {};
+			this._promiseId = 0;
+			this._inflight = false;
+			this._refreshTimeout = null;
+			this._delta = "";
+			this._delta_negotiated = false;
+			this._tagsFilter = null;
+			this._prevValueMap = new Map();
+			this._unsubPromise = Promise.resolve();
+			this._deltaNumPubs = 0;
+			this._deltaNumFull = 0;
+			this._deltaNumDelta = 0;
+			this._deltaBytesReceived = 0;
+			this._deltaBytesDecoded = 0;
+			this._setOptions(options);
+			this.type = this._sharedPoll ? "shared_poll" : this._map ? "map" : "stream";
+			if (this._centrifuge._debugEnabled) {
+				this.on("state", (ctx) => {
+					this._debug("subscription state", channel, ctx.oldState, "->", ctx.newState);
+				});
+				this.on("error", (ctx) => {
+					this._debug("subscription error", channel, ctx);
+				});
+			} else this.on("error", function() {
+				Function.prototype();
+			});
+		}
+		ready(timeout) {
+			if (this.state === SubscriptionState.Unsubscribed) return Promise.reject({
+				code: errorCodes.subscriptionUnsubscribed,
+				message: this.state
+			});
+			if (this.state === SubscriptionState.Subscribed) return Promise.resolve();
+			return new Promise((res, rej) => {
+				const ctx = {
+					resolve: res,
+					reject: rej
+				};
+				if (timeout) ctx.timeout = setTimeout(function() {
+					rej({
+						code: errorCodes.timeout,
+						message: "timeout"
+					});
+				}, timeout);
+				this._promises[this._nextPromiseId()] = ctx;
+			});
+		}
+		subscribe() {
+			if (this._isSubscribed()) return;
+			this._resubscribeAttempts = 0;
+			this._setSubscribing(subscribingCodes.subscribeCalled, "subscribe called");
+		}
+		unsubscribe() {
+			this._unsubPromise = this._setUnsubscribed(unsubscribedCodes.unsubscribeCalled, "unsubscribe called", true);
+		}
+		_debouncedPublish(key, data, isMap) {
+			const existing = this._debouncePending.get(key);
+			if (existing) {
+				existing.data = data;
+				existing.dirty = true;
+				return Promise.resolve({});
+			}
+			const entry = {
+				data,
+				dirty: false,
+				timer: null
+			};
+			entry.timer = setTimeout(() => {
+				const pending = this._debouncePending.get(key);
+				if (!pending || !pending.dirty) {
+					this._debouncePending.delete(key);
+					return;
+				}
+				pending.dirty = false;
+				const sendData = pending.data;
+				(isMap ? this._centrifuge.mapPublish(this.channel, key, sendData) : this._centrifuge.publish(this.channel, sendData)).catch(() => {});
+				pending.timer = setTimeout(() => {
+					const p = this._debouncePending.get(key);
+					if (!p || !p.dirty) {
+						this._debouncePending.delete(key);
+						return;
+					}
+					this._debouncePending.delete(key);
+					this._debouncedPublish(key, p.data, isMap);
+				}, this._debounceMs);
+			}, this._debounceMs);
+			this._debouncePending.set(key, entry);
+			return isMap ? this._centrifuge.mapPublish(this.channel, key, data) : this._centrifuge.publish(this.channel, data);
+		}
+		_cancelDebounce(key) {
+			const existing = this._debouncePending.get(key);
+			if (existing) {
+				clearTimeout(existing.timer);
+				this._debouncePending.delete(key);
+			}
+		}
+		_cancelAllDebounce() {
+			for (const [, entry] of this._debouncePending) clearTimeout(entry.timer);
+			this._debouncePending.clear();
+		}
+		presence() {
+			return __awaiter(this, void 0, void 0, function* () {
+				yield this._methodCall();
+				return this._centrifuge.presence(this.channel);
+			});
+		}
+		presenceStats() {
+			return __awaiter(this, void 0, void 0, function* () {
+				yield this._methodCall();
+				return this._centrifuge.presenceStats(this.channel);
+			});
+		}
+		setTagsFilter(tagsFilter) {
+			if (tagsFilter && this._delta) throw new Error("cannot use delta and tagsFilter together");
+			this._tagsFilter = tagsFilter;
+			if (this._map) {
+				this._recover = false;
+				this._offset = null;
+				this._epoch = null;
+			}
+		}
+		setData(data) {
+			this._data = data;
+		}
+		deltaStats() {
+			const bytesDecoded = this._deltaBytesDecoded;
+			return {
+				numPublications: this._deltaNumPubs,
+				numFullPayloads: this._deltaNumFull,
+				numDeltaPayloads: this._deltaNumDelta,
+				bytesReceived: this._deltaBytesReceived,
+				bytesDecoded,
+				compressionRatio: bytesDecoded > 0 ? 1 - this._deltaBytesReceived / bytesDecoded : 0
+			};
+		}
+		_methodCall() {
+			if (this._isSubscribed()) return Promise.resolve();
+			if (this._isUnsubscribed()) return Promise.reject({
+				code: errorCodes.subscriptionUnsubscribed,
+				message: this.state
+			});
+			return new Promise((resolve, reject) => {
+				const timeoutDuration = this._centrifuge._config.timeout;
+				const timeout = setTimeout(() => {
+					reject({
+						code: errorCodes.timeout,
+						message: "timeout"
+					});
+				}, timeoutDuration);
+				this._promises[this._nextPromiseId()] = {
+					timeout,
+					resolve,
+					reject
+				};
+			});
+		}
+		_nextPromiseId() {
+			return ++this._promiseId;
+		}
+		_needRecover() {
+			return this._recover === true;
+		}
+		_isUnsubscribed() {
+			return this.state === SubscriptionState.Unsubscribed;
+		}
+		_isSubscribing() {
+			return this.state === SubscriptionState.Subscribing;
+		}
+		_isSubscribed() {
+			return this.state === SubscriptionState.Subscribed;
+		}
+		_setState(newState) {
+			if (this.state !== newState) {
+				const oldState = this.state;
+				this.state = newState;
+				this.emit("state", {
+					newState,
+					oldState,
+					channel: this.channel
+				});
+				return true;
+			}
+			return false;
+		}
+		_usesToken() {
+			return this._token !== "" || this._getToken !== null;
+		}
+		_clearSubscribingState() {
+			this._resubscribeAttempts = 0;
+			this._clearResubscribeTimeout();
+		}
+		_clearSubscribedState() {
+			this._clearRefreshTimeout();
+			this._cancelAllDebounce();
+			this._clearSharedPollSignatureRefresh();
+			this._clearSharedPollTrackRetry();
+			this._clearSharedPollReplayRetry();
+			this._sharedPollSignatureRefreshTargetMs = null;
+			this._sharedPollSignatureRefreshInFlight = false;
+		}
+		_invalidateState() {
+			this._token = "";
+			this._prevValueMap = new Map();
+			if (this._map) {
+				this._offset = null;
+				this._epoch = null;
+				this._recover = false;
+				this._mapStateBuffer = [];
+				this._mapStreamBuffer = [];
+				this._mapCursor = "";
+				this._mapPhase = null;
+			} else {
+				this._offset = 0;
+				this._epoch = "_";
+			}
+		}
+		_setSubscribed(result) {
+			if (!this._isSubscribing()) return;
+			this._clearSubscribingState();
+			if (result.id) this._id = result.id;
+			if (result.recoverable) {
+				this._recover = true;
+				this._offset = result.offset || 0;
+				this._epoch = result.epoch || "";
+			}
+			if (result.delta) this._delta_negotiated = true;
+			else this._delta_negotiated = false;
+			if (result.publish_debounce) this._debounceMs = result.publish_debounce;
+			if (this._sharedPoll) {
+				const newEpoch = result.epoch || "";
+				if (this._sharedPollEpoch !== "" && this._sharedPollEpoch !== newEpoch) for (const key of this._sharedPollTrackedItems.keys()) this._sharedPollTrackedItems.set(key, 0);
+				this._sharedPollEpoch = newEpoch;
+			}
+			this._setState(SubscriptionState.Subscribed);
+			const ctx = this._centrifuge._getSubscribeContext(this.channel, result);
+			this.emit("subscribed", ctx);
+			this._resolvePromises();
+			const pubs = result.publications;
+			if (pubs && pubs.length > 0) for (const i in pubs) {
+				if (!pubs.hasOwnProperty(i)) continue;
+				this._handlePublication(pubs[i]);
+			}
+			if (result.expires === true) this._refreshTimeout = setTimeout(() => this._refresh(), ttlMilliseconds(result.ttl));
+		}
+		_setSubscribing(code, reason) {
+			return __awaiter(this, void 0, void 0, function* () {
+				if (this._isSubscribing()) return;
+				if (this._isSubscribed()) this._clearSubscribedState();
+				this._id = 0;
+				if (this._setState(SubscriptionState.Subscribing)) this.emit("subscribing", {
+					channel: this.channel,
+					code,
+					reason
+				});
+				if (this._centrifuge._transport && this._centrifuge._transport.emulation()) yield this._unsubPromise;
+				if (!this._isSubscribing()) return;
+				this._subscribe();
+			});
+		}
+		_subscribe() {
+			this._debug("subscribing on", this.channel);
+			if (!this._isTransportOpen()) {
+				this._debug("delay subscribe on", this.channel, "till connected");
+				return null;
+			}
+			if (this._inflight) return null;
+			this._inflight = true;
+			if (this._map) {
+				this._mapSubscribe();
+				return null;
+			}
+			if (this._getState && this._offset === null) {
+				this._loadStreamState();
+				return null;
+			}
+			if (this._canSubscribeWithoutGettingToken()) return this._subscribeWithoutToken();
+			this._getSubscriptionToken().then((token) => this._handleTokenResponse(token)).catch((e) => this._handleTokenError(e));
+			return null;
+		}
+		_isTransportOpen() {
+			return this._centrifuge._transportIsOpen;
+		}
+		_canSubscribeWithoutGettingToken() {
+			return !this._usesToken() || !!this._token;
+		}
+		_subscribeWithoutToken() {
+			if (this._getData) {
+				this._getDataAndSubscribe(this._token);
+				return null;
+			} else return this._sendSubscribe(this._token);
+		}
+		_loadStreamState() {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			this._getState().then((result) => {
+				if (!this._isSubscribing()) {
+					this._inflight = false;
+					return;
+				}
+				this._offset = result.offset;
+				this._epoch = result.epoch;
+				this._recover = true;
+				if (this._canSubscribeWithoutGettingToken()) this._subscribeWithoutToken();
+				else this._getSubscriptionToken().then((token) => this._handleTokenResponse(token)).catch((e) => this._handleTokenError(e));
+			}).catch((e) => {
+				if (!this._isSubscribing()) {
+					this._inflight = false;
+					return;
+				}
+				this._inflight = false;
+				this._subscribeError({
+					code: errorCodes.subscriptionGetState,
+					message: (e === null || e === void 0 ? void 0 : e.toString()) || "getState failed",
+					temporary: true
+				});
+			});
+		}
+		_getDataAndSubscribe(token) {
+			if (!this._getData) {
+				this._inflight = false;
+				return;
+			}
+			this._getData({ channel: this.channel }).then((data) => {
+				if (!this._isSubscribing()) {
+					this._inflight = false;
+					return;
+				}
+				this._data = data;
+				this._sendSubscribe(token);
+			}).catch((e) => this._handleGetDataError(e));
+		}
+		_handleGetDataError(error) {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			if (error instanceof UnauthorizedError) {
+				this._inflight = false;
+				this._failUnauthorized();
+				return;
+			}
+			this.emit("error", {
+				type: "subscribeData",
+				channel: this.channel,
+				error: {
+					code: errorCodes.badConfiguration,
+					message: (error === null || error === void 0 ? void 0 : error.toString()) || ""
+				}
+			});
+			this._inflight = false;
+			this._scheduleResubscribe();
+		}
+		_handleTokenResponse(token) {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			if (!token) {
+				this._inflight = false;
+				this._failUnauthorized();
+				return;
+			}
+			this._token = token;
+			if (this._getData) this._getDataAndSubscribe(token);
+			else this._sendSubscribe(token);
+		}
+		_handleTokenError(error) {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			if (error instanceof UnauthorizedError) {
+				this._inflight = false;
+				this._failUnauthorized();
+				return;
+			}
+			this.emit("error", {
+				type: "subscribeToken",
+				channel: this.channel,
+				error: {
+					code: errorCodes.subscriptionSubscribeToken,
+					message: (error === null || error === void 0 ? void 0 : error.toString()) || ""
+				}
+			});
+			this._inflight = false;
+			this._scheduleResubscribe();
+		}
+		_sendSubscribe(token) {
+			if (!this._isTransportOpen()) {
+				this._inflight = false;
+				return null;
+			}
+			const cmd = this._buildSubscribeCommand(token);
+			this._centrifuge._call(cmd).then((resolveCtx) => {
+				this._inflight = false;
+				const result = resolveCtx.reply.subscribe;
+				this._handleSubscribeResponse(result);
+				if (resolveCtx.next) resolveCtx.next();
+			}, (rejectCtx) => {
+				this._inflight = false;
+				this._handleSubscribeError(rejectCtx.error);
+				if (rejectCtx.next) rejectCtx.next();
+			});
+			return cmd;
+		}
+		_buildSubscribeCommand(token) {
+			const req = { channel: this.channel };
+			if (token) req.token = token;
+			if (this._data) req.data = this._data;
+			if (this._sharedPoll) {
+				req.type = 4;
+				if (this._delta) req.delta = this._delta;
+				return { subscribe: req };
+			}
+			if (this._positioned) req.positioned = true;
+			if (this._recoverable) req.recoverable = true;
+			if (this._joinLeave) req.join_leave = true;
+			req.flag = subscriptionFlags.channelCompaction;
+			if (this._getState) req.flag |= subscriptionFlags.rejectUnrecovered;
+			if (this._needRecover()) {
+				req.recover = true;
+				const offset = this._getOffset();
+				if (offset) req.offset = offset;
+				const epoch = this._getEpoch();
+				if (epoch) req.epoch = epoch;
+			}
+			if (this._delta) req.delta = this._delta;
+			if (this._tagsFilter) req.tf = this._tagsFilter;
+			return { subscribe: req };
+		}
+		_debug(...args) {
+			this._centrifuge._debug(...args);
+		}
+		_handleSubscribeError(error) {
+			if (!this._isSubscribing()) return;
+			if (error.code === errorCodes.timeout) {
+				this._centrifuge._disconnect(connectingCodes.subscribeTimeout, "subscribe timeout", true);
+				return;
+			}
+			if (error.code === 112 && this._getState) {
+				this._offset = null;
+				this._epoch = null;
+				this._recover = false;
+				this._prevValueMap = new Map();
+				this._scheduleResubscribe();
+				return;
+			}
+			this._subscribeError(error);
+		}
+		_handleSubscribeResponse(result) {
+			if (!this._isSubscribing()) return;
+			this._setSubscribed(result);
+			if (this._sharedPoll) this._sharedPollReplayTrack();
+		}
+		_setUnsubscribed(code, reason, sendUnsubscribe) {
+			if (this._isUnsubscribed()) return Promise.resolve();
+			let promise = Promise.resolve();
+			if (this._isSubscribed()) {
+				if (sendUnsubscribe) promise = this._centrifuge._unsubscribe(this);
+				this._clearSubscribedState();
+			} else if (this._isSubscribing()) {
+				if (this._inflight && sendUnsubscribe) promise = this._centrifuge._unsubscribe(this);
+				this._clearSubscribingState();
+			}
+			this._inflight = false;
+			this._id = 0;
+			this._sharedPollEpoch = "";
+			this._sharedPollSignatures = [];
+			this._sharedPollTrackedItems.clear();
+			this._sharedPollSignatureRefreshInFlight = false;
+			this._sharedPollSignatureRefreshTargetMs = null;
+			this._cancelAllDebounce();
+			if (this._setState(SubscriptionState.Unsubscribed)) this.emit("unsubscribed", {
+				channel: this.channel,
+				code,
+				reason
+			});
+			this._rejectPromises({
+				code: errorCodes.subscriptionUnsubscribed,
+				message: this.state
+			});
+			return promise;
+		}
+		_handlePublication(pub) {
+			if (this._delta && this._delta_negotiated) {
+				const deltaKey = this._map || this._sharedPoll ? pub.key || "" : "";
+				const { newData, newPrevValue, isDelta, wireBytes, fullBytes } = this._centrifuge._codec.applyDeltaIfNeeded(pub, this._prevValueMap.get(deltaKey));
+				pub.data = newData;
+				this._deltaNumPubs++;
+				this._deltaBytesReceived += wireBytes;
+				this._deltaBytesDecoded += fullBytes;
+				if (isDelta) this._deltaNumDelta++;
+				else this._deltaNumFull++;
+				if (pub.removed) this._prevValueMap.delete(deltaKey);
+				else this._prevValueMap.set(deltaKey, newPrevValue);
+			}
+			let ctx;
+			if (this._sharedPoll) {
+				if (pub.key && !this._sharedPollTrackedItems.has(pub.key)) return;
+				if (pub.key) {
+					if (pub.removed) this._sharedPollTrackedItems.delete(pub.key);
+					else if (pub.version) this._sharedPollTrackedItems.set(pub.key, pub.version);
+				}
+				ctx = this._getSharedPollUpdateContext(pub);
+			} else if (this._map) ctx = this._getMapUpdateContext(pub);
+			else ctx = this._centrifuge._getPublicationContext(this.channel, pub);
+			this.emit("publication", ctx);
+			if (this._map || this._sharedPoll) this.emit("update", ctx);
+			if (pub.offset) this._offset = pub.offset;
+			if (pub.epoch) this._epoch = pub.epoch;
+		}
+		_seedDeltaTracking(pub) {
+			if (!this._delta || !pub.key) return;
+			if (typeof pub.data === "string") {
+				const rawBytes = pub.data;
+				const encoded = new TextEncoder().encode(rawBytes);
+				if (!pub.removed) this._prevValueMap.set(pub.key, encoded);
+				else this._prevValueMap.delete(pub.key);
+				const byteLen = encoded.length;
+				this._deltaNumPubs++;
+				this._deltaNumFull++;
+				this._deltaBytesReceived += byteLen;
+				this._deltaBytesDecoded += byteLen;
+				pub.data = JSON.parse(rawBytes);
+			} else if (pub.data instanceof Uint8Array) {
+				if (!pub.removed) this._prevValueMap.set(pub.key, pub.data);
+				else this._prevValueMap.delete(pub.key);
+				const byteLen = pub.data.length;
+				this._deltaNumPubs++;
+				this._deltaNumFull++;
+				this._deltaBytesReceived += byteLen;
+				this._deltaBytesDecoded += byteLen;
+			}
+		}
+		_handleJoin(join) {
+			const info = this._centrifuge._getJoinLeaveContext(join.info);
+			this.emit("join", {
+				channel: this.channel,
+				info
+			});
+		}
+		_handleLeave(leave) {
+			const info = this._centrifuge._getJoinLeaveContext(leave.info);
+			this.emit("leave", {
+				channel: this.channel,
+				info
+			});
+		}
+		_resolvePromises() {
+			for (const id in this._promises) {
+				if (!this._promises.hasOwnProperty(id)) continue;
+				if (this._promises[id].timeout) clearTimeout(this._promises[id].timeout);
+				this._promises[id].resolve();
+				delete this._promises[id];
+			}
+		}
+		_rejectPromises(err) {
+			for (const id in this._promises) {
+				if (!this._promises.hasOwnProperty(id)) continue;
+				if (this._promises[id].timeout) clearTimeout(this._promises[id].timeout);
+				this._promises[id].reject(err);
+				delete this._promises[id];
+			}
+		}
+		_scheduleResubscribe() {
+			if (!this._isSubscribing()) {
+				this._debug("not in subscribing state, skip resubscribe scheduling", this.channel);
+				return;
+			}
+			const self = this;
+			const delay = this._getResubscribeDelay();
+			this._resubscribeTimeout = setTimeout(function() {
+				if (self._isSubscribing()) self._subscribe();
+			}, delay);
+			this._debug("resubscribe scheduled after " + delay, this.channel);
+		}
+		_subscribeError(err) {
+			if (!this._isSubscribing()) return;
+			if (err.code < 100 || err.code === 109 || err.temporary === true) {
+				if (err.code === 109) this._token = "";
+				const errContext = {
+					channel: this.channel,
+					type: "subscribe",
+					error: err
+				};
+				if (this._centrifuge.state === State.Connected) this.emit("error", errContext);
+				this._scheduleResubscribe();
+			} else this._setUnsubscribed(err.code, err.message, false);
+		}
+		_getResubscribeDelay() {
+			const delay = backoff(this._resubscribeAttempts, this._minResubscribeDelay, this._maxResubscribeDelay);
+			this._resubscribeAttempts++;
+			return delay;
+		}
+		_setOptions(options) {
+			if (!options) return;
+			if (options.since) {
+				this._offset = options.since.offset || 0;
+				this._epoch = options.since.epoch || "";
+				this._recover = true;
+			}
+			if (options.data) this._data = options.data;
+			if (options.getData) this._getData = options.getData;
+			if (options.minResubscribeDelay !== void 0) this._minResubscribeDelay = options.minResubscribeDelay;
+			if (options.maxResubscribeDelay !== void 0) this._maxResubscribeDelay = options.maxResubscribeDelay;
+			if (options.token) this._token = options.token;
+			if (options.getToken) this._getToken = options.getToken;
+			if (options.positioned === true) this._positioned = true;
+			if (options.recoverable === true) this._recoverable = true;
+			if (options.joinLeave === true) this._joinLeave = true;
+			if (options.delta) {
+				if (options.delta !== "fossil") throw new Error("unsupported delta format");
+				this._delta = options.delta;
+			}
+			if (options.tagsFilter) this._tagsFilter = options.tagsFilter;
+			if (this._tagsFilter && this._delta) throw new Error("cannot use delta and tagsFilter together");
+			if (options.getState) {
+				this._getState = options.getState;
+				this._recover = true;
+			}
+			if (options.map === true) this._map = true;
+			if (options.mapPageSize !== void 0) this._mapPageSize = options.mapPageSize;
+			if (options.mapPresenceType !== void 0) {
+				this._mapPresenceType = options.mapPresenceType;
+				this._map = true;
+			}
+			if (options.mapUnrecoverableStrategy) this._mapUnrecoverableStrategy = options.mapUnrecoverableStrategy;
+			if (options.sharedPoll === true) this._sharedPoll = true;
+			if (options.sharedPollGetSignature) this._sharedPollGetSignature = options.sharedPollGetSignature;
+		}
+		_getOffset() {
+			const offset = this._offset;
+			if (offset !== null) return offset;
+			return 0;
+		}
+		_getEpoch() {
+			const epoch = this._epoch;
+			if (epoch !== null) return epoch;
+			return "";
+		}
+		_clearRefreshTimeout() {
+			if (this._refreshTimeout !== null) {
+				clearTimeout(this._refreshTimeout);
+				this._refreshTimeout = null;
+			}
+		}
+		_clearResubscribeTimeout() {
+			if (this._resubscribeTimeout !== null) {
+				clearTimeout(this._resubscribeTimeout);
+				this._resubscribeTimeout = null;
+			}
+		}
+		_getSubscriptionToken() {
+			this._debug("get subscription token for channel", this.channel);
+			const ctx = { channel: this.channel };
+			const getToken = this._getToken;
+			if (getToken === null) {
+				this.emit("error", {
+					type: "configuration",
+					channel: this.channel,
+					error: {
+						code: errorCodes.badConfiguration,
+						message: "provide a function to get channel subscription token"
+					}
+				});
+				return Promise.reject(new UnauthorizedError(""));
+			}
+			return getToken(ctx);
+		}
+		_refresh() {
+			this._clearRefreshTimeout();
+			const self = this;
+			this._getSubscriptionToken().then(function(token) {
+				if (!self._isSubscribed()) return;
+				if (!token) {
+					self._failUnauthorized();
+					return;
+				}
+				self._token = token;
+				const msg = { "sub_refresh": {
+					channel: self.channel,
+					token
+				} };
+				self._centrifuge._call(msg).then((resolveCtx) => {
+					const result = resolveCtx.reply.sub_refresh;
+					self._refreshResponse(result);
+					if (resolveCtx.next) resolveCtx.next();
+				}, (rejectCtx) => {
+					self._refreshError(rejectCtx.error);
+					if (rejectCtx.next) rejectCtx.next();
+				});
+			}).catch(function(e) {
+				if (e instanceof UnauthorizedError) {
+					self._failUnauthorized();
+					return;
+				}
+				self.emit("error", {
+					type: "refreshToken",
+					channel: self.channel,
+					error: {
+						code: errorCodes.subscriptionRefreshToken,
+						message: e !== void 0 ? e.toString() : ""
+					}
+				});
+				self._refreshTimeout = setTimeout(() => self._refresh(), self._getRefreshRetryDelay());
+			});
+		}
+		_refreshResponse(result) {
+			if (!this._isSubscribed()) return;
+			this._debug("subscription token refreshed, channel", this.channel);
+			this._clearRefreshTimeout();
+			if (result.expires === true) this._refreshTimeout = setTimeout(() => this._refresh(), ttlMilliseconds(result.ttl));
+		}
+		_refreshError(err) {
+			if (!this._isSubscribed()) return;
+			if (err.code < 100 || err.temporary === true) {
+				this.emit("error", {
+					type: "refresh",
+					channel: this.channel,
+					error: err
+				});
+				this._refreshTimeout = setTimeout(() => this._refresh(), this._getRefreshRetryDelay());
+			} else this._setUnsubscribed(err.code, err.message, true);
+		}
+		_getRefreshRetryDelay() {
+			return backoff(0, 1e4, 2e4);
+		}
+		_failUnauthorized() {
+			this._setUnsubscribed(unsubscribedCodes.unauthorized, "unauthorized", true);
+		}
+		_sendTrackRequest(batches, untrackKeys) {
+			if (batches.length === 0) return Promise.resolve();
+			const maxBytes = 6e4;
+			const frames = [];
+			let current = [];
+			let currentBytes = 100;
+			if (untrackKeys && untrackKeys.length > 0) for (const key of untrackKeys) currentBytes += key.length + 4;
+			for (const b of batches) {
+				let cost = 100;
+				for (const it of b.items) cost += it.key.length + 16;
+				if (current.length > 0 && currentBytes + cost > maxBytes) {
+					frames.push(current);
+					current = [];
+					currentBytes = 100;
+				}
+				current.push(b);
+				currentBytes += cost;
+			}
+			if (current.length > 0) frames.push(current);
+			const send = (frame, frameUntrackKeys) => new Promise((resolve, reject) => {
+				const req = {
+					channel: this.channel,
+					type: 1,
+					track: frame.map((b) => ({
+						signature: b.signature,
+						items: b.items.map((i) => i.version > 0 ? i : { key: i.key })
+					}))
+				};
+				if (frameUntrackKeys && frameUntrackKeys.length > 0) req.untrack = frameUntrackKeys;
+				const msg = { "sub_refresh": req };
+				this._centrifuge._call(msg).then((resolveCtx) => {
+					this._handleTrackResponse(resolveCtx.reply.sub_refresh);
+					if (resolveCtx.next) resolveCtx.next();
+					resolve();
+				}, (rejectCtx) => {
+					if (rejectCtx.next) rejectCtx.next();
+					reject(rejectCtx.error);
+				});
+			});
+			return frames.reduce((chain, frame, idx) => chain.then(() => send(frame, idx === 0 ? untrackKeys : void 0)), Promise.resolve());
+		}
+		_sendUntrackRequest(keys) {
+			return new Promise((resolve, reject) => {
+				const msg = { "sub_refresh": {
+					channel: this.channel,
+					type: 2,
+					untrack: keys
+				} };
+				this._centrifuge._call(msg).then((resolveCtx) => {
+					if (resolveCtx.next) resolveCtx.next();
+					resolve();
+				}, (rejectCtx) => {
+					if (rejectCtx.next) rejectCtx.next();
+					reject(rejectCtx.error);
+				});
+			});
+		}
+		_handleTrackResponse(result) {
+			this._clearSharedPollTrackRetry();
+			if (result && result.items && result.items.length > 0) for (const pub of result.items) this._handlePublication(pub);
+			if (result && result.expires === true && result.ttl > 0) {
+				const targetMs = Date.now() + result.ttl * 1e3;
+				this._maybeScheduleSharedPollSignatureRefresh(targetMs);
+			}
+		}
+		_maybeScheduleSharedPollSignatureRefresh(targetMs) {
+			if (targetMs === null) {
+				this._sharedPollSignatureRefreshTargetMs = null;
+				this._clearSharedPollSignatureRefresh();
+				return;
+			}
+			if (!this._isSubscribed()) return;
+			if (this._sharedPollSignatureRefreshTargetMs !== null && targetMs >= this._sharedPollSignatureRefreshTargetMs) return;
+			this._sharedPollSignatureRefreshTargetMs = targetMs;
+			this._clearSharedPollSignatureRefresh();
+			this._sharedPollSignatureRefreshTimeout = setTimeout(() => this._sharedPollRefreshSignature(), Math.max(0, targetMs - Date.now()));
+		}
+		_clearSharedPollSignatureRefresh() {
+			if (this._sharedPollSignatureRefreshTimeout !== null) {
+				clearTimeout(this._sharedPollSignatureRefreshTimeout);
+				this._sharedPollSignatureRefreshTimeout = null;
+			}
+			this._sharedPollSignatureRefreshAttempts = 0;
+		}
+		_clearSharedPollTrackRetry() {
+			if (this._sharedPollTrackRetryTimeout !== null) {
+				clearTimeout(this._sharedPollTrackRetryTimeout);
+				this._sharedPollTrackRetryTimeout = null;
+			}
+			this._sharedPollTrackRetryAttempts = 0;
+		}
+		_clearSharedPollReplayRetry() {
+			if (this._sharedPollReplayRetryTimeout !== null) {
+				clearTimeout(this._sharedPollReplayRetryTimeout);
+				this._sharedPollReplayRetryTimeout = null;
+			}
+			this._sharedPollReplayRetryAttempts = 0;
+		}
+		_handleTrackError(err) {
+			if (!this._isSubscribed()) return;
+			this.emit("error", {
+				type: "track",
+				channel: this.channel,
+				error: err
+			});
+			if (err.code === 109) {
+				this._sharedPollRefreshSignature();
+				return;
+			}
+			if (err.code < 100 || err.temporary === true) this._sharedPollTrackRetryTimeout = setTimeout(() => this._sharedPollReplayTrack(), backoff(this._sharedPollTrackRetryAttempts++, 1e3, 15e3));
+		}
+		_sharedPollRefreshSignature() {
+			this._clearSharedPollSignatureRefresh();
+			if (!this._isSubscribed()) return;
+			if (!this._sharedPollGetSignature) return;
+			if (this._sharedPollTrackedItems.size === 0) return;
+			if (this._sharedPollSignatureRefreshInFlight) return;
+			this._sharedPollSignatureRefreshTargetMs = null;
+			this._sharedPollSignatureRefreshInFlight = true;
+			const keys = Array.from(this._sharedPollTrackedItems.keys());
+			const self = this;
+			this._sharedPollGetSignature({ keys }).then((result) => {
+				self._sharedPollSignatureRefreshInFlight = false;
+				if (!self._isSubscribed()) return;
+				self._sharedPollSignatureRefreshAttempts = 0;
+				const returnedKeys = new Set(result.keys);
+				const revokedKeys = [];
+				for (const key of keys) if (!returnedKeys.has(key)) {
+					self._sharedPollTrackedItems.delete(key);
+					revokedKeys.push(key);
+					self.emit("update", {
+						channel: self.channel,
+						key,
+						data: null,
+						removed: true
+					});
+				}
+				if (revokedKeys.length > 0) self._sendUntrackRequest(revokedKeys).catch((err) => {
+					self.emit("error", {
+						type: "untrack",
+						channel: self.channel,
+						error: err
+					});
+				});
+				const items = [];
+				for (const key of result.keys) {
+					const version = self._sharedPollTrackedItems.get(key);
+					if (version !== void 0) items.push({
+						key,
+						version
+					});
+				}
+				const consolidatedKeySet = new Set(result.keys);
+				const uncovered = self._sharedPollSignatures.filter((entry) => entry.keys.some((k) => self._sharedPollTrackedItems.has(k) && !consolidatedKeySet.has(k)));
+				self._sharedPollSignatures = items.length > 0 ? [{
+					keys: result.keys,
+					signature: result.signature
+				}, ...uncovered] : uncovered;
+				if (items.length === 0) return;
+				self._sendTrackRequest([{
+					items,
+					signature: result.signature
+				}]).catch((err) => {
+					self._handleTrackError(err);
+				});
+			}).catch((e) => {
+				self._sharedPollSignatureRefreshInFlight = false;
+				self.emit("error", {
+					type: "signatureRefresh",
+					channel: self.channel,
+					error: {
+						code: errorCodes.sharedPollGetSignature,
+						message: e !== void 0 ? e.toString() : ""
+					}
+				});
+				self._sharedPollSignatureRefreshTimeout = setTimeout(() => self._sharedPollRefreshSignature(), backoff(self._sharedPollSignatureRefreshAttempts++, 5e3, 3e4));
+			});
+		}
+		_sharedPollReplayTrack() {
+			if (!this._isSubscribed()) return;
+			if (this._sharedPollTrackedItems.size === 0 && this._sharedPollSignatures.length === 0) return;
+			const coveredKeys = new Set();
+			const replayBatches = [];
+			const allUntrackedInReplay = [];
+			for (const entry of this._sharedPollSignatures) {
+				const items = entry.keys.map((key) => {
+					var _a;
+					return {
+						key,
+						version: (_a = this._sharedPollTrackedItems.get(key)) !== null && _a !== void 0 ? _a : 0
+					};
+				});
+				replayBatches.push({
+					items,
+					signature: entry.signature
+				});
+				for (const k of entry.keys) if (this._sharedPollTrackedItems.has(k)) coveredKeys.add(k);
+				else allUntrackedInReplay.push(k);
+			}
+			if (replayBatches.length > 0) this._sendTrackRequest(replayBatches, allUntrackedInReplay).catch((err) => {
+				this._handleTrackError(err);
+			});
+			const uncoveredKeys = [];
+			for (const key of this._sharedPollTrackedItems.keys()) if (!coveredKeys.has(key)) uncoveredKeys.push(key);
+			if (uncoveredKeys.length === 0) return;
+			if (!this._sharedPollGetSignature) {
+				this.emit("error", {
+					type: "track",
+					channel: this.channel,
+					error: {
+						code: errorCodes.sharedPollGetSignature,
+						message: "getSignature callback required for tracked keys without an explicit signature"
+					}
+				});
+				return;
+			}
+			const self = this;
+			this._sharedPollGetSignature({ keys: uncoveredKeys }).then((result) => {
+				if (!self._isSubscribed()) return;
+				self._clearSharedPollReplayRetry();
+				const returnedKeys = new Set(result.keys);
+				const revokedKeys = [];
+				for (const key of uncoveredKeys) if (!returnedKeys.has(key)) {
+					self._sharedPollTrackedItems.delete(key);
+					revokedKeys.push(key);
+					self.emit("update", {
+						channel: self.channel,
+						key,
+						data: null,
+						removed: true
+					});
+				}
+				if (revokedKeys.length > 0) self._sendUntrackRequest(revokedKeys).catch((err) => {
+					self.emit("error", {
+						type: "untrack",
+						channel: self.channel,
+						error: err
+					});
+				});
+				const items = [];
+				for (const key of result.keys) {
+					const version = self._sharedPollTrackedItems.get(key);
+					if (version !== void 0) items.push({
+						key,
+						version
+					});
+				}
+				if (items.length === 0) return;
+				self._sharedPollSignatures.push({
+					keys: result.keys,
+					signature: result.signature
+				});
+				self._sendTrackRequest([{
+					items,
+					signature: result.signature
+				}]).catch((err) => {
+					self._handleTrackError(err);
+				});
+			}).catch((e) => {
+				self.emit("error", {
+					type: "signatureRefresh",
+					channel: self.channel,
+					error: {
+						code: errorCodes.sharedPollGetSignature,
+						message: e !== void 0 ? e.toString() : ""
+					}
+				});
+				self._sharedPollReplayRetryTimeout = setTimeout(() => self._sharedPollReplayTrack(), backoff(self._sharedPollReplayRetryAttempts++, 5e3, 3e4));
+			});
+		}
+		_mapSubscribe() {
+			this._debug("starting map subscribe on", this.channel);
+			this._mapStateBuffer = [];
+			this._mapStreamBuffer = [];
+			this._mapCursor = "";
+			if (!(this._recover && this._offset !== null && this._epoch !== null)) this._prevValueMap = new Map();
+			this._mapPhase = MapPhase.State;
+			if (this._recover && this._offset !== null && this._epoch !== null) {
+				this._debug("map subscribe: recovering from position, skipping to stream phase");
+				this._mapPhase = MapPhase.Stream;
+				this._fetchStream();
+				return;
+			}
+			if (this._canSubscribeWithoutGettingToken()) this._fetchSnapshot();
+			else this._getSubscriptionToken().then((token) => {
+				if (!this._isSubscribing()) {
+					this._inflight = false;
+					return;
+				}
+				if (!token) {
+					this._inflight = false;
+					this._failUnauthorized();
+					return;
+				}
+				this._token = token;
+				this._fetchSnapshot();
+			}).catch((e) => this._handleTokenError(e));
+		}
+		_fetchSnapshot(cursor) {
+			if (!this._isSubscribing() || !this._isTransportOpen()) {
+				this._inflight = false;
+				return;
+			}
+			const cmd = this._buildMapSubscribeCommand(MapPhase.State, cursor);
+			this._debug("map subscribe: fetching snapshot page", cursor ? `cursor=${cursor}` : "initial");
+			this._centrifuge._call(cmd).then((resolveCtx) => {
+				const result = resolveCtx.reply.subscribe;
+				this._handleMapStateResponse(result);
+				if (resolveCtx.next) resolveCtx.next();
+			}, (rejectCtx) => {
+				this._handleMapSubscribeError(rejectCtx.error);
+				if (rejectCtx.next) rejectCtx.next();
+			});
+		}
+		_handleMapStateResponse(result) {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			if (!result.phase) {
+				this._debug("map subscribe: server forced LIVE transition during state pagination");
+				this._handleMapLiveResponse(result);
+				return;
+			}
+			if (!this._epoch && result.epoch) {
+				this._epoch = result.epoch;
+				this._offset = result.offset || 0;
+			}
+			if (this._epoch && result.epoch && this._epoch !== result.epoch) {
+				this._debug("map subscribe: epoch changed during snapshot pagination, restarting");
+				this._mapStateBuffer = [];
+				this._mapCursor = "";
+				this._epoch = null;
+				this._offset = null;
+				this._prevValueMap = new Map();
+				this._fetchSnapshot();
+				return;
+			}
+			if (result.state && result.state.length > 0) for (const pub of result.state) {
+				this._seedDeltaTracking(pub);
+				this._mapStateBuffer.push(this._getMapUpdateContext(pub));
+			}
+			if (result.cursor) {
+				this._mapCursor = result.cursor;
+				this._fetchSnapshot(this._mapCursor);
+				return;
+			}
+			this._transitionFromSnapshot();
+		}
+		_transitionFromSnapshot() {
+			this._debug("map subscribe: snapshot complete, transitioning to stream phase");
+			this._mapPhase = MapPhase.Stream;
+			this._fetchStream();
+		}
+		_fetchStream() {
+			if (!this._isSubscribing() || !this._isTransportOpen()) {
+				this._inflight = false;
+				return;
+			}
+			const cmd = this._buildMapSubscribeCommand(MapPhase.Stream);
+			this._debug("map subscribe: fetching stream from offset", this._offset);
+			this._centrifuge._call(cmd).then((resolveCtx) => {
+				const result = resolveCtx.reply.subscribe;
+				this._handleMapStreamResponse(result);
+				if (resolveCtx.next) resolveCtx.next();
+			}, (rejectCtx) => {
+				this._handleMapSubscribeError(rejectCtx.error);
+				if (rejectCtx.next) rejectCtx.next();
+			});
+		}
+		_handleMapStreamResponse(result) {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			if (!result.phase) {
+				this._debug("map subscribe: server forced LIVE transition during stream");
+				this._handleMapLiveResponse(result);
+				return;
+			}
+			if (this._epoch && result.epoch && this._epoch !== result.epoch) {
+				this._debug("map subscribe: epoch changed during stream, restarting");
+				this._mapStateBuffer = [];
+				this._mapStreamBuffer = [];
+				this._epoch = null;
+				this._offset = null;
+				this._prevValueMap = new Map();
+				this._mapPhase = MapPhase.State;
+				this._fetchSnapshot();
+				return;
+			}
+			if (result.publications && result.publications.length > 0) for (const pub of result.publications) {
+				this._seedDeltaTracking(pub);
+				this._mapStreamBuffer.push(this._getMapUpdateContext(pub));
+			}
+			if (result.offset !== void 0) this._offset = result.offset;
+			this._fetchStream();
+		}
+		_handleMapLiveResponse(result) {
+			if (!this._isSubscribing()) {
+				this._inflight = false;
+				return;
+			}
+			this._inflight = false;
+			if (this._epoch && result.epoch && this._epoch !== result.epoch) {
+				this._debug("map subscribe: epoch changed during live transition, restarting");
+				this._mapStateBuffer = [];
+				this._mapStreamBuffer = [];
+				this._epoch = null;
+				this._offset = null;
+				this._prevValueMap = new Map();
+				this._inflight = true;
+				this._mapPhase = MapPhase.State;
+				this._fetchSnapshot();
+				return;
+			}
+			if (result.state && result.state.length > 0) for (const pub of result.state) {
+				this._seedDeltaTracking(pub);
+				this._mapStateBuffer.push(this._getMapUpdateContext(pub));
+			}
+			if (result.publications && result.publications.length > 0) for (const pub of result.publications) {
+				if (this._delta && result.delta) {
+					const deltaKey = pub.key || "";
+					const { newData, newPrevValue, isDelta, wireBytes, fullBytes } = this._centrifuge._codec.applyDeltaIfNeeded(pub, this._prevValueMap.get(deltaKey));
+					pub.data = newData;
+					this._deltaNumPubs++;
+					this._deltaBytesReceived += wireBytes;
+					this._deltaBytesDecoded += fullBytes;
+					if (isDelta) this._deltaNumDelta++;
+					else this._deltaNumFull++;
+					if (pub.removed) this._prevValueMap.delete(deltaKey);
+					else this._prevValueMap.set(deltaKey, newPrevValue);
+				} else if (this._delta && pub.key) {
+					if (pub.removed) this._prevValueMap.delete(pub.key);
+					else this._prevValueMap.set(pub.key, pub.data);
+				}
+				this._mapStreamBuffer.push(this._getMapUpdateContext(pub));
+			}
+			this._offset = result.offset || 0;
+			this._epoch = result.epoch || "";
+			this._clearSubscribingState();
+			if (result.id) this._id = result.id;
+			this._recover = result.recoverable === true;
+			if (result.delta) this._delta_negotiated = true;
+			else this._delta_negotiated = false;
+			if (result.publish_debounce) this._debounceMs = result.publish_debounce;
+			this._setState(SubscriptionState.Subscribed);
+			const ctx = this._centrifuge._getSubscribeContext(this.channel, result);
+			ctx.state = this._mapStateBuffer;
+			this.emit("subscribed", ctx);
+			this._resolvePromises();
+			if (!ctx.recovered) {
+				if (this._mapStreamBuffer.length > 0) {
+					const stateMap = new Map();
+					for (const entry of this._mapStateBuffer) stateMap.set(entry.key, entry);
+					for (const entry of this._mapStreamBuffer) if (entry.removed) stateMap.delete(entry.key);
+					else stateMap.set(entry.key, entry);
+					this._mapStateBuffer = Array.from(stateMap.values());
+					this._mapStreamBuffer = [];
+				}
+				this.emit("sync", { entries: this._mapStateBuffer });
+			}
+			for (const pub of this._mapStreamBuffer) {
+				this.emit("publication", pub);
+				this.emit("update", pub);
+			}
+			this._mapStateBuffer = [];
+			this._mapStreamBuffer = [];
+			this._mapPhase = null;
+			if (result.expires === true) this._refreshTimeout = setTimeout(() => this._refresh(), ttlMilliseconds(result.ttl));
+		}
+		_handleMapSubscribeError(error) {
+			this._inflight = false;
+			if (!this._isSubscribing()) return;
+			if (error.code === errorCodes.timeout) {
+				this._centrifuge._disconnect(connectingCodes.subscribeTimeout, "subscribe timeout", true);
+				return;
+			}
+			this._mapStateBuffer = [];
+			this._mapStreamBuffer = [];
+			this._mapPhase = null;
+			this._prevValueMap = new Map();
+			if (error.code === 112) {
+				if (this._mapUnrecoverableStrategy === "from_scratch") {
+					this._debug("map subscribe: unrecoverable position, restarting from scratch");
+					this._offset = null;
+					this._epoch = null;
+					this._recover = false;
+					this._scheduleResubscribe();
+					return;
+				}
+			}
+			this._subscribeError(error);
+		}
+		_buildMapSubscribeCommand(phase, cursor) {
+			const req = {
+				channel: this.channel,
+				type: this._mapPresenceType || 1,
+				phase
+			};
+			if (this._token) req.token = this._token;
+			if (this._tagsFilter) req.tf = this._tagsFilter;
+			if (this._delta) req.delta = this._delta;
+			req.flag = subscriptionFlags.channelCompaction;
+			if (phase === MapPhase.State) {
+				if (this._mapPageSize > 0) req.limit = this._mapPageSize;
+				if (cursor) req.cursor = cursor;
+				if (this._epoch) {
+					req.offset = this._offset;
+					req.epoch = this._epoch;
+				} else if (this._data) req.data = this._data;
+			}
+			if (phase === MapPhase.Stream) {
+				if (this._mapPageSize > 0) req.limit = this._mapPageSize;
+				req.offset = this._offset;
+				req.epoch = this._epoch;
+				if (this._recover) {
+					req.recover = true;
+					if (this._mapStreamBuffer.length === 0) {
+						if (this._data) req.data = this._data;
+					}
+				}
+			}
+			return { subscribe: req };
+		}
+		_getMapUpdateContext(pub) {
+			const ctx = {
+				channel: this.channel,
+				data: pub.data,
+				key: pub.key || ""
+			};
+			if (pub.removed === true) ctx.removed = true;
+			if (pub.offset !== void 0) ctx.offset = pub.offset;
+			if (pub.info) ctx.info = this._centrifuge._getJoinLeaveContext(pub.info);
+			if (pub.tags) ctx.tags = pub.tags;
+			return ctx;
+		}
+		_getSharedPollUpdateContext(pub) {
+			const ctx = {
+				channel: this.channel,
+				key: pub.key || "",
+				data: pub.data
+			};
+			if (pub.removed === true) ctx.removed = true;
+			if (pub.version !== void 0) ctx.version = pub.version;
+			return ctx;
+		}
+	};
+	var Subscription = class extends BaseSubscription {
+		publish(data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				yield this._methodCall();
+				if (this._debounceMs > 0) return this._debouncedPublish("", data, false);
+				return this._centrifuge.publish(this.channel, data);
+			});
+		}
+		history(opts) {
+			return __awaiter(this, void 0, void 0, function* () {
+				yield this._methodCall();
+				return this._centrifuge.history(this.channel, opts);
+			});
+		}
+	};
+	var MapSubscription = class extends BaseSubscription {
+		publish(key, data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				yield this._methodCall();
+				if (this._debounceMs > 0) return this._debouncedPublish(key, data, true);
+				return this._centrifuge.mapPublish(this.channel, key, data);
+			});
+		}
+		remove(key) {
+			return __awaiter(this, void 0, void 0, function* () {
+				yield this._methodCall();
+				this._cancelDebounce(key);
+				return this._centrifuge.mapRemove(this.channel, key);
+			});
+		}
+	};
+	var SharedPollSubscription = class extends BaseSubscription {
+		track(keysOrItems, signature) {
+			if (keysOrItems.length === 0) return;
+			let items;
+			const sig = signature;
+			if (typeof keysOrItems[0] === "string") items = keysOrItems.map((k) => ({
+				key: k,
+				version: 0
+			}));
+			else items = keysOrItems;
+			for (const item of items) {
+				const existing = this._sharedPollTrackedItems.get(item.key);
+				if (existing === void 0 || item.version > existing) this._sharedPollTrackedItems.set(item.key, item.version);
+			}
+			if (sig !== void 0) {
+				this._sharedPollSignatures.push({
+					keys: items.map((i) => i.key),
+					signature: sig
+				});
+				if (this._isSubscribed()) this._sendTrackRequest([{
+					items,
+					signature: sig
+				}]).catch((err) => {
+					this._handleTrackError(err);
+				});
+				return;
+			}
+			if (!this._sharedPollGetSignature) {
+				this.emit("error", {
+					type: "track",
+					channel: this.channel,
+					error: {
+						code: errorCodes.sharedPollGetSignature,
+						message: "getSignature callback required for track(keys)"
+					}
+				});
+				return;
+			}
+			if (!this._isSubscribed()) return;
+			const keys = items.map((i) => i.key);
+			this._sharedPollGetSignature({ keys }).then((result) => {
+				if (!this._isSubscribed()) return;
+				const returnedKeys = new Set(result.keys);
+				const revokedKeys = [];
+				for (const key of keys) if (!returnedKeys.has(key)) {
+					this._sharedPollTrackedItems.delete(key);
+					revokedKeys.push(key);
+					this.emit("update", {
+						channel: this.channel,
+						key,
+						data: null,
+						removed: true
+					});
+				}
+				if (revokedKeys.length > 0) this._sendUntrackRequest(revokedKeys).catch((err) => {
+					this.emit("error", {
+						type: "untrack",
+						channel: this.channel,
+						error: err
+					});
+				});
+				const authorizedItems = [];
+				for (const key of result.keys) {
+					const version = this._sharedPollTrackedItems.get(key);
+					if (version !== void 0) authorizedItems.push({
+						key,
+						version
+					});
+				}
+				if (authorizedItems.length === 0) return;
+				this._sharedPollSignatures.push({
+					keys: result.keys,
+					signature: result.signature
+				});
+				this._sendTrackRequest([{
+					items: authorizedItems,
+					signature: result.signature
+				}]).catch((err) => {
+					this._handleTrackError(err);
+				});
+			}).catch((e) => {
+				this.emit("error", {
+					type: "track",
+					channel: this.channel,
+					error: {
+						code: errorCodes.sharedPollGetSignature,
+						message: e !== void 0 ? e.toString() : "getSignature failed"
+					}
+				});
+			});
+		}
+		untrack(keys) {
+			for (const key of keys) this._sharedPollTrackedItems.delete(key);
+			this._sharedPollSignatures = this._sharedPollSignatures.filter((entry) => entry.keys.some((k) => this._sharedPollTrackedItems.has(k)));
+			if (this._isSubscribed()) this._sendUntrackRequest(keys).catch((err) => {
+				this.emit("error", {
+					type: "untrack",
+					channel: this.channel,
+					error: err
+				});
+			});
+		}
+		trackedKeys() {
+			return new Set(this._sharedPollTrackedItems.keys());
+		}
+	};
+	var SockjsTransport = class {
+		constructor(endpoint, options) {
+			this.endpoint = endpoint;
+			this.options = options;
+			this._transport = null;
+		}
+		name() {
+			return "sockjs";
+		}
+		subName() {
+			return "sockjs-" + this._transport.transport;
+		}
+		emulation() {
+			return false;
+		}
+		supported() {
+			return this.options.sockjs !== null;
+		}
+		initialize(_protocol, callbacks) {
+			this._transport = new this.options.sockjs(this.endpoint, null, this.options.sockjsOptions);
+			this._transport.onopen = () => {
+				callbacks.onOpen();
+			};
+			this._transport.onerror = (e) => {
+				callbacks.onError(e);
+			};
+			this._transport.onclose = (closeEvent) => {
+				callbacks.onClose(closeEvent);
+			};
+			this._transport.onmessage = (event) => {
+				callbacks.onMessage(event.data);
+			};
+		}
+		close() {
+			this._transport.close();
+		}
+		send(data) {
+			this._transport.send(data);
+		}
+	};
+	var WebsocketTransport = class {
+		constructor(endpoint, options) {
+			this.endpoint = endpoint;
+			this.options = options;
+			this._transport = null;
+		}
+		name() {
+			return "websocket";
+		}
+		subName() {
+			return "websocket";
+		}
+		emulation() {
+			return false;
+		}
+		supported() {
+			return this.options.websocket !== void 0 && this.options.websocket !== null;
+		}
+		initialize(protocol, callbacks) {
+			let subProtocol = "";
+			if (protocol === "protobuf") subProtocol = "centrifuge-protobuf";
+			if (subProtocol !== "") this._transport = new this.options.websocket(this.endpoint, subProtocol);
+			else this._transport = new this.options.websocket(this.endpoint);
+			if (protocol === "protobuf") this._transport.binaryType = "arraybuffer";
+			this._transport.onopen = () => {
+				callbacks.onOpen();
+			};
+			this._transport.onerror = (e) => {
+				callbacks.onError(e);
+			};
+			this._transport.onclose = (closeEvent) => {
+				callbacks.onClose(closeEvent);
+			};
+			this._transport.onmessage = (event) => {
+				callbacks.onMessage(event.data);
+			};
+		}
+		close() {
+			this._transport.close();
+		}
+		send(data) {
+			this._transport.send(data);
+		}
+	};
+	var HttpStreamTransport = class {
+		constructor(endpoint, options) {
+			this.endpoint = endpoint;
+			this.options = options;
+			this._abortController = null;
+			this._utf8decoder = new TextDecoder();
+			this._protocol = "json";
+		}
+		name() {
+			return "http_stream";
+		}
+		subName() {
+			return "http_stream";
+		}
+		emulation() {
+			return true;
+		}
+		_handleErrors(response) {
+			if (!response.ok) throw new Error(response.status);
+			return response;
+		}
+		_fetchEventTarget(self, endpoint, options) {
+			const eventTarget = new EventTarget();
+			const fetchFunc = self.options.fetch;
+			fetchFunc(endpoint, options).then(self._handleErrors).then((response) => {
+				eventTarget.dispatchEvent(new Event("open"));
+				let jsonStreamBuf = "";
+				let jsonStreamPos = 0;
+				let protoStreamBuf = new Uint8Array();
+				const reader = response.body.getReader();
+				return new self.options.readableStream({ start(controller) {
+					function pump() {
+						return reader.read().then(({ done, value }) => {
+							if (done) {
+								eventTarget.dispatchEvent(new Event("close"));
+								controller.close();
+								return;
+							}
+							try {
+								if (self._protocol === "json") {
+									jsonStreamBuf += self._utf8decoder.decode(value, { stream: true });
+									while (jsonStreamPos < jsonStreamBuf.length) if (jsonStreamBuf[jsonStreamPos] === "\n") {
+										const line = jsonStreamBuf.substring(0, jsonStreamPos);
+										eventTarget.dispatchEvent(new MessageEvent("message", { data: line }));
+										jsonStreamBuf = jsonStreamBuf.substring(jsonStreamPos + 1);
+										jsonStreamPos = 0;
+									} else ++jsonStreamPos;
+								} else {
+									const mergedArray = new Uint8Array(protoStreamBuf.length + value.length);
+									mergedArray.set(protoStreamBuf);
+									mergedArray.set(value, protoStreamBuf.length);
+									protoStreamBuf = mergedArray;
+									while (true) {
+										const result = self.options.decoder.decodeReply(protoStreamBuf);
+										if (result.ok) {
+											const data = protoStreamBuf.slice(0, result.pos);
+											eventTarget.dispatchEvent(new MessageEvent("message", { data }));
+											protoStreamBuf = protoStreamBuf.slice(result.pos);
+											continue;
+										}
+										break;
+									}
+								}
+							} catch (error) {
+								eventTarget.dispatchEvent(new Event("error", { detail: error }));
+								eventTarget.dispatchEvent(new Event("close"));
+								controller.close();
+								return;
+							}
+							pump();
+						}).catch(function(e) {
+							eventTarget.dispatchEvent(new Event("error", { detail: e }));
+							eventTarget.dispatchEvent(new Event("close"));
+							controller.close();
+						});
+					}
+					return pump();
+				} });
+			}).catch((error) => {
+				eventTarget.dispatchEvent(new Event("error", { detail: error }));
+				eventTarget.dispatchEvent(new Event("close"));
+			});
+			return eventTarget;
+		}
+		supported() {
+			return this.options.fetch !== null && this.options.readableStream !== null && typeof TextDecoder !== "undefined" && typeof AbortController !== "undefined" && typeof EventTarget !== "undefined" && typeof Event !== "undefined" && typeof MessageEvent !== "undefined" && typeof Error !== "undefined";
+		}
+		initialize(protocol, callbacks, initialData) {
+			this._protocol = protocol;
+			this._abortController = new AbortController();
+			let headers;
+			let body;
+			if (protocol === "json") {
+				headers = {
+					"Accept": "application/json",
+					"Content-Type": "application/json"
+				};
+				body = initialData;
+			} else {
+				headers = {
+					"Accept": "application/octet-stream",
+					"Content-Type": "application/octet-stream"
+				};
+				body = initialData;
+			}
+			const fetchOptions = {
+				method: "POST",
+				headers,
+				body,
+				mode: "cors",
+				credentials: "same-origin",
+				signal: this._abortController.signal
+			};
+			const eventTarget = this._fetchEventTarget(this, this.endpoint, fetchOptions);
+			eventTarget.addEventListener("open", () => {
+				callbacks.onOpen();
+			});
+			eventTarget.addEventListener("error", (e) => {
+				this._abortController.abort();
+				callbacks.onError(e);
+			});
+			eventTarget.addEventListener("close", () => {
+				this._abortController.abort();
+				callbacks.onClose({
+					code: 4,
+					reason: "connection closed"
+				});
+			});
+			eventTarget.addEventListener("message", (e) => {
+				callbacks.onMessage(e.data);
+			});
+		}
+		close() {
+			this._abortController.abort();
+		}
+		send(data, session, node) {
+			let headers;
+			let body;
+			const req = {
+				session,
+				node,
+				data
+			};
+			if (this._protocol === "json") {
+				headers = { "Content-Type": "application/json" };
+				body = JSON.stringify(req);
+			} else {
+				headers = { "Content-Type": "application/octet-stream" };
+				body = this.options.encoder.encodeEmulationRequest(req);
+			}
+			const fetchFunc = this.options.fetch;
+			const fetchOptions = {
+				method: "POST",
+				headers,
+				body,
+				mode: "cors",
+				credentials: "same-origin"
+			};
+			fetchFunc(this.options.emulationEndpoint, fetchOptions);
+		}
+	};
+	var SseTransport = class {
+		constructor(endpoint, options) {
+			this.endpoint = endpoint;
+			this.options = options;
+			this._protocol = "json";
+			this._transport = null;
+			this._onClose = null;
+		}
+		name() {
+			return "sse";
+		}
+		subName() {
+			return "sse";
+		}
+		emulation() {
+			return true;
+		}
+		supported() {
+			return this.options.eventsource !== null && this.options.fetch !== null;
+		}
+		initialize(_protocol, callbacks, initialData) {
+			let url;
+			if (globalThis && globalThis.document && globalThis.document.baseURI) url = new URL(this.endpoint, globalThis.document.baseURI);
+			else url = new URL(this.endpoint);
+			url.searchParams.append("cf_connect", initialData);
+			const eventSource = new this.options.eventsource(url.toString(), {});
+			this._transport = eventSource;
+			const self = this;
+			eventSource.onopen = function() {
+				callbacks.onOpen();
+			};
+			eventSource.onerror = function(e) {
+				eventSource.close();
+				callbacks.onError(e);
+				callbacks.onClose({
+					code: 4,
+					reason: "connection closed"
+				});
+			};
+			eventSource.onmessage = function(e) {
+				callbacks.onMessage(e.data);
+			};
+			self._onClose = function() {
+				callbacks.onClose({
+					code: 4,
+					reason: "connection closed"
+				});
+			};
+		}
+		close() {
+			this._transport.close();
+			if (this._onClose !== null) this._onClose();
+		}
+		send(data, session, node) {
+			const req = {
+				session,
+				node,
+				data
+			};
+			const headers = { "Content-Type": "application/json" };
+			const body = JSON.stringify(req);
+			const fetchFunc = this.options.fetch;
+			const fetchOptions = {
+				method: "POST",
+				headers,
+				body,
+				mode: "cors",
+				credentials: "same-origin"
+			};
+			fetchFunc(this.options.emulationEndpoint, fetchOptions);
+		}
+	};
+	var WebtransportTransport = class {
+		constructor(endpoint, options) {
+			this.endpoint = endpoint;
+			this.options = options;
+			this._transport = null;
+			this._stream = null;
+			this._writer = null;
+			this._utf8decoder = new TextDecoder();
+			this._protocol = "json";
+		}
+		name() {
+			return "webtransport";
+		}
+		subName() {
+			return "webtransport";
+		}
+		emulation() {
+			return false;
+		}
+		supported() {
+			return this.options.webtransport !== void 0 && this.options.webtransport !== null;
+		}
+		initialize(protocol, callbacks) {
+			return __awaiter(this, void 0, void 0, function* () {
+				let url;
+				if (globalThis && globalThis.document && globalThis.document.baseURI) url = new URL(this.endpoint, globalThis.document.baseURI);
+				else url = new URL(this.endpoint);
+				if (protocol === "protobuf") url.searchParams.append("cf_protocol", "protobuf");
+				this._protocol = protocol;
+				const eventTarget = new EventTarget();
+				this._transport = new this.options.webtransport(url.toString());
+				this._transport.closed.then(() => {
+					callbacks.onClose({
+						code: 4,
+						reason: "connection closed"
+					});
+				}).catch(() => {
+					callbacks.onClose({
+						code: 4,
+						reason: "connection closed"
+					});
+				});
+				try {
+					yield this._transport.ready;
+				} catch (_a) {
+					this.close();
+					return;
+				}
+				let stream;
+				try {
+					stream = yield this._transport.createBidirectionalStream();
+				} catch (_b) {
+					this.close();
+					return;
+				}
+				this._stream = stream;
+				this._writer = this._stream.writable.getWriter();
+				eventTarget.addEventListener("close", () => {
+					callbacks.onClose({
+						code: 4,
+						reason: "connection closed"
+					});
+				});
+				eventTarget.addEventListener("message", (e) => {
+					callbacks.onMessage(e.data);
+				});
+				this._startReading(eventTarget);
+				callbacks.onOpen();
+			});
+		}
+		_startReading(eventTarget) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const reader = this._stream.readable.getReader();
+				let jsonStreamBuf = "";
+				let jsonStreamPos = 0;
+				let protoStreamBuf = new Uint8Array();
+				try {
+					while (true) {
+						const { done, value } = yield reader.read();
+						if (value && value.length > 0) {
+							if (this._protocol === "json") {
+								jsonStreamBuf += this._utf8decoder.decode(value, { stream: true });
+								while (jsonStreamPos < jsonStreamBuf.length) if (jsonStreamBuf[jsonStreamPos] === "\n") {
+									const line = jsonStreamBuf.substring(0, jsonStreamPos);
+									eventTarget.dispatchEvent(new MessageEvent("message", { data: line }));
+									jsonStreamBuf = jsonStreamBuf.substring(jsonStreamPos + 1);
+									jsonStreamPos = 0;
+								} else ++jsonStreamPos;
+							} else {
+								const mergedArray = new Uint8Array(protoStreamBuf.length + value.length);
+								mergedArray.set(protoStreamBuf);
+								mergedArray.set(value, protoStreamBuf.length);
+								protoStreamBuf = mergedArray;
+								while (true) {
+									const result = this.options.decoder.decodeReply(protoStreamBuf);
+									if (result.ok) {
+										const data = protoStreamBuf.slice(0, result.pos);
+										eventTarget.dispatchEvent(new MessageEvent("message", { data }));
+										protoStreamBuf = protoStreamBuf.slice(result.pos);
+										continue;
+									}
+									break;
+								}
+							}
+						}
+						if (done) break;
+					}
+				} catch (_a) {
+					eventTarget.dispatchEvent(new Event("close"));
+				}
+			});
+		}
+		close() {
+			return __awaiter(this, void 0, void 0, function* () {
+				try {
+					if (this._writer) yield this._writer.close();
+					this._transport.close();
+				} catch (e) {}
+			});
+		}
+		send(data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				let binary;
+				if (this._protocol === "json") binary = new TextEncoder().encode(data + "\n");
+				else binary = data;
+				try {
+					yield this._writer.write(binary);
+				} catch (e) {
+					this.close();
+				}
+			});
+		}
+	};
+	var zValue = [
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		0,
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		-1,
+		10,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33,
+		34,
+		35,
+		-1,
+		-1,
+		-1,
+		-1,
+		36,
+		-1,
+		37,
+		38,
+		39,
+		40,
+		41,
+		42,
+		43,
+		44,
+		45,
+		46,
+		47,
+		48,
+		49,
+		50,
+		51,
+		52,
+		53,
+		54,
+		55,
+		56,
+		57,
+		58,
+		59,
+		60,
+		61,
+		62,
+		-1,
+		-1,
+		-1,
+		63,
+		-1
+	];
+	var Reader = class {
+		constructor(array) {
+			this.a = array;
+			this.pos = 0;
+		}
+		haveBytes() {
+			return this.pos < this.a.length;
+		}
+		getByte() {
+			const b = this.a[this.pos];
+			this.pos++;
+			if (this.pos > this.a.length) throw new RangeError("out of bounds");
+			return b;
+		}
+		getChar() {
+			return String.fromCharCode(this.getByte());
+		}
+		getInt() {
+			let v = 0;
+			let c;
+			while (this.haveBytes() && (c = zValue[127 & this.getByte()]) >= 0) v = (v << 6) + c;
+			this.pos--;
+			return v >>> 0;
+		}
+	};
+	var Writer = class {
+		constructor() {
+			this.a = [];
+		}
+		toByteArray(sourceType) {
+			if (Array.isArray(sourceType)) return this.a;
+			return new Uint8Array(this.a);
+		}
+		putArray(a, start, end) {
+			for (let i = start; i < end; i++) this.a.push(a[i]);
+		}
+	};
+	function checksum(arr) {
+		let sum0 = 0, sum1 = 0, sum2 = 0, sum3 = 0, z = 0, N = arr.length;
+		while (N >= 16) {
+			sum0 = sum0 + arr[z + 0] | 0;
+			sum1 = sum1 + arr[z + 1] | 0;
+			sum2 = sum2 + arr[z + 2] | 0;
+			sum3 = sum3 + arr[z + 3] | 0;
+			sum0 = sum0 + arr[z + 4] | 0;
+			sum1 = sum1 + arr[z + 5] | 0;
+			sum2 = sum2 + arr[z + 6] | 0;
+			sum3 = sum3 + arr[z + 7] | 0;
+			sum0 = sum0 + arr[z + 8] | 0;
+			sum1 = sum1 + arr[z + 9] | 0;
+			sum2 = sum2 + arr[z + 10] | 0;
+			sum3 = sum3 + arr[z + 11] | 0;
+			sum0 = sum0 + arr[z + 12] | 0;
+			sum1 = sum1 + arr[z + 13] | 0;
+			sum2 = sum2 + arr[z + 14] | 0;
+			sum3 = sum3 + arr[z + 15] | 0;
+			z += 16;
+			N -= 16;
+		}
+		while (N >= 4) {
+			sum0 = sum0 + arr[z + 0] | 0;
+			sum1 = sum1 + arr[z + 1] | 0;
+			sum2 = sum2 + arr[z + 2] | 0;
+			sum3 = sum3 + arr[z + 3] | 0;
+			z += 4;
+			N -= 4;
+		}
+		sum3 = ((sum3 + (sum2 << 8) | 0) + (sum1 << 16) | 0) + (sum0 << 24) | 0;
+		switch (N) {
+			case 3: sum3 = sum3 + (arr[z + 2] << 8) | 0;
+			case 2: sum3 = sum3 + (arr[z + 1] << 16) | 0;
+			case 1: sum3 = sum3 + (arr[z + 0] << 24) | 0;
+		}
+		return sum3 >>> 0;
+	}
+	function applyDelta(source, delta) {
+		let total = 0;
+		const zDelta = new Reader(delta);
+		const lenSrc = source.length;
+		const lenDelta = delta.length;
+		const limit = zDelta.getInt();
+		if (zDelta.getChar() !== "\n") throw new Error("size integer not terminated by '\\n'");
+		const zOut = new Writer();
+		while (zDelta.haveBytes()) {
+			const cnt = zDelta.getInt();
+			let ofst;
+			switch (zDelta.getChar()) {
+				case "@":
+					ofst = zDelta.getInt();
+					if (zDelta.haveBytes() && zDelta.getChar() !== ",") throw new Error("copy command not terminated by ','");
+					total += cnt;
+					if (total > limit) throw new Error("copy exceeds output file size");
+					if (ofst + cnt > lenSrc) throw new Error("copy extends past end of input");
+					zOut.putArray(source, ofst, ofst + cnt);
+					break;
+				case ":":
+					total += cnt;
+					if (total > limit) throw new Error("insert command gives an output larger than predicted");
+					if (cnt > lenDelta) throw new Error("insert count exceeds size of delta");
+					zOut.putArray(zDelta.a, zDelta.pos, zDelta.pos + cnt);
+					zDelta.pos += cnt;
+					break;
+				case ";": {
+					const out = zOut.toByteArray(source);
+					if (cnt !== checksum(out)) throw new Error("bad checksum");
+					if (total !== limit) throw new Error("generated size does not match predicted size");
+					return out;
+				}
+				default: throw new Error("unknown delta operator");
+			}
+		}
+		throw new Error("unterminated delta");
+	}
+	var JsonCodec = class {
+		name() {
+			return "json";
+		}
+		encodeCommands(commands) {
+			return commands.map((c) => JSON.stringify(c)).join("\n");
+		}
+		decodeReplies(data) {
+			return data.trim().split("\n").map((r) => JSON.parse(r));
+		}
+		applyDeltaIfNeeded(pub, prevValue) {
+			let newData, newPrevValue, wireBytes;
+			let isDelta;
+			if (pub.delta) {
+				isDelta = true;
+				const deltaBytes = new TextEncoder().encode(pub.data);
+				const valueArray = applyDelta(prevValue, deltaBytes);
+				newData = JSON.parse(new TextDecoder().decode(valueArray));
+				newPrevValue = valueArray;
+				wireBytes = deltaBytes.length;
+			} else {
+				isDelta = false;
+				newData = JSON.parse(pub.data);
+				newPrevValue = new TextEncoder().encode(pub.data);
+				wireBytes = newPrevValue.length;
+			}
+			return {
+				newData,
+				newPrevValue,
+				isDelta,
+				wireBytes,
+				fullBytes: newPrevValue.length
+			};
+		}
+	};
+	var defaults = {
+		headers: {},
+		token: "",
+		getToken: null,
+		data: null,
+		getData: null,
+		debug: false,
+		name: "js",
+		version: "",
+		fetch: null,
+		readableStream: null,
+		websocket: null,
+		eventsource: null,
+		sockjs: null,
+		sockjsOptions: {},
+		emulationEndpoint: "/emulation",
+		minReconnectDelay: 500,
+		maxReconnectDelay: 2e4,
+		timeout: 5e3,
+		maxServerPingDelay: 1e4,
+		networkEventTarget: null
+	};
+	var UnauthorizedError = class extends Error {
+		constructor(message) {
+			super(message);
+			this.name = this.constructor.name;
+		}
+	};
+	var Centrifuge = class extends EventEmitter {
+		constructor(endpoint, options) {
+			super();
+			this._reconnectTimeout = null;
+			this._refreshTimeout = null;
+			this._serverPingTimeout = null;
+			this.state = State.Disconnected;
+			this._transportIsOpen = false;
+			this._endpoint = endpoint;
+			this._emulation = false;
+			this._transports = [];
+			this._currentTransportIndex = 0;
+			this._triedAllTransports = false;
+			this._transportWasOpen = false;
+			this._transport = null;
+			this._transportId = 0;
+			this._deviceWentOffline = false;
+			this._transportClosed = true;
+			this._codec = new JsonCodec();
+			this._reconnecting = false;
+			this._reconnectTimeout = null;
+			this._reconnectAttempts = 0;
+			this._client = null;
+			this._session = "";
+			this._node = "";
+			this._subs = {};
+			this._serverSubs = {};
+			this._commandId = 0;
+			this._commands = [];
+			this._batching = false;
+			this._refreshRequired = false;
+			this._refreshTimeout = null;
+			this._callbacks = {};
+			this._token = "";
+			this._data = null;
+			this._dispatchPromise = Promise.resolve();
+			this._serverPing = 0;
+			this._serverPingTimeout = null;
+			this._sendPong = false;
+			this._promises = {};
+			this._promiseId = 0;
+			this._debugEnabled = false;
+			this._networkEventsSet = false;
+			this._config = Object.assign(Object.assign({}, defaults), options);
+			this._configure();
+			if (this._debugEnabled) {
+				this.on("state", (ctx) => {
+					this._debug("client state", ctx.oldState, "->", ctx.newState);
+				});
+				this.on("error", (ctx) => {
+					this._debug("client error", ctx);
+				});
+			} else this.on("error", function() {
+				Function.prototype();
+			});
+		}
+		newSubscription(channel, options) {
+			if (this.getSubscription(channel) !== null) throw new Error("Subscription to the channel " + channel + " already exists");
+			const sub = new Subscription(this, channel, options);
+			this._subs[channel] = sub;
+			return sub;
+		}
+		newMapSubscription(channel, options) {
+			if (this.getSubscription(channel) !== null) throw new Error("Subscription to the channel " + channel + " already exists");
+			const sub = new MapSubscription(this, channel, {
+				token: options === null || options === void 0 ? void 0 : options.token,
+				getToken: options === null || options === void 0 ? void 0 : options.getToken,
+				data: options === null || options === void 0 ? void 0 : options.data,
+				minResubscribeDelay: options === null || options === void 0 ? void 0 : options.minResubscribeDelay,
+				maxResubscribeDelay: options === null || options === void 0 ? void 0 : options.maxResubscribeDelay,
+				delta: options === null || options === void 0 ? void 0 : options.delta,
+				tagsFilter: options === null || options === void 0 ? void 0 : options.tagsFilter,
+				map: true,
+				mapPageSize: options === null || options === void 0 ? void 0 : options.pageSize,
+				mapUnrecoverableStrategy: options === null || options === void 0 ? void 0 : options.unrecoverableStrategy
+			});
+			this._subs[channel] = sub;
+			return sub;
+		}
+		newMapClientsSubscription(channel, options) {
+			if (this.getSubscription(channel) !== null) throw new Error("Subscription to the channel " + channel + " already exists");
+			const sub = new MapSubscription(this, channel, {
+				token: options === null || options === void 0 ? void 0 : options.token,
+				getToken: options === null || options === void 0 ? void 0 : options.getToken,
+				data: options === null || options === void 0 ? void 0 : options.data,
+				minResubscribeDelay: options === null || options === void 0 ? void 0 : options.minResubscribeDelay,
+				maxResubscribeDelay: options === null || options === void 0 ? void 0 : options.maxResubscribeDelay,
+				delta: options === null || options === void 0 ? void 0 : options.delta,
+				tagsFilter: options === null || options === void 0 ? void 0 : options.tagsFilter,
+				map: true,
+				mapPresenceType: 2,
+				mapPageSize: options === null || options === void 0 ? void 0 : options.pageSize,
+				mapUnrecoverableStrategy: options === null || options === void 0 ? void 0 : options.unrecoverableStrategy
+			});
+			this._subs[channel] = sub;
+			return sub;
+		}
+		newMapUsersSubscription(channel, options) {
+			if (this.getSubscription(channel) !== null) throw new Error("Subscription to the channel " + channel + " already exists");
+			const sub = new MapSubscription(this, channel, {
+				token: options === null || options === void 0 ? void 0 : options.token,
+				getToken: options === null || options === void 0 ? void 0 : options.getToken,
+				data: options === null || options === void 0 ? void 0 : options.data,
+				minResubscribeDelay: options === null || options === void 0 ? void 0 : options.minResubscribeDelay,
+				maxResubscribeDelay: options === null || options === void 0 ? void 0 : options.maxResubscribeDelay,
+				delta: options === null || options === void 0 ? void 0 : options.delta,
+				tagsFilter: options === null || options === void 0 ? void 0 : options.tagsFilter,
+				map: true,
+				mapPresenceType: 3,
+				mapPageSize: options === null || options === void 0 ? void 0 : options.pageSize,
+				mapUnrecoverableStrategy: options === null || options === void 0 ? void 0 : options.unrecoverableStrategy
+			});
+			this._subs[channel] = sub;
+			return sub;
+		}
+		newSharedPollSubscription(channel, options) {
+			if (this.getSubscription(channel) !== null) throw new Error("Subscription to the channel " + channel + " already exists");
+			const sub = new SharedPollSubscription(this, channel, {
+				token: options === null || options === void 0 ? void 0 : options.token,
+				getToken: options === null || options === void 0 ? void 0 : options.getToken,
+				data: options === null || options === void 0 ? void 0 : options.data,
+				minResubscribeDelay: options === null || options === void 0 ? void 0 : options.minResubscribeDelay,
+				maxResubscribeDelay: options === null || options === void 0 ? void 0 : options.maxResubscribeDelay,
+				delta: options === null || options === void 0 ? void 0 : options.delta,
+				sharedPoll: true,
+				sharedPollGetSignature: options === null || options === void 0 ? void 0 : options.getSignature
+			});
+			this._subs[channel] = sub;
+			return sub;
+		}
+		getSubscription(channel) {
+			return this._getSub(channel);
+		}
+		getMapSubscription(channel) {
+			return this._getSub(channel);
+		}
+		getSharedPollSubscription(channel) {
+			return this._getSub(channel);
+		}
+		removeSubscription(sub) {
+			if (!sub) return;
+			if (sub.state !== SubscriptionState.Unsubscribed) sub.unsubscribe();
+			this._removeSubscription(sub);
+		}
+		removeMapSubscription(sub) {
+			this.removeSubscription(sub);
+		}
+		removeSharedPollSubscription(sub) {
+			this.removeSubscription(sub);
+		}
+		subscriptions() {
+			return this._subs;
+		}
+		mapSubscriptions() {
+			const result = {};
+			for (const [ch, sub] of Object.entries(this._subs)) if (sub.type === "map") result[ch] = sub;
+			return result;
+		}
+		sharedPollSubscriptions() {
+			const result = {};
+			for (const [ch, sub] of Object.entries(this._subs)) if (sub.type === "shared_poll") result[ch] = sub;
+			return result;
+		}
+		ready(timeout) {
+			return __awaiter(this, void 0, void 0, function* () {
+				switch (this.state) {
+					case State.Disconnected: throw {
+						code: errorCodes.clientDisconnected,
+						message: "client disconnected"
+					};
+					case State.Connected: return;
+					default: return new Promise((resolve, reject) => {
+						const ctx = {
+							resolve,
+							reject
+						};
+						if (timeout) ctx.timeout = setTimeout(() => {
+							reject({
+								code: errorCodes.timeout,
+								message: "timeout"
+							});
+						}, timeout);
+						this._promises[this._nextPromiseId()] = ctx;
+					});
+				}
+			});
+		}
+		connect() {
+			if (this._isConnected()) {
+				this._debug("connect called when already connected");
+				return;
+			}
+			if (this._isConnecting()) {
+				this._debug("connect called when already connecting");
+				return;
+			}
+			this._debug("connect called");
+			this._reconnectAttempts = 0;
+			this._startConnecting();
+		}
+		disconnect() {
+			this._disconnect(disconnectedCodes.disconnectCalled, "disconnect called", false);
+		}
+		setToken(token) {
+			this._token = token;
+		}
+		setData(data) {
+			this._data = data;
+		}
+		setHeaders(headers) {
+			this._config.headers = headers;
+		}
+		send(data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { send: { data } };
+				yield this._methodCall();
+				if (!this._transportSendCommands([cmd])) throw this._createErrorObject(errorCodes.transportWriteError, "transport write error");
+			});
+		}
+		rpc(method, data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { rpc: {
+					method,
+					data
+				} };
+				yield this._methodCall();
+				return { data: (yield this._callPromise(cmd, (reply) => reply.rpc)).data };
+			});
+		}
+		publish(channel, data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { publish: {
+					channel,
+					data
+				} };
+				yield this._methodCall();
+				yield this._callPromise(cmd, () => ({}));
+				return {};
+			});
+		}
+		mapPublish(channel, key, data) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { publish: {
+					channel,
+					type: 1,
+					key,
+					data
+				} };
+				yield this._methodCall();
+				yield this._callPromise(cmd, () => ({}));
+				return {};
+			});
+		}
+		mapRemove(channel, key) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { publish: {
+					channel,
+					type: 1,
+					key,
+					removed: true
+				} };
+				yield this._methodCall();
+				yield this._callPromise(cmd, () => ({}));
+				return {};
+			});
+		}
+		history(channel, options) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { history: this._getHistoryRequest(channel, options) };
+				yield this._methodCall();
+				const result = yield this._callPromise(cmd, (reply) => reply.history);
+				const publications = [];
+				if (result.publications) for (let i = 0; i < result.publications.length; i++) publications.push(this._getPublicationContext(channel, result.publications[i]));
+				return {
+					publications,
+					epoch: result.epoch || "",
+					offset: result.offset || 0
+				};
+			});
+		}
+		presence(channel) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { presence: { channel } };
+				yield this._methodCall();
+				const clients = (yield this._callPromise(cmd, (reply) => reply.presence)).presence;
+				for (const clientId in clients) if (Object.prototype.hasOwnProperty.call(clients, clientId)) {
+					const rawClient = clients[clientId];
+					const connInfo = rawClient["conn_info"];
+					const chanInfo = rawClient["chan_info"];
+					if (connInfo) rawClient.connInfo = connInfo;
+					if (chanInfo) rawClient.chanInfo = chanInfo;
+				}
+				return { clients };
+			});
+		}
+		presenceStats(channel) {
+			return __awaiter(this, void 0, void 0, function* () {
+				const cmd = { "presence_stats": { channel } };
+				yield this._methodCall();
+				const result = yield this._callPromise(cmd, (reply) => {
+					return reply.presence_stats;
+				});
+				return {
+					numUsers: result.num_users,
+					numClients: result.num_clients
+				};
+			});
+		}
+		startBatching() {
+			this._batching = true;
+		}
+		stopBatching() {
+			const self = this;
+			Promise.resolve().then(function() {
+				Promise.resolve().then(function() {
+					self._batching = false;
+					self._flush();
+				});
+			});
+		}
+		_debug(...args) {
+			if (!this._debugEnabled) return;
+			log("debug", args);
+		}
+		_codecName() {
+			return this._codec.name();
+		}
+		_formatOverride() {}
+		_configure() {
+			if (!("Promise" in globalThis)) throw new Error("Promise polyfill required");
+			if (!this._endpoint) throw new Error("endpoint configuration required");
+			if (this._config.token !== null) this._token = this._config.token;
+			if (this._config.data !== null) this._data = this._config.data;
+			this._codec = new JsonCodec();
+			this._formatOverride();
+			if (this._config.debug === true || localStorageItem("centrifuge.debug")) this._debugEnabled = true;
+			this._debug("config", this._config);
+			if (typeof this._endpoint === "string");
+			else if (Array.isArray(this._endpoint)) {
+				this._transports = this._endpoint;
+				this._emulation = true;
+				for (const i in this._transports) if (this._transports.hasOwnProperty(i)) {
+					const transportConfig = this._transports[i];
+					if (!transportConfig.endpoint || !transportConfig.transport) throw new Error("malformed transport configuration");
+					const transportName = transportConfig.transport;
+					if ([
+						"websocket",
+						"http_stream",
+						"sse",
+						"sockjs",
+						"webtransport"
+					].indexOf(transportName) < 0) throw new Error("unsupported transport name: " + transportName);
+				}
+			} else throw new Error("unsupported url configuration type: only string or array of objects are supported");
+		}
+		_setState(newState) {
+			if (this.state !== newState) {
+				this._reconnecting = false;
+				const oldState = this.state;
+				this.state = newState;
+				this.emit("state", {
+					newState,
+					oldState
+				});
+				return true;
+			}
+			return false;
+		}
+		_isDisconnected() {
+			return this.state === State.Disconnected;
+		}
+		_isConnecting() {
+			return this.state === State.Connecting;
+		}
+		_isConnected() {
+			return this.state === State.Connected;
+		}
+		_nextCommandId() {
+			return ++this._commandId;
+		}
+		_setNetworkEvents() {
+			if (this._networkEventsSet) return;
+			let eventTarget = null;
+			if (this._config.networkEventTarget !== null) eventTarget = this._config.networkEventTarget;
+			else if (typeof globalThis.addEventListener !== "undefined") eventTarget = globalThis;
+			if (eventTarget) {
+				eventTarget.addEventListener("offline", () => {
+					this._debug("offline event triggered");
+					if (this.state === State.Connected || this.state === State.Connecting) {
+						this._disconnect(connectingCodes.transportClosed, "transport closed", true);
+						this._deviceWentOffline = true;
+					}
+				});
+				eventTarget.addEventListener("online", () => {
+					this._debug("online event triggered");
+					if (this.state !== State.Connecting) return;
+					if (this._deviceWentOffline && !this._transportClosed) {
+						this._deviceWentOffline = false;
+						this._transportClosed = true;
+					}
+					this._clearReconnectTimeout();
+					this._startReconnecting();
+				});
+				this._networkEventsSet = true;
+			}
+		}
+		_getReconnectDelay() {
+			const delay = backoff(this._reconnectAttempts, this._config.minReconnectDelay, this._config.maxReconnectDelay);
+			this._reconnectAttempts += 1;
+			return delay;
+		}
+		_clearOutgoingRequests() {
+			for (const id in this._callbacks) if (this._callbacks.hasOwnProperty(id)) {
+				const callbacks = this._callbacks[id];
+				clearTimeout(callbacks.timeout);
+				const errback = callbacks.errback;
+				if (!errback) continue;
+				errback({ error: this._createErrorObject(errorCodes.connectionClosed, "connection closed") });
+			}
+			this._callbacks = {};
+		}
+		_clearConnectedState() {
+			this._client = null;
+			this._clearServerPingTimeout();
+			this._clearRefreshTimeout();
+			for (const channel in this._subs) {
+				if (!this._subs.hasOwnProperty(channel)) continue;
+				const sub = this._subs[channel];
+				if (sub.state === SubscriptionState.Subscribed) sub._setSubscribing(subscribingCodes.transportClosed, "transport closed");
+			}
+			for (const channel in this._serverSubs) if (this._serverSubs.hasOwnProperty(channel)) this.emit("subscribing", { channel });
+		}
+		_handleWriteError(commands) {
+			for (const command of commands) {
+				const id = command.id;
+				if (!(id in this._callbacks)) continue;
+				const callbacks = this._callbacks[id];
+				clearTimeout(this._callbacks[id].timeout);
+				delete this._callbacks[id];
+				const errback = callbacks.errback;
+				errback({ error: this._createErrorObject(errorCodes.transportWriteError, "transport write error") });
+			}
+		}
+		_transportSendCommands(commands) {
+			if (!commands.length) return true;
+			if (!this._transport) return false;
+			try {
+				this._transport.send(this._codec.encodeCommands(commands), this._session, this._node);
+			} catch (e) {
+				this._debug("error writing commands", e);
+				this._handleWriteError(commands);
+				return false;
+			}
+			return true;
+		}
+		_advanceTransportIndex() {
+			this._currentTransportIndex++;
+			if (this._currentTransportIndex >= this._transports.length) {
+				this._triedAllTransports = true;
+				this._currentTransportIndex = 0;
+			}
+		}
+		_initializeTransport() {
+			let websocket;
+			if (this._config.websocket !== null) websocket = this._config.websocket;
+			else if (!(typeof globalThis.WebSocket !== "function" && typeof globalThis.WebSocket !== "object")) websocket = globalThis.WebSocket;
+			let sockjs = null;
+			if (this._config.sockjs !== null) sockjs = this._config.sockjs;
+			else if (typeof globalThis.SockJS !== "undefined") sockjs = globalThis.SockJS;
+			let eventsource = null;
+			if (this._config.eventsource !== null) eventsource = this._config.eventsource;
+			else if (typeof globalThis.EventSource !== "undefined") eventsource = globalThis.EventSource;
+			let fetchFunc = null;
+			if (this._config.fetch !== null) fetchFunc = this._config.fetch;
+			else if (typeof globalThis.fetch !== "undefined") fetchFunc = globalThis.fetch;
+			let readableStream = null;
+			if (this._config.readableStream !== null) readableStream = this._config.readableStream;
+			else if (typeof globalThis.ReadableStream !== "undefined") readableStream = globalThis.ReadableStream;
+			if (!this._emulation) {
+				if (startsWith(this._endpoint, "http")) throw new Error("Provide explicit transport endpoints configuration in case of using HTTP (i.e. using array of TransportEndpoint instead of a single string), or use ws(s):// scheme in an endpoint if you aimed using WebSocket transport");
+				else {
+					this._debug("client will use websocket");
+					this._transport = new WebsocketTransport(this._endpoint, { websocket });
+					if (!this._transport.supported()) throw new Error("WebSocket constructor not found, make sure it is available globally or passed as a dependency in Centrifuge options");
+				}
+			} else {
+				if (this._currentTransportIndex >= this._transports.length) {
+					this._triedAllTransports = true;
+					this._currentTransportIndex = 0;
+				}
+				let count = 0;
+				while (true) {
+					if (count >= this._transports.length) throw new Error("no supported transport found");
+					const transportConfig = this._transports[this._currentTransportIndex];
+					const transportName = transportConfig.transport;
+					const transportEndpoint = transportConfig.endpoint;
+					if (transportName === "websocket") {
+						this._debug("trying websocket transport");
+						this._transport = new WebsocketTransport(transportEndpoint, { websocket });
+						if (!this._transport.supported()) {
+							this._debug("websocket transport not available");
+							this._advanceTransportIndex();
+							count++;
+							continue;
+						}
+					} else if (transportName === "webtransport") {
+						this._debug("trying webtransport transport");
+						this._transport = new WebtransportTransport(transportEndpoint, {
+							webtransport: globalThis.WebTransport,
+							decoder: this._codec,
+							encoder: this._codec
+						});
+						if (!this._transport.supported()) {
+							this._debug("webtransport transport not available");
+							this._advanceTransportIndex();
+							count++;
+							continue;
+						}
+					} else if (transportName === "http_stream") {
+						this._debug("trying http_stream transport");
+						this._transport = new HttpStreamTransport(transportEndpoint, {
+							fetch: fetchFunc,
+							readableStream,
+							emulationEndpoint: this._config.emulationEndpoint,
+							decoder: this._codec,
+							encoder: this._codec
+						});
+						if (!this._transport.supported()) {
+							this._debug("http_stream transport not available");
+							this._advanceTransportIndex();
+							count++;
+							continue;
+						}
+					} else if (transportName === "sse") {
+						this._debug("trying sse transport");
+						this._transport = new SseTransport(transportEndpoint, {
+							eventsource,
+							fetch: fetchFunc,
+							emulationEndpoint: this._config.emulationEndpoint
+						});
+						if (!this._transport.supported()) {
+							this._debug("sse transport not available");
+							this._advanceTransportIndex();
+							count++;
+							continue;
+						}
+					} else if (transportName === "sockjs") {
+						this._debug("trying sockjs");
+						this._transport = new SockjsTransport(transportEndpoint, {
+							sockjs,
+							sockjsOptions: this._config.sockjsOptions
+						});
+						if (!this._transport.supported()) {
+							this._debug("sockjs transport not available");
+							this._advanceTransportIndex();
+							count++;
+							continue;
+						}
+					} else throw new Error("unknown transport " + transportName);
+					break;
+				}
+			}
+			const self = this;
+			const transport = this._transport;
+			const transportId = this._nextTransportId();
+			self._debug("id of transport", transportId);
+			let wasOpen = false;
+			const initialCommands = [];
+			if (this._transport.emulation()) {
+				const connectCommand = self._sendConnect(true);
+				initialCommands.push(connectCommand);
+			}
+			this._setNetworkEvents();
+			const initialData = this._codec.encodeCommands(initialCommands);
+			this._transportClosed = false;
+			let connectTimeout;
+			connectTimeout = setTimeout(function() {
+				transport.close();
+			}, this._config.timeout);
+			this._transport.initialize(this._codecName(), {
+				onOpen: function() {
+					if (connectTimeout) {
+						clearTimeout(connectTimeout);
+						connectTimeout = null;
+					}
+					if (self._transportId != transportId) {
+						self._debug("open callback from non-actual transport");
+						transport.close();
+						return;
+					}
+					wasOpen = true;
+					self._debug(transport.subName(), "transport open");
+					if (transport.emulation()) return;
+					self._transportIsOpen = true;
+					self._transportWasOpen = true;
+					self.startBatching();
+					self._sendConnect(false);
+					self._sendSubscribeCommands();
+					self.stopBatching();
+					self.emit("__centrifuge_debug:connect_frame_sent", {});
+				},
+				onError: function(e) {
+					if (self._transportId != transportId) {
+						self._debug("error callback from non-actual transport");
+						return;
+					}
+					self._debug("transport level error", e);
+				},
+				onClose: function(closeEvent) {
+					if (connectTimeout) {
+						clearTimeout(connectTimeout);
+						connectTimeout = null;
+					}
+					if (self._transportId != transportId) {
+						self._debug("close callback from non-actual transport");
+						return;
+					}
+					self._debug(transport.subName(), "transport closed");
+					self._transportClosed = true;
+					self._transportIsOpen = false;
+					let reason = "connection closed";
+					let needReconnect = true;
+					let code = 0;
+					if (closeEvent && "code" in closeEvent && closeEvent.code) code = closeEvent.code;
+					if (closeEvent && closeEvent.reason) try {
+						const advice = JSON.parse(closeEvent.reason);
+						reason = advice.reason;
+						needReconnect = advice.reconnect;
+					} catch (e) {
+						reason = closeEvent.reason;
+						if (code >= 3500 && code < 4e3 || code >= 4500 && code < 5e3) needReconnect = false;
+					}
+					if (code < 3e3) {
+						if (code === 1009) {
+							code = disconnectedCodes.messageSizeLimit;
+							reason = "message size limit exceeded";
+							needReconnect = false;
+						} else {
+							code = connectingCodes.transportClosed;
+							reason = "transport closed";
+						}
+						if (self._emulation && !self._transportWasOpen) self._advanceTransportIndex();
+					} else self._transportWasOpen = true;
+					if (self._isConnecting() && !wasOpen) self.emit("error", {
+						type: "transport",
+						error: {
+							code: errorCodes.transportClosed,
+							message: "transport closed"
+						},
+						transport: transport.name()
+					});
+					self._reconnecting = false;
+					self._disconnect(code, reason, needReconnect);
+				},
+				onMessage: function(data) {
+					self._dataReceived(data);
+				}
+			}, initialData);
+			self.emit("__centrifuge_debug:transport_initialized", {});
+		}
+		_sendConnect(skipSending) {
+			const connectCommand = this._constructConnectCommand();
+			const self = this;
+			this._call(connectCommand, skipSending).then((resolveCtx) => {
+				const result = resolveCtx.reply.connect;
+				self._connectResponse(result);
+				if (resolveCtx.next) resolveCtx.next();
+			}, (rejectCtx) => {
+				self._connectError(rejectCtx.error);
+				if (rejectCtx.next) rejectCtx.next();
+			});
+			return connectCommand;
+		}
+		_startReconnecting() {
+			this._debug("start reconnecting");
+			if (!this._isConnecting()) {
+				this._debug("stop reconnecting: client not in connecting state");
+				return;
+			}
+			if (this._reconnecting) {
+				this._debug("reconnect already in progress, return from reconnect routine");
+				return;
+			}
+			if (this._transportClosed === false) {
+				this._debug("waiting for transport close");
+				return;
+			}
+			this._reconnecting = true;
+			const emptyToken = this._token === "";
+			if (!(this._refreshRequired || emptyToken && this._config.getToken !== null)) {
+				if (this._config.getData) this._config.getData().then((data) => {
+					if (!this._isConnecting()) return;
+					this._data = data;
+					this._initializeTransport();
+				}).catch((e) => this._handleGetDataError(e));
+				else this._initializeTransport();
+				return;
+			}
+			const self = this;
+			this._getToken().then(function(token) {
+				if (!self._isConnecting()) return;
+				if (token == null || token == void 0) {
+					self._failUnauthorized();
+					return;
+				}
+				self._token = token;
+				self._debug("connection token refreshed");
+				if (self._config.getData) self._config.getData().then(function(data) {
+					if (!self._isConnecting()) return;
+					self._data = data;
+					self._initializeTransport();
+				}).catch((e) => self._handleGetDataError(e));
+				else self._initializeTransport();
+			}).catch(function(e) {
+				if (!self._isConnecting()) return;
+				if (e instanceof UnauthorizedError) {
+					self._failUnauthorized();
+					return;
+				}
+				self.emit("error", {
+					"type": "connectToken",
+					"error": {
+						code: errorCodes.clientConnectToken,
+						message: e !== void 0 ? e.toString() : ""
+					}
+				});
+				const delay = self._getReconnectDelay();
+				self._debug("error on getting connection token, reconnect after " + delay + " milliseconds", e);
+				self._reconnecting = false;
+				self._reconnectTimeout = setTimeout(() => {
+					self._startReconnecting();
+				}, delay);
+			});
+		}
+		_handleGetDataError(e) {
+			if (e instanceof UnauthorizedError) {
+				this._failUnauthorized();
+				return;
+			}
+			this.emit("error", {
+				type: "connectData",
+				error: {
+					code: errorCodes.badConfiguration,
+					message: (e === null || e === void 0 ? void 0 : e.toString()) || ""
+				}
+			});
+			const delay = this._getReconnectDelay();
+			this._debug("error on getting connect data, reconnect after " + delay + " milliseconds", e);
+			this._reconnecting = false;
+			this._reconnectTimeout = setTimeout(() => {
+				this._startReconnecting();
+			}, delay);
+		}
+		_connectError(err) {
+			if (this.state !== State.Connecting) return;
+			if (err.code === 109) this._refreshRequired = true;
+			if (err.code < 100 || err.temporary === true || err.code === 109) {
+				this.emit("error", {
+					"type": "connect",
+					"error": err
+				});
+				this._debug("closing transport due to connect error");
+				this._disconnect(err.code, err.message, true);
+			} else this._disconnect(err.code, err.message, false);
+		}
+		_scheduleReconnect() {
+			if (!this._isConnecting()) return;
+			let isInitialHandshake = false;
+			if (this._emulation && !this._transportWasOpen && !this._triedAllTransports) isInitialHandshake = true;
+			let delay = this._getReconnectDelay();
+			if (isInitialHandshake) delay = 0;
+			this._debug("reconnect after " + delay + " milliseconds");
+			this._clearReconnectTimeout();
+			this._reconnectTimeout = setTimeout(() => {
+				this._startReconnecting();
+			}, delay);
+		}
+		_constructConnectCommand() {
+			const req = {};
+			if (this._token) req.token = this._token;
+			if (this._data) req.data = this._data;
+			if (this._config.name) req.name = this._config.name;
+			if (this._config.version) req.version = this._config.version;
+			if (Object.keys(this._config.headers).length > 0) req.headers = this._config.headers;
+			const subs = {};
+			let hasSubs = false;
+			for (const channel in this._serverSubs) if (this._serverSubs.hasOwnProperty(channel) && this._serverSubs[channel].recoverable) {
+				hasSubs = true;
+				const sub = { "recover": true };
+				if (this._serverSubs[channel].offset) sub["offset"] = this._serverSubs[channel].offset;
+				if (this._serverSubs[channel].epoch) sub["epoch"] = this._serverSubs[channel].epoch;
+				subs[channel] = sub;
+			}
+			if (hasSubs) req.subs = subs;
+			return { connect: req };
+		}
+		_getHistoryRequest(channel, options) {
+			const req = { channel };
+			if (options !== void 0) {
+				if (options.since) {
+					req.since = { offset: options.since.offset };
+					if (options.since.epoch) req.since.epoch = options.since.epoch;
+				}
+				if (options.limit !== void 0) req.limit = options.limit;
+				if (options.reverse === true) req.reverse = true;
+			}
+			return req;
+		}
+		_methodCall() {
+			if (this._isConnected()) return Promise.resolve();
+			return new Promise((res, rej) => {
+				const timeout = setTimeout(function() {
+					rej({
+						code: errorCodes.timeout,
+						message: "timeout"
+					});
+				}, this._config.timeout);
+				this._promises[this._nextPromiseId()] = {
+					timeout,
+					resolve: res,
+					reject: rej
+				};
+			});
+		}
+		_callPromise(cmd, resultCB) {
+			return new Promise((resolve, reject) => {
+				this._call(cmd, false).then((resolveCtx) => {
+					var _a;
+					resolve(resultCB(resolveCtx.reply));
+					(_a = resolveCtx.next) === null || _a === void 0 || _a.call(resolveCtx);
+				}, (rejectCtx) => {
+					var _a;
+					reject(rejectCtx.error);
+					(_a = rejectCtx.next) === null || _a === void 0 || _a.call(rejectCtx);
+				});
+			});
+		}
+		_dataReceived(data) {
+			if (this._serverPing > 0) this._waitServerPing();
+			const replies = this._codec.decodeReplies(data);
+			this._dispatchPromise = this._dispatchPromise.then(() => {
+				let finishDispatch;
+				this._dispatchPromise = new Promise((resolve) => {
+					finishDispatch = resolve;
+				});
+				this._dispatchSynchronized(replies, finishDispatch);
+			});
+		}
+		_dispatchSynchronized(replies, finishDispatch) {
+			let p = Promise.resolve();
+			for (const i in replies) if (replies.hasOwnProperty(i)) p = p.then(() => {
+				return this._dispatchReply(replies[i]);
+			});
+			p.then(() => {
+				finishDispatch();
+			});
+		}
+		_dispatchReply(reply) {
+			let next;
+			const p = new Promise((resolve) => {
+				next = resolve;
+			});
+			if (reply === void 0 || reply === null) {
+				this._debug("dispatch: got undefined or null reply");
+				next();
+				return p;
+			}
+			const id = reply.id;
+			if (id && id > 0) this._handleReply(reply, next);
+			else if (!reply.push) this._handleServerPing(next);
+			else this._handlePush(reply.push, next);
+			return p;
+		}
+		_call(cmd, skipSending) {
+			return new Promise((resolve, reject) => {
+				cmd.id = this._nextCommandId();
+				this._registerCall(cmd.id, resolve, reject);
+				if (!skipSending) this._addCommand(cmd);
+			});
+		}
+		_startConnecting() {
+			this._debug("start connecting");
+			if (this._setState(State.Connecting)) this.emit("connecting", {
+				code: connectingCodes.connectCalled,
+				reason: "connect called"
+			});
+			this._client = null;
+			this._startReconnecting();
+		}
+		_disconnect(code, reason, reconnect) {
+			if (code === disconnectedCodes.stateInvalidated) {
+				this._token = "";
+				this._refreshRequired = true;
+				for (const channel in this._subs) if (this._subs.hasOwnProperty(channel)) this._subs[channel]._invalidateState();
+				for (const channel in this._serverSubs) if (this._serverSubs.hasOwnProperty(channel)) {
+					this._serverSubs[channel].offset = 0;
+					this._serverSubs[channel].epoch = "_";
+				}
+			}
+			if (this._isDisconnected()) return;
+			this._transportIsOpen = false;
+			const previousState = this.state;
+			this._reconnecting = false;
+			const ctx = {
+				code,
+				reason
+			};
+			let needEvent;
+			if (reconnect) needEvent = this._setState(State.Connecting);
+			else {
+				needEvent = this._setState(State.Disconnected);
+				this._rejectPromises({
+					code: errorCodes.clientDisconnected,
+					message: "disconnected"
+				});
+			}
+			this._clearOutgoingRequests();
+			if (previousState === State.Connecting) this._clearReconnectTimeout();
+			if (previousState === State.Connected) this._clearConnectedState();
+			if (needEvent) {
+				if (this._isConnecting()) this.emit("connecting", ctx);
+				else this.emit("disconnected", ctx);
+			}
+			if (this._transport) {
+				this._debug("closing existing transport");
+				const transport = this._transport;
+				this._transport = null;
+				transport.close();
+				this._transportClosed = true;
+				this._nextTransportId();
+			} else this._debug("no transport to close");
+			this._scheduleReconnect();
+		}
+		_failUnauthorized() {
+			this._disconnect(disconnectedCodes.unauthorized, "unauthorized", false);
+		}
+		_getToken() {
+			this._debug("get connection token");
+			if (!this._config.getToken) {
+				this.emit("error", {
+					type: "configuration",
+					error: {
+						code: errorCodes.badConfiguration,
+						message: "token expired but no getToken function set in the configuration"
+					}
+				});
+				return Promise.reject(new UnauthorizedError(""));
+			}
+			return this._config.getToken({});
+		}
+		_refresh() {
+			const clientId = this._client;
+			const self = this;
+			this._getToken().then(function(token) {
+				if (clientId !== self._client) return;
+				if (!token) {
+					self._failUnauthorized();
+					return;
+				}
+				self._token = token;
+				self._debug("connection token refreshed");
+				if (!self._isConnected()) return;
+				const cmd = { refresh: { token: self._token } };
+				self._call(cmd, false).then((resolveCtx) => {
+					const result = resolveCtx.reply.refresh;
+					self._refreshResponse(result);
+					if (resolveCtx.next) resolveCtx.next();
+				}, (rejectCtx) => {
+					self._refreshError(rejectCtx.error);
+					if (rejectCtx.next) rejectCtx.next();
+				});
+			}).catch(function(e) {
+				if (!self._isConnected()) return;
+				if (e instanceof UnauthorizedError) {
+					self._failUnauthorized();
+					return;
+				}
+				self.emit("error", {
+					type: "refreshToken",
+					error: {
+						code: errorCodes.clientRefreshToken,
+						message: e !== void 0 ? e.toString() : ""
+					}
+				});
+				self._refreshTimeout = setTimeout(() => self._refresh(), self._getRefreshRetryDelay());
+			});
+		}
+		_refreshError(err) {
+			if (err.code < 100 || err.temporary === true) {
+				this.emit("error", {
+					type: "refresh",
+					error: err
+				});
+				this._refreshTimeout = setTimeout(() => this._refresh(), this._getRefreshRetryDelay());
+			} else this._disconnect(err.code, err.message, false);
+		}
+		_getRefreshRetryDelay() {
+			return backoff(0, 5e3, 1e4);
+		}
+		_refreshResponse(result) {
+			if (this._refreshTimeout) {
+				clearTimeout(this._refreshTimeout);
+				this._refreshTimeout = null;
+			}
+			if (result.expires) {
+				this._client = result.client;
+				this._refreshTimeout = setTimeout(() => this._refresh(), ttlMilliseconds(result.ttl));
+			}
+		}
+		_removeSubscription(sub) {
+			if (sub === null) return;
+			delete this._subs[sub.channel];
+		}
+		_unsubscribe(sub) {
+			if (!this._transportIsOpen) return Promise.resolve();
+			const cmd = { unsubscribe: { channel: sub.channel } };
+			const self = this;
+			return new Promise((resolve, _) => {
+				this._call(cmd, false).then((resolveCtx) => {
+					resolve();
+					if (resolveCtx.next) resolveCtx.next();
+				}, (rejectCtx) => {
+					resolve();
+					if (rejectCtx.next) rejectCtx.next();
+					self._disconnect(connectingCodes.unsubscribeError, "unsubscribe error", true);
+				});
+			});
+		}
+		_getSub(channel, id) {
+			if (id && id > 0) {
+				for (const ch in this._subs) if (this._subs.hasOwnProperty(ch)) {
+					const sub = this._subs[ch];
+					if (sub._id === id) return sub;
+				}
+				return null;
+			}
+			const sub = this._subs[channel];
+			if (!sub) return null;
+			return sub;
+		}
+		_isServerSub(channel) {
+			return this._serverSubs[channel] !== void 0;
+		}
+		_sendSubscribeCommands() {
+			const commands = [];
+			for (const channel in this._subs) {
+				if (!this._subs.hasOwnProperty(channel)) continue;
+				const sub = this._subs[channel];
+				if (sub._inflight === true) continue;
+				if (sub.state === SubscriptionState.Subscribing) {
+					const cmd = sub._subscribe();
+					if (cmd) commands.push(cmd);
+				}
+			}
+			return commands;
+		}
+		_connectResponse(result) {
+			this._transportIsOpen = true;
+			this._transportWasOpen = true;
+			this._reconnectAttempts = 0;
+			this._refreshRequired = false;
+			if (this._isConnected()) return;
+			this._client = result.client;
+			this._setState(State.Connected);
+			if (this._refreshTimeout) clearTimeout(this._refreshTimeout);
+			if (result.expires) this._refreshTimeout = setTimeout(() => this._refresh(), ttlMilliseconds(result.ttl));
+			this._session = result.session;
+			this._node = result.node;
+			this.startBatching();
+			this._sendSubscribeCommands();
+			this.stopBatching();
+			const ctx = {
+				client: result.client,
+				transport: this._transport.subName()
+			};
+			if (result.data) ctx.data = result.data;
+			this.emit("connected", ctx);
+			this._resolvePromises();
+			this._processServerSubs(result.subs || {});
+			if (result.ping && result.ping > 0) {
+				this._serverPing = result.ping * 1e3;
+				this._sendPong = result.pong === true;
+				this._waitServerPing();
+			} else this._serverPing = 0;
+		}
+		_processServerSubs(subs) {
+			for (const channel in subs) {
+				if (!subs.hasOwnProperty(channel)) continue;
+				const sub = subs[channel];
+				this._serverSubs[channel] = {
+					"offset": sub.offset,
+					"epoch": sub.epoch,
+					"recoverable": sub.recoverable || false
+				};
+				const subCtx = this._getSubscribeContext(channel, sub);
+				this.emit("subscribed", subCtx);
+			}
+			for (const channel in subs) {
+				if (!subs.hasOwnProperty(channel)) continue;
+				const sub = subs[channel];
+				if (sub.recovered) {
+					const pubs = sub.publications;
+					if (pubs && pubs.length > 0) {
+						for (const i in pubs) if (pubs.hasOwnProperty(i)) this._handlePublication(channel, pubs[i]);
+					}
+				}
+			}
+			for (const channel in this._serverSubs) {
+				if (!this._serverSubs.hasOwnProperty(channel)) continue;
+				if (!subs[channel]) {
+					this.emit("unsubscribed", { channel });
+					delete this._serverSubs[channel];
+				}
+			}
+		}
+		_clearRefreshTimeout() {
+			if (this._refreshTimeout !== null) {
+				clearTimeout(this._refreshTimeout);
+				this._refreshTimeout = null;
+			}
+		}
+		_clearReconnectTimeout() {
+			if (this._reconnectTimeout !== null) {
+				clearTimeout(this._reconnectTimeout);
+				this._reconnectTimeout = null;
+			}
+		}
+		_clearServerPingTimeout() {
+			if (this._serverPingTimeout !== null) {
+				clearTimeout(this._serverPingTimeout);
+				this._serverPingTimeout = null;
+			}
+		}
+		_waitServerPing() {
+			if (this._config.maxServerPingDelay === 0) return;
+			if (!this._isConnected()) return;
+			this._clearServerPingTimeout();
+			this._serverPingTimeout = setTimeout(() => {
+				if (!this._isConnected()) return;
+				this._disconnect(connectingCodes.noPing, "no ping", true);
+			}, this._serverPing + this._config.maxServerPingDelay);
+		}
+		_getSubscribeContext(channel, result) {
+			const ctx = {
+				channel,
+				positioned: false,
+				recoverable: false,
+				wasRecovering: false,
+				recovered: false,
+				hasRecoveredPublications: false
+			};
+			if (result.recovered) ctx.recovered = true;
+			if (result.positioned) ctx.positioned = true;
+			if (result.recoverable) ctx.recoverable = true;
+			if (result.was_recovering) ctx.wasRecovering = true;
+			let epoch = "";
+			if ("epoch" in result) epoch = result.epoch;
+			let offset = 0;
+			if ("offset" in result) offset = result.offset;
+			if (ctx.positioned || ctx.recoverable) ctx.streamPosition = {
+				"offset": offset,
+				"epoch": epoch
+			};
+			if (Array.isArray(result.publications) && result.publications.length > 0) ctx.hasRecoveredPublications = true;
+			if (result.data) ctx.data = result.data;
+			return ctx;
+		}
+		_handleReply(reply, next) {
+			const id = reply.id;
+			if (!(id in this._callbacks)) {
+				next();
+				return;
+			}
+			const callbacks = this._callbacks[id];
+			clearTimeout(this._callbacks[id].timeout);
+			delete this._callbacks[id];
+			if (!errorExists(reply)) {
+				const callback = callbacks.callback;
+				if (!callback) return;
+				callback({
+					reply,
+					next
+				});
+			} else {
+				const errback = callbacks.errback;
+				if (!errback) {
+					next();
+					return;
+				}
+				errback({
+					error: {
+						code: reply.error.code,
+						message: reply.error.message || "",
+						temporary: reply.error.temporary || false
+					},
+					next
+				});
+			}
+		}
+		_handleJoin(channel, join, id) {
+			const sub = this._getSub(channel, id);
+			if (!sub) {
+				if (channel && this._isServerSub(channel)) {
+					const ctx = {
+						channel,
+						info: this._getJoinLeaveContext(join.info)
+					};
+					this.emit("join", ctx);
+				}
+				return;
+			}
+			sub._handleJoin(join);
+		}
+		_handleLeave(channel, leave, id) {
+			const sub = this._getSub(channel, id);
+			if (!sub) {
+				if (channel && this._isServerSub(channel)) {
+					const ctx = {
+						channel,
+						info: this._getJoinLeaveContext(leave.info)
+					};
+					this.emit("leave", ctx);
+				}
+				return;
+			}
+			sub._handleLeave(leave);
+		}
+		_handleUnsubscribe(channel, unsubscribe) {
+			const sub = this._getSub(channel, 0);
+			if (!sub && channel) {
+				if (this._isServerSub(channel)) {
+					delete this._serverSubs[channel];
+					this.emit("unsubscribed", { channel });
+				}
+				return;
+			}
+			if (unsubscribe.code < 2500) sub._setUnsubscribed(unsubscribe.code, unsubscribe.reason, false);
+			else {
+				if (unsubscribe.code === unsubscribedCodes.stateInvalidated) sub._invalidateState();
+				sub._setSubscribing(unsubscribe.code, unsubscribe.reason);
+			}
+		}
+		_handleSubscribe(channel, sub) {
+			this._serverSubs[channel] = {
+				"offset": sub.offset,
+				"epoch": sub.epoch,
+				"recoverable": sub.recoverable || false
+			};
+			this.emit("subscribed", this._getSubscribeContext(channel, sub));
+		}
+		_handleDisconnect(disconnect) {
+			const code = disconnect.code;
+			let reconnect = true;
+			if (code >= 3500 && code < 4e3 || code >= 4500 && code < 5e3) reconnect = false;
+			this._disconnect(code, disconnect.reason, reconnect);
+		}
+		_getPublicationContext(channel, pub) {
+			const ctx = {
+				channel,
+				data: pub.data
+			};
+			if (pub.offset) ctx.offset = pub.offset;
+			if (pub.info) ctx.info = this._getJoinLeaveContext(pub.info);
+			if (pub.tags) ctx.tags = pub.tags;
+			return ctx;
+		}
+		_getJoinLeaveContext(clientInfo) {
+			const info = {
+				client: clientInfo.client,
+				user: clientInfo.user
+			};
+			const connInfo = clientInfo["conn_info"];
+			if (connInfo) info.connInfo = connInfo;
+			const chanInfo = clientInfo["chan_info"];
+			if (chanInfo) info.chanInfo = chanInfo;
+			return info;
+		}
+		_handlePublication(channel, pub, id) {
+			const sub = this._getSub(channel, id);
+			if (!sub) {
+				if (channel && this._isServerSub(channel)) {
+					const ctx = this._getPublicationContext(channel, pub);
+					this.emit("publication", ctx);
+					if (pub.offset !== void 0) this._serverSubs[channel].offset = pub.offset;
+				}
+				return;
+			}
+			sub._handlePublication(pub);
+		}
+		_handleMessage(message) {
+			this.emit("message", { data: message.data });
+		}
+		_handleServerPing(next) {
+			if (this._sendPong) this._transportSendCommands([{}]);
+			next();
+		}
+		_handlePush(data, next) {
+			const channel = data.channel;
+			const id = data.id;
+			if (data.pub) this._handlePublication(channel, data.pub, id);
+			else if (data.message) this._handleMessage(data.message);
+			else if (data.join) this._handleJoin(channel, data.join, id);
+			else if (data.leave) this._handleLeave(channel, data.leave, id);
+			else if (data.unsubscribe) this._handleUnsubscribe(channel, data.unsubscribe);
+			else if (data.subscribe) this._handleSubscribe(channel, data.subscribe);
+			else if (data.disconnect) this._handleDisconnect(data.disconnect);
+			next();
+		}
+		_flush() {
+			const commands = this._commands.slice(0);
+			this._commands = [];
+			this._transportSendCommands(commands);
+		}
+		_createErrorObject(code, message, temporary) {
+			const errObject = {
+				code,
+				message
+			};
+			if (temporary) errObject.temporary = true;
+			return errObject;
+		}
+		_registerCall(id, callback, errback) {
+			this._callbacks[id] = {
+				callback,
+				errback,
+				timeout: null
+			};
+			this._callbacks[id].timeout = setTimeout(() => {
+				delete this._callbacks[id];
+				if (isFunction(errback)) errback({ error: this._createErrorObject(errorCodes.timeout, "timeout") });
+			}, this._config.timeout);
+		}
+		_addCommand(command) {
+			if (this._batching) this._commands.push(command);
+			else this._transportSendCommands([command]);
+		}
+		_nextPromiseId() {
+			return ++this._promiseId;
+		}
+		_nextTransportId() {
+			return ++this._transportId;
+		}
+		_resolvePromises() {
+			for (const id in this._promises) {
+				if (!this._promises.hasOwnProperty(id)) continue;
+				if (this._promises[id].timeout) clearTimeout(this._promises[id].timeout);
+				this._promises[id].resolve();
+				delete this._promises[id];
+			}
+		}
+		_rejectPromises(err) {
+			for (const id in this._promises) {
+				if (!this._promises.hasOwnProperty(id)) continue;
+				if (this._promises[id].timeout) clearTimeout(this._promises[id].timeout);
+				this._promises[id].reject(err);
+				delete this._promises[id];
+			}
+		}
+	};
+	Centrifuge.SubscriptionState = SubscriptionState;
+	Centrifuge.State = State;
+	Centrifuge.UnauthorizedError = UnauthorizedError;
+	var WS_URL = "wss://ws.triangleliquidators.com/connection/websocket";
+	var liveState = "off";
+	var stateSubs = new Set();
+	var subs = new Map();
+	function setState(s) {
+		liveState = s;
+		stateSubs.forEach((f) => f(s));
+	}
+	function useLiveState() {
+		const [s, set] = d(liveState);
+		h(() => {
+			stateSubs.add(set);
+			set(liveState);
+			return () => void stateSubs.delete(set);
+		}, []);
+		return s;
+	}
+	var connecting = null;
+	var connect = () => connecting ??= open();
+	async function open() {
+		let token = null;
+		if (isAuthenticated()) token = await fetchWsToken().catch(() => null);
+		const c = new Centrifuge(WS_URL, token ? {
+			token,
+			getToken: () => fetchWsToken()
+		} : {});
+		c.on("connecting", () => setState("connecting"));
+		c.on("connected", () => setState("connected"));
+		c.on("disconnected", () => setState("disconnected"));
+		c.on("publication", (ctx) => {
+			if (!ctx.channel.startsWith("user:")) return;
+			const d = ctx.data || {};
+			const lotId = Number(d.lot_id);
+			const lot = getLot(lotId);
+			if (!lot) return;
+			let standing = normalizeStanding(d.relationship);
+			if (!standing && d.type === "outbid") standing = {
+				isLeading: false,
+				yourMaxBid: lot.yourStanding?.yourMaxBid ?? null
+			};
+			if (!standing && d.type === "winning") standing = {
+				isLeading: true,
+				yourMaxBid: lot.yourStanding?.yourMaxBid ?? null
+			};
+			if (standing) updateLot(lotId, {
+				yourStanding: standing,
+				hasBid: true
+			}, { force: true });
+		});
+		c.connect();
+		return c;
+	}
+	function onLotPublication(data) {
+		if (!data || typeof data.id !== "number") return;
+		const patch = {
+			currentPrice: data.current_price,
+			bidCount: data.bid_count,
+			nextMinIncrement: data.next_min_increment,
+			endsAt: data.ends_at ? Date.parse(data.ends_at) : void 0,
+			status: data.status,
+			version: data.version
+		};
+		for (const k of Object.keys(patch)) if (patch[k] == null) delete patch[k];
+		updateLot(data.id, patch);
+	}
+	async function watchLots(ids) {
+		const c = await connect();
+		const want = new Set(ids);
+		for (const [id, sub] of subs) {
+			if (want.has(id)) continue;
+			sub.unsubscribe();
+			c.removeSubscription(sub);
+			subs.delete(id);
+		}
+		for (const id of want) {
+			if (subs.has(id)) continue;
+			const sub = c.getSubscription(`lot:${id}`) ?? c.newSubscription(`lot:${id}`);
+			sub.on("publication", (ctx) => onLotPublication(ctx.data));
+			sub.subscribe();
+			subs.set(id, sub);
+		}
+	}
+	function g(n, t) {
+		for (var e in t) n[e] = t[e];
+		return n;
+	}
+	function E(n, t) {
+		for (var e in n) if ("__source" !== e && !(e in t)) return !0;
+		for (var r in t) if ("__source" !== r && n[r] !== t[r]) return !0;
+		return !1;
+	}
+	function M(n, t) {
+		this.props = n, this.context = t;
+	}
+	function N(n, e) {
+		function r(n) {
+			var t = this.props.ref;
+			return t != n.ref && t && ("function" == typeof t ? t(null) : t.current = null), e ? !e(this.props, n) || t != n.ref : E(this.props, n);
+		}
+		function u(e) {
+			return this.shouldComponentUpdate = r, k$1(n, e);
+		}
+		return u.displayName = "Memo(" + (n.displayName || n.name) + ")", u.__f = u.prototype.isReactComponent = !0, u.type = n, u;
+	}
+	(M.prototype = new C$1()).isPureReactComponent = !0, M.prototype.shouldComponentUpdate = function(n, t) {
+		return E(this.props, n) || E(this.state, t);
+	};
+	var T = l$1.__b;
+	l$1.__b = function(n) {
+		n.type && n.type.__f && n.ref && (n.props.ref = n.ref, n.ref = null), T && T(n);
+	};
+	"undefined" != typeof Symbol && Symbol.for;
+	var O = l$1.__e;
+	l$1.__e = function(n, t, e, r) {
+		if (n.then) {
+			for (var u, o = t; o = o.__;) if ((u = o.__c) && u.__c) return t.__e ?? (t.__e = e.__e, t.__k = e.__k || []), u.__c(n, t);
+		}
+		O(n, t, e, r);
+	};
+	var U = l$1.unmount;
+	function V(n, t, e) {
+		return n && (n.__c && n.__c.__H && (n.__c.__H.__.forEach(function(n) {
+			"function" == typeof n.__c && n.__c();
+		}), n.__c.__H = null), null != (n = g({}, n)).__c && (n.__c.__P === e && (n.__c.__P = t), n.__c.__e = !0, n.__c = null), n.__k = n.__k && n.__k.map(function(n) {
+			return V(n, t, e);
+		})), n;
+	}
+	function W(n, t, e) {
+		return n && e && (n.__v = null, n.__k = n.__k && n.__k.map(function(n) {
+			return W(n, t, e);
+		}), n.__c && n.__c.__P === t && (n.__e && e.appendChild(n.__e), n.__c.__e = !0, n.__c.__P = e)), n;
+	}
+	function P() {
+		this.__u = 0, this.o = null, this.__b = null;
+	}
+	function j(n) {
+		var t = n.__ && n.__.__c;
+		return t && t.__a && t.__a(n);
+	}
+	function B() {
+		this.i = null, this.l = null;
+	}
+	l$1.unmount = function(n) {
+		var t = n.__c;
+		t && (t.__z = !0), t && t.__R && t.__R(), t && 32 & n.__u && (n.type = null), U && U(n);
+	}, (P.prototype = new C$1()).__c = function(n, t) {
+		var e = t.__c, r = this;
+		r.o ??= [], r.o.push(e);
+		var u = j(r.__v), o = !1, i = function() {
+			o || r.__z || (o = !0, e.__R = null, u ? u(f) : f());
+		};
+		e.__R = i;
+		var l = e.__P;
+		e.__P = null;
+		var f = function() {
+			if (!--r.__u) {
+				if (r.state.__a) {
+					var n = r.state.__a;
+					r.__v.__k[0] = W(n, n.__c.__P, n.__c.__O);
+				}
+				var t;
+				for (r.setState({ __a: r.__b = null }); t = r.o.pop();) t.__P = l, t.forceUpdate();
+			}
+		};
+		r.__u++ || 32 & t.__u || r.setState({ __a: r.__b = r.__v.__k[0] }), n.then(i, i);
+	}, P.prototype.componentWillUnmount = function() {
+		this.o = [];
+	}, P.prototype.render = function(n, e) {
+		if (this.__b) {
+			if (this.__v.__k) {
+				var r = document.createElement("div"), o = this.__v.__k[0].__c;
+				this.__v.__k[0] = V(this.__b, r, o.__O = o.__P);
+			}
+			this.__b = null;
+		}
+		var i = e.__a && k$1(S, null, n.fallback);
+		return i && (i.__u &= -33), [k$1(S, null, e.__a ? null : n.children), i];
+	};
+	var H = function(n, t, e) {
+		if (++e[1] === e[0] && n.l.delete(t), n.props.revealOrder && ("t" !== n.props.revealOrder[0] || !n.l.size)) for (e = n.i; e;) {
+			for (; e.length > 3;) e.pop()();
+			if (e[1] < e[0]) break;
+			n.i = e = e[2];
+		}
+	};
+	(B.prototype = new C$1()).__a = function(n) {
+		var t = this, e = j(t.__v), r = t.l.get(n);
+		return r[0]++, function(u) {
+			var o = function() {
+				t.props.revealOrder ? (r.push(u), H(t, n, r)) : u();
+			};
+			e ? e(o) : o();
+		};
+	}, B.prototype.render = function(n) {
+		this.i = null, this.l = new Map();
+		var t = F(n.children);
+		n.revealOrder && "b" === n.revealOrder[0] && t.reverse();
+		for (var e = t.length; e--;) this.l.set(t[e], this.i = [
+			1,
+			0,
+			this.i
+		]);
+		return n.children;
+	}, B.prototype.componentDidUpdate = B.prototype.componentDidMount = function() {
+		var n = this;
+		this.l.forEach(function(t, e) {
+			H(n, e, t);
+		});
+	};
+	var q = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.element") || 60103;
+	var G = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|image(!S)|letter|lighting|marker(?!H|W|U)|overline|paint|pointer|shape|stop|strikethrough|stroke|text(?!L)|transform|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/;
+	var J = /^on(Ani|Tra|Tou|BeforeInp|Compo)/;
+	var K = /[A-Z0-9]/g;
+	var Q = "undefined" != typeof document;
+	var X = function(n) {
+		return ("undefined" != typeof Symbol && "symbol" == typeof Symbol() ? /fil|che|rad/ : /fil|che|ra/).test(n);
+	};
+	C$1.prototype.isReactComponent = !0, [
+		"componentWillMount",
+		"componentWillReceiveProps",
+		"componentWillUpdate"
+	].forEach(function(t) {
+		Object.defineProperty(C$1.prototype, t, {
+			configurable: !0,
+			get: function() {
+				return this["UNSAFE_" + t];
+			},
+			set: function(n) {
+				Object.defineProperty(this, t, {
+					configurable: !0,
+					writable: !0,
+					value: n
+				});
+			}
+		});
+	});
+	var en = l$1.event;
+	l$1.event = function(n) {
+		return en && (n = en(n)), n.persist = function() {}, n.isPropagationStopped = function() {
+			return this.cancelBubble;
+		}, n.isDefaultPrevented = function() {
+			return this.defaultPrevented;
+		}, n.nativeEvent = n;
+	};
+	var un = {
+		configurable: !0,
+		get: function() {
+			return this.class;
+		}
+	};
+	var on = l$1.vnode;
+	l$1.vnode = function(n) {
+		"string" == typeof n.type && function(n) {
+			var t = n.props, e = n.type, u = {}, o = -1 == e.indexOf("-");
+			for (var i in t) {
+				var l = t[i];
+				if (!("value" === i && "defaultValue" in t && null == l || Q && "children" === i && "noscript" === e || "class" === i || "className" === i)) {
+					var f = i.toLowerCase();
+					"defaultValue" === i && "value" in t && null == t.value ? i = "value" : "download" === i && !0 === l ? l = "" : "translate" === f && "no" === l ? l = !1 : "o" === f[0] && "n" === f[1] ? "ondoubleclick" === f ? i = "ondblclick" : "onchange" !== f || "input" !== e && "textarea" !== e || X(t.type) ? "onfocus" === f ? i = "onfocusin" : "onblur" === f ? i = "onfocusout" : J.test(i) && (i = f) : f = i = "oninput" : o && G.test(i) ? i = i.replace(K, "-$&").toLowerCase() : null === l && (l = void 0), "oninput" === f && u[i = f] && (i = "oninputCapture"), u[i] = l;
+				}
+			}
+			"select" == e && (u.multiple && Array.isArray(u.value) && (u.value = F(t.children).forEach(function(n) {
+				n.props.selected = -1 != u.value.indexOf(n.props.value);
+			})), null != u.defaultValue && (u.value = F(t.children).forEach(function(n) {
+				n.props.selected = u.multiple ? -1 != u.defaultValue.indexOf(n.props.value) : u.defaultValue == n.props.value;
+			}))), t.class && !t.className ? (u.class = t.class, Object.defineProperty(u, "className", un)) : t.className && (u.class = u.className = t.className), n.props = u;
+		}(n), n.$$typeof = q, on && on(n);
+	};
+	var ln = l$1.__r;
+	l$1.__r = function(n) {
+		ln && ln(n), n.__c;
+	};
+	var fn = l$1.diffed;
+	l$1.diffed = function(n) {
+		fn && fn(n);
+		var t = n.props, e = n.__e;
+		null != e && "textarea" === n.type && "value" in t && t.value !== e.value && (e.value = null == t.value ? "" : t.value);
+	};
+	function timeLabel(endsAt, now) {
+		const ms = endsAt - now;
+		if (ms <= 0) return {
+			text: "Closed",
+			soon: true
+		};
+		const s = Math.floor(ms / 1e3);
+		const m = Math.floor(s / 60);
+		const soon = ms <= 36e5;
+		if (ms >= 864e5) return {
+			text: `${Math.floor(m / 1440)}d ${Math.floor(m % 1440 / 60)}h`,
+			soon
+		};
+		if (m >= 60) return {
+			text: `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`,
+			soon
+		};
+		return {
+			text: `${m}m ${String(s % 60).padStart(2, "0")}s`,
+			soon
+		};
+	}
+	function ago(ts, now) {
+		const m = Math.round((now - ts) / 6e4);
+		if (m < 1) return "just now";
+		if (m < 60) return `${m} min ago`;
+		const h = Math.floor(m / 60);
+		return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts).toLocaleString();
+	}
+	function countdown(ms) {
+		const s = Math.max(0, Math.ceil(ms / 1e3));
+		return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
+	}
+	var tickSubs = new Map();
+	function useNow(every = 1e3) {
+		const [now, setNow] = d(Date.now);
+		h(() => {
+			let t = tickSubs.get(every);
+			if (!t) {
+				const set = new Set();
+				t = {
+					set,
+					timer: window.setInterval(() => set.forEach((f) => f(Date.now())), every)
+				};
+				tickSubs.set(every, t);
+			}
+			t.set.add(setNow);
+			return () => {
+				t.set.delete(setNow);
+				if (!t.set.size) {
+					clearInterval(t.timer);
+					tickSubs.delete(every);
+				}
+			};
+		}, [every]);
+		return now;
+	}
+	var fmtCount = (n) => n.toLocaleString("en-US");
+	function parseNum(s) {
+		const n = parseFloat(s.replace(/[$,\s]/g, ""));
+		return Number.isFinite(n) ? n : null;
+	}
+	function TimeLeft({ endsAt }) {
+		const { text, soon } = timeLabel(endsAt, useNow(1e3));
+		return u("span", {
+			class: `time ${soon ? "soon" : ""}`,
+			title: new Date(endsAt).toLocaleString(),
+			children: text
+		});
+	}
+	function StandingBadge({ lot }) {
+		if (lot.yourStanding?.isLeading) return u("span", {
+			class: "pill pill-good",
+			children: "Winning"
+		});
+		if (lot.hasBid || lot.yourStanding) return u("span", {
+			class: "pill pill-bad",
+			children: "Outbid"
+		});
+		return null;
+	}
+	function LocationText({ row }) {
+		const name = row.lot.location?.name ?? "Unknown";
+		if (row.pickupOnly) return u("span", {
+			title: "Not transferable – pick up at this location",
+			children: [name, " only"]
+		});
+		if (row.transferFee) return u("span", {
+			title: `Transfer to your pickup location for ${money(row.transferFee)}`,
+			children: [name, " · transfer"]
+		});
+		return u("span", { children: name });
+	}
+	function openHandler(open) {
+		return (e) => {
+			if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+			e.preventDefault();
+			open();
+		};
+	}
+	var LotCard = N(function LotCard({ row, onOpen, onToggleHide }) {
+		const { lot, matched, hidden } = row;
+		const href = lotHref(lot.auctionPeriod, lot.id);
+		const dim = !!matched || hidden;
+		const img = lot.images[0];
+		const open = openHandler(() => onOpen(lot));
+		return u("article", {
+			class: `card ${dim ? "dim" : ""}`,
+			"data-lot": lot.id,
+			children: [u("div", {
+				class: "card-media",
+				children: [
+					u("a", {
+						href,
+						onClick: open,
+						tabIndex: -1,
+						"aria-hidden": "true",
+						children: img ? u("img", {
+							src: `${CDN}/${img.card}`,
+							alt: "",
+							loading: "lazy",
+							decoding: "async"
+						}) : u("span", {
+							class: "noimg",
+							children: "No image"
+						})
+					}),
+					u("button", {
+						type: "button",
+						class: "icon-btn hide-btn",
+						title: hidden ? "Unhide this lot" : "Hide this lot",
+						"aria-label": hidden ? "Unhide this lot" : "Hide this lot",
+						onClick: () => onToggleHide(lot),
+						children: u(Icon, { name: hidden ? "visibility" : "visibilityOff" })
+					}),
+					u("div", {
+						class: "media-tr",
+						children: [lot.isWatchlisted && u("span", {
+							class: "pill pill-watch",
+							title: "On your watchlist",
+							children: u(Icon, {
+								name: "star",
+								size: 13
+							})
+						}), u(StandingBadge, { lot })]
+					}),
+					(hidden || matched) && u("span", {
+						class: "media-badge",
+						children: hidden ? "Hidden" : `Filtered: ${matched}`
+					})
+				]
+			}), u("div", {
+				class: "card-body",
+				children: [
+					u("a", {
+						class: "card-title",
+						href,
+						title: lot.title,
+						onClick: open,
+						children: lot.title
+					}),
+					u("div", {
+						class: "card-meta",
+						children: [u(LocationText, { row }), lot.condition && u("span", { children: lot.condition.label })]
+					}),
+					u("div", {
+						class: "card-price",
+						children: [u("span", {
+							class: "price",
+							children: dollars(lot.currentPrice)
+						}), u("span", {
+							class: "total",
+							title: costBreakdown(lot.currentPrice, row.transferFee),
+							children: [
+								"≈ ",
+								u("b", { children: money(row.total) }),
+								" total"
+							]
+						})]
+					}),
+					u("div", {
+						class: "card-sub",
+						children: [lot.estimatedRetailPrice ? u("span", { children: [
+							"Retail ",
+							dollars(lot.estimatedRetailPrice),
+							row.retailPct != null && u("span", {
+								class: "muted",
+								children: [
+									" (",
+									Math.round(row.retailPct * 100),
+									"%)"
+								]
+							})
+						] }) : u("span", {
+							class: "muted",
+							children: "No retail estimate"
+						}), u("span", { children: [
+							fmtCount(lot.bidCount),
+							" bid",
+							lot.bidCount === 1 ? "" : "s"
+						] })]
+					}),
+					u("div", {
+						class: "card-foot",
+						children: [u(TimeLeft, { endsAt: lot.endsAt }), dim ? u("span", {
+							class: "btn btn-small",
+							"aria-disabled": "true",
+							title: "Bidding is disabled for hidden or filtered lots",
+							children: "Bid"
+						}) : u("a", {
+							class: "btn btn-small",
+							href,
+							target: "_blank",
+							rel: "noopener",
+							title: "Open on Triangle Liquidators to bid",
+							children: ["Bid ", u(Icon, {
+								name: "open",
+								size: 14
+							})]
+						})]
+					})
+				]
+			})]
+		});
+	});
+	function LotModal({ row, onClose, onToggleHide }) {
+		const { lot } = row;
+		const [detail, setDetail] = d(() => cachedDetail(lot.id) ?? null);
+		const [error, setError] = d(null);
+		const [imgIdx, setImgIdx] = d(0);
+		const dialog = A$1(null);
+		h(() => {
+			const ac = new AbortController();
+			setError(null);
+			loadDetail(lot, ac.signal).then(setDetail, (e) => {
+				if (!ac.signal.aborted) setError(e.message || String(e));
+			});
+			return () => ac.abort();
+		}, [lot.id]);
+		const images = (detail ?? lot).images;
+		h(() => {
+			const onKey = (e) => {
+				if (e.key === "Escape") onClose();
+				else if (e.key === "ArrowLeft") setImgIdx((i) => (i - 1 + images.length) % Math.max(images.length, 1));
+				else if (e.key === "ArrowRight") setImgIdx((i) => (i + 1) % Math.max(images.length, 1));
+			};
+			document.addEventListener("keydown", onKey);
+			const prevFocus = document.activeElement;
+			dialog.current?.focus();
+			document.body.classList.add("modal-open");
+			return () => {
+				document.removeEventListener("keydown", onKey);
+				document.body.classList.remove("modal-open");
+				prevFocus?.focus?.();
+			};
+		}, [images.length]);
+		const href = lotHref(lot.auctionPeriod, lot.id);
+		const dim = !!row.matched || row.hidden;
+		const img = images[Math.min(imgIdx, images.length - 1)];
+		return u("div", {
+			class: "backdrop",
+			onMouseDown: (e) => e.target === e.currentTarget && onClose(),
+			children: u("div", {
+				class: "modal",
+				role: "dialog",
+				"aria-modal": "true",
+				"aria-labelledby": "lot-title",
+				tabIndex: -1,
+				ref: dialog,
+				children: [u("button", {
+					type: "button",
+					class: "icon-btn modal-close",
+					"aria-label": "Close",
+					onClick: onClose,
+					children: u(Icon, {
+						name: "close",
+						size: 22
+					})
+				}), u("div", {
+					class: "modal-grid",
+					children: [u("div", {
+						class: "gallery",
+						children: [u("div", {
+							class: "gallery-main",
+							children: [img ? u("img", {
+								src: `${CDN}/${img.large}`,
+								alt: ""
+							}) : u("span", {
+								class: "noimg",
+								children: "No image"
+							}), images.length > 1 && u(S, { children: [u("button", {
+								type: "button",
+								class: "icon-btn gal-prev",
+								"aria-label": "Previous image",
+								onClick: () => setImgIdx((i) => (i - 1 + images.length) % images.length),
+								children: u(Icon, {
+									name: "chevronLeft",
+									size: 24
+								})
+							}), u("button", {
+								type: "button",
+								class: "icon-btn gal-next",
+								"aria-label": "Next image",
+								onClick: () => setImgIdx((i) => (i + 1) % images.length),
+								children: u(Icon, {
+									name: "chevronRight",
+									size: 24
+								})
+							})] })]
+						}), images.length > 1 && u("div", {
+							class: "thumbs",
+							children: images.map((im, i) => u("button", {
+								type: "button",
+								class: i === imgIdx ? "on" : "",
+								"aria-label": `Image ${i + 1}`,
+								onClick: () => setImgIdx(i),
+								children: u("img", {
+									src: `https://cdn.triangleliquidators.com/${im.thumb}`,
+									alt: "",
+									loading: "lazy"
+								})
+							}))
+						})]
+					}), u("div", {
+						class: "modal-info",
+						children: [
+							u("h2", {
+								id: "lot-title",
+								children: lot.title
+							}),
+							u("div", {
+								class: "card-meta",
+								children: [
+									u(LocationText, { row }),
+									lot.condition && u("span", { children: lot.condition.label }),
+									lot.category && u("span", { children: lot.category.label }),
+									u("span", { children: ["Lot #", lot.lotNumber] })
+								]
+							}),
+							u("div", {
+								class: "modal-price",
+								children: [
+									u("div", { children: [u("div", {
+										class: "price big",
+										children: dollars(lot.currentPrice)
+									}), u("div", {
+										class: "muted small",
+										children: [
+											"Current bid · ",
+											fmtCount(lot.bidCount),
+											" bids"
+										]
+									})] }),
+									u("div", { children: [u("div", {
+										class: "total big",
+										title: costBreakdown(lot.currentPrice, row.transferFee),
+										children: ["≈ ", money(row.total)]
+									}), u("div", {
+										class: "muted small",
+										children: "Estimated total"
+									})] }),
+									u("div", { children: [u("div", {
+										class: "big",
+										children: u(TimeLeft, { endsAt: lot.endsAt })
+									}), u("div", {
+										class: "muted small",
+										children: new Date(lot.endsAt).toLocaleString([], {
+											weekday: "short",
+											hour: "numeric",
+											minute: "2-digit"
+										})
+									})] })
+								]
+							}),
+							u("div", {
+								class: "row-gap",
+								children: [
+									u(StandingBadge, { lot }),
+									lot.yourStanding?.yourMaxBid != null && u("span", {
+										class: "muted small",
+										children: ["Your max bid ", dollars(lot.yourStanding.yourMaxBid)]
+									}),
+									lot.estimatedRetailPrice != null && u("span", {
+										class: "muted small",
+										children: [
+											"Retail ",
+											dollars(lot.estimatedRetailPrice),
+											row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`
+										]
+									}),
+									u("span", {
+										class: "muted small",
+										children: ["Next min bid ", dollars(lot.nextMinIncrement)]
+									})
+								]
+							}),
+							u("div", {
+								class: "row-gap",
+								children: [dim ? u("span", {
+									class: "btn",
+									"aria-disabled": "true",
+									title: "Bidding is disabled for hidden or filtered lots",
+									children: row.hidden ? "Hidden lot" : `Filtered: ${row.matched}`
+								}) : u("a", {
+									class: "btn",
+									href,
+									target: "_blank",
+									rel: "noopener",
+									children: ["Bid on Triangle Liquidators ", u(Icon, {
+										name: "open",
+										size: 16
+									})]
+								}), u("button", {
+									type: "button",
+									class: "btn btn-text",
+									onClick: onToggleHide,
+									children: [
+										u(Icon, { name: row.hidden ? "visibility" : "visibilityOff" }),
+										" ",
+										row.hidden ? "Unhide" : "Hide"
+									]
+								})]
+							}),
+							error && u("p", {
+								class: "error",
+								children: ["Couldn’t load lot details: ", error]
+							}),
+							!detail && !error && u("p", {
+								class: "muted",
+								children: "Loading details…"
+							}),
+							detail && u(S, { children: [
+								(detail.brand || detail.model) && u("p", {
+									class: "small",
+									children: [
+										detail.brand && u("span", { children: ["Brand: ", detail.brand] }),
+										detail.brand && detail.model && " · ",
+										detail.model && u("span", { children: ["Model: ", detail.model] })
+									]
+								}),
+								detail.description && u("div", {
+									class: "description",
+									children: detail.description
+								}),
+								detail.bidHistory.length > 0 && u("div", { children: [u("h3", { children: "Bid history" }), u("ol", {
+									class: "bids",
+									children: detail.bidHistory.map((b) => u("li", {
+										class: b.isYou ? "you" : "",
+										children: [u("span", { children: b.isYou ? "You" : b.bidderLabel }), u("span", { children: dollars(b.amount) })]
+									}))
+								})] })
+							] })
+						]
+					})]
+				})]
+			})
+		});
+	}
+	var collator = new Intl.Collator(void 0, {
+		numeric: true,
+		sensitivity: "base"
+	});
+	var SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
+	var SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
+	var SORT_UNIT = [
+		String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`,
+		String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
+		String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
+		String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,
+		String.raw`v|volts?|w|watts?|kw|amps?|a|ah|mah|wh|btus?|psi|gpm|cfm|mph|hp|lm|lumens?`,
+		String.raw`[mg]bps|[gkm]?hz|rpm|db|deg(?:rees?)?|°|%`,
+		String.raw`pcs?\.?|pieces?|pk|packs?|count|ct|pairs?|tiers?|panels?|channels?`
+	].join("|");
+	var SORT_HYPHEN_UNIT = String.raw`(?:light|bulb|gang|outlet|port|drawer|shelf|shelves|cube|seat|person|burner|speed|blade|tool|bottle|door|zone|way|step|cutter|cycle|stroke|handle|row|tooth|teeth)s?`;
+	var SORT_MARK = String.raw`(?:"|''|”|″|'|′)`;
+	var SORT_MEASURE = String.raw`${SORT_NUM}\s*(?:${SORT_MARK}|-?\s*(?:${SORT_UNIT}))?`;
+	var SORT_LEAD = new RegExp("^(?:" + [
+		String.raw`[(\[][^)\]]*[)\]]`,
+		String.raw`(?:set|pack|box|case|lot)\s+of\s+\d+`,
+		`${SORT_MEASURE}(?:\\s*[x×]\\s*${SORT_MEASURE})+(?=[\\s,.)/]|$)`,
+		`${SORT_NUM}\\s*${SORT_MARK}`,
+		`${SORT_NUM}-${SORT_HYPHEN_UNIT}(?=[\\s,.)/]|$)`,
+		`${SORT_NUM}[\\s-]?(?:${SORT_UNIT})(?=[\\s,.)/x×]|$)`,
+		`${SORT_NUM}\\s*[x×](?=\\s*\\d)`
+	].join("|") + ")", "iu");
+	var SORT_SEP = /^[x×]\s*(?=\d)/i;
+	function sortKey(title) {
+		let rest = title.trim();
+		const moved = [];
+		for (let i = 0; i < 12; i++) {
+			const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
+			if (!m || !m[0]) break;
+			moved.push(m[0].trim());
+			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
+		}
+		return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
+	}
+	var SORTS = {
+		"ending-soonest": "Ending soonest",
+		"newly-listed": "Newly listed",
+		"title-asc": "Title A–Z",
+		"title-desc": "Title Z–A",
+		"total-asc": "Total cost: low to high",
+		"total-desc": "Total cost: high to low",
+		"retail-pct-asc": "Best deal (% of retail)",
+		"retail-desc": "Retail price: high to low",
+		"bids-most": "Most bids",
+		"bids-fewest": "Fewest bids"
+	};
+	var ENDING = {
+		"": "Any time",
+		"1h": "Within 1 hour",
+		"3h": "Within 3 hours",
+		today: "Today",
+		tomorrow: "Tomorrow"
+	};
+	var MINE = {
+		"": "All lots",
+		bid: "Lots I bid on",
+		leading: "I’m winning",
+		outbid: "I’m outbid",
+		watch: "Watchlist"
+	};
+	var DEFAULT_VIEW = {
+		sort: "ending-soonest",
+		search: "",
+		categories: [],
+		conditions: [],
+		locations: [],
+		reachable: false,
+		priceMin: null,
+		priceMax: null,
+		totalMax: null,
+		retailMin: null,
+		ending: "",
+		mine: ""
+	};
+	function normalizeView(v) {
+		const o = v && typeof v === "object" ? v : {};
+		const view = {
+			...DEFAULT_VIEW,
+			...o
+		};
+		if (!(view.sort in SORTS)) view.sort = DEFAULT_VIEW.sort;
+		if (!(view.ending in ENDING)) view.ending = "";
+		if (!(view.mine in MINE)) view.mine = "";
+		return view;
+	}
+	var activeFilterCount = (v) => [
+		v.search.trim(),
+		v.categories.length,
+		v.conditions.length,
+		v.locations.length,
+		v.reachable,
+		v.priceMin != null || v.priceMax != null,
+		v.totalMax != null,
+		v.retailMin != null,
+		v.ending,
+		v.mine
+	].filter(Boolean).length;
+	var sortKeys = new Map();
+	function titleKey(title) {
+		let k = sortKeys.get(title);
+		if (k === void 0) sortKeys.set(title, k = sortKey(title));
+		return k;
+	}
+	var regexCache = null;
+	function compiledFilters(words) {
+		if (regexCache?.words !== words) regexCache = {
+			words,
+			compiled: buildRegexes(words)
+		};
+		return regexCache.compiled;
+	}
+	function makeRow(lot, pickup, ex) {
+		const elsewhere = !!lot.location && lot.location.name !== pickup;
+		const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
+		return {
+			lot,
+			transferFee,
+			pickupOnly: elsewhere && !lot.isTransferable,
+			total: totalCost(lot.currentPrice, transferFee),
+			retailPct: lot.estimatedRetailPrice ? lot.currentPrice / lot.estimatedRetailPrice : null,
+			matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
+			hidden: !!ex.hidden[lot.id]
+		};
+	}
+	function endingWindow(e, now) {
+		if (!e) return null;
+		if (e === "1h") return [now, now + 36e5];
+		if (e === "3h") return [now, now + 108e5];
+		const d = new Date(now);
+		d.setHours(0, 0, 0, 0);
+		if (e === "tomorrow") d.setDate(d.getDate() + 1);
+		const start = d.getTime();
+		d.setDate(d.getDate() + 1);
+		return [Math.max(start, now), d.getTime()];
+	}
+	function computeView(lots, view, pickup, ex, now) {
+		const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
+		const win = endingWindow(view.ending, now);
+		const cats = new Set(view.categories);
+		const conds = new Set(view.conditions);
+		const locs = new Set(view.locations);
+		const matchCounts = new Map(ex.words.map((w) => [w, 0]));
+		const compiled = compiledFilters(ex.words);
+		const rows = [];
+		let open = 0;
+		let removed = 0;
+		let filteredOut = 0;
+		for (const lot of lots) {
+			if (lot.endsAt <= now) continue;
+			open++;
+			for (const { word, re } of compiled) if (re && re.test(lot.title)) matchCounts.set(word, (matchCounts.get(word) || 0) + 1);
+			const row = makeRow(lot, pickup, ex);
+			if (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered) {
+				removed++;
+				continue;
+			}
+			if (!passes(row, view, terms, win, cats, conds, locs)) {
+				filteredOut++;
+				continue;
+			}
+			rows.push(row);
+		}
+		rows.sort(comparator(view.sort));
+		return {
+			rows,
+			open,
+			removed,
+			filteredOut,
+			matchCounts
+		};
+	}
+	function passes({ lot, total, pickupOnly }, v, terms, win, cats, conds, locs) {
+		if (terms.length) {
+			const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
+			if (!terms.every((t) => hay.includes(t))) return false;
+		}
+		if (cats.size && !cats.has(lot.category?.value ?? "")) return false;
+		if (conds.size && !conds.has(lot.condition?.value ?? -1)) return false;
+		if (locs.size && !locs.has(lot.location?.name ?? "")) return false;
+		if (v.reachable && pickupOnly) return false;
+		if (v.priceMin != null && lot.currentPrice < v.priceMin) return false;
+		if (v.priceMax != null && lot.currentPrice > v.priceMax) return false;
+		if (v.totalMax != null && total > v.totalMax) return false;
+		if (v.retailMin != null && (lot.estimatedRetailPrice ?? 0) < v.retailMin) return false;
+		if (win && (lot.endsAt < win[0] || lot.endsAt >= win[1])) return false;
+		switch (v.mine) {
+			case "bid":
+				if (!lot.hasBid && !lot.yourStanding) return false;
+				break;
+			case "leading":
+				if (!lot.yourStanding?.isLeading) return false;
+				break;
+			case "outbid":
+				if (!(lot.hasBid || lot.yourStanding) || lot.yourStanding?.isLeading) return false;
+				break;
+			case "watch": if (!lot.isWatchlisted) return false;
+		}
+		return true;
+	}
+	function comparator(sort) {
+		const tie = (a, b) => a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
+		const by = (f) => (a, b) => f(a, b) || tie(a, b);
+		switch (sort) {
+			case "newly-listed": return (a, b) => b.lot.id - a.lot.id;
+			case "title-asc": return by((a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title)));
+			case "title-desc": return by((a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title)));
+			case "total-asc": return by((a, b) => a.total - b.total);
+			case "total-desc": return by((a, b) => b.total - a.total);
+			case "retail-pct-asc": return by((a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity));
+			case "retail-desc": return by((a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1));
+			case "bids-most": return by((a, b) => b.lot.bidCount - a.lot.bidCount);
+			case "bids-fewest": return by((a, b) => a.lot.bidCount - b.lot.bidCount);
+			default: return tie;
+		}
+	}
+	function computeFacets(lots, now) {
+		const cats = new Map();
+		const conds = new Map();
+		const locs = new Map();
+		for (const l of lots) {
+			if (l.endsAt <= now) continue;
+			if (l.category) {
+				const c = cats.get(l.category.value) ?? cats.set(l.category.value, {
+					...l.category,
+					count: 0
+				}).get(l.category.value);
+				c.count++;
+			}
+			if (l.condition) {
+				const c = conds.get(l.condition.value) ?? conds.set(l.condition.value, {
+					...l.condition,
+					count: 0
+				}).get(l.condition.value);
+				c.count++;
+			}
+			if (l.location) {
+				const c = locs.get(l.location.name) ?? locs.set(l.location.name, {
+					name: l.location.name,
+					count: 0
+				}).get(l.location.name);
+				c.count++;
+			}
+		}
+		return {
+			categories: [...cats.values()].sort((a, b) => a.label.localeCompare(b.label)),
+			conditions: [...conds.values()].sort((a, b) => a.value - b.value),
+			locations: [...locs.values()].sort((a, b) => b.count - a.count)
+		};
+	}
+	function Sidebar(props) {
+		return u("div", {
+			class: "sidebar-inner",
+			children: [
+				u(FiltersSection, { ...props }),
+				u(HideFilterSection, {
+					matchCounts: props.matchCounts,
+					onOpenHidden: props.onOpenHidden
+				}),
+				u(SettingsSection, {
+					pickup: props.pickup,
+					accountPickup: props.accountPickup,
+					locations: props.facets.locations.map((l) => l.name)
+				})
+			]
+		});
+	}
+	function Collapsible({ id, title, children }) {
+		const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+		const open = !collapsed?.[id];
+		return u("div", {
+			class: "collapsible",
+			children: [u("button", {
+				type: "button",
+				class: "collapse-head",
+				"aria-expanded": open,
+				onClick: () => setCollapsed({
+					...collapsed,
+					[id]: open
+				}),
+				children: [u("span", { children: title }), u(Icon, {
+					name: "expandMore",
+					size: 20
+				})]
+			}), open && u("div", {
+				class: "collapse-body",
+				children
+			})]
+		});
+	}
+	function toggle(list, v) {
+		return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+	}
+	function NumberField({ label, value, onChange }) {
+		const [text, setText] = d(value == null ? "" : String(value));
+		h(() => setText(value == null ? "" : String(value)), [value]);
+		const commit = () => {
+			const n = parseNum(text);
+			if (n !== value) onChange(n);
+		};
+		return u("label", {
+			class: "field",
+			children: [u("span", { children: label }), u("input", {
+				type: "text",
+				inputMode: "decimal",
+				placeholder: "$",
+				value: text,
+				onInput: (e) => setText(e.currentTarget.value),
+				onBlur: commit,
+				onKeyDown: (e) => e.key === "Enter" && commit()
+			})]
+		});
+	}
+	function FiltersSection({ view, setView, facets, pickup, authed }) {
+		const n = activeFilterCount(view);
+		return u("section", {
+			class: "panel",
+			children: [
+				u("div", {
+					class: "panel-head",
+					children: [u("h2", { children: "Filters" }), n > 0 && u("button", {
+						type: "button",
+						class: "btn-text",
+						onClick: () => setView({
+							...DEFAULT_VIEW,
+							sort: view.sort
+						}),
+						children: [
+							"Clear (",
+							n,
+							")"
+						]
+					})]
+				}),
+				u("label", {
+					class: "field",
+					children: [u("span", { children: "My lots" }), u("select", {
+						value: view.mine,
+						onChange: (e) => setView({ mine: e.currentTarget.value }),
+						children: Object.entries(MINE).map(([k, label]) => u("option", {
+							value: k,
+							disabled: !!k && !authed,
+							children: label
+						}))
+					})]
+				}),
+				u("label", {
+					class: "field",
+					children: [u("span", { children: "Ending" }), u("select", {
+						value: view.ending,
+						onChange: (e) => setView({ ending: e.currentTarget.value }),
+						children: Object.entries(ENDING).map(([k, label]) => u("option", {
+							value: k,
+							children: label
+						}))
+					})]
+				}),
+				u(Collapsible, {
+					id: "f-location",
+					title: "Location",
+					children: [facets.locations.map((l) => u("label", {
+						class: "check",
+						children: [
+							u("input", {
+								type: "checkbox",
+								checked: view.locations.includes(l.name),
+								onChange: () => setView({ locations: toggle(view.locations, l.name) })
+							}),
+							u("span", { children: l.name }),
+							u("span", {
+								class: "count",
+								children: fmtCount(l.count)
+							})
+						]
+					})), u("label", {
+						class: "check",
+						children: [u("input", {
+							type: "checkbox",
+							checked: view.reachable,
+							onChange: () => setView({ reachable: !view.reachable })
+						}), u("span", { children: [
+							"Available at ",
+							pickup,
+							" (incl. transfers)"
+						] })]
+					})]
+				}),
+				u(Collapsible, {
+					id: "f-category",
+					title: "Category",
+					children: facets.categories.map((c) => u("label", {
+						class: "check",
+						children: [
+							u("input", {
+								type: "checkbox",
+								checked: view.categories.includes(c.value),
+								onChange: () => setView({ categories: toggle(view.categories, c.value) })
+							}),
+							u("span", { children: c.label }),
+							u("span", {
+								class: "count",
+								children: fmtCount(c.count)
+							})
+						]
+					}))
+				}),
+				u(Collapsible, {
+					id: "f-condition",
+					title: "Condition",
+					children: facets.conditions.map((c) => u("label", {
+						class: "check",
+						children: [
+							u("input", {
+								type: "checkbox",
+								checked: view.conditions.includes(c.value),
+								onChange: () => setView({ conditions: toggle(view.conditions, c.value) })
+							}),
+							u("span", { children: c.label }),
+							u("span", {
+								class: "count",
+								children: fmtCount(c.count)
+							})
+						]
+					}))
+				}),
+				u(Collapsible, {
+					id: "f-price",
+					title: "Price",
+					children: [u("div", {
+						class: "field-row",
+						children: [u(NumberField, {
+							label: "Bid min",
+							value: view.priceMin,
+							onChange: (v) => setView({ priceMin: v })
+						}), u(NumberField, {
+							label: "Bid max",
+							value: view.priceMax,
+							onChange: (v) => setView({ priceMax: v })
+						})]
+					}), u("div", {
+						class: "field-row",
+						children: [u(NumberField, {
+							label: "Max est. total",
+							value: view.totalMax,
+							onChange: (v) => setView({ totalMax: v })
+						}), u(NumberField, {
+							label: "Min retail",
+							value: view.retailMin,
+							onChange: (v) => setView({ retailMin: v })
+						})]
+					})]
+				})
+			]
+		});
+	}
+	function PatternText({ pattern }) {
+		const parts = pattern.split("|");
+		return u("span", {
+			class: "pattern",
+			children: parts.map((p, i) => u("span", {
+				class: "seg",
+				children: i < parts.length - 1 ? `${p}|` : p
+			}))
+		});
+	}
+	function Switch({ label, checked, onChange }) {
+		return u("label", {
+			class: "switch-row",
+			children: [u("span", { children: label }), u("input", {
+				type: "checkbox",
+				role: "switch",
+				checked,
+				onChange: (e) => onChange(e.currentTarget.checked)
+			})]
+		});
+	}
+	function HideFilterSection({ matchCounts, onOpenHidden }) {
+		const [words, setWords] = useSetting(KEYS.words);
+		const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
+		const [removeFiltered, setRemoveFiltered] = useSetting(KEYS.removeFiltered);
+		const [showHidden, setShowHidden] = useSetting(KEYS.showHidden);
+		const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
+		const [input, setInput] = d("");
+		const [err, setErr] = d(null);
+		const add = () => {
+			const list = splitFilters(input);
+			if (!list.length) return;
+			const bad = list.filter((p) => !compileFilter(p));
+			if (bad.length) return setErr(`Invalid regex: ${bad.join(", ")}`);
+			setWords([...words, ...list.filter((p) => !words.includes(p))]);
+			setInput("");
+		};
+		const hidden = Object.entries(hiddenLots).sort((a, b) => b[1].ts - a[1].ts);
+		return u("section", {
+			class: "panel",
+			children: [
+				u("h2", { children: "Hide & filter" }),
+				u("div", {
+					class: `add-filter ${err ? "has-error" : ""}`,
+					children: [u("input", {
+						type: "text",
+						placeholder: "Regex, e.g. batter(y|ies)",
+						"aria-label": "Add filter regex",
+						autocomplete: "off",
+						spellcheck: false,
+						value: input,
+						onInput: (e) => {
+							setInput(e.currentTarget.value);
+							setErr(null);
+						},
+						onKeyDown: (e) => e.key === "Enter" && add()
+					}), u("button", {
+						type: "button",
+						class: "btn-text",
+						onClick: add,
+						children: "Add"
+					})]
+				}),
+				err ? u("p", {
+					class: "error small",
+					children: err
+				}) : u("p", {
+					class: "muted small",
+					children: "Case-insensitive, whole words: \\b(?:pattern)\\b. Commas add several."
+				}),
+				u(Collapsible, {
+					id: "words",
+					title: `Filter patterns (${words.length})`,
+					children: u("div", {
+						class: "chips",
+						children: words.map((w) => {
+							const ok = !!compileFilter(w);
+							return u("span", {
+								class: `chip ${ok ? "" : "chip-error"}`,
+								title: ok ? `/\\b(?:${w})\\b/i` : "Invalid regex – ignored",
+								children: [
+									u(PatternText, { pattern: w }),
+									ok && u("span", {
+										class: "count",
+										children: fmtCount(matchCounts.get(w) ?? 0)
+									}),
+									u("button", {
+										type: "button",
+										"aria-label": `Remove ${w}`,
+										onClick: () => setWords(words.filter((x) => x !== w)),
+										children: u(Icon, {
+											name: "cancel",
+											size: 16
+										})
+									})
+								]
+							});
+						})
+					})
+				}),
+				u(Switch, {
+					label: "Apply filters",
+					checked: !!filterOn,
+					onChange: setFilterOn
+				}),
+				u(Switch, {
+					label: "Remove filtered lots instead of graying out",
+					checked: !!removeFiltered,
+					onChange: setRemoveFiltered
+				}),
+				u(Switch, {
+					label: "Show hidden lots",
+					checked: !!showHidden,
+					onChange: setShowHidden
+				}),
+				u(Collapsible, {
+					id: "hidden",
+					title: `Hidden lots (${hidden.length})`,
+					children: [u("ul", {
+						class: "hidden-list",
+						children: hidden.map(([id, info]) => u("li", { children: [u("a", {
+							href: info.href,
+							title: info.title,
+							onClick: (e) => {
+								if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+								e.preventDefault();
+								onOpenHidden(Number(id));
+							},
+							children: info.title || `Lot ${id}`
+						}), u("button", {
+							type: "button",
+							class: "icon-btn",
+							title: "Unhide",
+							"aria-label": `Unhide ${info.title}`,
+							onClick: () => {
+								const next = { ...hiddenLots };
+								delete next[id];
+								setHiddenLots(next);
+							},
+							children: u(Icon, {
+								name: "visibility",
+								size: 18
+							})
+						})] }))
+					}), hidden.length > 0 && u("button", {
+						type: "button",
+						class: "btn-text",
+						onClick: () => confirm("Unhide all hidden lots?") && setHiddenLots({}),
+						children: "Unhide all"
+					})]
+				})
+			]
+		});
+	}
+	function SettingsSection({ pickup, accountPickup, locations }) {
+		const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
+		const [override, setOverride] = useSetting(KEYS.pickup);
+		const [text, setText] = d(String(minutes));
+		h(() => setText(String(minutes)), [minutes]);
+		const commit = () => {
+			const n = Math.max(5, Math.round(parseNum(text) ?? 5));
+			setText(String(n));
+			if (n !== minutes) setMinutes(n);
+		};
+		const options = [...new Set([...locations, pickup])];
+		return u("section", {
+			class: "panel",
+			children: u(Collapsible, {
+				id: "settings",
+				title: u("h2", { children: "Settings" }),
+				children: [u("label", {
+					class: "field",
+					children: [u("span", { children: [
+						"Full catalog refresh at most every (minutes, min ",
+						5,
+						")"
+					] }), u("input", {
+						type: "number",
+						min: 5,
+						step: 1,
+						value: text,
+						onInput: (e) => setText(e.currentTarget.value),
+						onBlur: commit,
+						onKeyDown: (e) => e.key === "Enter" && commit()
+					})]
+				}), u("label", {
+					class: "field",
+					children: [u("span", { children: "Pickup location (for transfer fees)" }), u("select", {
+						value: override ?? "",
+						onChange: (e) => setOverride(e.currentTarget.value || null),
+						children: [u("option", {
+							value: "",
+							children: [
+								"Account default (",
+								accountPickup ?? "Raleigh",
+								")"
+							]
+						}), options.map((o) => u("option", {
+							value: o,
+							children: o
+						}))]
+					})]
+				})]
+			})
+		});
+	}
+	var PAGE_SIZE = 60;
+	var DAY = 864e5;
+	function useAccountPickup(lots) {
+		const [acct] = useSetting(KEYS.accountPickup);
+		h(() => {
+			if (!isAuthenticated() || acct && Date.now() - acct.at < DAY) return;
+			fetchPickupLocation().then((p) => setSetting(KEYS.accountPickup, {
+				id: p?.id ?? null,
+				name: p?.name ?? null,
+				at: Date.now()
+			}), () => {});
+		}, []);
+		if (!acct) return null;
+		if (acct.name) return acct.name;
+		if (acct.id != null) {
+			for (const l of lots.values()) if (l.location?.id === acct.id) return l.location.name;
+		}
+		return null;
+	}
+	function App() {
+		const catalog = useCatalog();
+		const [storedView, setStoredView] = useSetting(KEYS.view);
+		const view = T$1(() => normalizeView(storedView), [storedView]);
+		const [words] = useSetting(KEYS.words);
+		const [filterOn] = useSetting(KEYS.filterOn);
+		const [removeFiltered] = useSetting(KEYS.removeFiltered);
+		const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
+		const [showHidden] = useSetting(KEYS.showHidden);
+		const [pickupOverride] = useSetting(KEYS.pickup);
+		const accountPickup = useAccountPickup(catalog.lots);
+		const pickup = pickupOverride || accountPickup || "Raleigh";
+		const [page, setPage] = d(1);
+		const [openId, setOpenId] = d(null);
+		const [sidebarOpen, setSidebarOpen] = d(false);
+		const [search, setSearch] = d(view.search);
+		const gridTop = A$1(null);
+		const now30 = useNow(3e4);
+		const setView = q$1((patch) => {
+			setStoredView({
+				...normalizeView(getSetting(KEYS.view)),
+				...patch
+			});
+			setPage(1);
+		}, []);
+		h(() => {
+			if (search === view.search) return;
+			const t = setTimeout(() => setView({ search }), 200);
+			return () => clearTimeout(t);
+		}, [search]);
+		h(() => setSearch(view.search), [view.search]);
+		const exclusions = T$1(() => ({
+			words,
+			filterOn: !!filterOn,
+			removeFiltered: !!removeFiltered,
+			hidden: hiddenLots,
+			showHidden: !!showHidden
+		}), [
+			words,
+			filterOn,
+			removeFiltered,
+			hiddenLots,
+			showHidden
+		]);
+		const result = T$1(() => computeView(catalog.lots.values(), view, pickup, exclusions, now30), [
+			catalog.rev,
+			view,
+			pickup,
+			exclusions,
+			now30
+		]);
+		const facets = T$1(() => computeFacets(catalog.lots.values(), now30), [
+			catalog.lots,
+			catalog.meta.fetchedAt,
+			catalog.loaded,
+			now30
+		]);
+		const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
+		const curPage = Math.min(page, pages);
+		const pageRows = result.rows.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
+		const watchKey = [...pageRows.map((r) => r.lot.id), ...openId ? [openId] : []].join(",");
+		h(() => {
+			if (!catalog.loaded) return;
+			const ids = watchKey ? watchKey.split(",").map(Number) : [];
+			const t = setTimeout(() => void watchLots(ids).catch(() => {}), 300);
+			return () => clearTimeout(t);
+		}, [watchKey, catalog.loaded]);
+		const toggleHide = q$1((lot) => {
+			const next = { ...getSetting(KEYS.hidden) };
+			if (next[lot.id]) delete next[lot.id];
+			else next[lot.id] = {
+				title: lot.title,
+				href: lotHref(lot.auctionPeriod, lot.id),
+				ts: Date.now()
+			};
+			setHiddenLots(next);
+		}, []);
+		const openLot = q$1((lot) => setOpenId(lot.id), []);
+		const openHidden = q$1((id) => {
+			if (getLot(id)) setOpenId(id);
+			else window.open(getSetting(KEYS.hidden)[id]?.href ?? "/", "_blank", "noopener");
+		}, []);
+		const goPage = (p) => {
+			setPage(p);
+			gridTop.current?.scrollIntoView({ block: "start" });
+		};
+		const openLotObj = openId != null ? catalog.lots.get(openId) : void 0;
+		const authed = isAuthenticated();
+		const nFilters = activeFilterCount(view);
+		return u("div", {
+			class: "app",
+			children: [
+				u("header", {
+					class: "topbar",
+					children: [
+						u("a", {
+							class: "brand",
+							href: "/",
+							title: "Back to Triangle Liquidators",
+							children: ["TL ", u("span", { children: "Catalog" })]
+						}),
+						u("input", {
+							class: "search",
+							type: "search",
+							placeholder: `Search ${fmtCount(result.open)} lots`,
+							"aria-label": "Search lots",
+							value: search,
+							onInput: (e) => setSearch(e.currentTarget.value)
+						}),
+						u("select", {
+							class: "sort",
+							"aria-label": "Sort",
+							value: view.sort,
+							onChange: (e) => setView({ sort: e.currentTarget.value }),
+							children: Object.entries(SORTS).map(([k, label]) => u("option", {
+								value: k,
+								children: label
+							}))
+						}),
+						u("button", {
+							type: "button",
+							class: "btn btn-outline filters-toggle",
+							onClick: () => setSidebarOpen(!sidebarOpen),
+							"aria-expanded": sidebarOpen,
+							children: [
+								u(Icon, { name: "filter" }),
+								" Filters",
+								nFilters ? ` (${nFilters})` : ""
+							]
+						})
+					]
+				}),
+				u("div", {
+					class: "layout",
+					children: [u("aside", {
+						class: `sidebar ${sidebarOpen ? "open" : ""}`,
+						children: u(Sidebar, {
+							view,
+							setView,
+							facets,
+							matchCounts: result.matchCounts,
+							pickup,
+							accountPickup,
+							authed,
+							onOpenHidden: openHidden
+						})
+					}), u("main", {
+						class: "main",
+						children: [
+							u(StatusBar, {}),
+							!authed && u("p", {
+								class: "notice",
+								children: [
+									"Not logged in: your bids, standings and watchlist aren’t shown. ",
+									u("a", {
+										href: "/",
+										children: "Log in on the site"
+									}),
+									", then reload."
+								]
+							}),
+							u("div", {
+								class: "results-line",
+								ref: gridTop,
+								children: u("span", { children: [
+									result.rows.length ? `${fmtCount((curPage - 1) * PAGE_SIZE + 1)}–${fmtCount((curPage - 1) * PAGE_SIZE + pageRows.length)} of ${fmtCount(result.rows.length)}` : catalog.loaded && !catalog.progress ? "No lots match" : "",
+									result.removed > 0 && u("span", {
+										class: "muted",
+										children: [
+											" · ",
+											fmtCount(result.removed),
+											" hidden or removed"
+										]
+									}),
+									result.filteredOut > 0 && u("span", {
+										class: "muted",
+										children: [
+											" · ",
+											fmtCount(result.filteredOut),
+											" outside filters"
+										]
+									})
+								] })
+							}),
+							u("div", {
+								class: "grid",
+								children: pageRows.map((row) => u(LotCard, {
+									row,
+									onOpen: openLot,
+									onToggleHide: toggleHide
+								}, row.lot.id))
+							}),
+							pages > 1 && u(Pager, {
+								page: curPage,
+								pages,
+								go: goPage
+							})
+						]
+					})]
+				}),
+				openLotObj && u(LotModal, {
+					row: makeRow(openLotObj, pickup, exclusions),
+					onClose: () => setOpenId(null),
+					onToggleHide: () => toggleHide(openLotObj)
+				})
+			]
+		});
+	}
+	function StatusBar() {
+		const catalog = useCatalog();
+		const live = useLiveState();
+		const now = useNow(1e3);
+		const { meta, progress, error, loaded } = catalog;
+		const wait = nextPullAt() - now;
+		const due = wait <= 0;
+		let text;
+		if (!loaded) text = "Reading local cache…";
+		else if (progress) text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : "Refreshing catalog…";
+		else if (meta.fetchedAt) text = `${fmtCount(catalog.lots.size)} lots · refreshed ${ago(meta.fetchedAt, now)}`;
+		else text = "No cached catalog yet";
+		const pct = progress?.total ? Math.round(progress.done / progress.total * 100) : 0;
+		return u("div", {
+			class: "statusbar",
+			children: [
+				u("span", { children: text }),
+				u("span", {
+					class: `live live-${live}`,
+					title: `Live price updates for lots on screen: ${live}`,
+					children: ["● ", live === "connected" ? "Live" : live === "connecting" ? "Connecting" : live === "off" ? "Live off" : "Offline"]
+				}),
+				u("button", {
+					type: "button",
+					class: "btn-text",
+					disabled: !loaded || !!progress || !due,
+					onClick: () => void pullCatalog(),
+					title: due ? "Pull the full catalog now" : "Full refreshes are rate-limited; change the interval in Settings",
+					children: [
+						u(Icon, {
+							name: "refresh",
+							size: 16
+						}),
+						" ",
+						progress ? "Refreshing" : due ? "Refresh" : `Refresh in ${countdown(wait)}`
+					]
+				}),
+				progress && u("span", {
+					class: "progress",
+					role: "progressbar",
+					"aria-valuenow": pct,
+					"aria-valuemin": 0,
+					"aria-valuemax": 100,
+					children: u("span", { style: { width: `${pct}%` } })
+				}),
+				error && u("span", {
+					class: "error",
+					children: error
+				})
+			]
+		});
+	}
+	function pagerItems(page, pages) {
+		const nums = [...new Set([
+			1,
+			pages,
+			page - 1,
+			page,
+			page + 1
+		])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+		const out = [];
+		nums.forEach((n, i) => {
+			if (i && n - nums[i - 1] > 1) out.push("…");
+			out.push(n);
+		});
+		return out;
+	}
+	function Pager({ page, pages, go }) {
+		return u("nav", {
+			class: "pager",
+			"aria-label": "Pages",
+			children: [
+				u("button", {
+					type: "button",
+					"aria-label": "Previous page",
+					disabled: page === 1,
+					onClick: () => go(page - 1),
+					children: u(Icon, { name: "chevronLeft" })
+				}),
+				pagerItems(page, pages).map((n) => n === "…" ? u("span", {
+					class: "gap",
+					children: "…"
+				}) : u("button", {
+					type: "button",
+					"aria-current": n === page ? "page" : void 0,
+					onClick: () => go(n),
+					children: n
+				})),
+				u("button", {
+					type: "button",
+					"aria-label": "Next page",
+					disabled: page === pages,
+					onClick: () => go(page + 1),
+					children: u(Icon, { name: "chevronRight" })
+				})
+			]
+		});
+	}
+	function takeOver() {
+		window.stop();
+		const root = document.documentElement ?? document.appendChild(document.createElement("html"));
+		root.replaceChildren();
+		root.lang = "en";
+		const head = document.createElement("head");
+		head.innerHTML = `
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <link rel="icon" href="/favicon.ico">
+    <title>TL Catalog</title>`;
+		const style = document.createElement("style");
+		style.textContent = app_default;
+		head.appendChild(style);
+		const body = document.createElement("body");
+		const mount = document.createElement("div");
+		body.appendChild(mount);
+		root.append(head, body);
+		new MutationObserver((records) => {
+			for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLScriptElement || n instanceof HTMLLinkElement && n.rel !== "icon") n.remove();
+		}).observe(root, {
+			childList: true,
+			subtree: true
+		});
+		R(u(App, {}), mount);
+		startCatalog();
+	}
+	if (location.pathname.replace(/\/+$/, "") === "/tlx") takeOver();
+	else if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", runLegacy, { once: true });
+	else runLegacy();
 })();
