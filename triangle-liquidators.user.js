@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      2.2.0
+// @version      2.2.1
 // @description  Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -7199,20 +7199,24 @@
 		h(() => {
 			if (editing) box.current?.select();
 		}, [editing]);
+		const isOpen = A$1(false);
 		const start = () => {
 			setText(pattern);
 			setErr(null);
+			isOpen.current = true;
 			setEditing(true);
 		};
 		const cancel = () => {
+			isOpen.current = false;
 			setEditing(false);
 			setErr(null);
 		};
 		const save = () => {
-			if (!editing) return;
+			if (!isOpen.current) return;
 			const next = text.trim();
 			if (!next || next === pattern) return cancel();
 			if (!compileFilter(next)) return setErr("Invalid regex");
+			isOpen.current = false;
 			setEditing(false);
 			onSave(next);
 		};
@@ -7459,17 +7463,29 @@
 		h(() => {
 			if (naming || renaming) input.current?.select();
 		}, [naming, renaming]);
+		const open = A$1(null);
 		const startSave = () => {
 			setName(suggestedName);
+			open.current = "new";
 			setNaming(true);
 		};
+		const cancelSave = () => {
+			open.current = null;
+			setNaming(false);
+		};
 		const commitSave = () => {
-			if (!naming) return;
+			if (open.current !== "new") return;
+			open.current = null;
 			setNaming(false);
 			if (name.trim()) onSave(name.trim());
 		};
+		const cancelRename = () => {
+			open.current = null;
+			setRenaming(null);
+		};
 		const commitRename = (id) => {
-			if (renaming !== id) return;
+			if (open.current !== id) return;
+			open.current = null;
 			setRenaming(null);
 			if (name.trim()) onRename(id, name.trim());
 		};
@@ -7504,7 +7520,7 @@
 						"aria-label": "Name for saved search",
 						value: name,
 						onInput: (e) => setName(e.currentTarget.value),
-						onKeyDown: keys(commitSave, () => setNaming(false)),
+						onKeyDown: keys(commitSave, cancelSave),
 						onBlur: commitSave
 					}), u("button", {
 						type: "button",
@@ -7546,7 +7562,7 @@
 									"aria-label": "Rename saved search",
 									value: name,
 									onInput: (e) => setName(e.currentTarget.value),
-									onKeyDown: keys(() => commitRename(s.id), () => setRenaming(null)),
+									onKeyDown: keys(() => commitRename(s.id), cancelRename),
 									onBlur: () => commitRename(s.id)
 								}) : u("button", {
 									type: "button",
@@ -7555,6 +7571,7 @@
 									onClick: () => onOpen(s, false),
 									onDblClick: () => {
 										setName(s.name);
+										open.current = s.id;
 										setRenaming(s.id);
 									},
 									children: s.name
@@ -7682,7 +7699,7 @@
 			suggestedName: suggestName(view, facets),
 			onSave: (name) => {
 				const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-				updateSaved((l) => [...l, {
+				updateSaved((l) => l.some((x) => sameFilters(view, x.view)) ? l : [...l, {
 					id,
 					name,
 					view: savedFilters(view),

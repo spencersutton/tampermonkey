@@ -115,7 +115,7 @@ export function App() {
     suggestedName: suggestName(view, facets),
     onSave: (name: string) => {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      updateSaved((l) => [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }]);
+      updateSaved((l) => (l.some((x) => sameFilters(view, x.view)) ? l : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }]));
     },
     onOpen: (s: SavedSearch, newOnly: boolean) => {
       setStoredView({ ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });

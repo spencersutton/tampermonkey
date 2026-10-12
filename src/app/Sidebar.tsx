@@ -193,20 +193,25 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
     if (editing) box.current?.select();
   }, [editing]);
 
+  // Synchronous flag: the blur that follows Enter/Esc must not save again.
+  const isOpen = useRef(false);
   const start = () => {
     setText(pattern);
     setErr(null);
+    isOpen.current = true;
     setEditing(true);
   };
   const cancel = () => {
+    isOpen.current = false;
     setEditing(false);
     setErr(null);
   };
   const save = () => {
-    if (!editing) return;
+    if (!isOpen.current) return;
     const next = text.trim();
     if (!next || next === pattern) return cancel();
     if (!compileFilter(next)) return setErr('Invalid regex');
+    isOpen.current = false;
     setEditing(false);
     onSave(next);
   };
@@ -429,17 +434,33 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
     if (naming || renaming) input.current?.select();
   }, [naming, renaming]);
 
+  // Which inline editor is open, updated synchronously: Enter closes the editor,
+  // and removing the focused input then fires a blur whose handler still sees
+  // the old state – this ref keeps that second commit from running.
+  const open = useRef<string | null>(null);
+
   const startSave = () => {
     setName(suggestedName);
+    open.current = 'new';
     setNaming(true);
   };
+  const cancelSave = () => {
+    open.current = null;
+    setNaming(false);
+  };
   const commitSave = () => {
-    if (!naming) return;
+    if (open.current !== 'new') return;
+    open.current = null;
     setNaming(false);
     if (name.trim()) onSave(name.trim());
   };
+  const cancelRename = () => {
+    open.current = null;
+    setRenaming(null);
+  };
   const commitRename = (id: string) => {
-    if (renaming !== id) return;
+    if (open.current !== id) return;
+    open.current = null;
     setRenaming(null);
     if (name.trim()) onRename(id, name.trim());
   };
@@ -471,7 +492,7 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
             aria-label="Name for saved search"
             value={name}
             onInput={(e) => setName(e.currentTarget.value)}
-            onKeyDown={keys(commitSave, () => setNaming(false))}
+            onKeyDown={keys(commitSave, cancelSave)}
             onBlur={commitSave}
           />
           <button type="button" class="btn-text" onMouseDown={(e) => e.preventDefault()} onClick={commitSave}>
@@ -498,7 +519,7 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
                   aria-label="Rename saved search"
                   value={name}
                   onInput={(e) => setName(e.currentTarget.value)}
-                  onKeyDown={keys(() => commitRename(s.id), () => setRenaming(null))}
+                  onKeyDown={keys(() => commitRename(s.id), cancelRename)}
                   onBlur={() => commitRename(s.id)}
                 />
               ) : (
@@ -509,6 +530,7 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
                   onClick={() => onOpen(s, false)}
                   onDblClick={() => {
                     setName(s.name);
+                    open.current = s.id;
                     setRenaming(s.id);
                   }}
                 >
