@@ -1,4 +1,4 @@
-// Reactive access to GM storage (shared with the site enhancements and other tabs).
+// Reactive access to GM storage (synced across tabs).
 import { GM_addValueChangeListener, GM_getValue, GM_setValue } from 'vite-plugin-monkey/dist/client';
 import { useEffect, useState } from 'preact/hooks';
 import { DEFAULTS } from '../shared/keys';

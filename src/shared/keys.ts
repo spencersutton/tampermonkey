@@ -1,9 +1,8 @@
-// GM storage keys shared by the site enhancements and the /tlx catalog view.
+// GM storage keys for the /tlx catalog view.
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
   words: 'filterWords', // string[]
   filterOn: 'filterEnabled', // boolean
-  confirm: 'confirmBids', // boolean
   showHidden: 'showHidden', // boolean
   removeFiltered: 'removeFiltered', // boolean – drop filtered lots entirely instead of graying out
   collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
@@ -28,7 +27,6 @@ export const DEFAULTS = {
   [KEYS.hidden]: {} as Record<string, HiddenLot>,
   [KEYS.words]: [] as string[],
   [KEYS.filterOn]: true,
-  [KEYS.confirm]: true,
   [KEYS.showHidden]: false,
   [KEYS.removeFiltered]: false,
   [KEYS.collapsed]: { words: false, hidden: false } as Record<string, boolean>,
