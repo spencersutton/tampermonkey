@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter, splitFilters } from '../shared/filters';
 import { KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { useSetting } from './gm';
@@ -163,6 +163,90 @@ function PatternText({ pattern }: { pattern: string }) {
   );
 }
 
+interface FilterRowProps {
+  pattern: string;
+  count: number;
+  onRemove: () => void;
+  onSave: (next: string) => void;
+}
+
+// One filter per line: remove button, pattern (click to edit), match count.
+function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(pattern);
+  const [err, setErr] = useState<string | null>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  const ok = !!compileFilter(pattern);
+
+  useEffect(() => {
+    if (editing) box.current?.select();
+  }, [editing]);
+
+  const start = () => {
+    setText(pattern);
+    setErr(null);
+    setEditing(true);
+  };
+  const cancel = () => {
+    setEditing(false);
+    setErr(null);
+  };
+  const save = () => {
+    if (!editing) return;
+    const next = text.trim();
+    if (!next || next === pattern) return cancel();
+    if (!compileFilter(next)) return setErr('Invalid regex');
+    setEditing(false);
+    onSave(next);
+  };
+
+  return (
+    <li class={`filter-row ${ok ? '' : 'filter-error'}`}>
+      <button type="button" class="filter-remove" aria-label={`Remove ${pattern}`} title="Remove filter" onClick={onRemove}>
+        <Icon name="cancel" size={16} />
+      </button>
+      {editing ? (
+        <div class="filter-edit">
+          <textarea
+            class={err ? 'has-error' : ''}
+            aria-label="Edit filter regex"
+            spellcheck={false}
+            rows={Math.min(6, Math.max(1, Math.ceil(text.length / 26)))}
+            value={text}
+            ref={box}
+            onInput={(e) => {
+              setText(e.currentTarget.value.replace(/\n/g, ''));
+              setErr(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                save();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                cancel();
+              }
+            }}
+            onBlur={save}
+          />
+          <span class={err ? 'error small' : 'muted small'}>{err ?? 'Enter to save · Esc to cancel'}</span>
+        </div>
+      ) : (
+        <button
+          type="button"
+          class="filter-pattern"
+          title={ok ? `/\\b(?:${pattern})\\b/i – click to edit` : 'Invalid regex – ignored. Click to edit'}
+          onClick={start}
+        >
+          <PatternText pattern={pattern} />
+        </button>
+      )}
+      {ok && !editing && <span class="count">{fmtCount(count)}</span>}
+    </li>
+  );
+}
+
 function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label class="switch-row">
@@ -215,20 +299,17 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
       {err ? <p class="error small">{err}</p> : <p class="muted small">Case-insensitive, whole words: \b(?:pattern)\b. Commas add several.</p>}
 
       <Collapsible id="words" title={`Filter patterns (${words.length})`}>
-        <div class="chips">
-          {words.map((w) => {
-            const ok = !!compileFilter(w);
-            return (
-              <span class={`chip ${ok ? '' : 'chip-error'}`} title={ok ? `/\\b(?:${w})\\b/i` : 'Invalid regex – ignored'}>
-                <PatternText pattern={w} />
-                {ok && <span class="count">{fmtCount(matchCounts.get(w) ?? 0)}</span>}
-                <button type="button" aria-label={`Remove ${w}`} onClick={() => setWords(words.filter((x) => x !== w))}>
-                  <Icon name="cancel" size={16} />
-                </button>
-              </span>
-            );
-          })}
-        </div>
+        <ul class="filter-list">
+          {words.map((w) => (
+            <FilterRow
+              key={w}
+              pattern={w}
+              count={matchCounts.get(w) ?? 0}
+              onRemove={() => setWords(words.filter((x) => x !== w))}
+              onSave={(next) => setWords([...new Set(words.map((x) => (x === w ? next : x)))])}
+            />
+          ))}
+        </ul>
       </Collapsible>
 
       <Switch label="Apply filters" checked={!!filterOn} onChange={setFilterOn} />

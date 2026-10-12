@@ -13,7 +13,7 @@ A separate, faster catalog that replaces the site's interface on that one URL. E
 - **Every live lot, cached locally** (IndexedDB). Filtering and sorting run locally, so they make no requests.
 - **Sort** by ending time, newly listed, title (A–Z / Z–A, leading specs moved to the end), estimated total cost, % of retail, retail price, or bid count.
 - **Filters:** search, category, condition, location, "available at my pickup location", bid / total / retail ranges, ending window, and *my lots* (bid on / winning / outbid / watchlist).
-- **Hide lots and regex filters** shared with the site pages below; each pattern shows how many lots it matches.
+- **Hide lots and regex filters** shared with the site pages below. Filters are listed one per line with how many lots each matches; click a pattern to edit it (Enter saves, Esc cancels).
 - **Live prices** for the lots on screen over the site's own websocket, plus outbid/winning updates when logged in.
 - **Lot details** (images, description, bid history) in a popup; bidding links to the real lot page.
 
