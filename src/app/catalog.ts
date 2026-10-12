@@ -15,7 +15,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { fetchLotDetail, fetchLotPage, isAuthenticated, LIST_PAGE_SIZE } from './api';
 import { putLots, readAll, readMeta, replaceAll, writeMeta, EMPTY_META, type CatalogMeta } from './db';
 import { getSetting, onSetting } from './gm';
-import { KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
+import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import type { Lot, LotDetail } from './types';
 
 const DETAIL_TTL = 2 * 60_000;
@@ -68,7 +68,7 @@ export const getLot = (id: number) => state.lots.get(id);
 
 export function syncIntervalMs(): number {
   const m = Number(getSetting(KEYS.syncMinutes));
-  return Math.max(MIN_SYNC_MINUTES, Number.isFinite(m) ? m : MIN_SYNC_MINUTES) * 60_000;
+  return Math.max(MIN_SYNC_MINUTES, Number.isFinite(m) ? m : DEFAULT_SYNC_MINUTES) * 60_000;
 }
 
 /** Epoch ms when the next full pull is allowed. */

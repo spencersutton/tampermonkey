@@ -12,7 +12,7 @@ export default defineConfig({
       userscript: {
         name: 'Triangle Liquidators – Hide, Filter & Bid Confirm',
         namespace: 'https://triangleliquidators.com/',
-        version: '2.1.0',
+        version: '2.1.1',
         description:
           'Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.',
         match: ['https://triangleliquidators.com/*', 'https://www.triangleliquidators.com/*'],

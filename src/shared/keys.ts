@@ -19,6 +19,10 @@ export interface HiddenLot {
   ts: number;
 }
 
+// Full catalog pulls default to every 5 minutes and are never allowed more often than every minute.
+export const DEFAULT_SYNC_MINUTES = 5;
+export const MIN_SYNC_MINUTES = 1;
+
 export const DEFAULTS = {
   [KEYS.hidden]: {} as Record<string, HiddenLot>,
   [KEYS.words]: [] as string[],
@@ -27,13 +31,10 @@ export const DEFAULTS = {
   [KEYS.showHidden]: false,
   [KEYS.removeFiltered]: false,
   [KEYS.collapsed]: { words: false, hidden: false } as Record<string, boolean>,
-  [KEYS.syncMinutes]: 5,
+  [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.pickup]: null as string | null,
   [KEYS.view]: null as unknown,
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
 };
-
-// Full catalog pulls are never allowed more often than this.
-export const MIN_SYNC_MINUTES = 5;
 
 export const lotHref = (auctionPeriod: string, id: number | string) => `/lots/${auctionPeriod}/${id}`;

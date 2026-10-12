@@ -17,7 +17,7 @@ A separate, faster catalog that replaces the site's interface on that one URL. E
 - **Live prices** for the lots on screen over the site's own websocket, plus outbid/winning updates when logged in.
 - **Lot details** (images, description, bid history) in a popup; bidding links to the real lot page.
 
-**Server load:** the full catalog (~50 requests) is pulled at most once per interval (default and minimum: 5 minutes, configurable under Settings). The interval is measured from the start of the last pull, failed or not. Pulls only run while a `/tlx` tab is visible and has been used in the last 10 minutes, and only one tab pulls at a time. Pages are fetched one at a time. Opening a lot fetches only that lot (cached 2 minutes). Live updates subscribe only to the lots on screen, like the site does.
+**Server load:** the full catalog (~50 requests) is pulled at most once per interval (default 5 minutes, configurable under Settings down to 1 minute). The interval is measured from the start of the last pull, failed or not. Pulls only run while a `/tlx` tab is visible and has been used in the last 10 minutes, and only one tab pulls at a time. Pages are fetched one at a time. Opening a lot fetches only that lot (cached 2 minutes). Live updates subscribe only to the lots on screen, like the site does.
 
 ### On the site's own pages
 

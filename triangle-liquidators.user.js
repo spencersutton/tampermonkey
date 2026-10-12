@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      2.1.0
+// @version      2.1.1
 // @description  Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -1669,7 +1669,7 @@
 	var getLot = (id) => state.lots.get(id);
 	function syncIntervalMs() {
 		const m = Number(getSetting(KEYS.syncMinutes));
-		return Math.max(5, Number.isFinite(m) ? m : 5) * 6e4;
+		return Math.max(1, Number.isFinite(m) ? m : 5) * 6e4;
 	}
 	function nextPullAt(meta = state.meta) {
 		return meta.pullStartedAt == null ? 0 : meta.pullStartedAt + syncIntervalMs();
@@ -7339,7 +7339,7 @@
 		const [text, setText] = d(String(minutes));
 		h(() => setText(String(minutes)), [minutes]);
 		const commit = () => {
-			const n = Math.max(5, Math.round(parseNum(text) ?? 5));
+			const n = Math.max(1, Math.round(parseNum(text) ?? 5));
 			setText(String(n));
 			if (n !== minutes) setMinutes(n);
 		};
@@ -7353,11 +7353,11 @@
 					class: "field",
 					children: [u("span", { children: [
 						"Full catalog refresh at most every (minutes, min ",
-						5,
+						1,
 						")"
 					] }), u("input", {
 						type: "number",
-						min: 5,
+						min: 1,
 						step: 1,
 						value: text,
 						onInput: (e) => setText(e.currentTarget.value),

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter, splitFilters } from '../shared/filters';
-import { KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
+import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { useSetting } from './gm';
 import { Icon } from './icons';
 import { fmtCount, parseNum } from './util';
@@ -363,7 +363,7 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
   const [text, setText] = useState(String(minutes));
   useEffect(() => setText(String(minutes)), [minutes]);
   const commit = () => {
-    const n = Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? MIN_SYNC_MINUTES));
+    const n = Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? DEFAULT_SYNC_MINUTES));
     setText(String(n));
     if (n !== minutes) setMinutes(n);
   };
