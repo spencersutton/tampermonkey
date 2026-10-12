@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      2.2.2
+// @version      2.3.0
 // @description  Hide lots, gray out lots matching filter words, confirm bids, show estimated total cost, and a fast cached catalog view at /tlx.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -18,140 +18,104 @@
 
 (function() {
 	"use strict";
-	var KEYS = {
-		hidden: "hiddenLots",
-		words: "filterWords",
-		filterOn: "filterEnabled",
-		confirm: "confirmBids",
-		showHidden: "showHidden",
-		removeFiltered: "removeFiltered",
-		collapsed: "collapsedLists",
-		syncMinutes: "tlxSyncMinutes",
-		pickup: "tlxPickup",
-		view: "tlxView",
-		savedSearches: "tlxSavedSearches",
-		accountPickup: "tlxAccountPickup"
-	};
-	var DEFAULTS = {
-		[KEYS.hidden]: {},
-		[KEYS.words]: [],
-		[KEYS.filterOn]: true,
-		[KEYS.confirm]: true,
-		[KEYS.showHidden]: false,
-		[KEYS.removeFiltered]: false,
-		[KEYS.collapsed]: {
-			words: false,
-			hidden: false
-		},
-		[KEYS.syncMinutes]: 5,
-		[KEYS.pickup]: null,
-		[KEYS.view]: null,
-		[KEYS.savedSearches]: [],
-		[KEYS.accountPickup]: null
-	};
-	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
-	function compileFilter(pattern) {
-		try {
-			return new RegExp(`\\b(?:${pattern})\\b`, "i");
-		} catch {
-			return null;
-		}
-	}
-	function buildRegexes(words) {
-		return words.filter((w) => w.trim()).map((w) => ({
-			word: w,
-			re: compileFilter(w)
-		}));
-	}
-	function firstMatch(filters, title) {
-		for (const { word, re } of filters) if (re && re.test(title)) return word;
-		return null;
-	}
-	function splitFilters(text) {
-		const out = [];
-		let cur = "";
-		let depth = 0;
-		let inClass = false;
-		let escaped = false;
-		for (const ch of text) if (escaped) {
-			cur += ch;
-			escaped = false;
-		} else if (ch === "\\") {
-			cur += ch;
-			escaped = true;
-		} else if (inClass) {
-			if (ch === "]") inClass = false;
-			cur += ch;
-		} else if (ch === "[") {
-			inClass = true;
-			cur += ch;
-		} else if (ch === "," && depth === 0) {
-			out.push(cur);
-			cur = "";
-		} else {
-			if (ch === "(" || ch === "{") depth++;
-			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
-			cur += ch;
-		}
-		out.push(cur);
-		return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
-	}
-	var FEES = {
-		premium: .15,
-		lotFee: 1,
-		transferFee: 5,
-		salesTax: .0725
-	};
-	function totalCost(bid, transferFee = 0) {
-		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
-	}
-	function costBreakdown(bid, transferFee = 0) {
-		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
-	}
-	var money = (n) => n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD"
-	});
-	var dollars = (n) => n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
-		maximumFractionDigits: 0
-	});
 	function runLegacy() {
 		"use strict";
-		const KEYS$1 = {
-			hidden: KEYS.hidden,
-			words: KEYS.words,
-			filterOn: KEYS.filterOn,
-			confirm: KEYS.confirm,
-			showHidden: KEYS.showHidden,
-			removeFiltered: KEYS.removeFiltered,
-			collapsed: KEYS.collapsed
+		const KEYS = {
+			hidden: "hiddenLots",
+			words: "filterWords",
+			filterOn: "filterEnabled",
+			confirm: "confirmBids",
+			showHidden: "showHidden",
+			removeFiltered: "removeFiltered",
+			titleSort: "titleSort",
+			collapsed: "collapsedLists"
 		};
-		const DEFAULTS$1 = DEFAULTS;
+		const DEFAULTS = {
+			[KEYS.hidden]: {},
+			[KEYS.words]: [],
+			[KEYS.filterOn]: true,
+			[KEYS.confirm]: true,
+			[KEYS.showHidden]: false,
+			[KEYS.removeFiltered]: false,
+			[KEYS.titleSort]: null,
+			[KEYS.collapsed]: {
+				words: false,
+				hidden: false
+			}
+		};
+		const FEES = {
+			premium: .15,
+			lotFee: 1,
+			transferFee: 5,
+			salesTax: .0725
+		};
 		const state = {};
-		for (const k of Object.values(KEYS$1)) state[k] = GM_getValue(k, DEFAULTS$1[k]);
+		for (const k of Object.values(KEYS)) state[k] = GM_getValue(k, DEFAULTS[k]);
 		function apply(key, value) {
 			state[key] = value;
-			if (key === KEYS$1.words) wordRegexes = buildRegexes(value);
+			if (key === KEYS.words) wordRegexes = buildRegexes(value);
 			scheduleScan();
 		}
 		function save(key, value) {
 			GM_setValue(key, value);
 			apply(key, value);
 		}
-		if (typeof GM_addValueChangeListener === "function") for (const k of Object.values(KEYS$1)) GM_addValueChangeListener(k, (_name, _old, val, remote) => {
+		if (typeof GM_addValueChangeListener === "function") for (const k of Object.values(KEYS)) GM_addValueChangeListener(k, (_name, _old, val, remote) => {
 			if (remote) apply(k, val);
 		});
-		let wordRegexes = buildRegexes(state[KEYS$1.words]);
+		function compileFilter(pattern) {
+			const src = `\\b(?:${pattern})\\b`;
+			try {
+				return new RegExp(src, "i");
+			} catch {
+				return null;
+			}
+		}
+		function buildRegexes(words) {
+			return words.filter((w) => w.trim()).map((w) => ({
+				word: w,
+				re: compileFilter(w)
+			}));
+		}
+		let wordRegexes = buildRegexes(state[KEYS.words]);
+		function splitFilters(text) {
+			const out = [];
+			let cur = "";
+			let depth = 0;
+			let inClass = false;
+			let escaped = false;
+			for (const ch of text) if (escaped) {
+				cur += ch;
+				escaped = false;
+			} else if (ch === "\\") {
+				cur += ch;
+				escaped = true;
+			} else if (inClass) {
+				if (ch === "]") inClass = false;
+				cur += ch;
+			} else if (ch === "[") {
+				inClass = true;
+				cur += ch;
+			} else if (ch === "," && depth === 0) {
+				out.push(cur);
+				cur = "";
+			} else {
+				if (ch === "(" || ch === "{") depth++;
+				else if ((ch === ")" || ch === "}") && depth > 0) depth--;
+				cur += ch;
+			}
+			out.push(cur);
+			return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
+		}
 		function addFilter(pattern) {
 			if (!compileFilter(pattern)) return false;
-			if (!state[KEYS$1.words].includes(pattern)) save(KEYS$1.words, [...state[KEYS$1.words], pattern]);
+			if (!state[KEYS.words].includes(pattern)) save(KEYS.words, [...state[KEYS.words], pattern]);
 			return true;
 		}
 		function matchFilter(title) {
-			if (!state[KEYS$1.filterOn]) return null;
-			return firstMatch(wordRegexes, title);
+			if (!state[KEYS.filterOn]) return null;
+			for (const { word, re } of wordRegexes) if (re && re.test(title)) return word;
+			return null;
 		}
 		const SVG_NS = "http://www.w3.org/2000/svg";
 		const ICONS = {
@@ -188,13 +152,50 @@
 			e.stopPropagation();
 		}
 		GM_addStyle(`
-    .tlx-slot-hidden { display: none !important; }
-    .tlx-catalog-link {
-      margin-left: 12px; vertical-align: middle; text-decoration: none; white-space: nowrap;
-      font: 500 13px/1.75 Roboto, Helvetica, Arial, sans-serif; letter-spacing: .02857em;
-      color: var(--mui-palette-primary-main);
+    .tlx-slot-hidden, .tlx-native-hidden { display: none !important; }
+
+    /* Title sort */
+    .tlx-sort-toggle {
+      display: inline-flex; margin-left: 12px; vertical-align: middle; overflow: hidden;
+      border: 1px solid var(--mui-palette-divider); border-radius: var(--mui-shape-borderRadius, 4px);
     }
-    .tlx-catalog-link:hover { text-decoration: underline; }
+    .tlx-sort-toggle button {
+      padding: 3px 10px; border: 0; background: none; cursor: pointer;
+      font: 500 13px/1.75 Roboto, Helvetica, Arial, sans-serif; letter-spacing: .02857em;
+      color: var(--mui-palette-text-secondary);
+    }
+    .tlx-sort-toggle button + button { border-left: 1px solid var(--mui-palette-divider); }
+    .tlx-sort-toggle button:hover { background: var(--mui-palette-action-hover); }
+    .tlx-sort-toggle button[aria-pressed="true"] {
+      color: var(--mui-palette-primary-main); background: rgba(var(--mui-palette-primary-mainChannel) / .08);
+    }
+    .tlx-sorted-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 16px;
+      font: 400 14px/1.43 Roboto, Helvetica, Arial, sans-serif; color: var(--mui-palette-text-secondary);
+    }
+    .tlx-sorted-error { color: var(--mui-palette-error-main); }
+    .tlx-progress {
+      flex-basis: 100%; height: 4px; border-radius: 2px; overflow: hidden;
+      background: rgba(var(--mui-palette-primary-mainChannel) / .2);
+    }
+    .tlx-progress > span { display: block; height: 100%; background: var(--mui-palette-primary-main); transition: width .2s; }
+    .tlx-view-btn {
+      display: flex; align-items: center; justify-content: center; min-height: 36px; padding: 6px 16px;
+      border-radius: var(--mui-shape-borderRadius, 4px); text-decoration: none; box-sizing: border-box;
+      font: 500 14px/1.75 Roboto, Helvetica, Arial, sans-serif; letter-spacing: .02857em; text-transform: uppercase;
+      background: var(--mui-palette-primary-main); color: var(--mui-palette-primary-contrastText, #fff);
+      box-shadow: var(--mui-shadows-2, 0 1px 3px rgba(0,0,0,.3));
+    }
+    .tlx-view-btn:hover { box-shadow: var(--mui-shadows-4, 0 2px 6px rgba(0,0,0,.3)); filter: brightness(1.1); }
+    .tlx-pager { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; margin-top: 32px; }
+    .tlx-pager button {
+      min-width: 40px; height: 40px; padding: 0 10px; border: 0; border-radius: 20px; background: none; cursor: pointer;
+      font: 400 15px/1 Roboto, Helvetica, Arial, sans-serif; color: var(--mui-palette-text-primary);
+    }
+    .tlx-pager button:hover:not(:disabled) { background: var(--mui-palette-action-hover); }
+    .tlx-pager button[aria-current="page"] { background: var(--mui-palette-action-selected, rgba(0,0,0,.08)); }
+    .tlx-pager button:disabled { opacity: .38; cursor: default; }
+    .tlx-pager-gap { min-width: 32px; text-align: center; color: var(--mui-palette-text-primary); }
 
     /* Compact grid: the catalog grid separates rows with full-width <hr>s at
        fixed DOM positions (one set per breakpoint). Once cards are removed
@@ -376,8 +377,8 @@
 			return slot.querySelector("[aria-label=\"Lot images\"]")?.parentElement ?? null;
 		}
 		function hideLot(id, title, href) {
-			save(KEYS$1.hidden, {
-				...state[KEYS$1.hidden],
+			save(KEYS.hidden, {
+				...state[KEYS.hidden],
 				[id]: {
 					title,
 					href,
@@ -386,12 +387,12 @@
 			});
 		}
 		function unhideAll() {
-			if (confirm("Unhide all hidden lots?")) save(KEYS$1.hidden, {});
+			if (confirm("Unhide all hidden lots?")) save(KEYS.hidden, {});
 		}
 		function unhideLot(id) {
-			const next = { ...state[KEYS$1.hidden] };
+			const next = { ...state[KEYS.hidden] };
 			delete next[id];
-			save(KEYS$1.hidden, next);
+			save(KEYS.hidden, next);
 		}
 		function ensureHideButton(slot, id, title, href, isHidden) {
 			const area = imageAreaFor(slot);
@@ -408,7 +409,7 @@
 				btn.addEventListener("click", (e) => {
 					swallow(e);
 					const { tlxId, tlxTitle, tlxHref } = btn.dataset;
-					if (state[KEYS$1.hidden][tlxId]) unhideLot(tlxId);
+					if (state[KEYS.hidden][tlxId]) unhideLot(tlxId);
 					else hideLot(tlxId, tlxTitle, tlxHref);
 				});
 				area.appendChild(btn);
@@ -474,6 +475,14 @@
 			const n = parseFloat((text || "").replace(/[^\d.]/g, ""));
 			return Number.isFinite(n) ? n : null;
 		}
+		function totalCost(bid, loc) {
+			const fees = FEES.lotFee + (loc === "transfer" ? FEES.transferFee : 0);
+			return (bid * (1 + FEES.premium) + fees) * (1 + FEES.salesTax);
+		}
+		const money = (n) => n.toLocaleString("en-US", {
+			style: "currency",
+			currency: "USD"
+		});
 		function setTotal(priceEl, loc, anchor = priceEl) {
 			let tag = anchor.nextElementSibling?.classList.contains("tlx-total") ? anchor.nextElementSibling : null;
 			const bid = parseDollars(priceEl.textContent);
@@ -488,11 +497,10 @@
 				}, "≈ ", el("b"), " total");
 				anchor.after(tag);
 			}
-			const transferFee = loc === "transfer" ? FEES.transferFee : 0;
-			const value = money(totalCost(bid, transferFee));
+			const value = money(totalCost(bid, loc));
 			const b = tag.querySelector("b");
 			if (b.textContent !== value) b.textContent = value;
-			const tip = costBreakdown(bid, transferFee);
+			const tip = `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (loc === "transfer" ? ` + ${money(FEES.transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
 			if (tag.title !== tip) tag.title = tip;
 		}
 		let filteredCount = 0;
@@ -506,7 +514,7 @@
 			for (const grid of grids) {
 				const cards = [...grid.children].filter((c) => c.dataset.tlxLot);
 				const visible = cards.filter((c) => !c.classList.contains("tlx-slot-hidden"));
-				const compact = visible.length < cards.length;
+				const compact = grid.hasAttribute("data-tlx-sorted-grid") || visible.length < cards.length;
 				grid.classList.toggle("tlx-compact", compact);
 				if (!compact) {
 					cards.forEach((c) => c.classList.remove("tlx-row-start", "tlx-later-row"));
@@ -549,11 +557,11 @@
 				seen.add(slot);
 				const title = link.textContent.trim();
 				if (link.title !== title) link.title = title;
-				const isHidden = !!state[KEYS$1.hidden][id];
+				const isHidden = !!state[KEYS.hidden][id];
 				const matched = matchFilter(title);
-				const showHidden = state[KEYS$1.showHidden];
+				const showHidden = state[KEYS.showHidden];
 				slot.dataset.tlxLot = id;
-				const removed = isHidden && !showHidden || !!matched && state[KEYS$1.removeFiltered];
+				const removed = isHidden && !showHidden || !!matched && state[KEYS.removeFiltered];
 				slot.classList.toggle("tlx-slot-hidden", removed);
 				const dim = !!matched || isHidden && showHidden;
 				slot.classList.toggle("tlx-dim", dim);
@@ -593,8 +601,8 @@
 				"data-tlx-collapse": name
 			}, el("span", { "data-tlx-collapse-label": "" }), icon("expandMore", 20));
 			head.addEventListener("click", () => {
-				const cur = state[KEYS$1.collapsed] || {};
-				save(KEYS$1.collapsed, {
+				const cur = state[KEYS.collapsed] || {};
+				save(KEYS.collapsed, {
 					...cur,
 					[name]: !cur[name]
 				});
@@ -651,7 +659,7 @@
 			})), el("p", {
 				class: "tlx-caption",
 				"data-tlx-stats": ""
-			}), switchRow("Apply filters", KEYS$1.filterOn), switchRow("Remove filtered lots instead of graying out", KEYS$1.removeFiltered), switchRow("Confirm before bidding", KEYS$1.confirm), switchRow("Show hidden lots", KEYS$1.showHidden), ...collapsible("hidden", el("ul", {
+			}), switchRow("Apply filters", KEYS.filterOn), switchRow("Remove filtered lots instead of graying out", KEYS.removeFiltered), switchRow("Confirm before bidding", KEYS.confirm), switchRow("Show hidden lots", KEYS.showHidden), ...collapsible("hidden", el("ul", {
 				class: "tlx-hidden-list",
 				"data-tlx-hidden-list": ""
 			}), el("button", {
@@ -672,7 +680,7 @@
 		}
 		function renderSection(section) {
 			const chips = section.querySelector("[data-tlx-chips]");
-			const words = state[KEYS$1.words];
+			const words = state[KEYS.words];
 			const chipKey = words.join("\0");
 			if (chips.dataset.key !== chipKey) {
 				chips.dataset.key = chipKey;
@@ -685,7 +693,7 @@
 				}, patternText(w), el("button", {
 					type: "button",
 					"aria-label": `Remove ${w}`,
-					onclick: () => save(KEYS$1.words, state[KEYS$1.words].filter((x) => x !== w))
+					onclick: () => save(KEYS.words, state[KEYS.words].filter((x) => x !== w))
 				}, icon("cancel")))));
 			}
 			for (const row of section.querySelectorAll("[data-tlx-key]")) {
@@ -694,14 +702,14 @@
 				if (input.checked !== v) input.checked = v;
 			}
 			const stats = section.querySelector("[data-tlx-stats]");
-			const statText = words.length ? `${filteredCount} lot${filteredCount === 1 ? "" : "s"} ${state[KEYS$1.removeFiltered] ? "removed" : "filtered"} on this page.` : "Case-insensitive regex on the lot title, matched as whole words: \\b(?:pattern)\\b.";
+			const statText = words.length ? `${filteredCount} lot${filteredCount === 1 ? "" : "s"} ${state[KEYS.removeFiltered] ? "removed" : "filtered"} on this page.` : "Case-insensitive regex on the lot title, matched as whole words: \\b(?:pattern)\\b.";
 			if (stats.textContent !== statText) stats.textContent = statText;
-			const hidden = Object.entries(state[KEYS$1.hidden]).sort((a, b) => b[1].ts - a[1].ts);
+			const hidden = Object.entries(state[KEYS.hidden]).sort((a, b) => b[1].ts - a[1].ts);
 			const labels = {
 				words: `Filter patterns (${words.length})`,
 				hidden: `Hidden lots (${hidden.length})`
 			};
-			const collapsed = state[KEYS$1.collapsed] || {};
+			const collapsed = state[KEYS.collapsed] || {};
 			for (const head of section.querySelectorAll("[data-tlx-collapse]")) {
 				const name = head.dataset.tlxCollapse;
 				const label = head.querySelector("[data-tlx-collapse-label]");
@@ -761,12 +769,12 @@
 				if (!container) continue;
 				let row = container.querySelector(":scope > .tlx-inline-confirm");
 				if (!row) {
-					row = switchRow("Confirm before bidding", KEYS$1.confirm, "tlx-inline-confirm");
+					row = switchRow("Confirm before bidding", KEYS.confirm, "tlx-inline-confirm");
 					row.setAttribute("data-tlx-own", "");
 					container.appendChild(row);
 				}
 				const input = row.querySelector("input");
-				if (input.checked !== !!state[KEYS$1.confirm]) input.checked = !!state[KEYS$1.confirm];
+				if (input.checked !== !!state[KEYS.confirm]) input.checked = !!state[KEYS.confirm];
 			}
 		}
 		function bidKind(btn) {
@@ -822,7 +830,7 @@
 				e.stopImmediatePropagation();
 				return;
 			}
-			if (!state[KEYS$1.confirm] || btn.disabled) return;
+			if (!state[KEYS.confirm] || btn.disabled) return;
 			const ctx = bidContext(btn);
 			if (kind === "max" && ctx.input && ctx.input.value.trim() === "") return;
 			e.preventDefault();
@@ -892,7 +900,7 @@
 					document.removeEventListener("keydown", onKey, true);
 					backdrop.remove();
 					dialogOpen = false;
-					if (ok && skip.checked) save(KEYS$1.confirm, false);
+					if (ok && skip.checked) save(KEYS.confirm, false);
 					prevFocus?.focus?.();
 					resolve(ok);
 				};
@@ -921,30 +929,617 @@
 				cancelBtn.focus();
 			});
 		}
-		function ensureCatalogLink() {
-			if (location.pathname !== "/") return;
-			const h2 = [...document.querySelectorAll("h2")].find((h) => h.textContent.trim() === "All Auctions");
-			if (!h2 || h2.parentElement.querySelector(":scope > .tlx-catalog-link")) return;
-			h2.parentElement.appendChild(el("a", {
-				class: "tlx-catalog-link",
-				href: "/tlx",
-				"data-tlx-own": "",
-				title: "All lots, cached locally: sort by title or cost, regex filters, live prices",
-				text: "Catalog view →"
-			}));
+		const SORT = {
+			pageSize: 80,
+			fetchSize: 100,
+			concurrency: 4,
+			cacheEntries: 3
+		};
+		function pageBridge() {
+			const KEY = "/v1/auctions/lots";
+			let client = null;
+			const findClient = () => {
+				const root = document.getElementById("__next");
+				const prop = root && Object.keys(root).find((k) => k.startsWith("__reactContainer$"));
+				const stack = prop ? [root[prop]] : [];
+				for (let n = 0; stack.length && n < 5e4; n++) {
+					const f = stack.pop();
+					if (!f) continue;
+					const c = f.memoizedProps && f.memoizedProps.client;
+					if (c && typeof c.getQueryCache === "function") return c;
+					if (f.child) stack.push(f.child);
+					if (f.sibling) stack.push(f.sibling);
+				}
+				return null;
+			};
+			const getClient = () => client || (client = findClient());
+			const ops = {
+				active() {
+					const c = getClient();
+					if (!c) return null;
+					const qs = c.getQueryCache().findAll({ queryKey: [KEY] }).filter((q) => q.getObserversCount() > 0 && q.queryKey[1] && typeof q.queryKey[1] === "object");
+					const q = qs.find((x) => x.queryKey[1].perPage === 80) || qs[0];
+					return q ? q.queryKey[1] : null;
+				},
+				async fetch({ params }) {
+					const c = getClient();
+					if (!c) throw new Error("Site query client not found");
+					const d = await c.fetchQuery({
+						queryKey: [KEY, params],
+						staleTime: 0,
+						gcTime: 0
+					});
+					return {
+						count: d.count,
+						results: d.results
+					};
+				}
+			};
+			document.addEventListener("tlx:req", async (e) => {
+				let msg;
+				try {
+					msg = JSON.parse(e.detail);
+				} catch {
+					return;
+				}
+				const reply = (body) => document.dispatchEvent(new CustomEvent("tlx:res", { detail: JSON.stringify({
+					id: msg.id,
+					...body
+				}) }));
+				try {
+					reply({
+						ok: true,
+						data: await ops[msg.op](msg.args || {})
+					});
+				} catch (err) {
+					reply({
+						ok: false,
+						error: String(err && err.message || err)
+					});
+				}
+			});
 		}
+		const bridgeWaiters = new Map();
+		let bridgeSeq = 0;
+		document.addEventListener("tlx:res", (e) => {
+			let msg;
+			try {
+				msg = JSON.parse(e.detail);
+			} catch {
+				return;
+			}
+			const w = bridgeWaiters.get(msg.id);
+			if (!w) return;
+			bridgeWaiters.delete(msg.id);
+			msg.ok ? w.resolve(msg.data) : w.reject(new Error(msg.error));
+		});
+		{
+			const s = document.createElement("script");
+			s.textContent = `(${pageBridge.toString()})();`;
+			(document.head || document.documentElement).appendChild(s);
+			s.remove();
+		}
+		function callBridge(op, args) {
+			return new Promise((resolve, reject) => {
+				const id = ++bridgeSeq;
+				const timer = setTimeout(() => {
+					bridgeWaiters.delete(id);
+					reject(new Error("Timed out talking to the page"));
+				}, 3e4);
+				bridgeWaiters.set(id, {
+					resolve: (v) => (clearTimeout(timer), resolve(v)),
+					reject: (e) => (clearTimeout(timer), reject(e))
+				});
+				document.dispatchEvent(new CustomEvent("tlx:req", { detail: JSON.stringify({
+					id,
+					op,
+					args
+				}) }));
+			});
+		}
+		const stableKey = (o) => JSON.stringify(Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b))));
+		const collator = new Intl.Collator(void 0, {
+			numeric: true,
+			sensitivity: "base"
+		});
+		const SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
+		const SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
+		const SORT_UNIT = [
+			String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`,
+			String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
+			String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
+			String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,
+			String.raw`v|volts?|w|watts?|kw|amps?|a|ah|mah|wh|btus?|psi|gpm|cfm|mph|hp|lm|lumens?`,
+			String.raw`[mg]bps|[gkm]?hz|rpm|db|deg(?:rees?)?|°|%`,
+			String.raw`pcs?\.?|pieces?|pk|packs?|count|ct|pairs?|tiers?|panels?|channels?`
+		].join("|");
+		const SORT_HYPHEN_UNIT = String.raw`(?:light|bulb|gang|outlet|port|drawer|shelf|shelves|cube|seat|person|burner|speed|blade|tool|bottle|door|zone|way|step|cutter|cycle|stroke|handle|row|tooth|teeth)s?`;
+		const SORT_MARK = String.raw`(?:"|''|”|″|'|′)`;
+		const SORT_MEASURE = String.raw`${SORT_NUM}\s*(?:${SORT_MARK}|-?\s*(?:${SORT_UNIT}))?`;
+		const SORT_LEAD = new RegExp("^(?:" + [
+			String.raw`[(\[][^)\]]*[)\]]`,
+			String.raw`(?:set|pack|box|case|lot)\s+of\s+\d+`,
+			`${SORT_MEASURE}(?:\\s*[x×]\\s*${SORT_MEASURE})+(?=[\\s,.)/]|$)`,
+			`${SORT_NUM}\\s*${SORT_MARK}`,
+			`${SORT_NUM}-${SORT_HYPHEN_UNIT}(?=[\\s,.)/]|$)`,
+			`${SORT_NUM}[\\s-]?(?:${SORT_UNIT})(?=[\\s,.)/x×]|$)`,
+			`${SORT_NUM}\\s*[x×](?=\\s*\\d)`
+		].join("|") + ")", "iu");
+		const SORT_SEP = /^[x×]\s*(?=\d)/i;
+		function sortKey(title) {
+			let rest = title.trim();
+			const moved = [];
+			for (let i = 0; i < 12; i++) {
+				const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
+				if (!m || !m[0]) break;
+				moved.push(m[0].trim());
+				rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
+			}
+			return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
+		}
+		const lotCache = new Map();
+		const sv = {
+			filterKey: null,
+			filters: null,
+			orderBy: void 0,
+			orderSeen: false,
+			lots: null,
+			fetchedAt: 0,
+			loading: false,
+			progress: null,
+			error: null,
+			gen: 0,
+			page: 1,
+			renderKey: null,
+			sorted: null
+		};
+		let syncing = false;
+		let resync = false;
+		async function loadLots(filters, key, force = false) {
+			const cached = lotCache.get(key);
+			if (cached && !force) {
+				Object.assign(sv, {
+					lots: cached.lots,
+					fetchedAt: cached.fetchedAt,
+					loading: false,
+					error: null
+				});
+				return;
+			}
+			const gen = ++sv.gen;
+			Object.assign(sv, {
+				lots: null,
+				loading: true,
+				error: null,
+				progress: {
+					done: 0,
+					total: null
+				}
+			});
+			scheduleScan();
+			try {
+				const fetchPage = (page) => callBridge("fetch", { params: {
+					...filters,
+					page,
+					perPage: SORT.fetchSize
+				} });
+				const first = await fetchPage(1);
+				if (gen !== sv.gen) return;
+				const byId = new Map(first.results.map((l) => [l.id, l]));
+				const pages = Math.ceil(first.count / SORT.fetchSize);
+				sv.progress = {
+					done: byId.size,
+					total: first.count
+				};
+				scheduleScan();
+				let next = 2;
+				const worker = async () => {
+					while (next <= pages && gen === sv.gen) {
+						(await fetchPage(next++)).results.forEach((l) => byId.set(l.id, l));
+						sv.progress = {
+							done: byId.size,
+							total: first.count
+						};
+						scheduleScan();
+					}
+				};
+				await Promise.all(Array.from({ length: Math.min(SORT.concurrency, Math.max(pages - 1, 0)) }, worker));
+				if (gen !== sv.gen) return;
+				const entry = {
+					lots: [...byId.values()],
+					fetchedAt: Date.now()
+				};
+				lotCache.set(key, entry);
+				while (lotCache.size > SORT.cacheEntries) lotCache.delete(lotCache.keys().next().value);
+				Object.assign(sv, entry, { loading: false });
+			} catch (err) {
+				if (gen === sv.gen) Object.assign(sv, {
+					loading: false,
+					error: err.message || String(err)
+				});
+			}
+			scheduleScan();
+		}
+		function sortedLots(dir) {
+			if (!sv.lots) return [];
+			if (sv.sorted && sv.sorted.lots === sv.lots && sv.sorted.dir === dir) return sv.sorted.arr;
+			const arr = [...sv.lots].sort((a, b) => collator.compare(sortKey(a.title), sortKey(b.title)) || a.id - b.id);
+			if (dir === "desc") arr.reverse();
+			sv.sorted = {
+				lots: sv.lots,
+				dir,
+				arr
+			};
+			return arr;
+		}
+		function visibleSortedLots(dir) {
+			return sortedLots(dir).filter((l) => {
+				if (state[KEYS.hidden][l.id] && !state[KEYS.showHidden]) return false;
+				if (state[KEYS.removeFiltered] && matchFilter(l.title)) return false;
+				return true;
+			});
+		}
+		const onCatalog = () => location.pathname === "/";
+		function nativeLotsGrid() {
+			for (const c of document.querySelectorAll("[data-lot-id]")) {
+				if (c.closest("[aria-roledescription=\"carousel\"], .tlx-sorted")) continue;
+				return c.parentElement;
+			}
+			return null;
+		}
+		function resultsHeading() {
+			return [...document.querySelectorAll("h2")].find((h) => h.textContent.trim() === "All Auctions") || null;
+		}
+		function ensureSortToggle() {
+			const h2 = onCatalog() ? resultsHeading() : null;
+			if (!h2) return;
+			let group = h2.parentElement.querySelector(":scope > .tlx-sort-toggle");
+			if (!group) {
+				const btn = (dir, text, label) => el("button", {
+					type: "button",
+					"data-dir": dir,
+					title: label,
+					"aria-label": label,
+					text,
+					onclick: () => {
+						const next = state[KEYS.titleSort] === dir ? null : dir;
+						sv.page = 1;
+						sv.orderSeen = false;
+						save(KEYS.titleSort, next);
+					}
+				});
+				group = el("span", {
+					class: "tlx-sort-toggle",
+					role: "group",
+					"aria-label": "Sort all lots by title",
+					"data-tlx-own": ""
+				}, btn("asc", "A–Z", "Sort all matching lots by title, A to Z"), btn("desc", "Z–A", "Sort all matching lots by title, Z to A"));
+				h2.parentElement.appendChild(group);
+			}
+			for (const b of group.querySelectorAll("button")) {
+				const on = String(state[KEYS.titleSort] === b.dataset.dir);
+				if (b.getAttribute("aria-pressed") !== on) b.setAttribute("aria-pressed", on);
+			}
+		}
+		function nativeExtras(grid) {
+			return [...grid.parentElement.children].filter((c) => c !== grid && !c.classList.contains("tlx-sorted") && (c.matches("[role=\"status\"]") || c.querySelector("nav[aria-label=\"Auctions pages\"]")));
+		}
+		function teardownSorted() {
+			document.querySelectorAll(".tlx-sorted").forEach((n) => n.remove());
+			document.querySelectorAll(".tlx-native-hidden").forEach((n) => n.classList.remove("tlx-native-hidden"));
+			sv.renderKey = null;
+		}
+		async function syncSortedView() {
+			const dir = state[KEYS.titleSort];
+			const grid = dir && onCatalog() ? nativeLotsGrid() : null;
+			if (!grid) {
+				if (document.querySelector(".tlx-sorted")) teardownSorted();
+				return;
+			}
+			if (syncing) {
+				resync = true;
+				return;
+			}
+			syncing = true;
+			try {
+				const params = await callBridge("active");
+				if (!params) return;
+				const { page, perPage, orderBy, ...filters } = params;
+				const sortChoice = !orderBy || orderBy === "relevance" || orderBy === "ending-soonest" ? "default" : orderBy;
+				if (sv.orderSeen && sortChoice !== sv.orderBy) {
+					sv.orderBy = sortChoice;
+					save(KEYS.titleSort, null);
+					return;
+				}
+				sv.orderBy = sortChoice;
+				sv.orderSeen = true;
+				const key = stableKey(filters);
+				if (key !== sv.filterKey) {
+					sv.filterKey = key;
+					sv.filters = filters;
+					sv.page = 1;
+					loadLots(filters, key);
+				}
+				renderSorted(grid, dir);
+			} catch (err) {
+				sv.error = err.message || String(err);
+				renderSorted(grid, dir);
+			} finally {
+				syncing = false;
+				if (resync) {
+					resync = false;
+					scheduleScan();
+				}
+			}
+		}
+		function defaultLocationName() {
+			const counts = {};
+			for (const c of document.querySelectorAll("[data-lot-id]:not(.tlx-sorted *) svg + span.MuiTypography-caption")) {
+				const t = c.textContent.trim();
+				if (/^(Raleigh|Anderson)$/i.test(t)) counts[t] = (counts[t] || 0) + 1;
+			}
+			return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || "Raleigh";
+		}
+		function timeLabel(endsAt) {
+			const ms = new Date(endsAt).getTime() - Date.now();
+			if (ms <= 0) return {
+				text: "Closed",
+				soon: true
+			};
+			const s = Math.floor(ms / 1e3);
+			const m = Math.floor(s / 60);
+			const soon = ms <= 36e5;
+			if (ms >= 864e5) return {
+				text: `${Math.floor(m / 1440)}d ${Math.floor(m % 1440 / 60)}h`,
+				soon
+			};
+			if (m >= 60) return {
+				text: `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`,
+				soon
+			};
+			return {
+				text: `${m}m ${String(s % 60).padStart(2, "0")}s`,
+				soon
+			};
+		}
+		function setTime(span, endsAt) {
+			const { text, soon } = timeLabel(endsAt);
+			if (span.textContent !== text) span.textContent = text;
+			const color = soon ? "var(--mui-palette-error-main)" : "";
+			if (span.style.color !== color) {
+				span.style.color = color;
+				if (span.previousElementSibling) span.previousElementSibling.style.color = color;
+			}
+		}
+		const CDN = "https://cdn.triangleliquidators.com";
+		function buildCard(tpl, lot, defaultLoc) {
+			const card = tpl.cloneNode(true);
+			card.querySelectorAll("[data-tlx-own]").forEach((n) => n.remove());
+			for (const n of [card, ...card.querySelectorAll("*")]) {
+				for (const a of [...n.attributes]) if (a.name.startsWith("data-tlx") || a.name === "data-lot-id" || a.name === "data-position") n.removeAttribute(a.name);
+				if (typeof n.className === "string" && n.className.includes("tlx-")) n.className = n.className.replace(/\btlx-[\w-]+/g, "").trim();
+			}
+			const href = `/lots/${lot.auctionPeriod}/${lot.id}`;
+			const group = card.querySelector("[aria-label=\"Lot images\"]");
+			if (group) {
+				const anchors = [...group.querySelectorAll("a")];
+				anchors.slice(1).forEach((a) => a.remove());
+				const a = anchors[0];
+				if (a) {
+					a.href = href;
+					let img = a.querySelector("img");
+					if (!img) {
+						img = el("img", {
+							loading: "lazy",
+							decoding: "async",
+							draggable: "false"
+						});
+						img.style.cssText = "position:absolute;height:100%;width:100%;inset:0;object-fit:contain;color:transparent";
+						a.appendChild(img);
+					}
+					const first = [...lot.images || []].sort((x, y) => x.position - y.position)[0];
+					img.removeAttribute("srcset");
+					img.src = first ? `${CDN}/${first.imageCard}` : "";
+					img.alt = lot.title;
+				}
+				group.querySelectorAll("button").forEach((b) => b.remove());
+				group.querySelectorAll("[aria-live]").forEach((n) => n.remove());
+				group.querySelectorAll(".MuiStack-root:empty").forEach((n) => n.remove());
+			}
+			card.querySelector("[aria-label=\"Add to watchlist\"], [aria-label=\"Remove from watchlist\"]")?.parentElement?.remove();
+			const chip = card.querySelector(".MuiChip-root");
+			if (chip) {
+				const cond = lot.condition || {};
+				const label = chip.querySelector(".MuiChip-label");
+				if (label) label.textContent = cond.displayName || cond.display || "";
+				const tone = {
+					1: "primary",
+					2: "success",
+					3: "warning"
+				}[cond.value];
+				chip.style.color = tone ? `var(--mui-palette-${tone}-main)` : "var(--mui-palette-text-secondary)";
+				chip.style.borderColor = tone ? `var(--mui-palette-${tone}-main)` : "var(--mui-palette-divider)";
+				if (!label?.textContent) chip.remove();
+			}
+			const caps = card.querySelectorAll("svg + span.MuiTypography-caption");
+			const locName = lot.location?.name || "";
+			if (caps[0]) caps[0].textContent = lot.isTransferable && locName !== defaultLoc ? "Transferable" : locName;
+			if (caps[1]) {
+				caps[1].setAttribute("data-tlx-ends", lot.endsAt);
+				setTime(caps[1], lot.endsAt);
+			}
+			const link = card.querySelector(TITLE_SEL);
+			if (link) {
+				link.href = href;
+				link.textContent = lot.title;
+			}
+			const price = card.querySelector("p.MuiTypography-h6");
+			if (price) {
+				price.textContent = `$${lot.currentPrice}`;
+				const retail = price.nextElementSibling;
+				if (retail) {
+					if (lot.estimatedRetailPrice == null) retail.remove();
+					else {
+						const sep = retail.firstElementChild;
+						retail.replaceChildren(...sep ? [sep] : [], `est. retail $${lot.estimatedRetailPrice}`);
+					}
+				}
+				const priceRow = price.parentElement;
+				while (priceRow.nextElementSibling) priceRow.nextElementSibling.remove();
+				priceRow.after(el("a", {
+					class: "tlx-view-btn",
+					href,
+					text: "View lot"
+				}));
+			}
+			return card;
+		}
+		function pagerItems(page, pages) {
+			const nums = [...new Set([
+				1,
+				pages,
+				page - 1,
+				page,
+				page + 1
+			])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+			const out = [];
+			nums.forEach((n, i) => {
+				if (i && n - nums[i - 1] > 1) out.push("…");
+				out.push(n);
+			});
+			return out;
+		}
+		function renderSorted(grid, dir) {
+			const gridClass = [...grid.classList].filter((c) => !c.startsWith("tlx-")).join(" ");
+			grid.classList.add("tlx-native-hidden");
+			nativeExtras(grid).forEach((n) => n.classList.add("tlx-native-hidden"));
+			let box = grid.parentElement.querySelector(":scope > .tlx-sorted");
+			if (!box) {
+				box = el("div", { class: "tlx-sorted" }, el("div", { class: "tlx-sorted-bar" }), el("div", {
+					class: gridClass,
+					"data-tlx-sorted-grid": ""
+				}), el("nav", {
+					class: "tlx-pager",
+					"aria-label": "Sorted lots pages"
+				}));
+				grid.after(box);
+			}
+			const bar = box.querySelector(".tlx-sorted-bar");
+			const sgrid = box.querySelector("[data-tlx-sorted-grid]");
+			const pager = box.querySelector(".tlx-pager");
+			for (const c of gridClass.split(" ")) if (c && !sgrid.classList.contains(c)) sgrid.classList.add(c);
+			if (sv.loading || sv.error || !sv.lots) {
+				const key = `status|${sv.loading}|${sv.error}|${sv.progress?.done}|${sv.progress?.total}`;
+				if (sv.renderKey === key) return;
+				sv.renderKey = key;
+				sgrid.replaceChildren();
+				pager.replaceChildren();
+				if (sv.error) bar.replaceChildren(el("span", {
+					class: "tlx-sorted-error",
+					text: `Couldn’t load lots for sorting: ${sv.error}`
+				}), el("button", {
+					type: "button",
+					class: "tlx-text-btn",
+					text: "Retry",
+					onclick: () => sv.filters && loadLots(sv.filters, sv.filterKey, true)
+				}));
+				else {
+					const { done = 0, total = null } = sv.progress || {};
+					const pct = total ? Math.round(done / total * 100) : 0;
+					const bg = el("span");
+					bg.style.width = `${pct}%`;
+					bar.replaceChildren(el("span", { text: total ? `Loading lots for title sort… ${done.toLocaleString()} of ${total.toLocaleString()}` : "Loading lots for title sort…" }), el("span", {
+						class: "tlx-progress",
+						role: "progressbar",
+						"aria-valuenow": String(pct),
+						"aria-valuemin": "0",
+						"aria-valuemax": "100"
+					}, bg));
+				}
+				return;
+			}
+			const list = visibleSortedLots(dir);
+			const pages = Math.max(1, Math.ceil(list.length / SORT.pageSize));
+			if (sv.page > pages) sv.page = pages;
+			const excludedSig = JSON.stringify([
+				Object.keys(state[KEYS.hidden]).length,
+				state[KEYS.words],
+				state[KEYS.filterOn],
+				state[KEYS.removeFiltered],
+				state[KEYS.showHidden],
+				list.length
+			]);
+			const key = [
+				sv.filterKey,
+				dir,
+				sv.page,
+				sv.fetchedAt,
+				excludedSig
+			].join("|");
+			if (sv.renderKey === key) return;
+			sv.renderKey = key;
+			const tpl = grid.querySelector(":scope > [data-lot-id]");
+			const start = (sv.page - 1) * SORT.pageSize;
+			const slice = list.slice(start, start + SORT.pageSize);
+			const defaultLoc = defaultLocationName();
+			const hr = grid.querySelector(":scope > hr");
+			sgrid.replaceChildren(...hr ? [hr.cloneNode(true)] : [], ...tpl ? slice.map((l) => buildCard(tpl, l, defaultLoc)) : []);
+			const excluded = sv.lots.length - list.length;
+			const time = new Date(sv.fetchedAt).toLocaleTimeString([], {
+				hour: "numeric",
+				minute: "2-digit"
+			});
+			bar.replaceChildren(el("span", { text: `Title ${dir === "asc" ? "A–Z" : "Z–A"} · ` + (list.length ? `${(start + 1).toLocaleString()}–${(start + slice.length).toLocaleString()} of ${list.length.toLocaleString()}` : "No lots") + (excluded ? ` (${excluded.toLocaleString()} hidden or filtered out)` : "") + ` · prices as of ${time}` }), el("button", {
+				type: "button",
+				class: "tlx-text-btn",
+				text: "Refresh",
+				onclick: () => loadLots(sv.filters, sv.filterKey, true)
+			}));
+			const go = (p) => {
+				sv.page = p;
+				scheduleScan();
+				box.scrollIntoView({ block: "start" });
+				window.scrollBy(0, -140);
+			};
+			const navBtn = (label, target, disabled, text) => el("button", {
+				type: "button",
+				"aria-label": label,
+				disabled: disabled || null,
+				text,
+				onclick: () => go(target)
+			});
+			pager.replaceChildren(...pages > 1 ? [
+				navBtn("Go to first page", 1, sv.page === 1, "«"),
+				navBtn("Go to previous page", sv.page - 1, sv.page === 1, "‹"),
+				...pagerItems(sv.page, pages).map((n) => n === "…" ? el("span", {
+					class: "tlx-pager-gap",
+					text: "…"
+				}) : el("button", {
+					type: "button",
+					"aria-label": `Go to page ${n}`,
+					"aria-current": n === sv.page ? "page" : null,
+					text: String(n),
+					onclick: () => go(n)
+				})),
+				navBtn("Go to next page", sv.page + 1, sv.page === pages, "›"),
+				navBtn("Go to last page", pages, sv.page === pages, "»")
+			] : []);
+		}
+		setInterval(() => {
+			for (const span of document.querySelectorAll(".tlx-sorted [data-tlx-ends]")) setTime(span, span.dataset.tlxEnds);
+		}, 1e3);
 		GM_registerMenuCommand("Toggle bid confirmation", () => {
-			save(KEYS$1.confirm, !state[KEYS$1.confirm]);
-			alert(`Bid confirmation is now ${state[KEYS$1.confirm] ? "ON" : "OFF"}.`);
+			save(KEYS.confirm, !state[KEYS.confirm]);
+			alert(`Bid confirmation is now ${state[KEYS.confirm] ? "ON" : "OFF"}.`);
 		});
 		GM_registerMenuCommand("Edit all filters…", () => {
-			let text = state[KEYS$1.words].join(", ");
+			let text = state[KEYS.words].join(", ");
 			for (;;) {
 				const v = prompt("All filter regexes, comma separated (case-insensitive, whole words):", text);
 				if (v === null) return;
 				const list = splitFilters(v);
 				const bad = list.filter((p) => !compileFilter(p));
-				if (!bad.length) return save(KEYS$1.words, list);
+				if (!bad.length) return save(KEYS.words, list);
 				alert(`Invalid regex – fix and try again:\n\n${bad.join("\n")}`);
 				text = v;
 			}
@@ -963,7 +1558,8 @@
 				scheduled = false;
 				observer.disconnect();
 				try {
-					ensureCatalogLink();
+					ensureSortToggle();
+					syncSortedView();
 					processCards();
 					processSidebar();
 					processDetailPage();
@@ -1399,6 +1995,38 @@
 	function D(n, t) {
 		return "function" == typeof t ? t(n) : t;
 	}
+	var KEYS = {
+		hidden: "hiddenLots",
+		words: "filterWords",
+		filterOn: "filterEnabled",
+		confirm: "confirmBids",
+		showHidden: "showHidden",
+		removeFiltered: "removeFiltered",
+		collapsed: "collapsedLists",
+		syncMinutes: "tlxSyncMinutes",
+		pickup: "tlxPickup",
+		view: "tlxView",
+		savedSearches: "tlxSavedSearches",
+		accountPickup: "tlxAccountPickup"
+	};
+	var DEFAULTS = {
+		[KEYS.hidden]: {},
+		[KEYS.words]: [],
+		[KEYS.filterOn]: true,
+		[KEYS.confirm]: true,
+		[KEYS.showHidden]: false,
+		[KEYS.removeFiltered]: false,
+		[KEYS.collapsed]: {
+			words: false,
+			hidden: false
+		},
+		[KEYS.syncMinutes]: 5,
+		[KEYS.pickup]: null,
+		[KEYS.view]: null,
+		[KEYS.savedSearches]: [],
+		[KEYS.accountPickup]: null
+	};
+	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
 	var BASE = "/backend";
 	var CDN = "https://cdn.triangleliquidators.com";
 	var ApiError = class extends Error {
@@ -6210,6 +6838,27 @@
 		var t = n.props, e = n.__e;
 		null != e && "textarea" === n.type && "value" in t && t.value !== e.value && (e.value = null == t.value ? "" : t.value);
 	};
+	var FEES = {
+		premium: .15,
+		lotFee: 1,
+		transferFee: 5,
+		salesTax: .0725
+	};
+	function totalCost(bid, transferFee = 0) {
+		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
+	}
+	function costBreakdown(bid, transferFee = 0) {
+		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
+	}
+	var money = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD"
+	});
+	var dollars = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		maximumFractionDigits: 0
+	});
 	function timeLabel(endsAt, now) {
 		const ms = endsAt - now;
 		if (ms <= 0) return {
@@ -6674,6 +7323,52 @@
 				})]
 			})
 		});
+	}
+	function compileFilter(pattern) {
+		try {
+			return new RegExp(`\\b(?:${pattern})\\b`, "i");
+		} catch {
+			return null;
+		}
+	}
+	function buildRegexes(words) {
+		return words.filter((w) => w.trim()).map((w) => ({
+			word: w,
+			re: compileFilter(w)
+		}));
+	}
+	function firstMatch(filters, title) {
+		for (const { word, re } of filters) if (re && re.test(title)) return word;
+		return null;
+	}
+	function splitFilters(text) {
+		const out = [];
+		let cur = "";
+		let depth = 0;
+		let inClass = false;
+		let escaped = false;
+		for (const ch of text) if (escaped) {
+			cur += ch;
+			escaped = false;
+		} else if (ch === "\\") {
+			cur += ch;
+			escaped = true;
+		} else if (inClass) {
+			if (ch === "]") inClass = false;
+			cur += ch;
+		} else if (ch === "[") {
+			inClass = true;
+			cur += ch;
+		} else if (ch === "," && depth === 0) {
+			out.push(cur);
+			cur = "";
+		} else {
+			if (ch === "(" || ch === "{") depth++;
+			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
+			cur += ch;
+		}
+		out.push(cur);
+		return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 	}
 	var collator = new Intl.Collator(void 0, {
 		numeric: true,
