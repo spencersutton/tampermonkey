@@ -193,13 +193,11 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
 }
 
-const DUPE_WINDOW = 3600_000;
 const byPrice = (a: Lot, b: Lot) => a.currentPrice - b.currentPrice || a.endsAt - b.endsAt || a.id - b.id;
 
 /**
- * Fold listings with the same title, condition and location that close within
- * an hour of each other into one card showing the cheapest (ties: ending
- * soonest). Lots you've bid on, hidden lots and regex-filtered lots keep
+ * Fold listings with the same title, condition and location into one card
+ * showing the cheapest (ties: ending soonest). Lots you've bid on, hidden lots and regex-filtered lots keep
  * their own card.
  */
 function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Lot[]> } {
@@ -222,17 +220,10 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Lot
       cards.push(bucket[0]);
       continue;
     }
-    bucket.sort((a, b) => a.lot.endsAt - b.lot.endsAt);
-    // Each group spans at most an hour from its earliest closing lot.
-    for (let i = 0; i < bucket.length; ) {
-      let j = i + 1;
-      while (j < bucket.length && bucket[j].lot.endsAt - bucket[i].lot.endsAt <= DUPE_WINDOW) j++;
-      const members = bucket.slice(i, j).sort((a, b) => byPrice(a.lot, b.lot));
-      const lots = members.map((r) => r.lot);
-      cards.push(lots.length > 1 ? { ...members[0], others: lots.slice(1) } : members[0]);
-      if (lots.length > 1) for (const l of lots) groups.set(l.id, lots);
-      i = j;
-    }
+    bucket.sort((a, b) => byPrice(a.lot, b.lot));
+    const lots = bucket.map((r) => r.lot);
+    cards.push({ ...bucket[0], others: lots.slice(1) });
+    for (const l of lots) groups.set(l.id, lots);
   }
   return { cards, groups };
 }

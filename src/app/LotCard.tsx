@@ -155,9 +155,9 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
 /** "+N" badge for identical listings folded into this card; opens the cheapest's popup, which lists them all. */
 function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
   const n = row.others.length;
-  const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`).join('\n');
+  const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`).join('\n');
   return (
-    <button type="button" class="pill pill-dupes" title={`${n} more identical listing${n === 1 ? '' : 's'} closing within the hour:\n${list}`} onClick={() => onOpen(row.lot)}>
+    <button type="button" class="pill pill-dupes" title={`${n} more identical listing${n === 1 ? '' : 's'}:\n${list}`} onClick={() => onOpen(row.lot)}>
       +{n} more
     </button>
   );

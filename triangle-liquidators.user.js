@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.3.0
+// @version      3.3.1
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -5871,14 +5871,15 @@
 	});
 	function DupeCount({ row, onOpen }) {
 		const n = row.others.length;
-		const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleTimeString([], {
+		const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleString([], {
+			weekday: "short",
 			hour: "numeric",
 			minute: "2-digit"
 		})}`).join("\n");
 		return u("button", {
 			type: "button",
 			class: "pill pill-dupes",
-			title: `${n} more identical listing${n === 1 ? "" : "s"} closing within the hour:\n${list}`,
+			title: `${n} more identical listing${n === 1 ? "" : "s"}:\n${list}`,
 			onClick: () => onOpen(row.lot),
 			children: [
 				"+",
@@ -6668,7 +6669,6 @@
 			groups
 		};
 	}
-	var DUPE_WINDOW = 36e5;
 	var byPrice = (a, b) => a.currentPrice - b.currentPrice || a.endsAt - b.endsAt || a.id - b.id;
 	function combineDuplicates(rows) {
 		const buckets = new Map();
@@ -6690,19 +6690,13 @@
 				cards.push(bucket[0]);
 				continue;
 			}
-			bucket.sort((a, b) => a.lot.endsAt - b.lot.endsAt);
-			for (let i = 0; i < bucket.length;) {
-				let j = i + 1;
-				while (j < bucket.length && bucket[j].lot.endsAt - bucket[i].lot.endsAt <= DUPE_WINDOW) j++;
-				const members = bucket.slice(i, j).sort((a, b) => byPrice(a.lot, b.lot));
-				const lots = members.map((r) => r.lot);
-				cards.push(lots.length > 1 ? {
-					...members[0],
-					others: lots.slice(1)
-				} : members[0]);
-				if (lots.length > 1) for (const l of lots) groups.set(l.id, lots);
-				i = j;
-			}
+			bucket.sort((a, b) => byPrice(a.lot, b.lot));
+			const lots = bucket.map((r) => r.lot);
+			cards.push({
+				...bucket[0],
+				others: lots.slice(1)
+			});
+			for (const l of lots) groups.set(l.id, lots);
 		}
 		return {
 			cards,

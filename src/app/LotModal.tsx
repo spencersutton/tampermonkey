@@ -16,7 +16,7 @@ interface Props {
   onClose: () => void;
   onToggleHide: () => void;
   onBid: (req: BidRequest) => void;
-  group?: Lot[]; // identical listings closing within the hour, cheapest first
+  group?: Lot[]; // identical listings, cheapest first
   onOpenLot?: (lot: Lot) => void;
 }
 
