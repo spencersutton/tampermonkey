@@ -8,19 +8,25 @@ import { onAuthChange } from './auth';
 import { getLot, updateLot } from './catalog';
 import type { Lot } from './types';
 
+/** The site's Centrifugo websocket endpoint. */
 const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';
 
 export type LiveState = 'off' | 'connecting' | 'connected' | 'disconnected';
 
+/** Current connection state, shown in the status bar. */
 let liveState: LiveState = 'off';
+/** Setters of components showing the connection state. */
 const stateSubs = new Set<(s: LiveState) => void>();
+/** Active `lot:{id}` channel subscriptions, by lot id. */
 const subs = new Map<number, Subscription>();
 
+/** Update the connection state and notify subscribers. */
 function setState(s: LiveState) {
   liveState = s;
   stateSubs.forEach((f) => f(s));
 }
 
+/** Preact hook: the current websocket connection state. */
 export function useLiveState(): LiveState {
   const [s, set] = useState(liveState);
   useEffect(() => {
@@ -31,8 +37,11 @@ export function useLiveState(): LiveState {
   return s;
 }
 
+/** The websocket client, created on first use (null after a login change). */
 let connecting: Promise<Centrifuge> | null = null;
+/** Get the shared websocket client, connecting if needed. */
 const connect = () => (connecting ??= open());
+/** Lot ids currently on screen, re-subscribed after reconnecting. */
 let watched: number[] = [];
 
 // The connection token decides whether we get this account's outbid/winning
@@ -53,6 +62,7 @@ onAuthChange(() => {
   void watchLots(watched).catch(() => {});
 });
 
+/** Create and connect a websocket client; with a login, it also receives this account's bid events. */
 async function open(): Promise<Centrifuge> {
   let token: string | null = null;
   if (isAuthenticated()) token = await fetchWsToken().catch(() => null);
@@ -77,6 +87,7 @@ async function open(): Promise<Centrifuge> {
   return c;
 }
 
+/** Apply a lot channel update (price, bids, end time, status) to the catalog. */
 function onLotPublication(data: any) {
   if (!data || typeof data.id !== 'number') return;
   const patch: Partial<Lot> = {

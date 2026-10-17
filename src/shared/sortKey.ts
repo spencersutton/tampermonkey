@@ -1,3 +1,4 @@
+/** Case-insensitive, number-aware string comparison used for title sorting. */
 export const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 // Sort key: move leading specs (measurements, pack counts, "Set of 3",
 // parentheticals like "(2026 Upgraded)") to the end, so "1 in. Copper Tubing
@@ -38,6 +39,7 @@ const SORT_LEAD = new RegExp(
 // moved, so model names like "X20" or "X2 Robotic Pool Vacuum" stay put.
 const SORT_SEP = /^[x×]\s*(?=\d)/i;
 
+/** Title rearranged for sorting: leading specs moved to the end and leading punctuation dropped. */
 export function sortKey(title: string): string {
   let rest = title.trim();
   const moved: string[] = [];

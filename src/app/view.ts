@@ -5,6 +5,7 @@ import { collator, sortKey } from '../shared/sortKey';
 import type { HiddenLot } from '../shared/keys';
 import type { Lot } from './types';
 
+/** Sort options, id -> label. */
 export const SORTS = {
   'ending-soonest': 'Ending soonest',
   'newly-listed': 'Newly listed',
@@ -19,6 +20,7 @@ export const SORTS = {
 } as const;
 export type SortId = keyof typeof SORTS;
 
+/** "Ending" filter options, id -> label. */
 export const ENDING = {
   '': 'Any time',
   '1h': 'Within 1 hour',
@@ -28,6 +30,7 @@ export const ENDING = {
 } as const;
 export type EndingId = keyof typeof ENDING;
 
+/** "My lots" filter options, id -> label. */
 export const MINE = {
   '': 'All lots',
   bid: 'Lots I bid on',
@@ -53,6 +56,7 @@ export interface ViewState {
   newSince: number | null; // only lots first seen after this time (not saved with searches)
 }
 
+/** View with no filters, sorted by ending soonest. */
 export const DEFAULT_VIEW: ViewState = {
   sort: 'ending-soonest',
   search: '',
@@ -69,6 +73,7 @@ export const DEFAULT_VIEW: ViewState = {
   newSince: null,
 };
 
+/** Turn a stored (possibly old or invalid) view into a complete ViewState. */
 export function normalizeView(v: unknown): ViewState {
   const o = v && typeof v === 'object' ? (v as Partial<ViewState>) : {};
   const view = { ...DEFAULT_VIEW, ...o };
@@ -78,6 +83,7 @@ export function normalizeView(v: unknown): ViewState {
   return view;
 }
 
+/** How many filters the view has turned on (shown on the "Clear" button). */
 export const activeFilterCount = (v: ViewState) =>
   [
     v.search.trim(),
@@ -113,19 +119,24 @@ export interface Exclusions {
   showHidden: boolean;
 }
 
+/** Memoized sortKey() results by title. */
 const sortKeys = new Map<string, string>();
+/** sortKey() for a title, cached. */
 function titleKey(title: string) {
   let k = sortKeys.get(title);
   if (k === undefined) sortKeys.set(title, (k = sortKey(title)));
   return k;
 }
 
+/** Compiled regex filters for the most recent word list. */
 let regexCache: { words: string[]; compiled: CompiledFilter[] } | null = null;
+/** Compiled regexes for the filter words, recompiled only when the list changes. */
 function compiledFilters(words: string[]) {
   if (regexCache?.words !== words) regexCache = { words, compiled: buildRegexes(words) };
   return regexCache.compiled;
 }
 
+/** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const elsewhere = !!lot.location && lot.location.name !== pickup;
   const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
@@ -141,6 +152,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   };
 }
 
+/** The [start, end) time range for an "Ending" filter, or null for any time. */
 function endingWindow(e: EndingId, now: number): [number, number] | null {
   if (!e) return null;
   if (e === '1h') return [now, now + 3600_000];
@@ -163,6 +175,7 @@ export interface ViewResult {
   groups: Map<number, Lot[]>; // lot id -> every listing in its group (cheapest first)
 }
 
+/** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
 export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: number): ViewResult {
   const matches = makeMatcher(view, now);
   const matchCounts = new Map<string, number>(ex.words.map((w) => [w, 0]));
@@ -193,6 +206,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
 }
 
+/** Cheapest first; ties go to the one ending soonest. */
 const byPrice = (a: Lot, b: Lot) => a.currentPrice - b.currentPrice || a.endsAt - b.endsAt || a.id - b.id;
 
 /**
@@ -238,6 +252,7 @@ export function makeMatcher(view: ViewState, now: number): (row: Row) => boolean
   return (row) => passes(row, view, terms, win, cats, conds, locs);
 }
 
+/** Whether a row passes every filter in the view. */
 function passes(
   { lot, total, pickupOnly }: Row,
   v: ViewState,
@@ -278,6 +293,7 @@ function passes(
   return true;
 }
 
+/** Compare function for a sort option; ties fall back to ending soonest. */
 function comparator(sort: SortId): (a: Row, b: Row) => number {
   const tie = (a: Row, b: Row) => a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
   const by = (f: (a: Row, b: Row) => number) => (a: Row, b: Row) => f(a, b) || tie(a, b);
@@ -311,6 +327,7 @@ export interface Facets {
   locations: { name: string; count: number }[];
 }
 
+/** Categories, conditions and locations among open lots, with counts, for the filter lists. */
 export function computeFacets(lots: Iterable<Lot>, now: number): Facets {
   const cats = new Map<string, { value: string; label: string; count: number }>();
   const conds = new Map<number, { value: number; label: string; count: number }>();
@@ -347,6 +364,7 @@ export interface SavedSearch {
   lastViewedAt: number; // lots first seen after this count as new
 }
 
+/** The parts of a view that a saved search stores. */
 export const savedFilters = (v: ViewState): Omit<ViewState, 'newSince'> => {
   const { newSince, ...rest } = v;
   return rest;
@@ -358,6 +376,7 @@ export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boole
   return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
 }
 
+/** Default name for a new saved search, built from its filters. */
 export function suggestName(v: ViewState, facets: Facets): string {
   const parts: string[] = [];
   if (v.search.trim()) parts.push(v.search.trim());

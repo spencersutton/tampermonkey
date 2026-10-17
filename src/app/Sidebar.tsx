@@ -28,6 +28,7 @@ interface Props {
   saved: SavedSearchesProps;
 }
 
+/** Left sidebar: saved searches, filters, hide/regex filters and settings. */
 export function Sidebar(props: Props) {
   return (
     <div class="sidebar-inner">
@@ -39,6 +40,7 @@ export function Sidebar(props: Props) {
   );
 }
 
+/** Section whose open/closed state is remembered across sessions. */
 function Collapsible({ id, title, children }: { id: string; title: ComponentChildren; children: ComponentChildren }) {
   const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
   const open = !collapsed?.[id];
@@ -53,10 +55,12 @@ function Collapsible({ id, title, children }: { id: string; title: ComponentChil
   );
 }
 
+/** Add the value to the list, or remove it if present. */
 function toggle<T>(list: T[], v: T): T[] {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
+/** Numeric input that commits on blur/Enter; empty means no limit (null). */
 function NumberField({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
   const [text, setText] = useState(value == null ? '' : String(value));
   useEffect(() => setText(value == null ? '' : String(value)), [value]);
@@ -80,6 +84,7 @@ function NumberField({ label, value, onChange }: { label: string; value: number 
   );
 }
 
+/** Search, category, condition, location, price, ending and "my lots" filters. */
 function FiltersSection({ view, setView, facets, pickup, authed }: Props) {
   const n = activeFilterCount(view);
   return (
@@ -263,6 +268,7 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
   );
 }
 
+/** Labeled on/off switch. */
 function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label class="switch-row">
@@ -272,6 +278,7 @@ function Switch({ label, checked, onChange }: { label: string; checked: boolean;
   );
 }
 
+/** Regex title filters and the list of manually hidden lots. */
 function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<string, number>; onOpenHidden: (id: number) => void }) {
   const [words, setWords] = useSetting(KEYS.words);
   const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
@@ -373,6 +380,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
   );
 }
 
+/** Pickup location and full-refresh interval settings. */
 function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
   const [override, setOverride] = useSetting(KEYS.pickup);
@@ -425,6 +433,7 @@ export interface SavedSearchesProps {
   onRename: (id: string, name: string) => void;
 }
 
+/** Saved searches with total/new counts, plus save, rename and delete. */
 function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedName, onSave, onOpen, onDelete, onRename }: SavedSearchesProps) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');

@@ -16,7 +16,9 @@ export interface BidRequest {
   type: BidType;
 }
 
+/** Whether the lot can no longer be bid on. */
 export const isClosed = (lot: Lot, now = Date.now()) => lot.status !== 'live' || lot.endsAt <= now;
+/** Whether you are currently the high bidder (and the price is still within your max). */
 export const isLeading = (lot: Lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
 
 /** Amount of a straight bid at the next increment (the API's next minimum bid). */
@@ -43,6 +45,7 @@ const pending = new Set<number>();
 const pendingSubs = new Set<() => void>();
 const pendingChanged = () => pendingSubs.forEach((f) => f());
 
+/** Preact hook: whether a bid on this lot is in flight. */
 export function useBidPending(lotId: number): boolean {
   const [, force] = useState(0);
   useEffect(() => {
@@ -92,4 +95,5 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
   }
 }
 
+/** Shorten a title for toast messages. */
 const short = (s: string) => (s.length > 60 ? `${s.slice(0, 57)}…` : s);

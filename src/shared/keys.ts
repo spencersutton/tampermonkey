@@ -23,6 +23,7 @@ export interface HiddenLot {
 export const DEFAULT_SYNC_MINUTES = 5;
 export const MIN_SYNC_MINUTES = 1;
 
+/** Value returned for each GM storage key when nothing has been saved yet. */
 export const DEFAULTS = {
   [KEYS.hidden]: {} as Record<string, HiddenLot>,
   [KEYS.words]: [] as string[],
@@ -37,4 +38,5 @@ export const DEFAULTS = {
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
 };
 
+/** Path of a lot's page on the real site. */
 export const lotHref = (auctionPeriod: string, id: number | string) => `/lots/${auctionPeriod}/${id}`;

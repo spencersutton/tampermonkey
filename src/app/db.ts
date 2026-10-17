@@ -8,10 +8,13 @@ export interface CatalogMeta {
   authed: boolean; // whether that pull carried account data
 }
 
+/** Meta record used before any pull has been stored. */
 export const EMPTY_META: CatalogMeta = { fetchedAt: null, pullStartedAt: null, count: 0, authed: false };
 
+/** The open database connection, opened lazily and shared. */
 let dbp: Promise<IDBDatabase> | null = null;
 
+/** Open (and on first use create) the IndexedDB database. */
 function open(): Promise<IDBDatabase> {
   return (dbp ??= new Promise((resolve, reject) => {
     const req = indexedDB.open('tlx-catalog', 1);
@@ -24,6 +27,7 @@ function open(): Promise<IDBDatabase> {
   }));
 }
 
+/** Resolves when a transaction commits, rejects if it fails or aborts. */
 function done(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve();
@@ -31,18 +35,21 @@ function done(tx: IDBTransaction): Promise<void> {
   });
 }
 
+/** Promise for a single IndexedDB request. */
 const result = <T>(req: IDBRequest<T>) =>
   new Promise<T>((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 
+/** Read the catalog meta record. */
 export async function readMeta(): Promise<CatalogMeta> {
   const db = await open();
   const m = await result(db.transaction('meta').objectStore('meta').get('catalog'));
   return { ...EMPTY_META, ...(m || {}) };
 }
 
+/** Merge a patch into the catalog meta record and return the result. */
 export async function writeMeta(patch: Partial<CatalogMeta>): Promise<CatalogMeta> {
   const db = await open();
   const tx = db.transaction('meta', 'readwrite');
@@ -54,6 +61,7 @@ export async function writeMeta(patch: Partial<CatalogMeta>): Promise<CatalogMet
   return next;
 }
 
+/** Read every cached lot plus the meta record in one transaction. */
 export async function readAll(): Promise<{ lots: Lot[]; meta: CatalogMeta }> {
   const db = await open();
   const tx = db.transaction(['lots', 'meta']);
@@ -64,6 +72,7 @@ export async function readAll(): Promise<{ lots: Lot[]; meta: CatalogMeta }> {
   return { lots, meta: { ...EMPTY_META, ...(meta || {}) } };
 }
 
+/** Replace the whole cached catalog with a fresh pull and update the meta record. */
 export async function replaceAll(lots: Lot[], meta: Partial<CatalogMeta>): Promise<void> {
   const db = await open();
   const tx = db.transaction(['lots', 'meta'], 'readwrite');
@@ -76,6 +85,7 @@ export async function replaceAll(lots: Lot[], meta: Partial<CatalogMeta>): Promi
   await done(tx);
 }
 
+/** Insert or update individual lots (incremental updates between pulls). */
 export async function putLots(lots: Lot[]): Promise<void> {
   if (!lots.length) return;
   const db = await open();

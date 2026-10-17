@@ -4,10 +4,13 @@
 import { authedFetch, isAuthenticated } from './auth';
 import type { BidHistoryEntry, Lot, LotDetail, LotImage, Standing } from './types';
 
+/** Prefix for the site's API (proxied on the same origin). */
 const BASE = '/backend';
+/** Host serving lot images. */
 export const CDN = 'https://cdn.triangleliquidators.com';
 export const LIST_PAGE_SIZE = 100; // the API's maximum per_page
 
+/** A failed API request, with its HTTP status. */
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -19,6 +22,7 @@ export class ApiError extends Error {
 
 export { authToken, isAuthenticated } from './auth';
 
+/** GET a JSON endpoint with query params, using the login token when there is one. */
 async function get<T>(path: string, params: Record<string, string | number> = {}, signal?: AbortSignal): Promise<T> {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
   // If the session is gone, fall back to anonymous data rather than failing.
@@ -29,19 +33,23 @@ async function get<T>(path: string, params: Record<string, string | number> = {}
 
 type Raw = Record<string, any>;
 
+/** The value if it is a finite number, else the default. */
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 
+/** Convert the API's `your_standing` object (snake_case) into a Standing. */
 export function normalizeStanding(s: Raw | null | undefined): Standing | null {
   if (!s || typeof s !== 'object') return null;
   return { isLeading: !!s.is_leading, yourMaxBid: s.your_max_bid ?? null };
 }
 
+/** Image URLs in display order. */
 function normalizeImages(images: Raw[] | undefined): LotImage[] {
   return [...(images || [])]
     .sort((a, b) => num(a.position) - num(b.position))
     .map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large }));
 }
 
+/** Convert a raw API lot (snake_case) into a Lot. */
 export function normalizeLot(r: Raw): Lot {
   return {
     id: r.id,
@@ -84,6 +92,7 @@ export async function fetchLotPage(page: number, signal?: AbortSignal): Promise<
   return { count: d.count, results: d.results.map(normalizeLot) };
 }
 
+/** Fetch one lot's full detail: description, brand/model and bid history. */
 export async function fetchLotDetail(auctionPeriod: string, id: number, signal?: AbortSignal): Promise<LotDetail> {
   const r = await get<Raw>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, {}, signal);
   return {
@@ -103,6 +112,7 @@ export interface PickupLocation {
   name: string | null;
 }
 
+/** The pickup location set on the logged-in account, or null if none. */
 export async function fetchPickupLocation(): Promise<PickupLocation | null> {
   const me = await get<Raw>('/v1/auth/me/');
   const p = me.pickup_location;
@@ -110,6 +120,7 @@ export async function fetchPickupLocation(): Promise<PickupLocation | null> {
   return { id: typeof p.id === 'number' ? p.id : null, name: p.name || p.label || null };
 }
 
+/** Token that authenticates the live-updates websocket as this account. */
 export async function fetchWsToken(): Promise<string> {
   const d = await get<{ token: string }>('/v1/auth/ws-token/');
   return d.token;
@@ -128,6 +139,7 @@ export interface BidResult {
   version: number | null;
 }
 
+/** A rejected or failed bid, with the details needed to update the lot and explain why. */
 export class BidError extends Error {
   constructor(
     message: string,
@@ -139,7 +151,9 @@ export class BidError extends Error {
   }
 }
 
+/** Read a field the API may send in either snake_case or camelCase. */
 const pick = (o: Raw, snake: string, camel: string) => o?.[snake] ?? o?.[camel];
+/** The value if it is a finite number, else null. */
 const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 /** Add or remove a lot from your watchlist, like the site's star button. */
@@ -161,6 +175,7 @@ export async function setWatchlisted(auctionPeriod: string, lotId: number, on: b
   );
 }
 
+/** Place a bid (a max bid or the next increment) and return the outcome. */
 export async function placeBid(lotId: number, amount: number, type: BidType): Promise<BidResult> {
   if (!isAuthenticated()) throw new BidError('Log in on the site to bid.', 401);
   let res: Response;

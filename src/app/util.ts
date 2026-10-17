@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 
+/** Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within the last hour. */
 export function timeLabel(endsAt: number, now: number) {
   const ms = endsAt - now;
   if (ms <= 0) return { text: 'Closed', soon: true };
@@ -11,6 +12,7 @@ export function timeLabel(endsAt: number, now: number) {
   return { text: `${m}m ${String(s % 60).padStart(2, '0')}s`, soon };
 }
 
+/** How long ago `ts` was, e.g. "just now", "12 min ago"; older than a day shows the date. */
 export function ago(ts: number, now: number) {
   const m = Math.round((now - ts) / 60000);
   if (m < 1) return 'just now';
@@ -19,11 +21,13 @@ export function ago(ts: number, now: number) {
   return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts).toLocaleString();
 }
 
+/** Remaining time as "m:ss", or "Ns" under a minute. */
 export function countdown(ms: number) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
 }
 
+/** Shared interval timers for useNow(), keyed by interval, with the setters subscribed to each. */
 const tickSubs = new Map<number, { set: Set<(n: number) => void>; timer: number }>();
 
 /** Current time, re-rendering every `every` ms (one shared timer per interval). */
@@ -48,8 +52,10 @@ export function useNow(every = 1000): number {
   return now;
 }
 
+/** Format a count with thousands separators. */
 export const fmtCount = (n: number) => n.toLocaleString('en-US');
 
+/** Parse user-typed money/number input ("$1,200") into a number, or null if it isn't one. */
 export function parseNum(s: string): number | null {
   const n = parseFloat(s.replace(/[$,\s]/g, ''));
   return Number.isFinite(n) ? n : null;

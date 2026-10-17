@@ -10,6 +10,7 @@ import { fmtCount, timeLabel, useNow } from './util';
 import type { Row } from './view';
 import type { Lot } from './types';
 
+/** Live countdown to a lot closing, highlighted in the last hour. */
 export function TimeLeft({ endsAt }: { endsAt: number }) {
   const now = useNow(1000);
   const { text, soon } = timeLabel(endsAt, now);
@@ -20,12 +21,14 @@ export function TimeLeft({ endsAt }: { endsAt: number }) {
   );
 }
 
+/** Winning / Outbid pill for lots you have bid on. */
 export function StandingBadge({ lot }: { lot: Lot }) {
   if (lot.yourStanding?.isLeading) return <span class="pill pill-good">Winning</span>;
   if (lot.hasBid || lot.yourStanding) return <span class="pill pill-bad">Outbid</span>;
   return null;
 }
 
+/** Lot location, noting when it is pickup-only or needs a transfer. */
 export function LocationText({ row }: { row: Row }) {
   const name = row.lot.location?.name ?? 'Unknown';
   if (row.pickupOnly) return <span title="Not transferable – pick up at this location">{name} only</span>;
@@ -59,6 +62,7 @@ function WatchStar({ lot }: { lot: Lot }) {
   );
 }
 
+/** Watchlist toggle for the lot popup; hidden when the lot can't be watched. */
 export function WatchButton({ lot }: { lot: Lot }) {
   useAuthed();
   const pending = useWatchPending(lot.id);
@@ -87,6 +91,7 @@ interface Props {
   onBid: (req: BidRequest) => void;
 }
 
+/** One lot in the grid: image, title, price, total, time left and actions. */
 export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid }: Props) {
   const { lot, matched, hidden } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
@@ -163,6 +168,7 @@ function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
   );
 }
 
+/** The card's bid button: next-increment bid, raise max, or a disabled/login state. */
 function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; onOpen: () => void; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
   const pending = useBidPending(lot.id);

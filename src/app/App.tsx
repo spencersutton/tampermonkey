@@ -29,9 +29,11 @@ import {
 } from './view';
 import type { Lot } from './types';
 
+/** Lots per grid page. */
 const PAGE_SIZE = 60;
 const DAY = 86400_000;
 
+/** Name of the account's pickup location, fetched at most once a day while logged in. */
 function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | null {
   const [acct] = useSetting(KEYS.accountPickup);
   useEffect(() => {
@@ -47,6 +49,7 @@ function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | nul
   return null;
 }
 
+/** The whole /tlx page: sidebar, toolbar, lot grid, pager, and the lot / bid popups. */
 export function App() {
   const catalog = useCatalog();
   const [storedView, setStoredView] = useSetting(KEYS.view);
@@ -300,6 +303,7 @@ export function App() {
   );
 }
 
+/** Catalog freshness, pull progress, live connection state and the manual refresh button. */
 function StatusBar() {
   const catalog = useCatalog();
   const live = useLiveState();
@@ -340,6 +344,7 @@ function StatusBar() {
   );
 }
 
+/** Page numbers to show: first, last, and neighbours of the current page, with "…" for gaps. */
 function pagerItems(page: number, pages: number): (number | '…')[] {
   const nums = [...new Set([1, pages, page - 1, page, page + 1])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
   const out: (number | '…')[] = [];
@@ -350,6 +355,7 @@ function pagerItems(page: number, pages: number): (number | '…')[] {
   return out;
 }
 
+/** Previous / numbered / next page buttons. */
 function Pager({ page, pages, go }: { page: number; pages: number; go: (p: number) => void }) {
   return (
     <nav class="pager" aria-label="Pages">

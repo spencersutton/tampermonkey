@@ -8,10 +8,14 @@ import type { Lot } from './types';
 /** The site hides the watchlist button once you've bid on a lot. */
 export const canWatch = (lot: Lot) => isAuthenticated() && !lot.hasBid && !lot.yourStanding;
 
+/** Lots with a watchlist request in flight. */
 const pending = new Set<number>();
+/** Re-render callbacks for components showing watch-pending state. */
 const subs = new Set<() => void>();
+/** Notify subscribers that `pending` changed. */
 const changed = () => subs.forEach((f) => f());
 
+/** Preact hook: whether a watchlist toggle for this lot is in flight. */
 export function useWatchPending(lotId: number): boolean {
   const [, force] = useState(0);
   useEffect(() => {
@@ -22,6 +26,7 @@ export function useWatchPending(lotId: number): boolean {
   return pending.has(lotId);
 }
 
+/** Add the lot to, or remove it from, the watchlist; shows a toast if it fails. */
 export async function toggleWatch(lotId: number) {
   const lot = getLot(lotId);
   if (!lot || pending.has(lotId)) return;

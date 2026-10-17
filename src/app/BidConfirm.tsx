@@ -15,6 +15,7 @@ interface Props {
   onClose: () => void;
 }
 
+/** Dialog that shows the bid amount and estimated total and sends the bid only on confirm. */
 export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const { lot } = row;
   const [amount, setAmount] = useState(req.amount);

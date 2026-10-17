@@ -6,6 +6,7 @@ import { App } from './App';
 import { startAuth } from './auth';
 import { startCatalog } from './catalog';
 
+/** Stop the site's page, build a fresh document, and mount the /tlx app in it. */
 export function takeOver() {
   window.stop();
   const root = document.documentElement ?? document.appendChild(document.createElement('html'));

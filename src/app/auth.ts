@@ -8,10 +8,12 @@
 // while the rest of the site (which refreshes it) is fine.
 import { useEffect, useState } from 'preact/hooks';
 
+/** next-auth session endpoint; calling it re-issues the `token` cookie. */
 const SESSION_URL = '/api/auth/session';
 const FOCUS_MIN_GAP = 60_000; // don't re-check the session more than once a minute on tab focus
 const EXPIRY_MARGIN = 2 * 60_000; // refresh this long before the token's own expiry
 
+/** The API bearer token from the `token` cookie, or null when logged out. */
 export function authToken(): string | null {
   for (const part of document.cookie.split(';')) {
     const [k, ...v] = part.trim().split('=');
@@ -25,13 +27,17 @@ let signedOut = false;
 // A token the API rejected even after a session refresh; a new cookie value clears it.
 let rejectedToken: string | null = null;
 
+/** Whether we have a token that should work (not signed out, not already rejected). */
 export function isAuthenticated(): boolean {
   const t = authToken();
   return !signedOut && t !== null && t !== rejectedToken;
 }
 
+/** Callbacks run when the login state changes. */
 const subs = new Set<() => void>();
+/** Login state as of the last notify(), to report only real changes. */
 let lastState = isAuthenticated();
+/** Tell subscribers if the login state changed since last time. */
 function notify() {
   const now = isAuthenticated();
   if (now === lastState) return;
@@ -39,6 +45,7 @@ function notify() {
   subs.forEach((f) => f());
 }
 
+/** Subscribe to login state changes; returns an unsubscribe function. */
 export function onAuthChange(fn: () => void): () => void {
   subs.add(fn);
   return () => void subs.delete(fn);
@@ -67,8 +74,11 @@ function tokenExpiry(token: string | null): number | null {
   }
 }
 
+/** Session check in progress, shared by concurrent callers. */
 let inflight: Promise<boolean> | null = null;
+/** When the last session check finished. */
 let lastCheck = 0;
+/** Timer for the refresh scheduled just before the token expires. */
 let timer = 0;
 
 /** Ask the site's server for the session, which also re-issues the token cookie. Resolves to the login state. */
@@ -81,6 +91,7 @@ export function refreshSession(): Promise<boolean> {
   }));
 }
 
+/** Call the session endpoint and record whether the site says we are signed out. */
 async function checkSession(): Promise<boolean> {
   try {
     const res = await fetch(SESSION_URL, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
@@ -95,6 +106,7 @@ async function checkSession(): Promise<boolean> {
   return isAuthenticated();
 }
 
+/** Schedule a session refresh shortly before the current token expires. */
 function scheduleRefresh() {
   clearTimeout(timer);
   const exp = tokenExpiry(authToken());
@@ -102,6 +114,7 @@ function scheduleRefresh() {
   timer = window.setTimeout(() => void refreshSession(), Math.max(30_000, exp - EXPIRY_MARGIN - Date.now()));
 }
 
+/** The startup session check; requests wait for it so they use a fresh token. */
 let ready: Promise<unknown> = Promise.resolve();
 
 /** Check the session once at startup (like the site's page load) and keep it fresh afterwards. */
@@ -118,6 +131,7 @@ export function startAuth() {
   });
 }
 
+/** Headers with the bearer token added, when wanted and available. */
 function withAuth(headers: Record<string, string>, withToken: boolean): Record<string, string> {
   const token = withToken ? authToken() : null;
   return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;

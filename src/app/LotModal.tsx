@@ -20,6 +20,7 @@ interface Props {
   onOpenLot?: (lot: Lot) => void;
 }
 
+/** Popup with full lot details, images, bid history and bidding. */
 export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
@@ -173,6 +174,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
   );
 }
 
+/** List of identical listings in this lot's group; click one to switch to it. */
 function SameListings({ group, current, onOpen }: { group: Lot[]; current: number; onOpen: (lot: Lot) => void }) {
   return (
     <div>
@@ -194,6 +196,7 @@ function SameListings({ group, current, onOpen }: { group: Lot[]; current: numbe
   );
 }
 
+/** Bid controls in the popup: next-increment bid and a custom max bid. */
 function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
   const now = useNow(1000);
