@@ -28,15 +28,17 @@ export function authToken(): string | null {
 let tokenRejected = false;
 export const isAuthenticated = () => !tokenRejected && authToken() !== null;
 
+function headers(withToken: boolean, extra: Record<string, string> = {}): Record<string, string> {
+  const h: Record<string, string> = { Accept: 'application/json', ...extra };
+  const token = withToken ? authToken() : null;
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
 async function get<T>(path: string, params: Record<string, string | number> = {}, signal?: AbortSignal): Promise<T> {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
   const url = `${BASE}${path}${qs ? `?${qs}` : ''}`;
-  const send = (withToken: boolean) => {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    const token = withToken ? authToken() : null;
-    if (token) headers.Authorization = `Bearer ${token}`;
-    return fetch(url, { headers, signal, credentials: 'same-origin' });
-  };
+  const send = (withToken: boolean) => fetch(url, { headers: headers(withToken), signal, credentials: 'same-origin' });
   let res = await send(isAuthenticated());
   if (res.status === 401 && isAuthenticated()) {
     // Expired session: fall back to anonymous data rather than failing.
@@ -133,4 +135,72 @@ export async function fetchPickupLocation(): Promise<PickupLocation | null> {
 export async function fetchWsToken(): Promise<string> {
   const d = await get<{ token: string }>('/v1/auth/ws-token/');
   return d.token;
+}
+
+// ---------------------------------------------------------------------------
+// Bidding: the same request the site's own bid buttons send.
+// ---------------------------------------------------------------------------
+export type BidType = 'max_bid' | 'next_increment';
+
+export interface BidResult {
+  isLeading: boolean;
+  isMaxCollision: boolean; // another bidder already had this exact max
+  currentPrice: number | null;
+  minNextBid: number | null;
+  version: number | null;
+}
+
+export class BidError extends Error {
+  constructor(
+    message: string,
+    readonly status: number, // 0 = network error
+    readonly code: string | null = null,
+    readonly minNextBid: number | null = null,
+  ) {
+    super(message);
+  }
+}
+
+const pick = (o: Raw, snake: string, camel: string) => o?.[snake] ?? o?.[camel];
+const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+export async function placeBid(lotId: number, amount: number, type: BidType): Promise<BidResult> {
+  if (!isAuthenticated()) throw new BidError('Log in on the site to bid.', 401);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: headers(true, {
+        'Content-Type': 'application/json',
+        'X-CSRF-Protection': '1',
+        'X-Bid-Surface': 'other',
+        'X-Bid-Type': type,
+      }),
+      body: JSON.stringify({ amount }),
+    });
+  } catch {
+    throw new BidError('Network error – the bid may not have been placed. Check the lot before trying again.', 0);
+  }
+  const data: Raw = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401) tokenRejected = true;
+    const details: Raw = data.details || {};
+    const msg =
+      (Array.isArray(details.amount) && details.amount[0]) ||
+      data.error ||
+      (res.status === 401 || res.status === 403
+        ? 'Your session has expired. Log in on the site, then reload.'
+        : res.status === 409
+          ? 'This lot has closed.'
+          : `Bid failed (${res.status}).`);
+    throw new BidError(String(msg), res.status, data.code ?? null, numOrNull(pick(details, 'min_next_bid', 'minNextBid')));
+  }
+  return {
+    isLeading: !!pick(data, 'is_leading', 'isLeading'),
+    isMaxCollision: !!pick(data, 'is_max_collision', 'isMaxCollision'),
+    currentPrice: numOrNull(pick(data, 'current_price', 'currentPrice')),
+    minNextBid: numOrNull(pick(data, 'min_next_bid', 'minNextBid')),
+    version: numOrNull(data.version),
+  };
 }

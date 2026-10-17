@@ -5,9 +5,12 @@ import { getLot, nextPullAt, pullCatalog, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
 import { Icon } from './icons';
 import { watchLots, useLiveState } from './live';
+import { BidConfirm } from './BidConfirm';
+import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
+import { Toasts } from './toast';
 import { ago, countdown, fmtCount, useNow } from './util';
 import {
   activeFilterCount,
@@ -58,6 +61,7 @@ export function App() {
 
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
@@ -162,6 +166,7 @@ export function App() {
     setHiddenLots(next);
   }, []);
   const openLot = useCallback((lot: Lot) => setOpenId(lot.id), []);
+  const askBid = useCallback((req: BidRequest) => setBidReq(req), []);
   const openHidden = useCallback((id: number) => {
     if (getLot(id)) setOpenId(id);
     else window.open(getSetting(KEYS.hidden)[id]?.href ?? '/', '_blank', 'noopener');
@@ -173,6 +178,7 @@ export function App() {
   };
 
   const openLotObj = openId != null ? catalog.lots.get(openId) : undefined;
+  const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
   const authed = isAuthenticated();
   const nFilters = activeFilterCount(view);
 
@@ -265,6 +271,7 @@ export function App() {
                 isNew={newSince != null && (row.lot.firstSeenAt ?? 0) > newSince}
                 onOpen={openLot}
                 onToggleHide={toggleHide}
+                onBid={askBid}
               />
             ))}
           </div>
@@ -278,8 +285,13 @@ export function App() {
           row={makeRow(openLotObj, pickup, exclusions)}
           onClose={() => setOpenId(null)}
           onToggleHide={() => toggleHide(openLotObj)}
+          onBid={askBid}
         />
       )}
+      {bidReq && bidLot && (
+        <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
+      )}
+      <Toasts />
     </div>
   );
 }

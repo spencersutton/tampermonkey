@@ -247,6 +247,9 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
   return promise;
 }
 
+/** Drop a lot's cached detail (e.g. after bidding, so bid history is refetched). */
+export const invalidateDetail = (id: number) => void details.delete(id);
+
 export function cachedDetail(id: number): LotDetail | undefined {
   const hit = details.get(id);
   return hit && Date.now() - hit.at < DETAIL_TTL ? hit.data : undefined;

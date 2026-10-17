@@ -1,7 +1,8 @@
 import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { CDN } from './api';
+import { CDN, isAuthenticated } from './api';
+import { bidBlocker, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
 import { fmtCount, timeLabel, useNow } from './util';
 import type { Row } from './view';
@@ -44,9 +45,10 @@ interface Props {
   isNew?: boolean;
   onOpen: (lot: Lot) => void;
   onToggleHide: (lot: Lot) => void;
+  onBid: (req: BidRequest) => void;
 }
 
-export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide }: Props) {
+export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid }: Props) {
   const { lot, matched, hidden } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
   const dim = !!matched || hidden;
@@ -107,17 +109,46 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide 
         </div>
         <div class="card-foot">
           <TimeLeft endsAt={lot.endsAt} />
-          {dim ? (
-            <span class="btn btn-small" aria-disabled="true" title="Bidding is disabled for hidden or filtered lots">
-              Bid
-            </span>
-          ) : (
-            <a class="btn btn-small" href={href} target="_blank" rel="noopener" title="Open on Triangle Liquidators to bid">
-              Bid <Icon name="open" size={14} />
-            </a>
-          )}
+          <CardBidButton row={row} href={href} onOpen={() => onOpen(lot)} onBid={onBid} />
         </div>
       </div>
     </article>
   );
 });
+
+function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; onOpen: () => void; onBid: (req: BidRequest) => void }) {
+  const { lot } = row;
+  const pending = useBidPending(lot.id);
+  const blocker = bidBlocker(row);
+  if (blocker && !isAuthenticated() && !row.hidden && !row.matched)
+    return (
+      <a class="btn btn-small" href={href} target="_blank" rel="noopener" title="Log in on Triangle Liquidators to bid here">
+        Bid <Icon name="open" size={14} />
+      </a>
+    );
+  if (blocker)
+    return (
+      <span class="btn btn-small" aria-disabled="true" title={blocker}>
+        Bid
+      </span>
+    );
+  if (pending)
+    return (
+      <span class="btn btn-small" aria-disabled="true">
+        Bidding…
+      </span>
+    );
+  // While winning, a quick bid would only raise your own price; raising the max happens in the popup.
+  if (isLeading(lot))
+    return (
+      <button type="button" class="btn btn-small btn-outline" onClick={onOpen} title="Raise your max bid">
+        Raise max
+      </button>
+    );
+  const amount = quickBidAmount(lot);
+  return (
+    <button type="button" class="btn btn-small" onClick={() => onBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">
+      Bid {dollars(amount)}
+    </button>
+  );
+}

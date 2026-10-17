@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { CDN } from './api';
+import { CDN, isAuthenticated } from './api';
+import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
 import { LocationText, StandingBadge, TimeLeft } from './LotCard';
-import { fmtCount } from './util';
+import { fmtCount, parseNum, useNow } from './util';
 import type { LotDetail } from './types';
 import type { Row } from './view';
 
@@ -13,9 +14,10 @@ interface Props {
   row: Row;
   onClose: () => void;
   onToggleHide: () => void;
+  onBid: (req: BidRequest) => void;
 }
 
-export function LotModal({ row, onClose, onToggleHide }: Props) {
+export function LotModal({ row, onClose, onToggleHide, onBid }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -29,12 +31,13 @@ export function LotModal({ row, onClose, onToggleHide }: Props) {
       if (!ac.signal.aborted) setError((e as Error).message || String(e));
     });
     return () => ac.abort();
-  }, [lot.id]);
+  }, [lot.id, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading]);
 
   const images = (detail ?? lot).images;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      else if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       else if (e.key === 'ArrowLeft') setImgIdx((i) => (i - 1 + images.length) % Math.max(images.length, 1));
       else if (e.key === 'ArrowRight') setImgIdx((i) => (i + 1) % Math.max(images.length, 1));
     };
@@ -49,8 +52,6 @@ export function LotModal({ row, onClose, onToggleHide }: Props) {
     };
   }, [images.length]);
 
-  const href = lotHref(lot.auctionPeriod, lot.id);
-  const dim = !!row.matched || row.hidden;
   const img = images[Math.min(imgIdx, images.length - 1)];
 
   return (
@@ -122,16 +123,11 @@ export function LotModal({ row, onClose, onToggleHide }: Props) {
               )}
               <span class="muted small">Next min bid {dollars(lot.nextMinIncrement)}</span>
             </div>
+            <BidPanel row={row} onBid={onBid} />
             <div class="row-gap">
-              {dim ? (
-                <span class="btn" aria-disabled="true" title="Bidding is disabled for hidden or filtered lots">
-                  {row.hidden ? 'Hidden lot' : `Filtered: ${row.matched}`}
-                </span>
-              ) : (
-                <a class="btn" href={href} target="_blank" rel="noopener">
-                  Bid on Triangle Liquidators <Icon name="open" size={16} />
-                </a>
-              )}
+              <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
+                Open on Triangle Liquidators <Icon name="open" size={16} />
+              </a>
               <button type="button" class="btn btn-text" onClick={onToggleHide}>
                 <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} /> {row.hidden ? 'Unhide' : 'Hide'}
               </button>
@@ -168,5 +164,89 @@ export function LotModal({ row, onClose, onToggleHide }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }) {
+  const { lot } = row;
+  const now = useNow(1000);
+  const pending = useBidPending(lot.id);
+  const [value, setValue] = useState('');
+  useEffect(() => setValue(''), [lot.id, lot.yourStanding?.yourMaxBid]);
+
+  const blocker = bidBlocker(row, now);
+  if (blocker) {
+    return (
+      <div class="bid-panel">
+        {!isAuthenticated() ? (
+          <span class="muted">
+            <a href="/">Log in on Triangle Liquidators</a>, then reload this page to bid here.
+          </span>
+        ) : (
+          <span class="btn" aria-disabled="true">
+            {blocker}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const leading = isLeading(lot);
+  const min = minMaxBid(lot);
+  const quick = quickBidAmount(lot);
+  const n = value.trim() ? parseNum(value) : null;
+  const error =
+    value.trim() && n == null
+      ? 'Enter a dollar amount'
+      : n != null && !Number.isInteger(n)
+        ? 'Whole dollars only'
+        : n != null && n < min
+          ? `Must be at least ${dollars(min)}`
+          : null;
+
+  const submit = (e: Event) => {
+    e.preventDefault();
+    if (n == null || error || pending) return;
+    onBid({ lotId: lot.id, amount: n, type: 'max_bid' });
+  };
+
+  return (
+    <form class="bid-panel" onSubmit={submit} noValidate>
+      <div class="bid-row">
+        <label class={`bid-input ${error ? 'has-error' : ''}`}>
+          <span aria-hidden="true">$</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            aria-label="Max bid amount"
+            placeholder={`${min} or more`}
+            value={value}
+            onInput={(e) => setValue(e.currentTarget.value)}
+          />
+        </label>
+        <button type="submit" class="btn" aria-disabled={n == null || !!error || pending ? 'true' : undefined}>
+          {leading ? 'Raise max bid' : 'Set max bid'}
+        </button>
+        {!leading && (
+          <button
+            type="button"
+            class="btn btn-outline"
+            disabled={pending}
+            onClick={() => onBid({ lotId: lot.id, amount: quick, type: 'next_increment' })}
+            title="Bid the next increment now"
+          >
+            Bid {dollars(quick)}
+          </button>
+        )}
+      </div>
+      <div class={`small ${error ? 'error' : 'muted'}`}>
+        {pending
+          ? 'Placing bid…'
+          : error ||
+            (leading
+              ? `You’re winning. Raise your max to ${dollars(min)} or more.`
+              : 'A max bid bids for you automatically, only as much as needed to keep you winning.')}
+      </div>
+    </form>
   );
 }

@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.0.0
-// @description  A fast cached catalog view at /tlx. The site's other pages are left unchanged.
+// @version      3.1.0
+// @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
 // @updateURL    https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -285,7 +285,7 @@
 	}, C$1.prototype.render = S, i$2 = [], o$1 = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e$1 = function(n, l) {
 		return n.__v.__b - l.__v.__b;
 	}, H$1.__r = 0, f$2 = Math.random().toString(8), c$1 = "__d" + f$2, a$1 = "__a" + f$2, s$1 = /(PointerCapture)$|Capture$/i, h$1 = 0, p$1 = V$1(!1), v$1 = V$1(!0);
-	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.filter-list{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.filter-row{align-items:flex-start;gap:4px;padding:2px 0;display:flex}.filter-remove{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;flex:none;margin-top:2px;padding:2px;display:inline-flex}.filter-remove:hover{color:var(--bad);background:var(--hover)}.filter-pattern{text-align:left;cursor:text;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:2px 6px}.filter-pattern:hover{background:var(--hover)}.pattern{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:18px}.pattern .seg{max-width:100%;display:inline-block}.filter-row .count{color:var(--muted);font-variant-numeric:tabular-nums;flex:none;margin-top:2px;font-size:12px;line-height:18px}.filter-error .pattern{color:var(--bad);text-decoration:line-through}.filter-edit{flex-direction:column;flex:auto;gap:2px;min-width:0;display:flex}.filter-edit textarea{resize:vertical;border:1px solid var(--line);background:var(--paper);border-radius:6px;width:100%;padding:4px 6px;font:12.5px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.filter-edit textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}.filter-edit textarea.has-error{border-color:var(--bad);outline-color:var(--bad)}.saved-row{border-radius:6px;align-items:center}.saved-row.active{background:var(--primary-soft)}.saved-name{cursor:pointer;text-align:left;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:3px 6px;font-weight:600;overflow:hidden}.saved-name:hover{background:var(--hover)}.saved-row .count{margin-top:0}.saved-row .rename{border:1px solid var(--line);background:var(--paper);border-radius:6px;flex:auto;min-width:0;height:28px;padding:0 6px}.saved-row .filter-remove{margin-top:0}.pill-new{background:var(--primary);color:var(--on-primary);cursor:pointer;border:0;flex:none;padding:1px 7px;font-size:11.5px}.card-media .pill-new{background:var(--primary);color:#fff;box-shadow:0 1px 3px #0003}.filters-toggle .pill-new{margin-left:2px}.results-line{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;display:flex}.new-line{color:var(--primary);align-items:center;gap:6px;font-weight:600;display:inline-flex}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
+	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.filter-list{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.filter-row{align-items:flex-start;gap:4px;padding:2px 0;display:flex}.filter-remove{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;flex:none;margin-top:2px;padding:2px;display:inline-flex}.filter-remove:hover{color:var(--bad);background:var(--hover)}.filter-pattern{text-align:left;cursor:text;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:2px 6px}.filter-pattern:hover{background:var(--hover)}.pattern{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:18px}.pattern .seg{max-width:100%;display:inline-block}.filter-row .count{color:var(--muted);font-variant-numeric:tabular-nums;flex:none;margin-top:2px;font-size:12px;line-height:18px}.filter-error .pattern{color:var(--bad);text-decoration:line-through}.filter-edit{flex-direction:column;flex:auto;gap:2px;min-width:0;display:flex}.filter-edit textarea{resize:vertical;border:1px solid var(--line);background:var(--paper);border-radius:6px;width:100%;padding:4px 6px;font:12.5px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.filter-edit textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}.filter-edit textarea.has-error{border-color:var(--bad);outline-color:var(--bad)}.saved-row{border-radius:6px;align-items:center}.saved-row.active{background:var(--primary-soft)}.saved-name{cursor:pointer;text-align:left;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:3px 6px;font-weight:600;overflow:hidden}.saved-name:hover{background:var(--hover)}.saved-row .count{margin-top:0}.saved-row .rename{border:1px solid var(--line);background:var(--paper);border-radius:6px;flex:auto;min-width:0;height:28px;padding:0 6px}.saved-row .filter-remove{margin-top:0}.pill-new{background:var(--primary);color:var(--on-primary);cursor:pointer;border:0;flex:none;padding:1px 7px;font-size:11.5px}.card-media .pill-new{background:var(--primary);color:#fff;box-shadow:0 1px 3px #0003}.filters-toggle .pill-new{margin-left:2px}.results-line{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;display:flex}.new-line{color:var(--primary);align-items:center;gap:6px;font-weight:600;display:inline-flex}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}.bid-panel{flex-direction:column;gap:6px;margin-top:14px;display:flex}.bid-row{flex-wrap:wrap;gap:8px;display:flex}.bid-input{border:1px solid var(--line);background:var(--paper);cursor:text;border-radius:8px;flex:140px;align-items:center;gap:2px;max-width:220px;height:38px;padding:0 10px;display:flex}.bid-input:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.bid-input.has-error{border-color:var(--bad);outline-color:var(--bad)}.bid-input span{color:var(--muted)}.bid-input input{font-variant-numeric:tabular-nums;background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.btn:disabled{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-outline:disabled{background:0 0}.backdrop-top{z-index:60}.confirm{background:var(--paper);border-radius:14px;width:100%;max-width:440px;max-height:calc(100vh - 48px);padding:20px;overflow-y:auto;box-shadow:0 20px 60px #00000059}.confirm h2{font-size:18px}.confirm-body{flex-direction:column;gap:10px;margin-top:10px;display:flex}.confirm-body p{margin:0}.confirm-lot{font-weight:600;line-height:1.3}.confirm-amount{flex-direction:column;display:flex}.confirm-facts{grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:13px;display:grid}.confirm-facts dt{color:var(--muted)}.confirm-facts dd{font-variant-numeric:tabular-nums;margin:0;font-weight:600}.confirm-warn{background:var(--bad-soft);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px}.confirm-actions{justify-content:flex-end;gap:8px;margin-top:18px;display:flex}.toasts{z-index:70;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:calc(100vw - 32px);display:flex;position:fixed;bottom:20px;left:50%;transform:translate(-50%)}.toast{background:var(--text);color:var(--paper);text-align:left;cursor:pointer;border:0;border-radius:10px;padding:10px 16px;font-weight:600;box-shadow:0 6px 24px #00000040}.toast-good{background:var(--good);color:#fff}.toast-bad{background:var(--bad);color:#fff}@media (prefers-color-scheme:dark){.toast-good,.toast-bad{color:#111}}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}.backdrop-top{padding:16px}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
 	var t;
 	var r;
 	var u$1;
@@ -481,19 +481,23 @@
 	}
 	var tokenRejected = false;
 	var isAuthenticated = () => !tokenRejected && authToken() !== null;
+	function headers(withToken, extra = {}) {
+		const h = {
+			Accept: "application/json",
+			...extra
+		};
+		const token = withToken ? authToken() : null;
+		if (token) h.Authorization = `Bearer ${token}`;
+		return h;
+	}
 	async function get(path, params = {}, signal) {
 		const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
 		const url = `${BASE}${path}${qs ? `?${qs}` : ""}`;
-		const send = (withToken) => {
-			const headers = { Accept: "application/json" };
-			const token = withToken ? authToken() : null;
-			if (token) headers.Authorization = `Bearer ${token}`;
-			return fetch(url, {
-				headers,
-				signal,
-				credentials: "same-origin"
-			});
-		};
+		const send = (withToken) => fetch(url, {
+			headers: headers(withToken),
+			signal,
+			credentials: "same-origin"
+		});
 		let res = await send(isAuthenticated());
 		if (res.status === 401 && isAuthenticated()) {
 			tokenRejected = true;
@@ -586,6 +590,52 @@
 	}
 	async function fetchWsToken() {
 		return (await get("/v1/auth/ws-token/")).token;
+	}
+	var BidError = class extends Error {
+		status;
+		code;
+		minNextBid;
+		constructor(message, status, code = null, minNextBid = null) {
+			super(message);
+			this.status = status;
+			this.code = code;
+			this.minNextBid = minNextBid;
+		}
+	};
+	var pick = (o, snake, camel) => o?.[snake] ?? o?.[camel];
+	var numOrNull = (v) => typeof v === "number" && Number.isFinite(v) ? v : null;
+	async function placeBid(lotId, amount, type) {
+		if (!isAuthenticated()) throw new BidError("Log in on the site to bid.", 401);
+		let res;
+		try {
+			res = await fetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
+				method: "POST",
+				credentials: "same-origin",
+				headers: headers(true, {
+					"Content-Type": "application/json",
+					"X-CSRF-Protection": "1",
+					"X-Bid-Surface": "other",
+					"X-Bid-Type": type
+				}),
+				body: JSON.stringify({ amount })
+			});
+		} catch {
+			throw new BidError("Network error – the bid may not have been placed. Check the lot before trying again.", 0);
+		}
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) {
+			if (res.status === 401) tokenRejected = true;
+			const details = data.details || {};
+			const msg = Array.isArray(details.amount) && details.amount[0] || data.error || (res.status === 401 || res.status === 403 ? "Your session has expired. Log in on the site, then reload." : res.status === 409 ? "This lot has closed." : `Bid failed (${res.status}).`);
+			throw new BidError(String(msg), res.status, data.code ?? null, numOrNull(pick(details, "min_next_bid", "minNextBid")));
+		}
+		return {
+			isLeading: !!pick(data, "is_leading", "isLeading"),
+			isMaxCollision: !!pick(data, "is_max_collision", "isMaxCollision"),
+			currentPrice: numOrNull(pick(data, "current_price", "currentPrice")),
+			minNextBid: numOrNull(pick(data, "min_next_bid", "minNextBid")),
+			version: numOrNull(data.version)
+		};
 	}
 	var EMPTY_META = {
 		fetchedAt: null,
@@ -716,19 +766,19 @@
 		error: null,
 		rev: 0
 	};
-	var subs$1 = new Set();
+	var subs$2 = new Set();
 	function changed() {
 		state.rev++;
-		subs$1.forEach((f) => f());
+		subs$2.forEach((f) => f());
 	}
 	function useCatalog() {
 		const [, force] = d(0);
 		const renderedRev = state.rev;
 		h(() => {
 			const f = () => force((n) => n + 1);
-			subs$1.add(f);
+			subs$2.add(f);
 			if (state.rev !== renderedRev) f();
-			return () => void subs$1.delete(f);
+			return () => void subs$2.delete(f);
 		}, []);
 		return state;
 	}
@@ -889,6 +939,7 @@
 		});
 		return promise;
 	}
+	var invalidateDetail = (id) => void details.delete(id);
 	function cachedDetail(id) {
 		const hit = details.get(id);
 		return hit && Date.now() - hit.at < DETAIL_TTL ? hit.data : void 0;
@@ -4999,7 +5050,7 @@
 	var WS_URL = "wss://ws.triangleliquidators.com/connection/websocket";
 	var liveState = "off";
 	var stateSubs = new Set();
-	var subs = new Map();
+	var subs$1 = new Map();
 	function setState(s) {
 		liveState = s;
 		stateSubs.forEach((f) => f(s));
@@ -5064,20 +5115,148 @@
 	async function watchLots(ids) {
 		const c = await connect();
 		const want = new Set(ids);
-		for (const [id, sub] of subs) {
+		for (const [id, sub] of subs$1) {
 			if (want.has(id)) continue;
 			sub.unsubscribe();
 			c.removeSubscription(sub);
-			subs.delete(id);
+			subs$1.delete(id);
 		}
 		for (const id of want) {
-			if (subs.has(id)) continue;
+			if (subs$1.has(id)) continue;
 			const sub = c.getSubscription(`lot:${id}`) ?? c.newSubscription(`lot:${id}`);
 			sub.on("publication", (ctx) => onLotPublication(ctx.data));
 			sub.subscribe();
-			subs.set(id, sub);
+			subs$1.set(id, sub);
 		}
 	}
+	var FEES = {
+		premium: .15,
+		lotFee: 1,
+		transferFee: 5,
+		salesTax: .0725
+	};
+	function totalCost(bid, transferFee = 0) {
+		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
+	}
+	function costBreakdown(bid, transferFee = 0) {
+		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
+	}
+	var money = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD"
+	});
+	var dollars = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		maximumFractionDigits: 0
+	});
+	var toasts = [];
+	var nextId = 1;
+	var subs = new Set();
+	var emit = () => subs.forEach((f) => f(toasts));
+	function toast(kind, text, ms = kind === "bad" ? 8e3 : 4e3) {
+		const id = nextId++;
+		toasts = [...toasts, {
+			id,
+			kind,
+			text
+		}].slice(-4);
+		emit();
+		setTimeout(() => dismiss(id), ms);
+	}
+	function dismiss(id) {
+		toasts = toasts.filter((t) => t.id !== id);
+		emit();
+	}
+	function Toasts() {
+		const [list, set] = d(toasts);
+		h(() => {
+			subs.add(set);
+			return () => void subs.delete(set);
+		}, []);
+		return u("div", {
+			class: "toasts",
+			role: "status",
+			"aria-live": "polite",
+			children: list.map((t) => u("button", {
+				type: "button",
+				class: `toast toast-${t.kind}`,
+				onClick: () => dismiss(t.id),
+				title: "Dismiss",
+				children: t.text
+			}, t.id))
+		});
+	}
+	var isClosed = (lot, now = Date.now()) => lot.status !== "live" || lot.endsAt <= now;
+	var isLeading = (lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
+	var quickBidAmount = (lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
+	function minMaxBid(lot) {
+		const min = quickBidAmount(lot);
+		const mine = lot.yourStanding?.yourMaxBid;
+		return isLeading(lot) && mine != null ? Math.max(mine + 1, min) : min;
+	}
+	function bidBlocker(row, now = Date.now()) {
+		if (row.hidden) return "Bidding is disabled for hidden lots";
+		if (row.matched) return `Bidding is disabled for filtered lots (${row.matched})`;
+		if (isClosed(row.lot, now)) return "This lot has closed";
+		if (!isAuthenticated()) return "Log in on the site to bid";
+		return null;
+	}
+	var pending = new Set();
+	var pendingSubs = new Set();
+	var pendingChanged = () => pendingSubs.forEach((f) => f());
+	function useBidPending(lotId) {
+		const [, force] = d(0);
+		h(() => {
+			const f = () => force((n) => n + 1);
+			pendingSubs.add(f);
+			return () => void pendingSubs.delete(f);
+		}, []);
+		return pending.has(lotId);
+	}
+	async function submitBid({ lotId, amount, type }) {
+		const lot = getLot(lotId);
+		if (!lot || pending.has(lotId)) return false;
+		if (isLeading(lot) && amount === lot.yourStanding?.yourMaxBid) {
+			toast("info", "Your max bid is already set to this amount.");
+			return false;
+		}
+		pending.add(lotId);
+		pendingChanged();
+		try {
+			const r = await placeBid(lotId, amount, type);
+			const cur = getLot(lotId) ?? lot;
+			const patch = {
+				hasBid: true,
+				yourStanding: {
+					isLeading: r.isLeading,
+					yourMaxBid: amount
+				}
+			};
+			if (r.version != null && r.version > cur.version) {
+				patch.version = r.version;
+				if (r.currentPrice != null) patch.currentPrice = r.currentPrice;
+				if (r.minNextBid != null) patch.nextMinIncrement = r.minNextBid;
+			}
+			updateLot(lotId, patch, { force: true });
+			invalidateDetail(lotId);
+			if (r.isLeading) toast("good", `Bid placed – you’re winning “${short(lot.title)}”.`);
+			else if (r.isMaxCollision) toast("bad", `Another bidder set this max bid first – you’re outbid on “${short(lot.title)}”.`);
+			else toast("bad", `Bid placed, but you’re outbid on “${short(lot.title)}” – another bidder’s max is higher.`);
+			return true;
+		} catch (e) {
+			const err = e instanceof BidError ? e : new BidError(e.message || String(e), 0);
+			if (err.status === 409) updateLot(lotId, { status: "closed" }, { force: true });
+			if (err.status === 422 && err.code === "bid_too_low" && err.minNextBid != null) updateLot(lotId, { nextMinIncrement: err.minNextBid }, { force: true });
+			invalidateDetail(lotId);
+			toast("bad", err.message);
+			return false;
+		} finally {
+			pending.delete(lotId);
+			pendingChanged();
+		}
+	}
+	var short = (s) => s.length > 60 ? `${s.slice(0, 57)}…` : s;
 	function g(n, t) {
 		for (var e in t) n[e] = t[e];
 		return n;
@@ -5274,27 +5453,6 @@
 		var t = n.props, e = n.__e;
 		null != e && "textarea" === n.type && "value" in t && t.value !== e.value && (e.value = null == t.value ? "" : t.value);
 	};
-	var FEES = {
-		premium: .15,
-		lotFee: 1,
-		transferFee: 5,
-		salesTax: .0725
-	};
-	function totalCost(bid, transferFee = 0) {
-		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
-	}
-	function costBreakdown(bid, transferFee = 0) {
-		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
-	}
-	var money = (n) => n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD"
-	});
-	var dollars = (n) => n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
-		maximumFractionDigits: 0
-	});
 	function timeLabel(endsAt, now) {
 		const ms = endsAt - now;
 		if (ms <= 0) return {
@@ -5395,7 +5553,7 @@
 			open();
 		};
 	}
-	var LotCard = N(function LotCard({ row, isNew, onOpen, onToggleHide }) {
+	var LotCard = N(function LotCard({ row, isNew, onOpen, onToggleHide, onBid }) {
 		const { lot, matched, hidden } = row;
 		const href = lotHref(lot.auctionPeriod, lot.id);
 		const dim = !!matched || hidden;
@@ -5506,28 +5664,217 @@
 					}),
 					u("div", {
 						class: "card-foot",
-						children: [u(TimeLeft, { endsAt: lot.endsAt }), dim ? u("span", {
-							class: "btn btn-small",
-							"aria-disabled": "true",
-							title: "Bidding is disabled for hidden or filtered lots",
-							children: "Bid"
-						}) : u("a", {
-							class: "btn btn-small",
+						children: [u(TimeLeft, { endsAt: lot.endsAt }), u(CardBidButton, {
+							row,
 							href,
-							target: "_blank",
-							rel: "noopener",
-							title: "Open on Triangle Liquidators to bid",
-							children: ["Bid ", u(Icon, {
-								name: "open",
-								size: 14
-							})]
+							onOpen: () => onOpen(lot),
+							onBid
 						})]
 					})
 				]
 			})]
 		});
 	});
-	function LotModal({ row, onClose, onToggleHide }) {
+	function CardBidButton({ row, href, onOpen, onBid }) {
+		const { lot } = row;
+		const pending = useBidPending(lot.id);
+		const blocker = bidBlocker(row);
+		if (blocker && !isAuthenticated() && !row.hidden && !row.matched) return u("a", {
+			class: "btn btn-small",
+			href,
+			target: "_blank",
+			rel: "noopener",
+			title: "Log in on Triangle Liquidators to bid here",
+			children: ["Bid ", u(Icon, {
+				name: "open",
+				size: 14
+			})]
+		});
+		if (blocker) return u("span", {
+			class: "btn btn-small",
+			"aria-disabled": "true",
+			title: blocker,
+			children: "Bid"
+		});
+		if (pending) return u("span", {
+			class: "btn btn-small",
+			"aria-disabled": "true",
+			children: "Bidding…"
+		});
+		if (isLeading(lot)) return u("button", {
+			type: "button",
+			class: "btn btn-small btn-outline",
+			onClick: onOpen,
+			title: "Raise your max bid",
+			children: "Raise max"
+		});
+		const amount = quickBidAmount(lot);
+		return u("button", {
+			type: "button",
+			class: "btn btn-small",
+			onClick: () => onBid({
+				lotId: lot.id,
+				amount,
+				type: "next_increment"
+			}),
+			title: "Bid the next increment (asks to confirm)",
+			children: ["Bid ", dollars(amount)]
+		});
+	}
+	function BidConfirm({ req, row, pickup, onClose }) {
+		const { lot } = row;
+		const [amount, setAmount] = d(req.amount);
+		const pending = useBidPending(lot.id);
+		const now = useNow(1e3);
+		const okBtn = A$1(null);
+		h(() => {
+			const onKey = (e) => {
+				if (e.key !== "Escape") return;
+				e.stopPropagation();
+				e.preventDefault();
+				onClose();
+			};
+			document.addEventListener("keydown", onKey, true);
+			const prevFocus = document.activeElement;
+			okBtn.current?.focus();
+			return () => {
+				document.removeEventListener("keydown", onKey, true);
+				prevFocus?.focus?.();
+			};
+		}, []);
+		const isMax = req.type === "max_bid";
+		const blocker = bidBlocker(row, now);
+		const min = isMax ? minMaxBid(lot) : quickBidAmount(lot);
+		const stale = amount < min;
+		const disabled = pending || !!blocker || stale;
+		const elsewhere = lot.location && lot.location.name !== pickup ? lot.location.name : null;
+		const confirm = async () => {
+			if (disabled) return;
+			if (await submitBid({
+				...req,
+				amount
+			})) onClose();
+		};
+		return u("div", {
+			class: "backdrop backdrop-top",
+			onMouseDown: (e) => e.target === e.currentTarget && !pending && onClose(),
+			children: u("div", {
+				class: "confirm",
+				role: "alertdialog",
+				"aria-modal": "true",
+				"aria-labelledby": "bid-confirm-title",
+				"aria-describedby": "bid-confirm-body",
+				children: [
+					u("h2", {
+						id: "bid-confirm-title",
+						children: isMax ? "Confirm max bid" : "Confirm bid"
+					}),
+					u("div", {
+						id: "bid-confirm-body",
+						class: "confirm-body",
+						children: [
+							u("p", {
+								class: "confirm-lot",
+								children: lot.title
+							}),
+							u("div", {
+								class: "confirm-amount",
+								children: [u("span", {
+									class: "big",
+									children: dollars(amount)
+								}), u("span", {
+									class: "muted small",
+									children: isMax ? "Max bid – the site bids for you, only as much as needed, up to this amount" : "Bid at the next increment"
+								})]
+							}),
+							u("dl", {
+								class: "confirm-facts",
+								children: [
+									u("dt", { children: isMax ? "Total if you win at your max" : "Total if you win at this bid" }),
+									u("dd", {
+										title: costBreakdown(amount, row.transferFee),
+										children: ["≈ ", money(totalCost(amount, row.transferFee))]
+									}),
+									u("dt", { children: "Current bid" }),
+									u("dd", { children: [
+										dollars(lot.currentPrice),
+										" · ",
+										lot.bidCount,
+										" bid",
+										lot.bidCount === 1 ? "" : "s"
+									] }),
+									u("dt", { children: "Ends" }),
+									u("dd", { children: u(TimeLeft, { endsAt: lot.endsAt }) }),
+									lot.yourStanding?.yourMaxBid != null && u(S, { children: [u("dt", { children: "Your current max" }), u("dd", { children: dollars(lot.yourStanding.yourMaxBid) })] })
+								]
+							}),
+							row.pickupOnly && u("p", {
+								class: "confirm-warn",
+								children: [
+									"Pickup only at ",
+									u("b", { children: elsewhere }),
+									" – this lot can’t be transferred to ",
+									pickup,
+									"."
+								]
+							}),
+							!row.pickupOnly && row.transferFee > 0 && u("p", {
+								class: "confirm-warn",
+								children: [
+									"This lot is at ",
+									u("b", { children: elsewhere }),
+									". It will be transferred to ",
+									pickup,
+									" for ",
+									money(row.transferFee),
+									" (included in the total)."
+								]
+							}),
+							blocker && u("p", {
+								class: "error",
+								children: blocker
+							}),
+							!blocker && stale && u("p", {
+								class: "confirm-warn",
+								children: [
+									"The price moved: the ",
+									isMax ? "smallest max bid" : "next bid",
+									" is now ",
+									u("b", { children: dollars(min) }),
+									".",
+									" ",
+									u("button", {
+										type: "button",
+										class: "btn-text",
+										onClick: () => setAmount(min),
+										children: ["Use ", dollars(min)]
+									})
+								]
+							})
+						]
+					}),
+					u("div", {
+						class: "confirm-actions",
+						children: [u("button", {
+							type: "button",
+							class: "btn btn-outline",
+							onClick: onClose,
+							disabled: pending,
+							children: "Cancel"
+						}), u("button", {
+							type: "button",
+							class: "btn",
+							ref: okBtn,
+							onClick: confirm,
+							"aria-disabled": disabled ? "true" : void 0,
+							children: pending ? "Placing bid…" : `Place ${dollars(amount)} bid`
+						})]
+					})
+				]
+			})
+		});
+	}
+	function LotModal({ row, onClose, onToggleHide, onBid }) {
 		const { lot } = row;
 		const [detail, setDetail] = d(() => cachedDetail(lot.id) ?? null);
 		const [error, setError] = d(null);
@@ -5540,11 +5887,16 @@
 				if (!ac.signal.aborted) setError(e.message || String(e));
 			});
 			return () => ac.abort();
-		}, [lot.id]);
+		}, [
+			lot.id,
+			lot.yourStanding?.yourMaxBid,
+			lot.yourStanding?.isLeading
+		]);
 		const images = (detail ?? lot).images;
 		h(() => {
 			const onKey = (e) => {
 				if (e.key === "Escape") onClose();
+				else if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 				else if (e.key === "ArrowLeft") setImgIdx((i) => (i - 1 + images.length) % Math.max(images.length, 1));
 				else if (e.key === "ArrowRight") setImgIdx((i) => (i + 1) % Math.max(images.length, 1));
 			};
@@ -5558,8 +5910,6 @@
 				prevFocus?.focus?.();
 			};
 		}, [images.length]);
-		const href = lotHref(lot.auctionPeriod, lot.id);
-		const dim = !!row.matched || row.hidden;
 		const img = images[Math.min(imgIdx, images.length - 1)];
 		return u("div", {
 			class: "backdrop",
@@ -5698,19 +6048,18 @@
 									})
 								]
 							}),
+							u(BidPanel, {
+								row,
+								onBid
+							}),
 							u("div", {
 								class: "row-gap",
-								children: [dim ? u("span", {
-									class: "btn",
-									"aria-disabled": "true",
-									title: "Bidding is disabled for hidden or filtered lots",
-									children: row.hidden ? "Hidden lot" : `Filtered: ${row.matched}`
-								}) : u("a", {
-									class: "btn",
-									href,
+								children: [u("a", {
+									class: "btn btn-text",
+									href: lotHref(lot.auctionPeriod, lot.id),
 									target: "_blank",
 									rel: "noopener",
-									children: ["Bid on Triangle Liquidators ", u(Icon, {
+									children: ["Open on Triangle Liquidators ", u(Icon, {
 										name: "open",
 										size: 16
 									})]
@@ -5758,6 +6107,87 @@
 					})]
 				})]
 			})
+		});
+	}
+	function BidPanel({ row, onBid }) {
+		const { lot } = row;
+		const now = useNow(1e3);
+		const pending = useBidPending(lot.id);
+		const [value, setValue] = d("");
+		h(() => setValue(""), [lot.id, lot.yourStanding?.yourMaxBid]);
+		const blocker = bidBlocker(row, now);
+		if (blocker) return u("div", {
+			class: "bid-panel",
+			children: !isAuthenticated() ? u("span", {
+				class: "muted",
+				children: [u("a", {
+					href: "/",
+					children: "Log in on Triangle Liquidators"
+				}), ", then reload this page to bid here."]
+			}) : u("span", {
+				class: "btn",
+				"aria-disabled": "true",
+				children: blocker
+			})
+		});
+		const leading = isLeading(lot);
+		const min = minMaxBid(lot);
+		const quick = quickBidAmount(lot);
+		const n = value.trim() ? parseNum(value) : null;
+		const error = value.trim() && n == null ? "Enter a dollar amount" : n != null && !Number.isInteger(n) ? "Whole dollars only" : n != null && n < min ? `Must be at least ${dollars(min)}` : null;
+		const submit = (e) => {
+			e.preventDefault();
+			if (n == null || error || pending) return;
+			onBid({
+				lotId: lot.id,
+				amount: n,
+				type: "max_bid"
+			});
+		};
+		return u("form", {
+			class: "bid-panel",
+			onSubmit: submit,
+			noValidate: true,
+			children: [u("div", {
+				class: "bid-row",
+				children: [
+					u("label", {
+						class: `bid-input ${error ? "has-error" : ""}`,
+						children: [u("span", {
+							"aria-hidden": "true",
+							children: "$"
+						}), u("input", {
+							type: "text",
+							inputMode: "numeric",
+							"aria-label": "Max bid amount",
+							placeholder: `${min} or more`,
+							value,
+							onInput: (e) => setValue(e.currentTarget.value)
+						})]
+					}),
+					u("button", {
+						type: "submit",
+						class: "btn",
+						"aria-disabled": n == null || !!error || pending ? "true" : void 0,
+						children: leading ? "Raise max bid" : "Set max bid"
+					}),
+					!leading && u("button", {
+						type: "button",
+						class: "btn btn-outline",
+						disabled: pending,
+						onClick: () => onBid({
+							lotId: lot.id,
+							amount: quick,
+							type: "next_increment"
+						}),
+						title: "Bid the next increment now",
+						children: ["Bid ", dollars(quick)]
+					})
+				]
+			}), u("div", {
+				class: `small ${error ? "error" : "muted"}`,
+				children: pending ? "Placing bid…" : error || (leading ? `You’re winning. Raise your max to ${dollars(min)} or more.` : "A max bid bids for you automatically, only as much as needed to keep you winning.")
+			})]
 		});
 	}
 	function compileFilter(pattern) {
@@ -6759,6 +7189,7 @@
 		const pickup = pickupOverride || accountPickup || "Raleigh";
 		const [page, setPage] = d(1);
 		const [openId, setOpenId] = d(null);
+		const [bidReq, setBidReq] = d(null);
 		const [sidebarOpen, setSidebarOpen] = d(false);
 		const [search, setSearch] = d(view.search);
 		const gridTop = A$1(null);
@@ -6890,6 +7321,7 @@
 			setHiddenLots(next);
 		}, []);
 		const openLot = q$1((lot) => setOpenId(lot.id), []);
+		const askBid = q$1((req) => setBidReq(req), []);
 		const openHidden = q$1((id) => {
 			if (getLot(id)) setOpenId(id);
 			else window.open(getSetting(KEYS.hidden)[id]?.href ?? "/", "_blank", "noopener");
@@ -6899,6 +7331,7 @@
 			gridTop.current?.scrollIntoView({ block: "start" });
 		};
 		const openLotObj = openId != null ? catalog.lots.get(openId) : void 0;
+		const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : void 0;
 		const authed = isAuthenticated();
 		const nFilters = activeFilterCount(view);
 		return u("div", {
@@ -7040,7 +7473,8 @@
 									row,
 									isNew: newSince != null && (row.lot.firstSeenAt ?? 0) > newSince,
 									onOpen: openLot,
-									onToggleHide: toggleHide
+									onToggleHide: toggleHide,
+									onBid: askBid
 								}, row.lot.id))
 							}),
 							pages > 1 && u(Pager, {
@@ -7054,8 +7488,16 @@
 				openLotObj && u(LotModal, {
 					row: makeRow(openLotObj, pickup, exclusions),
 					onClose: () => setOpenId(null),
-					onToggleHide: () => toggleHide(openLotObj)
-				})
+					onToggleHide: () => toggleHide(openLotObj),
+					onBid: askBid
+				}),
+				bidReq && bidLot && u(BidConfirm, {
+					req: bidReq,
+					row: makeRow(bidLot, pickup, exclusions),
+					pickup,
+					onClose: () => setBidReq(null)
+				}, `${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`),
+				u(Toasts, {})
 			]
 		});
 	}
