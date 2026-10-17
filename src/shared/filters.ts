@@ -21,8 +21,7 @@ export function buildRegexes(words: string[]): CompiledFilter[] {
 
 /** The first filter word whose regex matches the title, or null if none do. */
 export function firstMatch(filters: CompiledFilter[], title: string): string | null {
-  for (const { word, re } of filters) if (re && re.test(title)) return word;
-  return null;
+  return filters.find(({ re }) => re?.test(title))?.word ?? null;
 }
 
 // Split a comma-separated filter list. Commas inside (...), [...], {...} or
@@ -35,25 +34,23 @@ export function splitFilters(text: string): string[] {
   let escaped = false;
   for (const ch of text) {
     if (escaped) {
-      cur += ch;
       escaped = false;
     } else if (ch === '\\') {
-      cur += ch;
       escaped = true;
     } else if (inClass) {
-      if (ch === ']') inClass = false;
-      cur += ch;
+      inClass = ch !== ']';
     } else if (ch === '[') {
       inClass = true;
-      cur += ch;
     } else if (ch === ',' && depth === 0) {
       out.push(cur);
       cur = '';
-    } else {
-      if (ch === '(' || ch === '{') depth++;
-      else if ((ch === ')' || ch === '}') && depth > 0) depth--;
-      cur += ch;
+      continue;
+    } else if (ch === '(' || ch === '{') {
+      depth++;
+    } else if ((ch === ')' || ch === '}') && depth > 0) {
+      depth--;
     }
+    cur += ch;
   }
   out.push(cur);
   return [...new Set(out.map((s) => s.trim()).filter(Boolean))];

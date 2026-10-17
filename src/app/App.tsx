@@ -5,14 +5,14 @@ import { useAuthed } from './auth';
 import { getLot, nextPullAt, pullCatalog, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
 import { Icon } from './icons';
-import { watchLots, useLiveState } from './live';
+import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
 import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
-import { ago, countdown, fmtCount, useNow } from './util';
+import { ago, countdown, DAY, fmtCount, shortTime, useNow } from './util';
 import {
   activeFilterCount,
   computeFacets,
@@ -31,22 +31,23 @@ import type { Lot } from './types';
 
 /** Lots per grid page. */
 const PAGE_SIZE = 60;
-const DAY = 86400_000;
 
 /** Name of the account's pickup location, fetched at most once a day while logged in. */
 function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | null {
   const [acct] = useSetting(KEYS.accountPickup);
   useEffect(() => {
-    if (!authed || (acct && Date.now() - acct.at < DAY)) return;
-    fetchPickupLocation().then(
-      (p) => setSetting(KEYS.accountPickup, { id: p?.id ?? null, name: p?.name ?? null, at: Date.now() }),
-      () => {},
-    );
+    if (authed && !(acct && Date.now() - acct.at < DAY)) {
+      fetchPickupLocation().then(
+        (p) => setSetting(KEYS.accountPickup, { id: p?.id ?? null, name: p?.name ?? null, at: Date.now() }),
+        () => {},
+      );
+    }
   }, [authed]);
-  if (!acct) return null;
-  if (acct.name) return acct.name;
-  if (acct.id != null) for (const l of lots.values()) if (l.location?.id === acct.id) return l.location.name;
-  return null;
+  if (acct?.name || acct?.id == null) {
+    return acct?.name ?? null;
+  }
+  // The account may only give the location's id; find its name among the lots.
+  return lots.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 }
 
 /** The whole /tlx page: sidebar, toolbar, lot grid, pager, and the lot / bid popups. */
@@ -90,7 +91,9 @@ export function App() {
   // mid-typing would overwrite what was typed since.
   const pushed = useRef(view.search);
   useEffect(() => {
-    if (search === view.search) return;
+    if (search === view.search) {
+      return;
+    }
     const t = setTimeout(() => {
       pushed.current = search;
       setView({ search });
@@ -98,13 +101,14 @@ export function App() {
     return () => clearTimeout(t);
   }, [search]);
   useEffect(() => {
-    if (view.search === pushed.current) return;
-    pushed.current = view.search;
-    setSearch(view.search);
+    if (view.search !== pushed.current) {
+      pushed.current = view.search;
+      setSearch(view.search);
+    }
   }, [view.search]);
 
   const exclusions = useMemo(
-    () => ({ words, filterOn: !!filterOn, removeFiltered: !!removeFiltered, hidden: hiddenLots, showHidden: !!showHidden }),
+    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden }),
     [words, filterOn, removeFiltered, hiddenLots, showHidden],
   );
   const result = useMemo(
@@ -117,9 +121,10 @@ export function App() {
     () => savedSearchStats(catalog.lots.values(), saved, pickup, exclusions, now30),
     [catalog.rev, saved, pickup, exclusions, now30],
   );
-  const totalNew = [...savedStats.values()].reduce((n, s) => n + s.fresh, 0);
+  const totalNew = savedStats.values().reduce((n, s) => n + s.fresh, 0);
   const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
   const newSince = view.newSince ?? (highlight && activeSaved?.id === highlight.id ? highlight.since : null);
+  const isNew = (lot: Lot) => newSince != null && (lot.firstSeenAt ?? 0) > newSince;
 
   useEffect(() => {
     document.title = totalNew ? `(${totalNew}) TL Catalog` : 'TL Catalog';
@@ -155,26 +160,26 @@ export function App() {
   const pageRows = result.rows.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
 
   // Live prices for exactly the lots on screen (plus the open one).
-  const watchKey = [...pageRows.map((r) => r.lot.id), ...(openId ? [openId] : [])].join(',');
+  const watchIds = [...pageRows.map((r) => r.lot.id), ...(openId ? [openId] : [])];
+  const watchKey = watchIds.join(',');
   useEffect(() => {
-    if (!catalog.loaded) return;
-    const ids = watchKey ? watchKey.split(',').map(Number) : [];
-    const t = setTimeout(() => void watchLots(ids).catch(() => {}), 300);
-    return () => clearTimeout(t);
+    if (catalog.loaded) {
+      const t = setTimeout(() => void watchLots(watchIds).catch(() => {}), 300);
+      return () => clearTimeout(t);
+    }
   }, [watchKey, catalog.loaded]);
 
   const toggleHide = useCallback((lot: Lot) => {
-    const cur = getSetting(KEYS.hidden);
-    const next = { ...cur };
-    if (next[lot.id]) delete next[lot.id];
-    else next[lot.id] = { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() };
-    setHiddenLots(next);
+    const { [lot.id]: wasHidden, ...rest } = getSetting(KEYS.hidden);
+    setHiddenLots(wasHidden ? rest : { ...rest, [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() } });
   }, []);
   const openLot = useCallback((lot: Lot) => setOpenId(lot.id), []);
-  const askBid = useCallback((req: BidRequest) => setBidReq(req), []);
   const openHidden = useCallback((id: number) => {
-    if (getLot(id)) setOpenId(id);
-    else window.open(getSetting(KEYS.hidden)[id]?.href ?? '/', '_blank', 'noopener');
+    if (getLot(id)) {
+      setOpenId(id);
+    } else {
+      window.open(getSetting(KEYS.hidden)[id]?.href ?? '/', '_blank', 'noopener');
+    }
   }, []);
 
   const goPage = (p: number) => {
@@ -185,6 +190,8 @@ export function App() {
   const openLotObj = openId != null ? catalog.lots.get(openId) : undefined;
   const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
   const nFilters = activeFilterCount(view);
+  // On a saved search's own filters, how many of the matches are new since its last visit.
+  const freshMatches = view.newSince == null && activeSaved && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
 
   return (
     <div class="app">
@@ -201,7 +208,7 @@ export function App() {
           onInput={(e) => setSearch(e.currentTarget.value)}
         />
         <select class="sort" aria-label="Sort" value={view.sort} onChange={(e) => setView({ sort: e.currentTarget.value as ViewState['sort'] })}>
-          {Object.entries(SORTS).map(([k, label]) => (
+          {Object.entries(SORTS).map(([k, { label }]) => (
             <option value={k}>{label}</option>
           ))}
         </select>
@@ -244,27 +251,21 @@ export function App() {
               {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
               {result.combined > 0 && <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>}
             </span>
-            {view.newSince != null ? (
+            {view.newSince != null && (
               <span class="new-line">
-                Only lots listed since {new Date(view.newSince).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+                Only lots listed since {shortTime(view.newSince)}
                 <button type="button" class="btn-text" onClick={() => setView({ newSince: null })}>
                   Show all
                 </button>
               </span>
-            ) : (
-              activeSaved &&
-              newSince != null &&
-              (() => {
-                const n = result.rows.filter((r) => (r.lot.firstSeenAt ?? 0) > newSince).length;
-                return n > 0 ? (
-                  <span class="new-line">
-                    {fmtCount(n)} new since your last look at “{activeSaved.name}”
-                    <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
-                      Show only new
-                    </button>
-                  </span>
-                ) : null;
-              })()
+            )}
+            {freshMatches > 0 && (
+              <span class="new-line">
+                {fmtCount(freshMatches)} new since your last look at “{activeSaved!.name}”
+                <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
+                  Show only new
+                </button>
+              </span>
             )}
           </div>
 
@@ -273,10 +274,10 @@ export function App() {
               <LotCard
                 key={row.lot.id}
                 row={row}
-                isNew={newSince != null && (row.lot.firstSeenAt ?? 0) > newSince}
+                isNew={isNew(row.lot)}
                 onOpen={openLot}
                 onToggleHide={toggleHide}
-                onBid={askBid}
+                onBid={setBidReq}
               />
             ))}
           </div>
@@ -290,7 +291,7 @@ export function App() {
           row={makeRow(openLotObj, pickup, exclusions)}
           onClose={() => setOpenId(null)}
           onToggleHide={() => toggleHide(openLotObj)}
-          onBid={askBid}
+          onBid={setBidReq}
           group={result.groups.get(openLotObj.id)}
           onOpenLot={openLot}
         />
@@ -303,6 +304,8 @@ export function App() {
   );
 }
 
+const LIVE_LABELS: Record<LiveState, string> = { connected: 'Live', connecting: 'Connecting', off: 'Live off', disconnected: 'Offline' };
+
 /** Catalog freshness, pull progress, live connection state and the manual refresh button. */
 function StatusBar() {
   const catalog = useCatalog();
@@ -312,18 +315,21 @@ function StatusBar() {
   const wait = nextPullAt() - now;
   const due = wait <= 0;
 
-  let text: string;
-  if (!loaded) text = 'Reading local cache…';
-  else if (progress) text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : 'Refreshing catalog…';
-  else if (meta.fetchedAt) text = `${fmtCount(catalog.lots.size)} lots · refreshed ${ago(meta.fetchedAt, now)}`;
-  else text = 'No cached catalog yet';
+  let text = 'No cached catalog yet';
+  if (!loaded) {
+    text = 'Reading local cache…';
+  } else if (progress) {
+    text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : 'Refreshing catalog…';
+  } else if (meta.fetchedAt) {
+    text = `${fmtCount(catalog.lots.size)} lots · refreshed ${ago(meta.fetchedAt, now)}`;
+  }
 
   const pct = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
   return (
     <div class="statusbar">
       <span>{text}</span>
       <span class={`live live-${live}`} title={`Live price updates for lots on screen: ${live}`}>
-        ● {live === 'connected' ? 'Live' : live === 'connecting' ? 'Connecting' : live === 'off' ? 'Live off' : 'Offline'}
+        ● {LIVE_LABELS[live]}
       </span>
       <button
         type="button"
@@ -347,12 +353,7 @@ function StatusBar() {
 /** Page numbers to show: first, last, and neighbours of the current page, with "…" for gaps. */
 function pagerItems(page: number, pages: number): (number | '…')[] {
   const nums = [...new Set([1, pages, page - 1, page, page + 1])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
-  const out: (number | '…')[] = [];
-  nums.forEach((n, i) => {
-    if (i && n - nums[i - 1] > 1) out.push('…');
-    out.push(n);
-  });
-  return out;
+  return nums.flatMap((n, i) => (i && n - nums[i - 1] > 1 ? ['…' as const, n] : [n]));
 }
 
 /** Previous / numbered / next page buttons. */

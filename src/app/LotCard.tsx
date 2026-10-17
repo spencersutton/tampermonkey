@@ -4,9 +4,9 @@ import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { useAuthed } from './auth';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
-import { bidBlocker, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
+import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
-import { fmtCount, timeLabel, useNow } from './util';
+import { openHandler, plural, shortTime, timeLabel, useNow } from './util';
 import type { Row } from './view';
 import type { Lot } from './types';
 
@@ -23,16 +23,21 @@ export function TimeLeft({ endsAt }: { endsAt: number }) {
 
 /** Winning / Outbid pill for lots you have bid on. */
 export function StandingBadge({ lot }: { lot: Lot }) {
-  if (lot.yourStanding?.isLeading) return <span class="pill pill-good">Winning</span>;
-  if (lot.hasBid || lot.yourStanding) return <span class="pill pill-bad">Outbid</span>;
-  return null;
+  if (lot.yourStanding?.isLeading) {
+    return <span class="pill pill-good">Winning</span>;
+  }
+  return hasBidOn(lot) ? <span class="pill pill-bad">Outbid</span> : null;
 }
 
 /** Lot location, noting when it is pickup-only or needs a transfer. */
 export function LocationText({ row }: { row: Row }) {
   const name = row.lot.location?.name ?? 'Unknown';
-  if (row.pickupOnly) return <span title="Not transferable – pick up at this location">{name} only</span>;
-  if (row.transferFee) return <span title={`Transfer to your pickup location for ${money(row.transferFee)}`}>{name} · transfer</span>;
+  if (row.pickupOnly) {
+    return <span title="Not transferable – pick up at this location">{name} only</span>;
+  }
+  if (row.transferFee) {
+    return <span title={`Transfer to your pickup location for ${money(row.transferFee)}`}>{name} · transfer</span>;
+  }
   return <span>{name}</span>;
 }
 
@@ -40,12 +45,13 @@ export function LocationText({ row }: { row: Row }) {
 function WatchStar({ lot }: { lot: Lot }) {
   useAuthed();
   const pending = useWatchPending(lot.id);
-  if (!canWatch(lot))
+  if (!canWatch(lot)) {
     return lot.isWatchlisted ? (
       <span class="pill pill-watch" title="On your watchlist">
         <Icon name="star" size={13} />
       </span>
     ) : null;
+  }
   const label = lot.isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist';
   return (
     <button
@@ -66,21 +72,14 @@ function WatchStar({ lot }: { lot: Lot }) {
 export function WatchButton({ lot }: { lot: Lot }) {
   useAuthed();
   const pending = useWatchPending(lot.id);
-  if (!canWatch(lot)) return null;
+  if (!canWatch(lot)) {
+    return null;
+  }
   return (
     <button type="button" class="btn btn-text" aria-pressed={lot.isWatchlisted} disabled={pending} onClick={() => void toggleWatch(lot.id)}>
       <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} /> {lot.isWatchlisted ? 'On watchlist' : 'Add to watchlist'}
     </button>
   );
-}
-
-/** Plain click opens in-app; modified/middle clicks follow the real link. */
-export function openHandler(open: () => void) {
-  return (e: MouseEvent) => {
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    e.preventDefault();
-    open();
-  };
 }
 
 interface Props {
@@ -144,9 +143,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           ) : (
             <span class="muted">No retail estimate</span>
           )}
-          <span>
-            {fmtCount(lot.bidCount)} bid{lot.bidCount === 1 ? '' : 's'}
-          </span>
+          <span>{plural(lot.bidCount, 'bid')}</span>
         </div>
         <div class="card-foot">
           <TimeLeft endsAt={lot.endsAt} />
@@ -159,11 +156,10 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
 
 /** "+N" badge for identical listings folded into this card; opens the cheapest's popup, which lists them all. */
 function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
-  const n = row.others.length;
-  const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`).join('\n');
+  const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${shortTime(l.endsAt)}`).join('\n');
   return (
-    <button type="button" class="pill pill-dupes" title={`${n} more identical listing${n === 1 ? '' : 's'}:\n${list}`} onClick={() => onOpen(row.lot)}>
-      +{n} more
+    <button type="button" class="pill pill-dupes" title={`${plural(row.others.length, 'more identical listing')}:\n${list}`} onClick={() => onOpen(row.lot)}>
+      +{row.others.length} more
     </button>
   );
 }
@@ -174,31 +170,28 @@ function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; o
   const pending = useBidPending(lot.id);
   const authed = useAuthed();
   const blocker = bidBlocker(row);
-  if (blocker && !authed && !row.hidden && !row.matched)
+  if (blocker && !authed && !row.hidden && !row.matched) {
     return (
       <a class="btn btn-small" href={href} target="_blank" rel="noopener" title="Log in on Triangle Liquidators to bid here">
         Bid <Icon name="open" size={14} />
       </a>
     );
-  if (blocker)
+  }
+  if (blocker || pending) {
     return (
-      <span class="btn btn-small" aria-disabled="true" title={blocker}>
-        Bid
+      <span class="btn btn-small" aria-disabled="true" title={blocker ?? undefined}>
+        {blocker ? 'Bid' : 'Bidding…'}
       </span>
     );
-  if (pending)
-    return (
-      <span class="btn btn-small" aria-disabled="true">
-        Bidding…
-      </span>
-    );
+  }
   // While winning, a quick bid would only raise your own price; raising the max happens in the popup.
-  if (isLeading(lot))
+  if (isLeading(lot)) {
     return (
       <button type="button" class="btn btn-small btn-outline" onClick={onOpen} title="Raise your max bid">
         Raise max
       </button>
     );
+  }
   const amount = quickBidAmount(lot);
   return (
     <button type="button" class="btn btn-small" onClick={() => onBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">

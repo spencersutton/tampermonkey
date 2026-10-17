@@ -10,6 +10,8 @@ const BASE = '/backend';
 export const CDN = 'https://cdn.triangleliquidators.com';
 export const LIST_PAGE_SIZE = 100; // the API's maximum per_page
 
+const LOGGED_OUT = 'You’re logged out. Log in on the site, then try again.';
+
 /** A failed API request, with its HTTP status. */
 export class ApiError extends Error {
   constructor(
@@ -27,26 +29,41 @@ async function get<T>(path: string, params: Record<string, string | number> = {}
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
   // If the session is gone, fall back to anonymous data rather than failing.
   const res = await authedFetch(`${BASE}${path}${qs ? `?${qs}` : ''}`, { headers: { Accept: 'application/json' }, signal }, true);
-  if (!res.ok) throw new ApiError(`${res.status} ${res.statusText || 'error'} for ${path}`, res.status);
+  if (!res.ok) {
+    throw new ApiError(`${res.status} ${res.statusText || 'error'} for ${path}`, res.status);
+  }
   return res.json() as Promise<T>;
+}
+
+/** Send a state-changing request with the headers the site's own client uses. */
+function send(path: string, method: 'POST' | 'DELETE', body?: unknown, headers: Record<string, string> = {}) {
+  const json: Record<string, string> = body === undefined ? {} : { 'Content-Type': 'application/json' };
+  return authedFetch(`${BASE}${path}`, {
+    method,
+    headers: { Accept: 'application/json', ...json, 'X-CSRF-Protection': '1', ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }
 
 type Raw = Record<string, any>;
 
-/** The value if it is a finite number, else the default. */
-const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+/** The value if it is a finite number, else the fallback. */
+const num = <D = number>(v: unknown, fallback: D = 0 as D): number | D => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+
+/** Read a field the API may send in either snake_case or camelCase. */
+const pick = (o: Raw, snake: string, camel: string) => o?.[snake] ?? o?.[camel];
 
 /** Convert the API's `your_standing` object (snake_case) into a Standing. */
 export function normalizeStanding(s: Raw | null | undefined): Standing | null {
-  if (!s || typeof s !== 'object') return null;
+  if (!s || typeof s !== 'object') {
+    return null;
+  }
   return { isLeading: !!s.is_leading, yourMaxBid: s.your_max_bid ?? null };
 }
 
 /** Image URLs in display order. */
-function normalizeImages(images: Raw[] | undefined): LotImage[] {
-  return [...(images || [])]
-    .sort((a, b) => num(a.position) - num(b.position))
-    .map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large }));
+function normalizeImages(images: Raw[] | null | undefined): LotImage[] {
+  return (images ?? []).toSorted((a, b) => num(a.position) - num(b.position)).map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large }));
 }
 
 /** Convert a raw API lot (snake_case) into a Lot. */
@@ -84,11 +101,7 @@ export interface LotPage {
 // push items toward later pages (we dedupe), and lots that close are mostly
 // the oldest listings at the end.
 export async function fetchLotPage(page: number, signal?: AbortSignal): Promise<LotPage> {
-  const d = await get<{ count: number; results: Raw[] }>(
-    '/v1/auctions/lots/',
-    { page, per_page: LIST_PAGE_SIZE, order_by: 'newly-listed' },
-    signal,
-  );
+  const d = await get<{ count: number; results: Raw[] }>('/v1/auctions/lots/', { page, per_page: LIST_PAGE_SIZE, order_by: 'newly-listed' }, signal);
   return { count: d.count, results: d.results.map(normalizeLot) };
 }
 
@@ -101,9 +114,7 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
     brand: r.brand || null,
     model: r.model || null,
     lotFee: r.lot_fee ?? null,
-    bidHistory: (r.bid_history || []).map(
-      (b: Raw): BidHistoryEntry => ({ bidderLabel: b.bidder_label, amount: num(b.amount), isYou: !!b.is_you }),
-    ),
+    bidHistory: (r.bid_history ?? []).map((b: Raw): BidHistoryEntry => ({ bidderLabel: b.bidder_label, amount: num(b.amount), isYou: !!b.is_you })),
   };
 }
 
@@ -114,16 +125,30 @@ export interface PickupLocation {
 
 /** The pickup location set on the logged-in account, or null if none. */
 export async function fetchPickupLocation(): Promise<PickupLocation | null> {
-  const me = await get<Raw>('/v1/auth/me/');
-  const p = me.pickup_location;
-  if (!p) return null;
-  return { id: typeof p.id === 'number' ? p.id : null, name: p.name || p.label || null };
+  const p = (await get<Raw>('/v1/auth/me/')).pickup_location;
+  return p ? { id: num(p.id, null), name: p.name || p.label || null } : null;
 }
 
 /** Token that authenticates the live-updates websocket as this account. */
 export async function fetchWsToken(): Promise<string> {
-  const d = await get<{ token: string }>('/v1/auth/ws-token/');
-  return d.token;
+  return (await get<{ token: string }>('/v1/auth/ws-token/')).token;
+}
+
+/** Add or remove a lot from your watchlist, like the site's star button. */
+export async function setWatchlisted(auctionPeriod: string, lotId: number, on: boolean): Promise<void> {
+  if (!isAuthenticated()) {
+    throw new ApiError('Log in on the site to use your watchlist.', 401);
+  }
+  const res = await send(`/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, on ? 'POST' : 'DELETE', on ? {} : undefined);
+  if (res.ok) {
+    return;
+  }
+  if (res.status === 401) {
+    throw new ApiError(LOGGED_OUT, 401);
+  }
+  const data: Raw = await res.json().catch(() => ({}));
+  const message = data.code === 'lot_already_bid' && data.error ? String(data.error) : 'Couldn’t update your watchlist. Please try again.';
+  throw new ApiError(message, res.status);
 }
 
 // ---------------------------------------------------------------------------
@@ -151,67 +176,36 @@ export class BidError extends Error {
   }
 }
 
-/** Read a field the API may send in either snake_case or camelCase. */
-const pick = (o: Raw, snake: string, camel: string) => o?.[snake] ?? o?.[camel];
-/** The value if it is a finite number, else null. */
-const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-
-/** Add or remove a lot from your watchlist, like the site's star button. */
-export async function setWatchlisted(auctionPeriod: string, lotId: number, on: boolean): Promise<void> {
-  if (!isAuthenticated()) throw new ApiError('Log in on the site to use your watchlist.', 401);
-  const res = await authedFetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
-    method: on ? 'POST' : 'DELETE',
-    headers: on
-      ? { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' }
-      : { Accept: 'application/json', 'X-CSRF-Protection': '1' },
-    body: on ? '{}' : undefined,
-  });
-  if (res.ok) return;
-  if (res.status === 401) throw new ApiError('You’re logged out. Log in on the site, then try again.', 401);
-  const data: Raw = await res.json().catch(() => ({}));
-  throw new ApiError(
-    data.code === 'lot_already_bid' && data.error ? String(data.error) : 'Couldn’t update your watchlist. Please try again.',
-    res.status,
-  );
+/** Fallback message for a failed bid the API didn't explain. */
+function bidFailure(status: number) {
+  if (status === 401 || status === 403) {
+    return LOGGED_OUT;
+  }
+  return status === 409 ? 'This lot has closed.' : `Bid failed (${status}).`;
 }
 
 /** Place a bid (a max bid or the next increment) and return the outcome. */
 export async function placeBid(lotId: number, amount: number, type: BidType): Promise<BidResult> {
-  if (!isAuthenticated()) throw new BidError('Log in on the site to bid.', 401);
+  if (!isAuthenticated()) {
+    throw new BidError('Log in on the site to bid.', 401);
+  }
   let res: Response;
   try {
-    res = await authedFetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-CSRF-Protection': '1',
-        'X-Bid-Surface': 'other',
-        'X-Bid-Type': type,
-      },
-      body: JSON.stringify({ amount }),
-    });
+    res = await send(`/v1/auctions/lots/${lotId}/bids`, 'POST', { amount }, { 'X-Bid-Surface': 'other', 'X-Bid-Type': type });
   } catch {
     throw new BidError('Network error – the bid may not have been placed. Check the lot before trying again.', 0);
   }
   const data: Raw = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const details: Raw = data.details || {};
-    const msg =
-      (Array.isArray(details.amount) && details.amount[0]) ||
-      data.error ||
-      (res.status === 401 || res.status === 403
-        ? 'You’re logged out. Log in on the site, then try again.'
-        : res.status === 409
-          ? 'This lot has closed.'
-          : `Bid failed (${res.status}).`);
-    throw new BidError(String(msg), res.status, data.code ?? null, numOrNull(pick(details, 'min_next_bid', 'minNextBid')));
+    const details: Raw = data.details ?? {};
+    const message = (Array.isArray(details.amount) && details.amount[0]) || data.error || bidFailure(res.status);
+    throw new BidError(String(message), res.status, data.code ?? null, num(pick(details, 'min_next_bid', 'minNextBid'), null));
   }
   return {
     isLeading: !!pick(data, 'is_leading', 'isLeading'),
     isMaxCollision: !!pick(data, 'is_max_collision', 'isMaxCollision'),
-    currentPrice: numOrNull(pick(data, 'current_price', 'currentPrice')),
-    minNextBid: numOrNull(pick(data, 'min_next_bid', 'minNextBid')),
-    version: numOrNull(data.version),
+    currentPrice: num(pick(data, 'current_price', 'currentPrice'), null),
+    minNextBid: num(pick(data, 'min_next_bid', 'minNextBid'), null),
+    version: num(data.version, null),
   };
 }

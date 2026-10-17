@@ -6,20 +6,18 @@
 // any 401. /tlx stops the site's own code from loading, so we make the same
 // calls here; otherwise the token quietly expires and /tlx looks logged out
 // while the rest of the site (which refreshes it) is fine.
-import { useEffect, useState } from 'preact/hooks';
+import { useSyncExternalStore } from 'preact/compat';
+import { emitter, MINUTE } from './util';
 
 /** next-auth session endpoint; calling it re-issues the `token` cookie. */
 const SESSION_URL = '/api/auth/session';
-const FOCUS_MIN_GAP = 60_000; // don't re-check the session more than once a minute on tab focus
-const EXPIRY_MARGIN = 2 * 60_000; // refresh this long before the token's own expiry
+const FOCUS_MIN_GAP = MINUTE; // don't re-check the session more than once a minute on tab focus
+const EXPIRY_MARGIN = 2 * MINUTE; // refresh this long before the token's own expiry
 
 /** The API bearer token from the `token` cookie, or null when logged out. */
 export function authToken(): string | null {
-  for (const part of document.cookie.split(';')) {
-    const [k, ...v] = part.trim().split('=');
-    if (k === 'token') return decodeURIComponent(v.join('=')) || null;
-  }
-  return null;
+  const cookie = document.cookie.split('; ').find((c) => c.startsWith('token='));
+  return cookie ? decodeURIComponent(cookie.slice('token='.length)) || null : null;
 }
 
 // The session endpoint said there's no session (logged out on the site).
@@ -33,41 +31,29 @@ export function isAuthenticated(): boolean {
   return !signedOut && t !== null && t !== rejectedToken;
 }
 
-/** Callbacks run when the login state changes. */
-const subs = new Set<() => void>();
+const { subscribe, emit } = emitter();
 /** Login state as of the last notify(), to report only real changes. */
 let lastState = isAuthenticated();
+
 /** Tell subscribers if the login state changed since last time. */
 function notify() {
   const now = isAuthenticated();
-  if (now === lastState) return;
-  lastState = now;
-  subs.forEach((f) => f());
+  if (now !== lastState) {
+    lastState = now;
+    emit();
+  }
 }
 
 /** Subscribe to login state changes; returns an unsubscribe function. */
-export function onAuthChange(fn: () => void): () => void {
-  subs.add(fn);
-  return () => void subs.delete(fn);
-}
+export const onAuthChange = subscribe;
 
 /** Re-renders when the login state changes. */
-export function useAuthed(): boolean {
-  const [authed, set] = useState(isAuthenticated);
-  useEffect(() => {
-    const f = () => set(isAuthenticated());
-    f();
-    return onAuthChange(f);
-  }, []);
-  return authed;
-}
+export const useAuthed = () => useSyncExternalStore(subscribe, isAuthenticated);
 
 /** Epoch ms when the token expires, if it's a JWT with an `exp` claim. */
 function tokenExpiry(token: string | null): number | null {
   try {
-    const part = token?.split('.')[1];
-    if (!part) return null;
-    const exp = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))).exp;
+    const exp = JSON.parse(atob(token!.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp;
     return typeof exp === 'number' ? exp * 1000 : null;
   } catch {
     return null;
@@ -96,7 +82,9 @@ async function checkSession(): Promise<boolean> {
   try {
     const res = await fetch(SESSION_URL, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
     // Server trouble: keep the current state rather than logging out.
-    if (!res.ok) return isAuthenticated();
+    if (!res.ok) {
+      return isAuthenticated();
+    }
     const s = await res.json().catch(() => null);
     // Logged out is `{}`; a session whose refresh failed carries `error` (the site signs out then).
     signedOut = !s || typeof s !== 'object' || !Object.keys(s).length || !!s.error;
@@ -110,8 +98,9 @@ async function checkSession(): Promise<boolean> {
 function scheduleRefresh() {
   clearTimeout(timer);
   const exp = tokenExpiry(authToken());
-  if (exp == null || signedOut) return;
-  timer = window.setTimeout(() => void refreshSession(), Math.max(30_000, exp - EXPIRY_MARGIN - Date.now()));
+  if (exp != null && !signedOut) {
+    timer = window.setTimeout(() => void refreshSession(), Math.max(30_000, exp - EXPIRY_MARGIN - Date.now()));
+  }
 }
 
 /** The startup session check; requests wait for it so they use a fresh token. */
@@ -121,20 +110,18 @@ let ready: Promise<unknown> = Promise.resolve();
 export function startAuth() {
   ready = refreshSession();
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - lastCheck > FOCUS_MIN_GAP) void refreshSession();
+    if (document.visibilityState === 'visible' && Date.now() - lastCheck > FOCUS_MIN_GAP) {
+      void refreshSession();
+    }
   });
   // Logging in or out in another tab changes the cookie. Our own refresh can
   // re-issue it too, hence the gap (which also stops a refresh loop).
-  (window as any).cookieStore?.addEventListener?.('change', (e: any) => {
-    const touched = [...(e.changed ?? []), ...(e.deleted ?? [])].some((c: any) => c?.name === 'token');
-    if (touched && Date.now() - lastCheck > 5000) void refreshSession();
+  window.cookieStore?.addEventListener('change', (e) => {
+    const touched = [...e.changed, ...e.deleted].some((c) => c.name === 'token');
+    if (touched && Date.now() - lastCheck > 5000) {
+      void refreshSession();
+    }
   });
-}
-
-/** Headers with the bearer token added, when wanted and available. */
-function withAuth(headers: Record<string, string>, withToken: boolean): Record<string, string> {
-  const token = withToken ? authToken() : null;
-  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
 /**
@@ -149,16 +136,28 @@ export async function authedFetch(
   anonFallback = false,
 ): Promise<Response> {
   await ready.catch(() => {});
-  const send = (withToken: boolean) => fetch(url, { ...init, credentials: 'same-origin', headers: withAuth(init.headers ?? {}, withToken) });
+  const send = (withToken: boolean) => {
+    const token = withToken ? authToken() : null;
+    const headers = token ? { ...init.headers, Authorization: `Bearer ${token}` } : init.headers;
+    return fetch(url, { ...init, credentials: 'same-origin', headers });
+  };
   const had = isAuthenticated();
   let res = await send(had);
-  if (res.status !== 401 || !had) return res;
+  if (res.status !== 401 || !had) {
+    return res;
+  }
   const used = authToken();
-  if (await refreshSession()) res = await send(true);
+  if (await refreshSession()) {
+    res = await send(true);
+  }
   if (res.status === 401) {
-    if (authToken() === used) rejectedToken = used;
+    if (authToken() === used) {
+      rejectedToken = used;
+    }
     notify();
-    if (anonFallback) res = await send(false);
+    if (anonFallback) {
+      res = await send(false);
+    }
   }
   return res;
 }

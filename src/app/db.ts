@@ -42,55 +42,53 @@ const result = <T>(req: IDBRequest<T>) =>
     req.onerror = () => reject(req.error);
   });
 
+/** The stored meta record, with defaults for anything missing. */
+const getMeta = async (tx: IDBTransaction): Promise<CatalogMeta> => ({ ...EMPTY_META, ...(await result(tx.objectStore('meta').get('catalog'))) });
+
+/** Merge a patch into the meta record within a readwrite transaction. */
+async function patchMeta(tx: IDBTransaction, patch: Partial<CatalogMeta>): Promise<CatalogMeta> {
+  const next = { ...(await getMeta(tx)), ...patch };
+  tx.objectStore('meta').put(next, 'catalog');
+  return next;
+}
+
 /** Read the catalog meta record. */
 export async function readMeta(): Promise<CatalogMeta> {
-  const db = await open();
-  const m = await result(db.transaction('meta').objectStore('meta').get('catalog'));
-  return { ...EMPTY_META, ...(m || {}) };
+  return getMeta((await open()).transaction('meta'));
 }
 
 /** Merge a patch into the catalog meta record and return the result. */
 export async function writeMeta(patch: Partial<CatalogMeta>): Promise<CatalogMeta> {
-  const db = await open();
-  const tx = db.transaction('meta', 'readwrite');
-  const store = tx.objectStore('meta');
-  const cur = { ...EMPTY_META, ...((await result(store.get('catalog'))) || {}) };
-  const next = { ...cur, ...patch };
-  store.put(next, 'catalog');
+  const tx = (await open()).transaction('meta', 'readwrite');
+  const next = await patchMeta(tx, patch);
   await done(tx);
   return next;
 }
 
 /** Read every cached lot plus the meta record in one transaction. */
 export async function readAll(): Promise<{ lots: Lot[]; meta: CatalogMeta }> {
-  const db = await open();
-  const tx = db.transaction(['lots', 'meta']);
-  const [lots, meta] = await Promise.all([
-    result(tx.objectStore('lots').getAll() as IDBRequest<Lot[]>),
-    result(tx.objectStore('meta').get('catalog')),
-  ]);
-  return { lots, meta: { ...EMPTY_META, ...(meta || {}) } };
+  const tx = (await open()).transaction(['lots', 'meta']);
+  const [lots, meta] = await Promise.all([result(tx.objectStore('lots').getAll() as IDBRequest<Lot[]>), getMeta(tx)]);
+  return { lots, meta };
 }
 
 /** Replace the whole cached catalog with a fresh pull and update the meta record. */
 export async function replaceAll(lots: Lot[], meta: Partial<CatalogMeta>): Promise<void> {
-  const db = await open();
-  const tx = db.transaction(['lots', 'meta'], 'readwrite');
+  const tx = (await open()).transaction(['lots', 'meta'], 'readwrite');
   const store = tx.objectStore('lots');
   store.clear();
-  for (const l of lots) store.put(l);
-  const metaStore = tx.objectStore('meta');
-  const cur = { ...EMPTY_META, ...((await result(metaStore.get('catalog'))) || {}) };
-  metaStore.put({ ...cur, ...meta }, 'catalog');
+  lots.forEach((l) => store.put(l));
+  await patchMeta(tx, meta);
   await done(tx);
 }
 
 /** Insert or update individual lots (incremental updates between pulls). */
 export async function putLots(lots: Lot[]): Promise<void> {
-  if (!lots.length) return;
-  const db = await open();
-  const tx = db.transaction('lots', 'readwrite');
+  if (!lots.length) {
+    return;
+  }
+  const tx = (await open()).transaction('lots', 'readwrite');
   const store = tx.objectStore('lots');
-  for (const l of lots) store.put(l);
+  lots.forEach((l) => store.put(l));
   await done(tx);
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.3.1
+// @version      3.3.2
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -32,7 +32,7 @@
 	var v$1;
 	var d$1 = {};
 	var w$1 = [];
-	var _ = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
+	var _$1 = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
 	var g$1 = Array.isArray;
 	function m$1(n, l) {
 		for (var u in l) n[u] = l[u];
@@ -68,7 +68,7 @@
 	function S(n) {
 		return n.children;
 	}
-	function C$1(n, l) {
+	function C$2(n, l) {
 		this.props = n, this.context = l;
 	}
 	function $(n, l) {
@@ -134,7 +134,7 @@
 		return -1;
 	}
 	function z$1(n, l, u) {
-		"-" == l[0] ? n.setProperty(l, null == u ? "" : u) : n[l] = null == u ? "" : "number" != typeof u || _.test(l) ? u : u + "px";
+		"-" == l[0] ? n.setProperty(l, null == u ? "" : u) : n[l] = null == u ? "" : "number" != typeof u || _$1.test(l) ? u : u + "px";
 	}
 	function N$1(n, l, u, t, i) {
 		var r, o;
@@ -170,7 +170,7 @@
 		n: if ("function" == typeof F) {
 			h = e.length;
 			try {
-				if (x = u.props, M = F.prototype && F.prototype.render, I = (s = F.contextType) && i[s.__c], P = s ? I ? I.props.value : s.__ : i, t.__c ? k = (p = u.__c = t.__c).__ = p.__E : (M ? u.__c = p = new F(x, P) : (u.__c = p = new C$1(x, P), p.constructor = F, p.render = Q$1), I && I.sub(p), p.state || (p.state = {}), p.__n = i, v = p.__d = !0, p.__h = [], p._sb = []), M && null == p.__s && (p.__s = p.state), M && null != F.getDerivedStateFromProps && (p.__s == p.state && (p.__s = m$1({}, p.__s)), m$1(p.__s, F.getDerivedStateFromProps(x, p.__s))), y = p.props, d = p.state, p.__v = u, v) M && null == F.getDerivedStateFromProps && null != p.componentWillMount && p.componentWillMount(), M && null != p.componentDidMount && p.__h.push(p.componentDidMount);
+				if (x = u.props, M = F.prototype && F.prototype.render, I = (s = F.contextType) && i[s.__c], P = s ? I ? I.props.value : s.__ : i, t.__c ? k = (p = u.__c = t.__c).__ = p.__E : (M ? u.__c = p = new F(x, P) : (u.__c = p = new C$2(x, P), p.constructor = F, p.render = Q$1), I && I.sub(p), p.state || (p.state = {}), p.__n = i, v = p.__d = !0, p.__h = [], p._sb = []), M && null == p.__s && (p.__s = p.state), M && null != F.getDerivedStateFromProps && (p.__s == p.state && (p.__s = m$1({}, p.__s)), m$1(p.__s, F.getDerivedStateFromProps(x, p.__s))), y = p.props, d = p.state, p.__v = u, v) M && null == F.getDerivedStateFromProps && null != p.componentWillMount && p.componentWillMount(), M && null != p.componentDidMount && p.__h.push(p.componentDidMount);
 				else {
 					if (M && null == F.getDerivedStateFromProps && x !== y && null != p.componentWillReceiveProps && p.componentWillReceiveProps(x, P), u.__v == t.__v || !p.__e && null != p.shouldComponentUpdate && !1 === p.shouldComponentUpdate(x, p.__s, P)) {
 						u.__v != t.__v && (p.props = x, p.state = p.__s, p.__d = !1), u.__e = t.__e, u.__k = t.__k, u.__k.some(function(n) {
@@ -266,7 +266,7 @@
 	function Q$1(n, l, u) {
 		return this.constructor(n, u);
 	}
-	function R(u, t, i) {
+	function R$1(u, t, i) {
 		var r, o, e, f;
 		t == document && (t = document.documentElement), l$1.__ && l$1.__(u, t), o = (r = "function" == typeof i) ? null : i && i.__k || t.__k, e = [], f = [], q$2(t, u = (!r && i || t).__k = k$1(S, null, [u]), o || d$1, d$1, t.namespaceURI, !r && i ? [i] : o ? null : t.firstChild ? n.call(t.childNodes) : null, e, !r && i ? i : o ? o.__e : t.firstChild, r, f), D$1(e, u, f), u.props.children = null;
 	}
@@ -277,15 +277,15 @@
 			n = l;
 		}
 		throw n;
-	} }, u$2 = 0, C$1.prototype.setState = function(n, l) {
+	} }, u$2 = 0, C$2.prototype.setState = function(n, l) {
 		var u = null != this.__s && this.__s != this.state ? this.__s : this.__s = m$1({}, this.state);
 		"function" == typeof n && (n = n(m$1({}, u), this.props)), n && m$1(u, n), null != n && this.__v && (l && this._sb.push(l), A$2(this));
-	}, C$1.prototype.forceUpdate = function(n) {
+	}, C$2.prototype.forceUpdate = function(n) {
 		this.__v && (this.__e = !0, n && this.__h.push(n), A$2(this));
-	}, C$1.prototype.render = S, i$2 = [], o$1 = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e$1 = function(n, l) {
+	}, C$2.prototype.render = S, i$2 = [], o$1 = "function" == typeof Promise ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout, e$1 = function(n, l) {
 		return n.__v.__b - l.__v.__b;
 	}, H$1.__r = 0, f$2 = Math.random().toString(8), c$1 = "__d" + f$2, a$1 = "__a" + f$2, s$1 = /(PointerCapture)$|Capture$/i, h$1 = 0, p$1 = V$1(!1), v$1 = V$1(!0);
-	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;--lightningcss-light: ;--lightningcss-dark:initial;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.filter-list{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.filter-row{align-items:flex-start;gap:4px;padding:2px 0;display:flex}.filter-remove{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;flex:none;margin-top:2px;padding:2px;display:inline-flex}.filter-remove:hover{color:var(--bad);background:var(--hover)}.filter-pattern{text-align:left;cursor:text;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:2px 6px}.filter-pattern:hover{background:var(--hover)}.pattern{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:18px}.pattern .seg{max-width:100%;display:inline-block}.filter-row .count{color:var(--muted);font-variant-numeric:tabular-nums;flex:none;margin-top:2px;font-size:12px;line-height:18px}.filter-error .pattern{color:var(--bad);text-decoration:line-through}.filter-edit{flex-direction:column;flex:auto;gap:2px;min-width:0;display:flex}.filter-edit textarea{resize:vertical;border:1px solid var(--line);background:var(--paper);border-radius:6px;width:100%;padding:4px 6px;font:12.5px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.filter-edit textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}.filter-edit textarea.has-error{border-color:var(--bad);outline-color:var(--bad)}.saved-row{border-radius:6px;align-items:center}.saved-row.active{background:var(--primary-soft)}.saved-name{cursor:pointer;text-align:left;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:3px 6px;font-weight:600;overflow:hidden}.saved-name:hover{background:var(--hover)}.saved-row .count{margin-top:0}.saved-row .rename{border:1px solid var(--line);background:var(--paper);border-radius:6px;flex:auto;min-width:0;height:28px;padding:0 6px}.saved-row .filter-remove{margin-top:0}.pill-new{background:var(--primary);color:var(--on-primary);cursor:pointer;border:0;flex:none;padding:1px 7px;font-size:11.5px}.card-media .pill-new{background:var(--primary);color:#fff;box-shadow:0 1px 3px #0003}.filters-toggle .pill-new{margin-left:2px}.results-line{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;display:flex}.new-line{color:var(--primary);align-items:center;gap:6px;font-weight:600;display:inline-flex}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-dupes{cursor:pointer;color:#333;background:#fff;border:0;padding:1px 7px;font-size:11.5px;box-shadow:0 1px 3px #0003}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.watch-btn{cursor:pointer;color:#666;border:0}.watch-btn.on,.watch-btn:hover{color:#d49a00}.watch-btn:disabled{cursor:default;opacity:.7}.modal-info .btn-text[aria-pressed=true] svg{color:#d49a00}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}.dupes{max-height:220px;margin:0 0 14px;padding:0;font-size:13px;list-style:none;overflow-y:auto}.dupes button{border:0;border-bottom:1px solid var(--line);width:100%;color:inherit;text-align:left;cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;align-items:baseline;gap:10px;padding:5px 6px;display:flex}.dupes button:hover{background:var(--hover)}.dupes button.on{background:var(--primary-soft);font-weight:700}.dupes .small{flex:1}.bid-panel{flex-direction:column;gap:6px;margin-top:14px;display:flex}.bid-row{flex-wrap:wrap;gap:8px;display:flex}.bid-input{border:1px solid var(--line);background:var(--paper);cursor:text;border-radius:8px;flex:140px;align-items:center;gap:2px;max-width:220px;height:38px;padding:0 10px;display:flex}.bid-input:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.bid-input.has-error{border-color:var(--bad);outline-color:var(--bad)}.bid-input span{color:var(--muted)}.bid-input input{font-variant-numeric:tabular-nums;background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.btn:disabled{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-outline:disabled{background:0 0}.backdrop-top{z-index:60}.confirm{background:var(--paper);border-radius:14px;width:100%;max-width:440px;max-height:calc(100vh - 48px);padding:20px;overflow-y:auto;box-shadow:0 20px 60px #00000059}.confirm h2{font-size:18px}.confirm-body{flex-direction:column;gap:10px;margin-top:10px;display:flex}.confirm-body p{margin:0}.confirm-lot{font-weight:600;line-height:1.3}.confirm-amount{flex-direction:column;display:flex}.confirm-facts{grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:13px;display:grid}.confirm-facts dt{color:var(--muted)}.confirm-facts dd{font-variant-numeric:tabular-nums;margin:0;font-weight:600}.confirm-warn{background:var(--bad-soft);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px}.confirm-actions{justify-content:flex-end;gap:8px;margin-top:18px;display:flex}.toasts{z-index:70;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:calc(100vw - 32px);display:flex;position:fixed;bottom:20px;left:50%;transform:translate(-50%)}.toast{background:var(--text);color:var(--paper);text-align:left;cursor:pointer;border:0;border-radius:10px;padding:10px 16px;font-weight:600;box-shadow:0 6px 24px #00000040}.toast-good{background:var(--good);color:#fff}.toast-bad{background:var(--bad);color:#fff}@media (prefers-color-scheme:dark){.toast-good,.toast-bad{color:#111}}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}.backdrop-top{padding:16px}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
+	var app_default = ":root{--bg:#f4f5f7;--paper:#fff;--text:#1a1d21;--muted:#5f6670;--line:#dde1e6;--hover:#0000000d;--primary:#0e3a7e;--primary-soft:#0e3a7e17;--on-primary:#fff;--good:#1b7a3d;--good-soft:#e3f4e8;--bad:#b3261e;--bad-soft:#fbe5e3;--warn:#c2410c;--shadow:0 1px 2px #0000000f, 0 1px 6px #0000000d;--radius:10px;color-scheme:light}@media (prefers-color-scheme:dark){:root{--bg:#111317;--paper:#1b1e23;--text:#e8eaed;--muted:#9aa1ab;--line:#2e333a;--hover:#ffffff0f;--primary:#8cb4ff;--primary-soft:#8cb4ff1f;--on-primary:#0b1730;--good:#6fd08f;--good-soft:#6fd08f24;--bad:#ff8a80;--bad-soft:#ff8a8024;--warn:#ffb27a;--shadow:0 1px 2px #0006;color-scheme:dark}}*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}body.modal-open{overflow:hidden}a{color:var(--primary)}button,input,select{font:inherit;color:inherit}h2{margin:0;font-size:15px;font-weight:600}h3{margin:16px 0 6px;font-size:14px;font-weight:600}.muted{color:var(--muted)}.small{font-size:12.5px}.error{color:var(--bad)}.row-gap{flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;display:flex}.btn{cursor:pointer;background:var(--primary);min-height:36px;color:var(--on-primary);white-space:nowrap;border:0;border-radius:8px;justify-content:center;align-items:center;gap:6px;padding:6px 14px;font-weight:600;text-decoration:none;display:inline-flex}.btn:hover{filter:brightness(1.08)}.btn[aria-disabled=true]{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-small{min-height:30px;padding:4px 12px;font-size:13px}.btn-outline{color:var(--text);border:1px solid var(--line);background:0 0}.btn-outline:hover{background:var(--hover);filter:none}.btn-text,.btn.btn-text{color:var(--primary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:4px;min-height:0;padding:4px 8px;font-weight:600;display:inline-flex}.btn-text:hover:not(:disabled){background:var(--primary-soft);filter:none}.btn-text:disabled{color:var(--muted);cursor:default;opacity:.75}.icon-btn{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;justify-content:center;align-items:center;padding:6px;display:inline-flex}.icon-btn:hover{background:var(--hover);color:var(--text)}:focus-visible{outline:2px solid var(--primary);outline-offset:2px}.topbar{z-index:20;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;gap:12px;padding:10px 20px;display:flex;position:sticky;top:0}.brand{color:var(--primary);white-space:nowrap;font-size:18px;font-weight:800;text-decoration:none}.brand span{color:var(--text);font-weight:500}.search,.sort,.field input,.field select,.add-filter{border:1px solid var(--line);background:var(--paper);border-radius:8px;min-width:0;height:38px;padding:0 10px}.search{flex:1;max-width:560px}.sort{max-width:230px}.search:focus,.sort:focus,.field input:focus,.field select:focus{outline:2px solid var(--primary);outline-offset:-1px}.filters-toggle{display:none}.layout{grid-template-columns:290px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:16px 20px 40px;display:grid}.sidebar{scrollbar-width:thin;align-self:start;max-height:calc(100vh - 92px);position:sticky;top:76px;overflow-y:auto}.sidebar-inner{flex-direction:column;gap:12px;padding-bottom:8px;display:flex}.panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);flex-direction:column;gap:10px;padding:14px;display:flex}.panel-head{justify-content:space-between;align-items:center;display:flex}.collapsible{flex-direction:column;gap:6px;display:flex}.collapse-head{cursor:pointer;text-align:left;background:0 0;border:0;justify-content:space-between;align-items:center;width:100%;padding:4px 0;font-weight:600;display:flex}.collapse-head svg{color:var(--muted);flex:none;transition:transform .15s}.collapse-head[aria-expanded=true] svg{transform:rotate(180deg)}.collapse-body{flex-direction:column;gap:4px;display:flex}.field{color:var(--muted);flex-direction:column;flex:1;gap:4px;min-width:0;font-size:12.5px;display:flex}.field input,.field select{color:var(--text);width:100%;font-size:14px}.field-row{gap:8px;display:flex}.check{cursor:pointer;align-items:center;gap:8px;padding:2px 0;display:flex}.check input{accent-color:var(--primary);margin:0}.check .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto;font-size:12px}.switch-row{cursor:pointer;justify-content:space-between;align-items:center;gap:12px;display:flex}.switch-row input{appearance:none;background:var(--line);cursor:pointer;border-radius:10px;flex:none;width:34px;height:20px;margin:0;transition:background .15s;position:relative}.switch-row input:after{content:\"\";background:#fff;border-radius:50%;width:16px;height:16px;transition:left .15s;position:absolute;top:2px;left:2px;box-shadow:0 1px 2px #0000004d}.switch-row input:checked{background:var(--primary)}.switch-row input:checked:after{left:16px}.add-filter{align-items:center;padding:0 4px 0 10px;display:flex}.add-filter:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.add-filter.has-error{border-color:var(--bad)}.add-filter input{background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.filter-list{flex-direction:column;gap:2px;margin:0;padding:0;list-style:none;display:flex}.filter-row{align-items:flex-start;gap:4px;padding:2px 0;display:flex}.filter-remove{color:var(--muted);cursor:pointer;background:0 0;border:0;border-radius:50%;flex:none;margin-top:2px;padding:2px;display:inline-flex}.filter-remove:hover{color:var(--bad);background:var(--hover)}.filter-pattern{text-align:left;cursor:text;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:2px 6px}.filter-pattern:hover{background:var(--hover)}.pattern{overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;line-height:18px}.pattern .seg{max-width:100%;display:inline-block}.filter-row .count{color:var(--muted);font-variant-numeric:tabular-nums;flex:none;margin-top:2px;font-size:12px;line-height:18px}.filter-error .pattern{color:var(--bad);text-decoration:line-through}.filter-edit{flex-direction:column;flex:auto;gap:2px;min-width:0;display:flex}.filter-edit textarea{resize:vertical;border:1px solid var(--line);background:var(--paper);border-radius:6px;width:100%;padding:4px 6px;font:12.5px/18px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.filter-edit textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}.filter-edit textarea.has-error{border-color:var(--bad);outline-color:var(--bad)}.saved-row{border-radius:6px;align-items:center}.saved-row.active{background:var(--primary-soft)}.saved-name{cursor:pointer;text-align:left;text-overflow:ellipsis;white-space:nowrap;background:0 0;border:0;border-radius:6px;flex:auto;min-width:0;padding:3px 6px;font-weight:600;overflow:hidden}.saved-name:hover{background:var(--hover)}.saved-row .count{margin-top:0}.saved-row .rename{border:1px solid var(--line);background:var(--paper);border-radius:6px;flex:auto;min-width:0;height:28px;padding:0 6px}.saved-row .filter-remove{margin-top:0}.pill-new{background:var(--primary);color:var(--on-primary);cursor:pointer;border:0;flex:none;padding:1px 7px;font-size:11.5px}.card-media .pill-new{background:var(--primary);color:#fff;box-shadow:0 1px 3px #0003}.filters-toggle .pill-new{margin-left:2px}.results-line{flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 16px;display:flex}.new-line{color:var(--primary);align-items:center;gap:6px;font-weight:600;display:inline-flex}.hidden-list{max-height:240px;margin:0;padding:0;list-style:none;overflow-y:auto}.hidden-list li{align-items:center;gap:4px;display:flex}.hidden-list a{min-width:0;color:inherit;white-space:nowrap;text-overflow:ellipsis;flex:1;font-size:13px;text-decoration:none;overflow:hidden}.hidden-list a:hover{text-decoration:underline}.hidden-list .icon-btn{padding:3px}.statusbar{color:var(--muted);flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:13px;display:flex}.live{white-space:nowrap;font-size:12px}.live-connected{color:var(--good)}.live-connecting{color:var(--warn)}.live-disconnected{color:var(--bad)}.progress{background:var(--primary-soft);border-radius:2px;flex-basis:100%;height:4px;overflow:hidden}.progress>span{background:var(--primary);height:100%;transition:width .2s;display:block}.notice{background:var(--primary-soft);border-radius:8px;margin:10px 0 0;padding:8px 12px;font-size:13px}.results-line{margin:12px 0;scroll-margin-top:80px;font-weight:600}.results-line .muted{font-weight:400}.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;display:grid}.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);flex-direction:column;transition:opacity .15s;display:flex;overflow:hidden}.card.dim{opacity:.45;filter:grayscale()}.card.dim:hover{opacity:.75}.card-media{aspect-ratio:4/3;background:#fff;position:relative}.card-media>a{justify-content:center;align-items:center;display:flex;position:absolute;inset:0}.card-media img{object-fit:contain;width:100%;height:100%}.noimg{color:#888;font-size:13px}.hide-btn{color:#444;background:#ffffffeb;position:absolute;top:8px;left:8px;box-shadow:0 1px 3px #0003}.hide-btn:hover{color:#111;background:#fff}.media-tr{gap:4px;display:flex;position:absolute;top:8px;right:8px}.media-badge{color:#222;white-space:nowrap;text-overflow:ellipsis;background:#fffffff2;border:1px solid #ddd;border-radius:12px;max-width:calc(100% - 16px);padding:3px 9px;font-size:12px;font-weight:600;position:absolute;bottom:8px;left:8px;overflow:hidden}.pill{border-radius:10px;align-items:center;gap:3px;padding:2px 8px;font-size:12px;font-weight:700;display:inline-flex}.pill-good{background:var(--good-soft);color:var(--good)}.pill-bad{background:var(--bad-soft);color:var(--bad)}.card-media .pill-good,.card-media .pill-bad{background:#fff;box-shadow:0 1px 3px #0003}.card-media .pill-good{color:#1b7a3d}.card-media .pill-bad{color:#b3261e}.pill-dupes{cursor:pointer;color:#333;background:#fff;border:0;padding:1px 7px;font-size:11.5px;box-shadow:0 1px 3px #0003}.pill-watch{color:#d49a00;background:#fff;padding:3px 5px;box-shadow:0 1px 3px #0003}.watch-btn{cursor:pointer;color:#666;border:0}.watch-btn.on,.watch-btn:hover{color:#d49a00}.watch-btn:disabled{cursor:default;opacity:.7}.modal-info .btn-text[aria-pressed=true] svg{color:#d49a00}.card-body{flex-direction:column;flex:1;gap:5px;padding:10px 12px 12px;display:flex}.card-title{color:var(--text);-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em;font-weight:600;line-height:1.3;text-decoration:none;display:-webkit-box;overflow:hidden}.card-title:hover{text-decoration:underline}.card-meta{color:var(--muted);flex-wrap:wrap;gap:2px 10px;font-size:12.5px;display:flex}.card-meta>span+span:before{content:\"·\";opacity:.6;margin-left:-6px;margin-right:10px}.card-price{flex-wrap:wrap;align-items:baseline;gap:8px;display:flex}.price{font-variant-numeric:tabular-nums;font-size:20px;font-weight:700}.total{color:var(--muted);white-space:nowrap;font-size:12.5px}.total b{color:var(--text);font-weight:600}.card-sub{justify-content:space-between;gap:8px;font-size:12.5px;display:flex}.card-foot{justify-content:space-between;align-items:center;gap:8px;margin-top:auto;padding-top:6px;display:flex}.time{font-variant-numeric:tabular-nums;font-weight:600}.time.soon{color:var(--bad)}.pager{flex-wrap:wrap;justify-content:center;align-items:center;gap:4px;margin-top:28px;display:flex}.pager button{cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;border:0;border-radius:19px;justify-content:center;align-items:center;min-width:38px;height:38px;padding:0 10px;display:inline-flex}.pager button:hover:not(:disabled){background:var(--hover)}.pager button[aria-current=page]{background:var(--primary);color:var(--on-primary);font-weight:700}.pager button:disabled{opacity:.35;cursor:default}.pager .gap{text-align:center;min-width:24px;color:var(--muted)}.backdrop{z-index:50;background:#0000008c;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;inset:0}.modal{background:var(--paper);border-radius:14px;outline:none;width:100%;max-width:1100px;max-height:calc(100vh - 48px);position:relative;overflow-y:auto;box-shadow:0 20px 60px #00000059}.modal-close{z-index:2;background:var(--paper);position:absolute;top:10px;right:10px}.modal-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;padding:24px;display:grid}.gallery-main{aspect-ratio:1;background:#fff;border-radius:10px;justify-content:center;align-items:center;display:flex;position:relative;overflow:hidden}.gallery-main img{object-fit:contain;width:100%;height:100%}.gal-prev,.gal-next{color:#222;background:#ffffffe6;position:absolute;top:50%;transform:translateY(-50%);box-shadow:0 1px 4px #00000040}.gal-prev{left:8px}.gal-next{right:8px}.thumbs{gap:6px;margin-top:8px;padding-bottom:4px;display:flex;overflow-x:auto}.thumbs button{cursor:pointer;background:#fff;border:2px solid #0000;border-radius:6px;flex:none;width:60px;height:60px;padding:0;overflow:hidden}.thumbs button.on{border-color:var(--primary)}.thumbs img{object-fit:contain;width:100%;height:100%}.modal-info h2{margin-bottom:6px;padding-right:36px;font-size:21px;line-height:1.3}.modal-price{border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap;gap:12px 28px;margin-top:14px;padding:12px 0;display:flex}.big{font-size:22px;font-weight:700}.modal-price .total{color:var(--text);font-size:22px}.description{white-space:pre-wrap;max-height:280px;margin-top:14px;padding-right:6px;font-size:13.5px;overflow-y:auto}.bids{max-height:220px;margin:0;padding:0;font-size:13px;list-style:none;overflow-y:auto}.bids li{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;justify-content:space-between;padding:4px 0;display:flex}.bids li.you{color:var(--primary);font-weight:700}.dupes{max-height:220px;margin:0 0 14px;padding:0;font-size:13px;list-style:none;overflow-y:auto}.dupes button{border:0;border-bottom:1px solid var(--line);width:100%;color:inherit;text-align:left;cursor:pointer;font-variant-numeric:tabular-nums;background:0 0;align-items:baseline;gap:10px;padding:5px 6px;display:flex}.dupes button:hover{background:var(--hover)}.dupes button.on{background:var(--primary-soft);font-weight:700}.dupes .small{flex:1}.bid-panel{flex-direction:column;gap:6px;margin-top:14px;display:flex}.bid-row{flex-wrap:wrap;gap:8px;display:flex}.bid-input{border:1px solid var(--line);background:var(--paper);cursor:text;border-radius:8px;flex:140px;align-items:center;gap:2px;max-width:220px;height:38px;padding:0 10px;display:flex}.bid-input:focus-within{outline:2px solid var(--primary);outline-offset:-1px}.bid-input.has-error{border-color:var(--bad);outline-color:var(--bad)}.bid-input span{color:var(--muted)}.bid-input input{font-variant-numeric:tabular-nums;background:0 0;border:0;outline:0;flex:1;min-width:0;height:100%}.btn:disabled{background:var(--line);color:var(--muted);cursor:not-allowed;filter:none}.btn-outline:disabled{background:0 0}.backdrop-top{z-index:60}.confirm{background:var(--paper);border-radius:14px;width:100%;max-width:440px;max-height:calc(100vh - 48px);padding:20px;overflow-y:auto;box-shadow:0 20px 60px #00000059}.confirm h2{font-size:18px}.confirm-body{flex-direction:column;gap:10px;margin-top:10px;display:flex}.confirm-body p{margin:0}.confirm-lot{font-weight:600;line-height:1.3}.confirm-amount{flex-direction:column;display:flex}.confirm-facts{grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:13px;display:grid}.confirm-facts dt{color:var(--muted)}.confirm-facts dd{font-variant-numeric:tabular-nums;margin:0;font-weight:600}.confirm-warn{background:var(--bad-soft);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px}.confirm-actions{justify-content:flex-end;gap:8px;margin-top:18px;display:flex}.toasts{z-index:70;flex-direction:column;align-items:center;gap:8px;width:max-content;max-width:calc(100vw - 32px);display:flex;position:fixed;bottom:20px;left:50%;transform:translate(-50%)}.toast{background:var(--text);color:var(--paper);text-align:left;cursor:pointer;border:0;border-radius:10px;padding:10px 16px;font-weight:600;box-shadow:0 6px 24px #00000040}.toast-good{background:var(--good);color:#fff}.toast-bad{background:var(--bad);color:#fff}@media (prefers-color-scheme:dark){.toast-good,.toast-bad{color:#111}}@media (width<=900px){.topbar{flex-wrap:wrap;gap:8px;padding:10px 16px}.search{flex-basis:100%;order:3;max-width:none}.sort{flex:1;max-width:none}.filters-toggle{display:inline-flex}.layout{grid-template-columns:minmax(0,1fr);padding:12px 16px 32px}.sidebar{max-height:none;display:none;position:static}.sidebar.open{display:block}.modal-grid{grid-template-columns:minmax(0,1fr);padding:16px}.backdrop{padding:0}.modal{border-radius:0;height:100%;max-height:100vh}.backdrop-top{padding:16px}}@media (width<=520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price{font-size:17px}.card-sub{flex-direction:column;gap:2px}}";
 	var t;
 	var r;
 	var u$1;
@@ -345,7 +345,11 @@
 	}
 	function h(n, u) {
 		var i = s(t++, 3);
-		!c.__s && C(i.__H, u) && (i.__ = n, i.u = u, r.__H.__h.push(i));
+		!c.__s && C$1(i.__H, u) && (i.__ = n, i.u = u, r.__H.__h.push(i));
+	}
+	function _(n, u) {
+		var i = s(t++, 4);
+		!c.__s && C$1(i.__H, u) && (i.__ = n, i.u = u, r.__h.push(i));
 	}
 	function A$1(n) {
 		return o = 5, T$1(function() {
@@ -354,7 +358,7 @@
 	}
 	function T$1(n, r) {
 		var u = s(t++, 7);
-		return C(u.__H, r) && (u.__ = n(), u.__H = r, u.__h = n), u.__;
+		return C$1(u.__H, r) && (u.__ = n(), u.__H = r, u.__h = n), u.__;
 	}
 	function q$1(n, t) {
 		return o = 8, T$1(function() {
@@ -425,7 +429,7 @@
 		var t = r;
 		n.__c = n.__(), r = t;
 	}
-	function C(n, t) {
+	function C$1(n, t) {
 		return !n || n.length !== t.length || t.some(function(t, r) {
 			return t !== n[r];
 		});
@@ -463,15 +467,354 @@
 		[KEYS.accountPickup]: null
 	};
 	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
-	var SESSION_URL = "/api/auth/session";
-	var FOCUS_MIN_GAP = 6e4;
-	var EXPIRY_MARGIN = 12e4;
-	function authToken() {
-		for (const part of document.cookie.split(";")) {
-			const [k, ...v] = part.trim().split("=");
-			if (k === "token") return decodeURIComponent(v.join("=")) || null;
+	function g(n, t) {
+		for (var e in t) n[e] = t[e];
+		return n;
+	}
+	function E(n, t) {
+		for (var e in n) if ("__source" !== e && !(e in t)) return !0;
+		for (var r in t) if ("__source" !== r && n[r] !== t[r]) return !0;
+		return !1;
+	}
+	function C(n, t) {
+		var e = t(), r = d({ t: {
+			__: e,
+			u: t
+		} }), u = r[0].t, o = r[1];
+		return _(function() {
+			u.__ = e, u.u = t, R(u) && o({ t: u });
+		}, [
+			n,
+			e,
+			t
+		]), h(function() {
+			return R(u) && o({ t: u }), n(function() {
+				R(u) && o({ t: u });
+			});
+		}, [n]), e;
+	}
+	function R(n) {
+		try {
+			return !((t = n.__) === (e = n.u()) && (0 !== t || 1 / t == 1 / e) || t != t && e != e);
+		} catch (n) {
+			return !0;
 		}
-		return null;
+		var t, e;
+	}
+	function M(n, t) {
+		this.props = n, this.context = t;
+	}
+	function N(n, e) {
+		function r(n) {
+			var t = this.props.ref;
+			return t != n.ref && t && ("function" == typeof t ? t(null) : t.current = null), e ? !e(this.props, n) || t != n.ref : E(this.props, n);
+		}
+		function u(e) {
+			return this.shouldComponentUpdate = r, k$1(n, e);
+		}
+		return u.displayName = "Memo(" + (n.displayName || n.name) + ")", u.__f = u.prototype.isReactComponent = !0, u.type = n, u;
+	}
+	(M.prototype = new C$2()).isPureReactComponent = !0, M.prototype.shouldComponentUpdate = function(n, t) {
+		return E(this.props, n) || E(this.state, t);
+	};
+	var T = l$1.__b;
+	l$1.__b = function(n) {
+		n.type && n.type.__f && n.ref && (n.props.ref = n.ref, n.ref = null), T && T(n);
+	};
+	"undefined" != typeof Symbol && Symbol.for;
+	var O = l$1.__e;
+	l$1.__e = function(n, t, e, r) {
+		if (n.then) {
+			for (var u, o = t; o = o.__;) if ((u = o.__c) && u.__c) return t.__e ?? (t.__e = e.__e, t.__k = e.__k || []), u.__c(n, t);
+		}
+		O(n, t, e, r);
+	};
+	var U = l$1.unmount;
+	function V(n, t, e) {
+		return n && (n.__c && n.__c.__H && (n.__c.__H.__.forEach(function(n) {
+			"function" == typeof n.__c && n.__c();
+		}), n.__c.__H = null), null != (n = g({}, n)).__c && (n.__c.__P === e && (n.__c.__P = t), n.__c.__e = !0, n.__c = null), n.__k = n.__k && n.__k.map(function(n) {
+			return V(n, t, e);
+		})), n;
+	}
+	function W(n, t, e) {
+		return n && e && (n.__v = null, n.__k = n.__k && n.__k.map(function(n) {
+			return W(n, t, e);
+		}), n.__c && n.__c.__P === t && (n.__e && e.appendChild(n.__e), n.__c.__e = !0, n.__c.__P = e)), n;
+	}
+	function P() {
+		this.__u = 0, this.o = null, this.__b = null;
+	}
+	function j(n) {
+		var t = n.__ && n.__.__c;
+		return t && t.__a && t.__a(n);
+	}
+	function B() {
+		this.i = null, this.l = null;
+	}
+	l$1.unmount = function(n) {
+		var t = n.__c;
+		t && (t.__z = !0), t && t.__R && t.__R(), t && 32 & n.__u && (n.type = null), U && U(n);
+	}, (P.prototype = new C$2()).__c = function(n, t) {
+		var e = t.__c, r = this;
+		r.o ??= [], r.o.push(e);
+		var u = j(r.__v), o = !1, i = function() {
+			o || r.__z || (o = !0, e.__R = null, u ? u(f) : f());
+		};
+		e.__R = i;
+		var l = e.__P;
+		e.__P = null;
+		var f = function() {
+			if (!--r.__u) {
+				if (r.state.__a) {
+					var n = r.state.__a;
+					r.__v.__k[0] = W(n, n.__c.__P, n.__c.__O);
+				}
+				var t;
+				for (r.setState({ __a: r.__b = null }); t = r.o.pop();) t.__P = l, t.forceUpdate();
+			}
+		};
+		r.__u++ || 32 & t.__u || r.setState({ __a: r.__b = r.__v.__k[0] }), n.then(i, i);
+	}, P.prototype.componentWillUnmount = function() {
+		this.o = [];
+	}, P.prototype.render = function(n, e) {
+		if (this.__b) {
+			if (this.__v.__k) {
+				var r = document.createElement("div"), o = this.__v.__k[0].__c;
+				this.__v.__k[0] = V(this.__b, r, o.__O = o.__P);
+			}
+			this.__b = null;
+		}
+		var i = e.__a && k$1(S, null, n.fallback);
+		return i && (i.__u &= -33), [k$1(S, null, e.__a ? null : n.children), i];
+	};
+	var H = function(n, t, e) {
+		if (++e[1] === e[0] && n.l.delete(t), n.props.revealOrder && ("t" !== n.props.revealOrder[0] || !n.l.size)) for (e = n.i; e;) {
+			for (; e.length > 3;) e.pop()();
+			if (e[1] < e[0]) break;
+			n.i = e = e[2];
+		}
+	};
+	(B.prototype = new C$2()).__a = function(n) {
+		var t = this, e = j(t.__v), r = t.l.get(n);
+		return r[0]++, function(u) {
+			var o = function() {
+				t.props.revealOrder ? (r.push(u), H(t, n, r)) : u();
+			};
+			e ? e(o) : o();
+		};
+	}, B.prototype.render = function(n) {
+		this.i = null, this.l = new Map();
+		var t = F(n.children);
+		n.revealOrder && "b" === n.revealOrder[0] && t.reverse();
+		for (var e = t.length; e--;) this.l.set(t[e], this.i = [
+			1,
+			0,
+			this.i
+		]);
+		return n.children;
+	}, B.prototype.componentDidUpdate = B.prototype.componentDidMount = function() {
+		var n = this;
+		this.l.forEach(function(t, e) {
+			H(n, e, t);
+		});
+	};
+	var q = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.element") || 60103;
+	var G = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|image(!S)|letter|lighting|marker(?!H|W|U)|overline|paint|pointer|shape|stop|strikethrough|stroke|text(?!L)|transform|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/;
+	var J = /^on(Ani|Tra|Tou|BeforeInp|Compo)/;
+	var K = /[A-Z0-9]/g;
+	var Q = "undefined" != typeof document;
+	var X = function(n) {
+		return ("undefined" != typeof Symbol && "symbol" == typeof Symbol() ? /fil|che|rad/ : /fil|che|ra/).test(n);
+	};
+	C$2.prototype.isReactComponent = !0, [
+		"componentWillMount",
+		"componentWillReceiveProps",
+		"componentWillUpdate"
+	].forEach(function(t) {
+		Object.defineProperty(C$2.prototype, t, {
+			configurable: !0,
+			get: function() {
+				return this["UNSAFE_" + t];
+			},
+			set: function(n) {
+				Object.defineProperty(this, t, {
+					configurable: !0,
+					writable: !0,
+					value: n
+				});
+			}
+		});
+	});
+	var en = l$1.event;
+	l$1.event = function(n) {
+		return en && (n = en(n)), n.persist = function() {}, n.isPropagationStopped = function() {
+			return this.cancelBubble;
+		}, n.isDefaultPrevented = function() {
+			return this.defaultPrevented;
+		}, n.nativeEvent = n;
+	};
+	var un = {
+		configurable: !0,
+		get: function() {
+			return this.class;
+		}
+	};
+	var on = l$1.vnode;
+	l$1.vnode = function(n) {
+		"string" == typeof n.type && function(n) {
+			var t = n.props, e = n.type, u = {}, o = -1 == e.indexOf("-");
+			for (var i in t) {
+				var l = t[i];
+				if (!("value" === i && "defaultValue" in t && null == l || Q && "children" === i && "noscript" === e || "class" === i || "className" === i)) {
+					var f = i.toLowerCase();
+					"defaultValue" === i && "value" in t && null == t.value ? i = "value" : "download" === i && !0 === l ? l = "" : "translate" === f && "no" === l ? l = !1 : "o" === f[0] && "n" === f[1] ? "ondoubleclick" === f ? i = "ondblclick" : "onchange" !== f || "input" !== e && "textarea" !== e || X(t.type) ? "onfocus" === f ? i = "onfocusin" : "onblur" === f ? i = "onfocusout" : J.test(i) && (i = f) : f = i = "oninput" : o && G.test(i) ? i = i.replace(K, "-$&").toLowerCase() : null === l && (l = void 0), "oninput" === f && u[i = f] && (i = "oninputCapture"), u[i] = l;
+				}
+			}
+			"select" == e && (u.multiple && Array.isArray(u.value) && (u.value = F(t.children).forEach(function(n) {
+				n.props.selected = -1 != u.value.indexOf(n.props.value);
+			})), null != u.defaultValue && (u.value = F(t.children).forEach(function(n) {
+				n.props.selected = u.multiple ? -1 != u.defaultValue.indexOf(n.props.value) : u.defaultValue == n.props.value;
+			}))), t.class && !t.className ? (u.class = t.class, Object.defineProperty(u, "className", un)) : t.className && (u.class = u.className = t.className), n.props = u;
+		}(n), n.$$typeof = q, on && on(n);
+	};
+	var ln = l$1.__r;
+	l$1.__r = function(n) {
+		ln && ln(n), n.__c;
+	};
+	var fn = l$1.diffed;
+	l$1.diffed = function(n) {
+		fn && fn(n);
+		var t = n.props, e = n.__e;
+		null != e && "textarea" === n.type && "value" in t && t.value !== e.value && (e.value = null == t.value ? "" : t.value);
+	};
+	var MINUTE = 6e4;
+	var HOUR = 60 * MINUTE;
+	24 * HOUR;
+	var pad2 = (n) => String(n).padStart(2, "0");
+	function timeLabel(endsAt, now) {
+		const ms = endsAt - now;
+		if (ms <= 0) return {
+			text: "Closed",
+			soon: true
+		};
+		const s = Math.floor(ms / 1e3);
+		const m = Math.floor(s / 60);
+		const h = Math.floor(m / 60);
+		const soon = ms <= HOUR;
+		if (h >= 24) return {
+			text: `${Math.floor(h / 24)}d ${h % 24}h`,
+			soon
+		};
+		if (h >= 1) return {
+			text: `${h}h ${pad2(m % 60)}m`,
+			soon
+		};
+		return {
+			text: `${m}m ${pad2(s % 60)}s`,
+			soon
+		};
+	}
+	function ago(ts, now) {
+		const m = Math.round((now - ts) / MINUTE);
+		if (m < 1) return "just now";
+		if (m < 60) return `${m} min ago`;
+		const h = Math.floor(m / 60);
+		return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts).toLocaleString();
+	}
+	function countdown(ms) {
+		const s = Math.max(0, Math.ceil(ms / 1e3));
+		return s >= 60 ? `${Math.floor(s / 60)}:${pad2(s % 60)}` : `${s}s`;
+	}
+	var shortTime = (ts) => new Date(ts).toLocaleString([], {
+		weekday: "short",
+		hour: "numeric",
+		minute: "2-digit"
+	});
+	var fmtCount = (n) => n.toLocaleString("en-US");
+	var plural = (n, noun) => `${fmtCount(n)} ${noun}${n === 1 ? "" : "s"}`;
+	function parseNum(s) {
+		const n = parseFloat(s.replace(/[$,\s]/g, ""));
+		return Number.isFinite(n) ? n : null;
+	}
+	function emitter() {
+		const listeners = new Set();
+		return {
+			subscribe(fn) {
+				listeners.add(fn);
+				return () => void listeners.delete(fn);
+			},
+			emit: () => listeners.forEach((fn) => fn())
+		};
+	}
+	function observableSet() {
+		const items = new Set();
+		const { subscribe, emit } = emitter();
+		return {
+			has: (v) => items.has(v),
+			add(v) {
+				items.add(v);
+				emit();
+			},
+			delete(v) {
+				items.delete(v);
+				emit();
+			},
+			useHas: (v) => C(subscribe, () => items.has(v))
+		};
+	}
+	var clocks = new Map();
+	function startClock(every) {
+		const listeners = new Set();
+		const clock = {
+			listeners,
+			timer: window.setInterval(() => listeners.forEach((f) => f(Date.now())), every)
+		};
+		clocks.set(every, clock);
+		return clock;
+	}
+	function useNow(every = 1e3) {
+		const [now, setNow] = d(Date.now);
+		h(() => {
+			const clock = clocks.get(every) ?? startClock(every);
+			clock.listeners.add(setNow);
+			return () => {
+				clock.listeners.delete(setNow);
+				if (!clock.listeners.size) {
+					clearInterval(clock.timer);
+					clocks.delete(every);
+				}
+			};
+		}, [every]);
+		return now;
+	}
+	function useDialog(ref, onKey, capture = false) {
+		const latest = A$1(onKey);
+		latest.current = onKey;
+		h(() => {
+			const listener = (e) => latest.current(e);
+			const prevFocus = document.activeElement;
+			document.addEventListener("keydown", listener, capture);
+			ref.current?.focus();
+			return () => {
+				document.removeEventListener("keydown", listener, capture);
+				prevFocus?.focus?.();
+			};
+		}, []);
+	}
+	function openHandler(open) {
+		return (e) => {
+			if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+			e.preventDefault();
+			open();
+		};
+	}
+	var SESSION_URL = "/api/auth/session";
+	var FOCUS_MIN_GAP = MINUTE;
+	var EXPIRY_MARGIN = 2 * MINUTE;
+	function authToken() {
+		const cookie = document.cookie.split("; ").find((c) => c.startsWith("token="));
+		return cookie ? decodeURIComponent(cookie.slice(6)) || null : null;
 	}
 	var signedOut = false;
 	var rejectedToken = null;
@@ -479,32 +822,20 @@
 		const t = authToken();
 		return !signedOut && t !== null && t !== rejectedToken;
 	}
-	var subs$4 = new Set();
+	var { subscribe: subscribe$2, emit: emit$2 } = emitter();
 	var lastState = isAuthenticated();
 	function notify() {
 		const now = isAuthenticated();
-		if (now === lastState) return;
-		lastState = now;
-		subs$4.forEach((f) => f());
+		if (now !== lastState) {
+			lastState = now;
+			emit$2();
+		}
 	}
-	function onAuthChange(fn) {
-		subs$4.add(fn);
-		return () => void subs$4.delete(fn);
-	}
-	function useAuthed() {
-		const [authed, set] = d(isAuthenticated);
-		h(() => {
-			const f = () => set(isAuthenticated());
-			f();
-			return onAuthChange(f);
-		}, []);
-		return authed;
-	}
+	var onAuthChange = subscribe$2;
+	var useAuthed = () => C(subscribe$2, isAuthenticated);
 	function tokenExpiry(token) {
 		try {
-			const part = token?.split(".")[1];
-			if (!part) return null;
-			const exp = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/"))).exp;
+			const exp = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp;
 			return typeof exp === "number" ? exp * 1e3 : null;
 		} catch {
 			return null;
@@ -537,8 +868,7 @@
 	function scheduleRefresh() {
 		clearTimeout(timer);
 		const exp = tokenExpiry(authToken());
-		if (exp == null || signedOut) return;
-		timer = window.setTimeout(() => void refreshSession(), Math.max(3e4, exp - EXPIRY_MARGIN - Date.now()));
+		if (exp != null && !signedOut) timer = window.setTimeout(() => void refreshSession(), Math.max(3e4, exp - EXPIRY_MARGIN - Date.now()));
 	}
 	var ready = Promise.resolve();
 	function startAuth() {
@@ -546,24 +876,24 @@
 		document.addEventListener("visibilitychange", () => {
 			if (document.visibilityState === "visible" && Date.now() - lastCheck > FOCUS_MIN_GAP) refreshSession();
 		});
-		window.cookieStore?.addEventListener?.("change", (e) => {
-			if ([...e.changed ?? [], ...e.deleted ?? []].some((c) => c?.name === "token") && Date.now() - lastCheck > 5e3) refreshSession();
+		window.cookieStore?.addEventListener("change", (e) => {
+			if ([...e.changed, ...e.deleted].some((c) => c.name === "token") && Date.now() - lastCheck > 5e3) refreshSession();
 		});
-	}
-	function withAuth(headers, withToken) {
-		const token = withToken ? authToken() : null;
-		return token ? {
-			...headers,
-			Authorization: `Bearer ${token}`
-		} : headers;
 	}
 	async function authedFetch(url, init = {}, anonFallback = false) {
 		await ready.catch(() => {});
-		const send = (withToken) => fetch(url, {
-			...init,
-			credentials: "same-origin",
-			headers: withAuth(init.headers ?? {}, withToken)
-		});
+		const send = (withToken) => {
+			const token = withToken ? authToken() : null;
+			const headers = token ? {
+				...init.headers,
+				Authorization: `Bearer ${token}`
+			} : init.headers;
+			return fetch(url, {
+				...init,
+				credentials: "same-origin",
+				headers
+			});
+		};
 		const had = isAuthenticated();
 		let res = await send(had);
 		if (res.status !== 401 || !had) return res;
@@ -578,6 +908,7 @@
 	}
 	var BASE = "/backend";
 	var CDN = "https://cdn.triangleliquidators.com";
+	var LOGGED_OUT = "You’re logged out. Log in on the site, then try again.";
 	var ApiError = class extends Error {
 		status;
 		constructor(message, status) {
@@ -594,7 +925,21 @@
 		if (!res.ok) throw new ApiError(`${res.status} ${res.statusText || "error"} for ${path}`, res.status);
 		return res.json();
 	}
-	var num = (v, d = 0) => typeof v === "number" && Number.isFinite(v) ? v : d;
+	function send(path, method, body, headers = {}) {
+		const json = body === void 0 ? {} : { "Content-Type": "application/json" };
+		return authedFetch(`${BASE}${path}`, {
+			method,
+			headers: {
+				Accept: "application/json",
+				...json,
+				"X-CSRF-Protection": "1",
+				...headers
+			},
+			body: body === void 0 ? void 0 : JSON.stringify(body)
+		});
+	}
+	var num = (v, fallback = 0) => typeof v === "number" && Number.isFinite(v) ? v : fallback;
+	var pick = (o, snake, camel) => o?.[snake] ?? o?.[camel];
 	function normalizeStanding(s) {
 		if (!s || typeof s !== "object") return null;
 		return {
@@ -603,7 +948,7 @@
 		};
 	}
 	function normalizeImages(images) {
-		return [...images || []].sort((a, b) => num(a.position) - num(b.position)).map((i) => ({
+		return (images ?? []).toSorted((a, b) => num(a.position) - num(b.position)).map((i) => ({
 			thumb: i.image_thumb,
 			card: i.image_card,
 			large: i.image_large
@@ -661,7 +1006,7 @@
 			brand: r.brand || null,
 			model: r.model || null,
 			lotFee: r.lot_fee ?? null,
-			bidHistory: (r.bid_history || []).map((b) => ({
+			bidHistory: (r.bid_history ?? []).map((b) => ({
 				bidderLabel: b.bidder_label,
 				amount: num(b.amount),
 				isYou: !!b.is_you
@@ -670,14 +1015,21 @@
 	}
 	async function fetchPickupLocation() {
 		const p = (await get("/v1/auth/me/")).pickup_location;
-		if (!p) return null;
-		return {
-			id: typeof p.id === "number" ? p.id : null,
+		return p ? {
+			id: num(p.id, null),
 			name: p.name || p.label || null
-		};
+		} : null;
 	}
 	async function fetchWsToken() {
 		return (await get("/v1/auth/ws-token/")).token;
+	}
+	async function setWatchlisted(auctionPeriod, lotId, on) {
+		if (!isAuthenticated()) throw new ApiError("Log in on the site to use your watchlist.", 401);
+		const res = await send(`/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, on ? "POST" : "DELETE", on ? {} : void 0);
+		if (res.ok) return;
+		if (res.status === 401) throw new ApiError(LOGGED_OUT, 401);
+		const data = await res.json().catch(() => ({}));
+		throw new ApiError(data.code === "lot_already_bid" && data.error ? String(data.error) : "Couldn’t update your watchlist. Please try again.", res.status);
 	}
 	var BidError = class extends Error {
 		status;
@@ -690,57 +1042,33 @@
 			this.minNextBid = minNextBid;
 		}
 	};
-	var pick = (o, snake, camel) => o?.[snake] ?? o?.[camel];
-	var numOrNull = (v) => typeof v === "number" && Number.isFinite(v) ? v : null;
-	async function setWatchlisted(auctionPeriod, lotId, on) {
-		if (!isAuthenticated()) throw new ApiError("Log in on the site to use your watchlist.", 401);
-		const res = await authedFetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
-			method: on ? "POST" : "DELETE",
-			headers: on ? {
-				Accept: "application/json",
-				"Content-Type": "application/json",
-				"X-CSRF-Protection": "1"
-			} : {
-				Accept: "application/json",
-				"X-CSRF-Protection": "1"
-			},
-			body: on ? "{}" : void 0
-		});
-		if (res.ok) return;
-		if (res.status === 401) throw new ApiError("You’re logged out. Log in on the site, then try again.", 401);
-		const data = await res.json().catch(() => ({}));
-		throw new ApiError(data.code === "lot_already_bid" && data.error ? String(data.error) : "Couldn’t update your watchlist. Please try again.", res.status);
+	function bidFailure(status) {
+		if (status === 401 || status === 403) return LOGGED_OUT;
+		return status === 409 ? "This lot has closed." : `Bid failed (${status}).`;
 	}
 	async function placeBid(lotId, amount, type) {
 		if (!isAuthenticated()) throw new BidError("Log in on the site to bid.", 401);
 		let res;
 		try {
-			res = await authedFetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
-				method: "POST",
-				headers: {
-					Accept: "application/json",
-					"Content-Type": "application/json",
-					"X-CSRF-Protection": "1",
-					"X-Bid-Surface": "other",
-					"X-Bid-Type": type
-				},
-				body: JSON.stringify({ amount })
+			res = await send(`/v1/auctions/lots/${lotId}/bids`, "POST", { amount }, {
+				"X-Bid-Surface": "other",
+				"X-Bid-Type": type
 			});
 		} catch {
 			throw new BidError("Network error – the bid may not have been placed. Check the lot before trying again.", 0);
 		}
 		const data = await res.json().catch(() => ({}));
 		if (!res.ok) {
-			const details = data.details || {};
-			const msg = Array.isArray(details.amount) && details.amount[0] || data.error || (res.status === 401 || res.status === 403 ? "You’re logged out. Log in on the site, then try again." : res.status === 409 ? "This lot has closed." : `Bid failed (${res.status}).`);
-			throw new BidError(String(msg), res.status, data.code ?? null, numOrNull(pick(details, "min_next_bid", "minNextBid")));
+			const details = data.details ?? {};
+			const message = Array.isArray(details.amount) && details.amount[0] || data.error || bidFailure(res.status);
+			throw new BidError(String(message), res.status, data.code ?? null, num(pick(details, "min_next_bid", "minNextBid"), null));
 		}
 		return {
 			isLeading: !!pick(data, "is_leading", "isLeading"),
 			isMaxCollision: !!pick(data, "is_max_collision", "isMaxCollision"),
-			currentPrice: numOrNull(pick(data, "current_price", "currentPrice")),
-			minNextBid: numOrNull(pick(data, "min_next_bid", "minNextBid")),
-			version: numOrNull(data.version)
+			currentPrice: num(pick(data, "current_price", "currentPrice"), null),
+			minNextBid: num(pick(data, "min_next_bid", "minNextBid"), null),
+			version: num(data.version, null)
 		};
 	}
 	var EMPTY_META = {
@@ -771,71 +1099,63 @@
 		req.onsuccess = () => resolve(req.result);
 		req.onerror = () => reject(req.error);
 	});
-	async function readMeta() {
-		const m = await result((await open$1()).transaction("meta").objectStore("meta").get("catalog"));
-		return {
-			...EMPTY_META,
-			...m || {}
+	var getMeta = async (tx) => ({
+		...EMPTY_META,
+		...await result(tx.objectStore("meta").get("catalog"))
+	});
+	async function patchMeta(tx, patch) {
+		const next = {
+			...await getMeta(tx),
+			...patch
 		};
+		tx.objectStore("meta").put(next, "catalog");
+		return next;
+	}
+	async function readMeta() {
+		return getMeta((await open$1()).transaction("meta"));
 	}
 	async function writeMeta(patch) {
 		const tx = (await open$1()).transaction("meta", "readwrite");
-		const store = tx.objectStore("meta");
-		const next = {
-			...EMPTY_META,
-			...await result(store.get("catalog")) || {},
-			...patch
-		};
-		store.put(next, "catalog");
+		const next = await patchMeta(tx, patch);
 		await done(tx);
 		return next;
 	}
 	async function readAll() {
 		const tx = (await open$1()).transaction(["lots", "meta"]);
-		const [lots, meta] = await Promise.all([result(tx.objectStore("lots").getAll()), result(tx.objectStore("meta").get("catalog"))]);
+		const [lots, meta] = await Promise.all([result(tx.objectStore("lots").getAll()), getMeta(tx)]);
 		return {
 			lots,
-			meta: {
-				...EMPTY_META,
-				...meta || {}
-			}
+			meta
 		};
 	}
 	async function replaceAll(lots, meta) {
 		const tx = (await open$1()).transaction(["lots", "meta"], "readwrite");
 		const store = tx.objectStore("lots");
 		store.clear();
-		for (const l of lots) store.put(l);
-		const metaStore = tx.objectStore("meta");
-		const cur = {
-			...EMPTY_META,
-			...await result(metaStore.get("catalog")) || {}
-		};
-		metaStore.put({
-			...cur,
-			...meta
-		}, "catalog");
+		lots.forEach((l) => store.put(l));
+		await patchMeta(tx, meta);
 		await done(tx);
 	}
 	async function putLots(lots) {
 		if (!lots.length) return;
 		const tx = (await open$1()).transaction("lots", "readwrite");
 		const store = tx.objectStore("lots");
-		for (const l of lots) store.put(l);
+		lots.forEach((l) => store.put(l));
 		await done(tx);
 	}
 	var _GM_addValueChangeListener = (() => typeof GM_addValueChangeListener != "undefined" ? GM_addValueChangeListener : void 0)();
 	var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
 	var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
 	var cache = new Map();
-	var listeners = new Map();
+	var changes = new EventTarget();
 	function getSetting(key) {
 		if (!cache.has(key)) {
 			cache.set(key, _GM_getValue(key, DEFAULTS[key]));
-			_GM_addValueChangeListener(key, (_n, _old, val, remote) => {
-				if (!remote) return;
-				cache.set(key, val ?? DEFAULTS[key]);
-				listeners.get(key)?.forEach((l) => l());
+			_GM_addValueChangeListener(key, (_name, _old, value, remote) => {
+				if (remote) {
+					cache.set(key, value ?? DEFAULTS[key]);
+					changes.dispatchEvent(new Event(key));
+				}
 			});
 		}
 		return cache.get(key);
@@ -843,28 +1163,20 @@
 	function setSetting(key, value) {
 		cache.set(key, value);
 		_GM_setValue(key, value);
-		listeners.get(key)?.forEach((l) => l());
+		changes.dispatchEvent(new Event(key));
 	}
 	function onSetting(key, fn) {
 		getSetting(key);
-		if (!listeners.has(key)) listeners.set(key, new Set());
-		listeners.get(key).add(fn);
-		return () => listeners.get(key).delete(fn);
+		changes.addEventListener(key, fn);
+		return () => changes.removeEventListener(key, fn);
 	}
 	function useSetting(key) {
-		const [, force] = d(0);
-		const value = getSetting(key);
-		h(() => {
-			const off = onSetting(key, () => force((n) => n + 1));
-			if (getSetting(key) !== value) force((n) => n + 1);
-			return off;
-		}, [key]);
-		return [value, (v) => setSetting(key, v)];
+		return [C(q$1((fn) => onSetting(key, fn), [key]), () => getSetting(key)), (v) => setSetting(key, v)];
 	}
-	var DETAIL_TTL = 12e4;
-	var ACTIVE_WINDOW = 6e5;
+	var DETAIL_TTL = 2 * MINUTE;
+	var ACTIVE_WINDOW = 10 * MINUTE;
 	var CHECK_EVERY = 15e3;
-	var state = {
+	var state$1 = {
 		loaded: false,
 		lots: new Map(),
 		meta: EMPTY_META,
@@ -872,55 +1184,52 @@
 		error: null,
 		rev: 0
 	};
-	var subs$3 = new Set();
-	function changed$1() {
-		state.rev++;
-		subs$3.forEach((f) => f());
+	var { subscribe: subscribe$1, emit: emit$1 } = emitter();
+	function changed() {
+		state$1.rev++;
+		emit$1();
 	}
 	function useCatalog() {
-		const [, force] = d(0);
-		const renderedRev = state.rev;
-		h(() => {
-			const f = () => force((n) => n + 1);
-			subs$3.add(f);
-			if (state.rev !== renderedRev) f();
-			return () => void subs$3.delete(f);
-		}, []);
-		return state;
+		C(subscribe$1, () => state$1.rev);
+		return state$1;
 	}
-	var getLot = (id) => state.lots.get(id);
+	var getLot = (id) => state$1.lots.get(id);
 	function syncIntervalMs() {
 		const m = Number(getSetting(KEYS.syncMinutes));
-		return Math.max(1, Number.isFinite(m) ? m : 5) * 6e4;
+		return Math.max(1, Number.isFinite(m) ? m : 5) * MINUTE;
 	}
-	function nextPullAt(meta = state.meta) {
+	function nextPullAt(meta = state$1.meta) {
 		return meta.pullStartedAt == null ? 0 : meta.pullStartedAt + syncIntervalMs();
 	}
-	var channel = typeof BroadcastChannel === "function" ? new BroadcastChannel("tlx-catalog") : null;
-	channel?.addEventListener("message", (e) => {
-		if (e.data?.type === "synced") reloadFromDb();
-		else if (e.data?.type === "meta") readMeta().then((m) => (state.meta = m, changed$1()));
+	var channel = new BroadcastChannel("tlx-catalog");
+	var broadcast = (msg) => channel.postMessage(msg);
+	channel.addEventListener("message", async (e) => {
+		if (e.data?.type === "synced") await reloadFromDb();
+		else if (e.data?.type === "meta") {
+			state$1.meta = await readMeta();
+			changed();
+		}
 	});
 	async function reloadFromDb() {
 		const { lots, meta } = await readAll();
 		const map = new Map(lots.map((l) => [l.id, l]));
-		for (const [id, mine] of state.lots) {
+		for (const [id, mine] of state$1.lots) {
 			const theirs = map.get(id);
 			if (theirs && mine.version > theirs.version) map.set(id, mine);
 		}
-		state.lots = map;
-		state.meta = meta;
-		state.loaded = true;
-		changed$1();
+		Object.assign(state$1, {
+			lots: map,
+			meta,
+			loaded: true
+		});
+		changed();
 	}
 	var pulling = false;
 	async function pullCatalog() {
 		if (pulling) return "busy";
 		pulling = true;
 		try {
-			const run = () => runPull();
-			if (navigator.locks) return await navigator.locks.request("tlx-catalog-pull", { ifAvailable: true }, (lock) => lock ? run() : "busy");
-			return await run();
+			return await navigator.locks.request("tlx-catalog-pull", { ifAvailable: true }, (lock) => lock ? runPull() : "busy");
 		} finally {
 			pulling = false;
 		}
@@ -928,27 +1237,27 @@
 	async function runPull() {
 		const meta = await readMeta();
 		if (Date.now() < nextPullAt(meta)) {
-			if (meta.fetchedAt !== state.meta.fetchedAt) await reloadFromDb();
+			if (meta.fetchedAt !== state$1.meta.fetchedAt) await reloadFromDb();
 			return "not-due";
 		}
-		state.meta = await writeMeta({ pullStartedAt: Date.now() });
-		channel?.postMessage({ type: "meta" });
-		const firstLoad = state.lots.size === 0;
+		state$1.meta = await writeMeta({ pullStartedAt: Date.now() });
+		broadcast({ type: "meta" });
+		const firstLoad = state$1.lots.size === 0;
 		const startedAt = Date.now();
 		const pulled = new Map();
 		const stamp = (l) => {
-			const prev = state.lots.get(l.id);
+			const prev = state$1.lots.get(l.id);
 			return {
 				...l,
 				firstSeenAt: prev ? prev.firstSeenAt ?? 0 : firstLoad ? 0 : startedAt
 			};
 		};
-		state.error = null;
-		state.progress = {
+		state$1.error = null;
+		state$1.progress = {
 			done: 0,
 			total: null
 		};
-		changed$1();
+		changed();
 		try {
 			let pages = 1;
 			let count = 0;
@@ -958,16 +1267,18 @@
 					count = d.count;
 					pages = Math.max(1, Math.ceil(d.count / 100));
 				}
-				for (const l of d.results) pulled.set(l.id, stamp(l));
-				state.progress = {
+				for (const l of d.results) {
+					pulled.set(l.id, stamp(l));
+					if (firstLoad) state$1.lots.set(l.id, pulled.get(l.id));
+				}
+				state$1.progress = {
 					done: pulled.size,
 					total: count
 				};
-				if (firstLoad) for (const l of d.results) state.lots.set(l.id, pulled.get(l.id));
-				changed$1();
+				changed();
 				if (!d.results.length) break;
 			}
-			for (const [id, mine] of state.lots) {
+			for (const [id, mine] of state$1.lots) {
 				const fresh = pulled.get(id);
 				if (fresh && mine.version > fresh.version) pulled.set(id, {
 					...mine,
@@ -976,31 +1287,30 @@
 			}
 			if (pulled.size < count) {
 				const now = Date.now();
-				for (const [id, l] of state.lots) if (!pulled.has(id) && l.endsAt > now) pulled.set(id, l);
+				for (const [id, l] of state$1.lots) if (!pulled.has(id) && l.endsAt > now) pulled.set(id, l);
 			}
-			const fetchedAt = Date.now();
 			await replaceAll([...pulled.values()], {
-				fetchedAt,
+				fetchedAt: Date.now(),
 				count,
 				authed: isAuthenticated()
 			});
-			state.lots = pulled;
-			state.meta = await readMeta();
-			channel?.postMessage({ type: "synced" });
+			state$1.lots = pulled;
+			state$1.meta = await readMeta();
+			broadcast({ type: "synced" });
 			return "done";
 		} catch (err) {
-			state.error = `Catalog refresh failed: ${err.message || err}`;
+			state$1.error = `Catalog refresh failed: ${err.message || err}`;
 			return "error";
 		} finally {
-			state.progress = null;
-			changed$1();
+			state$1.progress = null;
+			changed();
 		}
 	}
 	var dirty = new Map();
 	var flushTimer = 0;
 	function persistSoon(lot) {
 		dirty.set(lot.id, lot);
-		if (!flushTimer) flushTimer = window.setTimeout(() => {
+		flushTimer ||= window.setTimeout(() => {
 			flushTimer = 0;
 			const batch = [...dirty.values()];
 			dirty.clear();
@@ -1008,23 +1318,22 @@
 		}, 2e3);
 	}
 	function updateLot(id, patch, opts = {}) {
-		const cur = state.lots.get(id);
-		if (!cur) return;
-		if (!opts.force && patch.version != null && patch.version <= cur.version) return;
+		const cur = state$1.lots.get(id);
+		if (!cur || !opts.force && patch.version != null && patch.version <= cur.version) return;
 		const next = {
 			...cur,
 			...patch
 		};
-		state.lots.set(id, next);
+		state$1.lots.set(id, next);
 		persistSoon(next);
-		changed$1();
+		changed();
 	}
 	var details = new Map();
 	function loadDetail(lot, signal) {
 		const hit = details.get(lot.id);
 		if (hit && Date.now() - hit.at < DETAIL_TTL) {
-			if (hit.data) return Promise.resolve(hit.data);
-			if (hit.promise) return hit.promise;
+			const cached = hit.data ? Promise.resolve(hit.data) : hit.promise;
+			if (cached) return cached;
 		}
 		const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then((d) => {
 			details.set(lot.id, {
@@ -1032,7 +1341,7 @@
 				data: d
 			});
 			const { description, brand, model, lotFee, bidHistory, ...base } = d;
-			const cur = state.lots.get(lot.id);
+			const cur = state$1.lots.get(lot.id);
 			if (cur && base.version >= cur.version) updateLot(lot.id, base, { force: true });
 			return d;
 		}, (err) => {
@@ -1053,11 +1362,8 @@
 	var lastActivity = Date.now();
 	var markActive = () => lastActivity = Date.now();
 	function maybeAutoPull() {
-		if (!state.loaded || pulling) return;
-		if (document.visibilityState !== "visible") return;
-		if (Date.now() - lastActivity > ACTIVE_WINDOW) return;
-		if (Date.now() < nextPullAt()) return;
-		pullCatalog();
+		const idle = Date.now() - lastActivity > ACTIVE_WINDOW;
+		if (state$1.loaded && !pulling && document.visibilityState === "visible" && !idle && Date.now() >= nextPullAt()) pullCatalog();
 	}
 	async function startCatalog() {
 		for (const ev of [
@@ -1076,13 +1382,13 @@
 				maybeAutoPull();
 			}
 		});
-		onSetting(KEYS.syncMinutes, changed$1);
+		onSetting(KEYS.syncMinutes, changed);
 		try {
 			await reloadFromDb();
 		} catch (err) {
-			state.loaded = true;
-			state.error = `Couldn’t read the local cache: ${err.message || err}`;
-			changed$1();
+			state$1.loaded = true;
+			state$1.error = `Couldn’t read the local cache: ${err.message || err}`;
+			changed();
 		}
 		maybeAutoPull();
 		window.setInterval(maybeAutoPull, CHECK_EVERY);
@@ -5156,42 +5462,34 @@
 	Centrifuge.UnauthorizedError = UnauthorizedError;
 	var WS_URL = "wss://ws.triangleliquidators.com/connection/websocket";
 	var liveState = "off";
-	var stateSubs = new Set();
-	var subs$2 = new Map();
+	var state = emitter();
+	var subs = new Map();
 	function setState(s) {
 		liveState = s;
-		stateSubs.forEach((f) => f(s));
+		state.emit();
 	}
-	function useLiveState() {
-		const [s, set] = d(liveState);
-		h(() => {
-			stateSubs.add(set);
-			set(liveState);
-			return () => void stateSubs.delete(set);
-		}, []);
-		return s;
-	}
+	var useLiveState = () => C(state.subscribe, () => liveState);
 	var connecting = null;
 	var connect = () => connecting ??= open();
 	var watched = [];
+	function drop(c, sub) {
+		sub.unsubscribe();
+		c.removeSubscription(sub);
+	}
 	onAuthChange(() => {
 		const old = connecting;
 		if (!old) return;
-		const oldSubs = [...subs$2.values()];
-		subs$2.clear();
+		const oldSubs = [...subs.values()];
+		subs.clear();
 		connecting = null;
 		old.then((c) => {
-			for (const sub of oldSubs) {
-				sub.unsubscribe();
-				c.removeSubscription(sub);
-			}
+			oldSubs.forEach((sub) => drop(c, sub));
 			c.disconnect();
 		});
 		watchLots(watched).catch(() => {});
 	});
 	async function open() {
-		let token = null;
-		if (isAuthenticated()) token = await fetchWsToken().catch(() => null);
+		const token = isAuthenticated() ? await fetchWsToken().catch(() => null) : null;
 		const c = new Centrifuge(WS_URL, token ? {
 			token,
 			getToken: () => fetchWsToken()
@@ -5200,30 +5498,31 @@
 		c.on("connected", () => setState("connected"));
 		c.on("disconnected", () => setState("disconnected"));
 		c.on("publication", (ctx) => {
-			if (!ctx.channel.startsWith("user:")) return;
-			const d = ctx.data || {};
-			const lotId = Number(d.lot_id);
-			const lot = getLot(lotId);
-			if (!lot) return;
-			let standing = normalizeStanding(d.relationship);
-			if (!standing && d.type === "outbid") standing = {
-				isLeading: false,
-				yourMaxBid: lot.yourStanding?.yourMaxBid ?? null
-			};
-			if (!standing && d.type === "winning") standing = {
-				isLeading: true,
-				yourMaxBid: lot.yourStanding?.yourMaxBid ?? null
-			};
-			if (standing) updateLot(lotId, {
-				yourStanding: standing,
-				hasBid: true
-			}, { force: true });
+			if (ctx.channel.startsWith("user:")) onUserPublication(ctx.data ?? {});
 		});
 		c.connect();
 		return c;
 	}
+	function onUserPublication(d) {
+		const lotId = Number(d.lot_id);
+		const lot = getLot(lotId);
+		if (!lot) return;
+		const yourMaxBid = lot.yourStanding?.yourMaxBid ?? null;
+		const fallback = d.type === "outbid" ? {
+			isLeading: false,
+			yourMaxBid
+		} : d.type === "winning" ? {
+			isLeading: true,
+			yourMaxBid
+		} : null;
+		const standing = normalizeStanding(d.relationship) ?? fallback;
+		if (standing) updateLot(lotId, {
+			yourStanding: standing,
+			hasBid: true
+		}, { force: true });
+	}
 	function onLotPublication(data) {
-		if (!data || typeof data.id !== "number") return;
+		if (typeof data?.id !== "number") return;
 		const patch = {
 			currentPrice: data.current_price,
 			bidCount: data.bid_count,
@@ -5232,25 +5531,21 @@
 			status: data.status,
 			version: data.version
 		};
-		for (const k of Object.keys(patch)) if (patch[k] == null) delete patch[k];
-		updateLot(data.id, patch);
+		updateLot(data.id, Object.fromEntries(Object.entries(patch).filter(([, v]) => v != null)));
 	}
 	async function watchLots(ids) {
 		watched = ids;
 		const c = await connect();
 		const want = new Set(ids);
-		for (const [id, sub] of subs$2) {
-			if (want.has(id)) continue;
-			sub.unsubscribe();
-			c.removeSubscription(sub);
-			subs$2.delete(id);
+		for (const [id, sub] of subs) if (!want.has(id)) {
+			drop(c, sub);
+			subs.delete(id);
 		}
-		for (const id of want) {
-			if (subs$2.has(id)) continue;
+		for (const id of want.difference(subs)) {
 			const sub = c.getSubscription(`lot:${id}`) ?? c.newSubscription(`lot:${id}`);
 			sub.on("publication", (ctx) => onLotPublication(ctx.data));
 			sub.subscribe();
-			subs$2.set(id, sub);
+			subs.set(id, sub);
 		}
 	}
 	var FEES = {
@@ -5276,8 +5571,7 @@
 	});
 	var toasts = [];
 	var nextId = 1;
-	var subs$1 = new Set();
-	var emit = () => subs$1.forEach((f) => f(toasts));
+	var { subscribe, emit } = emitter();
 	function toast(kind, text, ms = kind === "bad" ? 8e3 : 4e3) {
 		const id = nextId++;
 		toasts = [...toasts, {
@@ -5293,16 +5587,11 @@
 		emit();
 	}
 	function Toasts() {
-		const [list, set] = d(toasts);
-		h(() => {
-			subs$1.add(set);
-			return () => void subs$1.delete(set);
-		}, []);
 		return u("div", {
 			class: "toasts",
 			role: "status",
 			"aria-live": "polite",
-			children: list.map((t) => u("button", {
+			children: C(subscribe, () => toasts).map((t) => u("button", {
 				type: "button",
 				class: `toast toast-${t.kind}`,
 				onClick: () => dismiss(t.id),
@@ -5312,6 +5601,7 @@
 		});
 	}
 	var isClosed = (lot, now = Date.now()) => lot.status !== "live" || lot.endsAt <= now;
+	var hasBidOn = (lot) => lot.hasBid || !!lot.yourStanding;
 	var isLeading = (lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
 	var quickBidAmount = (lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
 	function minMaxBid(lot) {
@@ -5326,18 +5616,8 @@
 		if (!isAuthenticated()) return "Log in on the site to bid";
 		return null;
 	}
-	var pending$1 = new Set();
-	var pendingSubs = new Set();
-	var pendingChanged = () => pendingSubs.forEach((f) => f());
-	function useBidPending(lotId) {
-		const [, force] = d(0);
-		h(() => {
-			const f = () => force((n) => n + 1);
-			pendingSubs.add(f);
-			return () => void pendingSubs.delete(f);
-		}, []);
-		return pending$1.has(lotId);
-	}
+	var pending$1 = observableSet();
+	var useBidPending = (lotId) => pending$1.useHas(lotId);
 	async function submitBid({ lotId, amount, type }) {
 		const lot = getLot(lotId);
 		if (!lot || pending$1.has(lotId)) return false;
@@ -5346,7 +5626,6 @@
 			return false;
 		}
 		pending$1.add(lotId);
-		pendingChanged();
 		try {
 			const r = await placeBid(lotId, amount, type);
 			const cur = getLot(lotId) ?? lot;
@@ -5359,14 +5638,15 @@
 			};
 			if (r.version != null && r.version > cur.version) {
 				patch.version = r.version;
-				if (r.currentPrice != null) patch.currentPrice = r.currentPrice;
-				if (r.minNextBid != null) patch.nextMinIncrement = r.minNextBid;
+				patch.currentPrice = r.currentPrice ?? cur.currentPrice;
+				patch.nextMinIncrement = r.minNextBid ?? cur.nextMinIncrement;
 			}
 			updateLot(lotId, patch, { force: true });
 			invalidateDetail(lotId);
-			if (r.isLeading) toast("good", `Bid placed – you’re winning “${short(lot.title)}”.`);
-			else if (r.isMaxCollision) toast("bad", `Another bidder set this max bid first – you’re outbid on “${short(lot.title)}”.`);
-			else toast("bad", `Bid placed, but you’re outbid on “${short(lot.title)}” – another bidder’s max is higher.`);
+			const title = short(lot.title);
+			if (r.isLeading) toast("good", `Bid placed – you’re winning “${title}”.`);
+			else if (r.isMaxCollision) toast("bad", `Another bidder set this max bid first – you’re outbid on “${title}”.`);
+			else toast("bad", `Bid placed, but you’re outbid on “${title}” – another bidder’s max is higher.`);
 			return true;
 		} catch (e) {
 			const err = e instanceof BidError ? e : new BidError(e.message || String(e), 0);
@@ -5377,226 +5657,18 @@
 			return false;
 		} finally {
 			pending$1.delete(lotId);
-			pendingChanged();
 		}
 	}
 	var short = (s) => s.length > 60 ? `${s.slice(0, 57)}…` : s;
-	function g(n, t) {
-		for (var e in t) n[e] = t[e];
-		return n;
-	}
-	function E(n, t) {
-		for (var e in n) if ("__source" !== e && !(e in t)) return !0;
-		for (var r in t) if ("__source" !== r && n[r] !== t[r]) return !0;
-		return !1;
-	}
-	function M(n, t) {
-		this.props = n, this.context = t;
-	}
-	function N(n, e) {
-		function r(n) {
-			var t = this.props.ref;
-			return t != n.ref && t && ("function" == typeof t ? t(null) : t.current = null), e ? !e(this.props, n) || t != n.ref : E(this.props, n);
-		}
-		function u(e) {
-			return this.shouldComponentUpdate = r, k$1(n, e);
-		}
-		return u.displayName = "Memo(" + (n.displayName || n.name) + ")", u.__f = u.prototype.isReactComponent = !0, u.type = n, u;
-	}
-	(M.prototype = new C$1()).isPureReactComponent = !0, M.prototype.shouldComponentUpdate = function(n, t) {
-		return E(this.props, n) || E(this.state, t);
-	};
-	var T = l$1.__b;
-	l$1.__b = function(n) {
-		n.type && n.type.__f && n.ref && (n.props.ref = n.ref, n.ref = null), T && T(n);
-	};
-	"undefined" != typeof Symbol && Symbol.for;
-	var O = l$1.__e;
-	l$1.__e = function(n, t, e, r) {
-		if (n.then) {
-			for (var u, o = t; o = o.__;) if ((u = o.__c) && u.__c) return t.__e ?? (t.__e = e.__e, t.__k = e.__k || []), u.__c(n, t);
-		}
-		O(n, t, e, r);
-	};
-	var U = l$1.unmount;
-	function V(n, t, e) {
-		return n && (n.__c && n.__c.__H && (n.__c.__H.__.forEach(function(n) {
-			"function" == typeof n.__c && n.__c();
-		}), n.__c.__H = null), null != (n = g({}, n)).__c && (n.__c.__P === e && (n.__c.__P = t), n.__c.__e = !0, n.__c = null), n.__k = n.__k && n.__k.map(function(n) {
-			return V(n, t, e);
-		})), n;
-	}
-	function W(n, t, e) {
-		return n && e && (n.__v = null, n.__k = n.__k && n.__k.map(function(n) {
-			return W(n, t, e);
-		}), n.__c && n.__c.__P === t && (n.__e && e.appendChild(n.__e), n.__c.__e = !0, n.__c.__P = e)), n;
-	}
-	function P() {
-		this.__u = 0, this.o = null, this.__b = null;
-	}
-	function j(n) {
-		var t = n.__ && n.__.__c;
-		return t && t.__a && t.__a(n);
-	}
-	function B() {
-		this.i = null, this.l = null;
-	}
-	l$1.unmount = function(n) {
-		var t = n.__c;
-		t && (t.__z = !0), t && t.__R && t.__R(), t && 32 & n.__u && (n.type = null), U && U(n);
-	}, (P.prototype = new C$1()).__c = function(n, t) {
-		var e = t.__c, r = this;
-		r.o ??= [], r.o.push(e);
-		var u = j(r.__v), o = !1, i = function() {
-			o || r.__z || (o = !0, e.__R = null, u ? u(f) : f());
-		};
-		e.__R = i;
-		var l = e.__P;
-		e.__P = null;
-		var f = function() {
-			if (!--r.__u) {
-				if (r.state.__a) {
-					var n = r.state.__a;
-					r.__v.__k[0] = W(n, n.__c.__P, n.__c.__O);
-				}
-				var t;
-				for (r.setState({ __a: r.__b = null }); t = r.o.pop();) t.__P = l, t.forceUpdate();
-			}
-		};
-		r.__u++ || 32 & t.__u || r.setState({ __a: r.__b = r.__v.__k[0] }), n.then(i, i);
-	}, P.prototype.componentWillUnmount = function() {
-		this.o = [];
-	}, P.prototype.render = function(n, e) {
-		if (this.__b) {
-			if (this.__v.__k) {
-				var r = document.createElement("div"), o = this.__v.__k[0].__c;
-				this.__v.__k[0] = V(this.__b, r, o.__O = o.__P);
-			}
-			this.__b = null;
-		}
-		var i = e.__a && k$1(S, null, n.fallback);
-		return i && (i.__u &= -33), [k$1(S, null, e.__a ? null : n.children), i];
-	};
-	var H = function(n, t, e) {
-		if (++e[1] === e[0] && n.l.delete(t), n.props.revealOrder && ("t" !== n.props.revealOrder[0] || !n.l.size)) for (e = n.i; e;) {
-			for (; e.length > 3;) e.pop()();
-			if (e[1] < e[0]) break;
-			n.i = e = e[2];
-		}
-	};
-	(B.prototype = new C$1()).__a = function(n) {
-		var t = this, e = j(t.__v), r = t.l.get(n);
-		return r[0]++, function(u) {
-			var o = function() {
-				t.props.revealOrder ? (r.push(u), H(t, n, r)) : u();
-			};
-			e ? e(o) : o();
-		};
-	}, B.prototype.render = function(n) {
-		this.i = null, this.l = new Map();
-		var t = F(n.children);
-		n.revealOrder && "b" === n.revealOrder[0] && t.reverse();
-		for (var e = t.length; e--;) this.l.set(t[e], this.i = [
-			1,
-			0,
-			this.i
-		]);
-		return n.children;
-	}, B.prototype.componentDidUpdate = B.prototype.componentDidMount = function() {
-		var n = this;
-		this.l.forEach(function(t, e) {
-			H(n, e, t);
-		});
-	};
-	var q = "undefined" != typeof Symbol && Symbol.for && Symbol.for("react.element") || 60103;
-	var G = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|image(!S)|letter|lighting|marker(?!H|W|U)|overline|paint|pointer|shape|stop|strikethrough|stroke|text(?!L)|transform|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/;
-	var J = /^on(Ani|Tra|Tou|BeforeInp|Compo)/;
-	var K = /[A-Z0-9]/g;
-	var Q = "undefined" != typeof document;
-	var X = function(n) {
-		return ("undefined" != typeof Symbol && "symbol" == typeof Symbol() ? /fil|che|rad/ : /fil|che|ra/).test(n);
-	};
-	C$1.prototype.isReactComponent = !0, [
-		"componentWillMount",
-		"componentWillReceiveProps",
-		"componentWillUpdate"
-	].forEach(function(t) {
-		Object.defineProperty(C$1.prototype, t, {
-			configurable: !0,
-			get: function() {
-				return this["UNSAFE_" + t];
-			},
-			set: function(n) {
-				Object.defineProperty(this, t, {
-					configurable: !0,
-					writable: !0,
-					value: n
-				});
-			}
-		});
-	});
-	var en = l$1.event;
-	l$1.event = function(n) {
-		return en && (n = en(n)), n.persist = function() {}, n.isPropagationStopped = function() {
-			return this.cancelBubble;
-		}, n.isDefaultPrevented = function() {
-			return this.defaultPrevented;
-		}, n.nativeEvent = n;
-	};
-	var un = {
-		configurable: !0,
-		get: function() {
-			return this.class;
-		}
-	};
-	var on = l$1.vnode;
-	l$1.vnode = function(n) {
-		"string" == typeof n.type && function(n) {
-			var t = n.props, e = n.type, u = {}, o = -1 == e.indexOf("-");
-			for (var i in t) {
-				var l = t[i];
-				if (!("value" === i && "defaultValue" in t && null == l || Q && "children" === i && "noscript" === e || "class" === i || "className" === i)) {
-					var f = i.toLowerCase();
-					"defaultValue" === i && "value" in t && null == t.value ? i = "value" : "download" === i && !0 === l ? l = "" : "translate" === f && "no" === l ? l = !1 : "o" === f[0] && "n" === f[1] ? "ondoubleclick" === f ? i = "ondblclick" : "onchange" !== f || "input" !== e && "textarea" !== e || X(t.type) ? "onfocus" === f ? i = "onfocusin" : "onblur" === f ? i = "onfocusout" : J.test(i) && (i = f) : f = i = "oninput" : o && G.test(i) ? i = i.replace(K, "-$&").toLowerCase() : null === l && (l = void 0), "oninput" === f && u[i = f] && (i = "oninputCapture"), u[i] = l;
-				}
-			}
-			"select" == e && (u.multiple && Array.isArray(u.value) && (u.value = F(t.children).forEach(function(n) {
-				n.props.selected = -1 != u.value.indexOf(n.props.value);
-			})), null != u.defaultValue && (u.value = F(t.children).forEach(function(n) {
-				n.props.selected = u.multiple ? -1 != u.defaultValue.indexOf(n.props.value) : u.defaultValue == n.props.value;
-			}))), t.class && !t.className ? (u.class = t.class, Object.defineProperty(u, "className", un)) : t.className && (u.class = u.className = t.className), n.props = u;
-		}(n), n.$$typeof = q, on && on(n);
-	};
-	var ln = l$1.__r;
-	l$1.__r = function(n) {
-		ln && ln(n), n.__c;
-	};
-	var fn = l$1.diffed;
-	l$1.diffed = function(n) {
-		fn && fn(n);
-		var t = n.props, e = n.__e;
-		null != e && "textarea" === n.type && "value" in t && t.value !== e.value && (e.value = null == t.value ? "" : t.value);
-	};
-	var canWatch = (lot) => isAuthenticated() && !lot.hasBid && !lot.yourStanding;
-	var pending = new Set();
-	var subs = new Set();
-	var changed = () => subs.forEach((f) => f());
-	function useWatchPending(lotId) {
-		const [, force] = d(0);
-		h(() => {
-			const f = () => force((n) => n + 1);
-			subs.add(f);
-			return () => void subs.delete(f);
-		}, []);
-		return pending.has(lotId);
-	}
+	var canWatch = (lot) => isAuthenticated() && !hasBidOn(lot);
+	var pending = observableSet();
+	var useWatchPending = (lotId) => pending.useHas(lotId);
 	async function toggleWatch(lotId) {
 		const lot = getLot(lotId);
 		if (!lot || pending.has(lotId)) return;
 		const on = !lot.isWatchlisted;
 		pending.add(lotId);
 		updateLot(lotId, { isWatchlisted: on }, { force: true });
-		changed();
 		try {
 			await setWatchlisted(lot.auctionPeriod, lotId, on);
 		} catch (e) {
@@ -5604,70 +5676,7 @@
 			toast("bad", e.message);
 		} finally {
 			pending.delete(lotId);
-			changed();
 		}
-	}
-	function timeLabel(endsAt, now) {
-		const ms = endsAt - now;
-		if (ms <= 0) return {
-			text: "Closed",
-			soon: true
-		};
-		const s = Math.floor(ms / 1e3);
-		const m = Math.floor(s / 60);
-		const soon = ms <= 36e5;
-		if (ms >= 864e5) return {
-			text: `${Math.floor(m / 1440)}d ${Math.floor(m % 1440 / 60)}h`,
-			soon
-		};
-		if (m >= 60) return {
-			text: `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`,
-			soon
-		};
-		return {
-			text: `${m}m ${String(s % 60).padStart(2, "0")}s`,
-			soon
-		};
-	}
-	function ago(ts, now) {
-		const m = Math.round((now - ts) / 6e4);
-		if (m < 1) return "just now";
-		if (m < 60) return `${m} min ago`;
-		const h = Math.floor(m / 60);
-		return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts).toLocaleString();
-	}
-	function countdown(ms) {
-		const s = Math.max(0, Math.ceil(ms / 1e3));
-		return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s}s`;
-	}
-	var tickSubs = new Map();
-	function useNow(every = 1e3) {
-		const [now, setNow] = d(Date.now);
-		h(() => {
-			let t = tickSubs.get(every);
-			if (!t) {
-				const set = new Set();
-				t = {
-					set,
-					timer: window.setInterval(() => set.forEach((f) => f(Date.now())), every)
-				};
-				tickSubs.set(every, t);
-			}
-			t.set.add(setNow);
-			return () => {
-				t.set.delete(setNow);
-				if (!t.set.size) {
-					clearInterval(t.timer);
-					tickSubs.delete(every);
-				}
-			};
-		}, [every]);
-		return now;
-	}
-	var fmtCount = (n) => n.toLocaleString("en-US");
-	function parseNum(s) {
-		const n = parseFloat(s.replace(/[$,\s]/g, ""));
-		return Number.isFinite(n) ? n : null;
 	}
 	function TimeLeft({ endsAt }) {
 		const { text, soon } = timeLabel(endsAt, useNow(1e3));
@@ -5682,11 +5691,10 @@
 			class: "pill pill-good",
 			children: "Winning"
 		});
-		if (lot.hasBid || lot.yourStanding) return u("span", {
+		return hasBidOn(lot) ? u("span", {
 			class: "pill pill-bad",
 			children: "Outbid"
-		});
-		return null;
+		}) : null;
 	}
 	function LocationText({ row }) {
 		const name = row.lot.location?.name ?? "Unknown";
@@ -5742,13 +5750,6 @@
 				lot.isWatchlisted ? "On watchlist" : "Add to watchlist"
 			]
 		});
-	}
-	function openHandler(open) {
-		return (e) => {
-			if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-			e.preventDefault();
-			open();
-		};
 	}
 	var LotCard = N(function LotCard({ row, isNew, onOpen, onToggleHide, onBid }) {
 		const { lot, matched, hidden } = row;
@@ -5850,11 +5851,7 @@
 						] }) : u("span", {
 							class: "muted",
 							children: "No retail estimate"
-						}), u("span", { children: [
-							fmtCount(lot.bidCount),
-							" bid",
-							lot.bidCount === 1 ? "" : "s"
-						] })]
+						}), u("span", { children: plural(lot.bidCount, "bid") })]
 					}),
 					u("div", {
 						class: "card-foot",
@@ -5870,20 +5867,15 @@
 		});
 	});
 	function DupeCount({ row, onOpen }) {
-		const n = row.others.length;
-		const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleString([], {
-			weekday: "short",
-			hour: "numeric",
-			minute: "2-digit"
-		})}`).join("\n");
+		const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${shortTime(l.endsAt)}`).join("\n");
 		return u("button", {
 			type: "button",
 			class: "pill pill-dupes",
-			title: `${n} more identical listing${n === 1 ? "" : "s"}:\n${list}`,
+			title: `${plural(row.others.length, "more identical listing")}:\n${list}`,
 			onClick: () => onOpen(row.lot),
 			children: [
 				"+",
-				n,
+				row.others.length,
 				" more"
 			]
 		});
@@ -5904,16 +5896,11 @@
 				size: 14
 			})]
 		});
-		if (blocker) return u("span", {
+		if (blocker || pending) return u("span", {
 			class: "btn btn-small",
 			"aria-disabled": "true",
-			title: blocker,
-			children: "Bid"
-		});
-		if (pending) return u("span", {
-			class: "btn btn-small",
-			"aria-disabled": "true",
-			children: "Bidding…"
+			title: blocker ?? void 0,
+			children: blocker ? "Bid" : "Bidding…"
 		});
 		if (isLeading(lot)) return u("button", {
 			type: "button",
@@ -5942,30 +5929,21 @@
 		useAuthed();
 		const now = useNow(1e3);
 		const okBtn = A$1(null);
-		h(() => {
-			const onKey = (e) => {
-				if (e.key !== "Escape") return;
+		useDialog(okBtn, (e) => {
+			if (e.key === "Escape") {
 				e.stopPropagation();
 				e.preventDefault();
 				onClose();
-			};
-			document.addEventListener("keydown", onKey, true);
-			const prevFocus = document.activeElement;
-			okBtn.current?.focus();
-			return () => {
-				document.removeEventListener("keydown", onKey, true);
-				prevFocus?.focus?.();
-			};
-		}, []);
+			}
+		}, true);
 		const isMax = req.type === "max_bid";
 		const blocker = bidBlocker(row, now);
 		const min = isMax ? minMaxBid(lot) : quickBidAmount(lot);
 		const stale = amount < min;
 		const disabled = pending || !!blocker || stale;
-		const elsewhere = lot.location && lot.location.name !== pickup ? lot.location.name : null;
+		const elsewhere = lot.location?.name;
 		const confirm = async () => {
-			if (disabled) return;
-			if (await submitBid({
+			if (!disabled && await submitBid({
 				...req,
 				amount
 			})) onClose();
@@ -6014,9 +5992,7 @@
 									u("dd", { children: [
 										dollars(lot.currentPrice),
 										" · ",
-										lot.bidCount,
-										" bid",
-										lot.bidCount === 1 ? "" : "s"
+										plural(lot.bidCount, "bid")
 									] }),
 									u("dt", { children: "Ends" }),
 									u("dd", { children: u(TimeLeft, { endsAt: lot.endsAt }) }),
@@ -6108,24 +6084,18 @@
 			lot.yourStanding?.isLeading
 		]);
 		const images = (detail ?? lot).images;
-		h(() => {
-			const onKey = (e) => {
-				if (e.key === "Escape") onClose();
-				else if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-				else if (e.key === "ArrowLeft") setImgIdx((i) => (i - 1 + images.length) % Math.max(images.length, 1));
-				else if (e.key === "ArrowRight") setImgIdx((i) => (i + 1) % Math.max(images.length, 1));
-			};
-			document.addEventListener("keydown", onKey);
-			const prevFocus = document.activeElement;
-			dialog.current?.focus();
-			document.body.classList.add("modal-open");
-			return () => {
-				document.removeEventListener("keydown", onKey);
-				document.body.classList.remove("modal-open");
-				prevFocus?.focus?.();
-			};
-		}, [images.length]);
 		const img = images[Math.min(imgIdx, images.length - 1)];
+		const step = (delta) => setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
+		useDialog(dialog, (e) => {
+			const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+			if (e.key === "Escape") onClose();
+			else if (!typing && e.key === "ArrowLeft") step(-1);
+			else if (!typing && e.key === "ArrowRight") step(1);
+		});
+		h(() => {
+			document.body.classList.add("modal-open");
+			return () => document.body.classList.remove("modal-open");
+		}, []);
 		return u("div", {
 			class: "backdrop",
 			onMouseDown: (e) => e.target === e.currentTarget && onClose(),
@@ -6161,7 +6131,7 @@
 								type: "button",
 								class: "icon-btn gal-prev",
 								"aria-label": "Previous image",
-								onClick: () => setImgIdx((i) => (i - 1 + images.length) % images.length),
+								onClick: () => step(-1),
 								children: u(Icon, {
 									name: "chevronLeft",
 									size: 24
@@ -6170,7 +6140,7 @@
 								type: "button",
 								class: "icon-btn gal-next",
 								"aria-label": "Next image",
-								onClick: () => setImgIdx((i) => (i + 1) % images.length),
+								onClick: () => step(1),
 								children: u(Icon, {
 									name: "chevronRight",
 									size: 24
@@ -6214,11 +6184,7 @@
 										children: dollars(lot.currentPrice)
 									}), u("div", {
 										class: "muted small",
-										children: [
-											"Current bid · ",
-											fmtCount(lot.bidCount),
-											" bids"
-										]
+										children: ["Current bid · ", plural(lot.bidCount, "bid")]
 									})] }),
 									u("div", { children: [u("div", {
 										class: "total big",
@@ -6233,11 +6199,7 @@
 										children: u(TimeLeft, { endsAt: lot.endsAt })
 									}), u("div", {
 										class: "muted small",
-										children: new Date(lot.endsAt).toLocaleString([], {
-											weekday: "short",
-											hour: "numeric",
-											minute: "2-digit"
-										})
+										children: shortTime(lot.endsAt)
 									})] })
 								]
 							}),
@@ -6309,11 +6271,7 @@
 							detail && u(S, { children: [
 								(detail.brand || detail.model) && u("p", {
 									class: "small",
-									children: [
-										detail.brand && u("span", { children: ["Brand: ", detail.brand] }),
-										detail.brand && detail.model && " · ",
-										detail.model && u("span", { children: ["Model: ", detail.model] })
-									]
+									children: [detail.brand && `Brand: ${detail.brand}`, detail.model && `Model: ${detail.model}`].filter(Boolean).join(" · ")
 								}),
 								detail.description && u("div", {
 									class: "description",
@@ -6349,9 +6307,7 @@
 					u("span", {
 						class: "muted small",
 						children: [
-							fmtCount(l.bidCount),
-							" bid",
-							l.bidCount === 1 ? "" : "s",
+							plural(l.bidCount, "bid"),
 							" · Lot #",
 							l.lotNumber
 						]
@@ -6388,12 +6344,11 @@
 		const leading = isLeading(lot);
 		const min = minMaxBid(lot);
 		const quick = quickBidAmount(lot);
-		const n = value.trim() ? parseNum(value) : null;
-		const error = value.trim() && n == null ? "Enter a dollar amount" : n != null && !Number.isInteger(n) ? "Whole dollars only" : n != null && n < min ? `Must be at least ${dollars(min)}` : null;
+		const n = parseNum(value);
+		const error = maxBidError(value, n, min);
 		const submit = (e) => {
 			e.preventDefault();
-			if (n == null || error || pending) return;
-			onBid({
+			if (n != null && !error && !pending) onBid({
 				lotId: lot.id,
 				amount: n,
 				type: "max_bid"
@@ -6445,6 +6400,12 @@
 			})]
 		});
 	}
+	function maxBidError(text, n, min) {
+		if (!text.trim()) return null;
+		if (n == null) return "Enter a dollar amount";
+		if (!Number.isInteger(n)) return "Whole dollars only";
+		return n < min ? `Must be at least ${dollars(min)}` : null;
+	}
 	function compileFilter(pattern) {
 		try {
 			return new RegExp(`\\b(?:${pattern})\\b`, "i");
@@ -6459,8 +6420,7 @@
 		}));
 	}
 	function firstMatch(filters, title) {
-		for (const { word, re } of filters) if (re && re.test(title)) return word;
-		return null;
+		return filters.find(({ re }) => re?.test(title))?.word ?? null;
 	}
 	function splitFilters(text) {
 		const out = [];
@@ -6468,23 +6428,16 @@
 		let depth = 0;
 		let inClass = false;
 		let escaped = false;
-		for (const ch of text) if (escaped) {
-			cur += ch;
-			escaped = false;
-		} else if (ch === "\\") {
-			cur += ch;
-			escaped = true;
-		} else if (inClass) {
-			if (ch === "]") inClass = false;
-			cur += ch;
-		} else if (ch === "[") {
-			inClass = true;
-			cur += ch;
-		} else if (ch === "," && depth === 0) {
-			out.push(cur);
-			cur = "";
-		} else {
-			if (ch === "(" || ch === "{") depth++;
+		for (const ch of text) {
+			if (escaped) escaped = false;
+			else if (ch === "\\") escaped = true;
+			else if (inClass) inClass = ch !== "]";
+			else if (ch === "[") inClass = true;
+			else if (ch === "," && depth === 0) {
+				out.push(cur);
+				cur = "";
+				continue;
+			} else if (ch === "(" || ch === "{") depth++;
 			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
 			cur += ch;
 		}
@@ -6524,37 +6477,110 @@
 		const moved = [];
 		for (let i = 0; i < 12; i++) {
 			const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
-			if (!m || !m[0]) break;
+			if (!m?.[0]) break;
 			moved.push(m[0].trim());
 			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
 		}
 		return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
 	}
 	var SORTS = {
-		"ending-soonest": "Ending soonest",
-		"newly-listed": "Newly listed",
-		"title-asc": "Title A–Z",
-		"title-desc": "Title Z–A",
-		"total-asc": "Total cost: low to high",
-		"total-desc": "Total cost: high to low",
-		"retail-pct-asc": "Best deal (% of retail)",
-		"retail-desc": "Retail price: high to low",
-		"bids-most": "Most bids",
-		"bids-fewest": "Fewest bids"
+		"ending-soonest": {
+			label: "Ending soonest",
+			compare: () => 0
+		},
+		"newly-listed": {
+			label: "Newly listed",
+			compare: (a, b) => b.lot.id - a.lot.id
+		},
+		"title-asc": {
+			label: "Title A–Z",
+			compare: (a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title))
+		},
+		"title-desc": {
+			label: "Title Z–A",
+			compare: (a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title))
+		},
+		"total-asc": {
+			label: "Total cost: low to high",
+			compare: (a, b) => a.total - b.total
+		},
+		"total-desc": {
+			label: "Total cost: high to low",
+			compare: (a, b) => b.total - a.total
+		},
+		"retail-pct-asc": {
+			label: "Best deal (% of retail)",
+			compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity)
+		},
+		"retail-desc": {
+			label: "Retail price: high to low",
+			compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1)
+		},
+		"bids-most": {
+			label: "Most bids",
+			compare: (a, b) => b.lot.bidCount - a.lot.bidCount
+		},
+		"bids-fewest": {
+			label: "Fewest bids",
+			compare: (a, b) => a.lot.bidCount - b.lot.bidCount
+		}
 	};
+	function nextHours(h) {
+		return (now) => [now, now + h * HOUR];
+	}
+	function day(offset) {
+		return (now) => {
+			const d = new Date(now);
+			d.setHours(0, 0, 0, 0);
+			d.setDate(d.getDate() + offset);
+			const start = d.getTime();
+			d.setDate(d.getDate() + 1);
+			return [Math.max(start, now), d.getTime()];
+		};
+	}
 	var ENDING = {
-		"": "Any time",
-		"1h": "Within 1 hour",
-		"3h": "Within 3 hours",
-		today: "Today",
-		tomorrow: "Tomorrow"
+		"": {
+			label: "Any time",
+			window: null
+		},
+		"1h": {
+			label: "Within 1 hour",
+			window: nextHours(1)
+		},
+		"3h": {
+			label: "Within 3 hours",
+			window: nextHours(3)
+		},
+		today: {
+			label: "Today",
+			window: day(0)
+		},
+		tomorrow: {
+			label: "Tomorrow",
+			window: day(1)
+		}
 	};
 	var MINE = {
-		"": "All lots",
-		bid: "Lots I bid on",
-		leading: "I’m winning",
-		outbid: "I’m outbid",
-		watch: "Watchlist"
+		"": {
+			label: "All lots",
+			test: () => true
+		},
+		bid: {
+			label: "Lots I bid on",
+			test: hasBidOn
+		},
+		leading: {
+			label: "I’m winning",
+			test: (l) => !!l.yourStanding?.isLeading
+		},
+		outbid: {
+			label: "I’m outbid",
+			test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading
+		},
+		watch: {
+			label: "Watchlist",
+			test: (l) => l.isWatchlisted
+		}
 	};
 	var DEFAULT_VIEW = {
 		sort: "ending-soonest",
@@ -6572,15 +6598,16 @@
 		newSince: null
 	};
 	function normalizeView(v) {
-		const o = v && typeof v === "object" ? v : {};
 		const view = {
 			...DEFAULT_VIEW,
-			...o
+			...v && typeof v === "object" ? v : {}
 		};
-		if (!(view.sort in SORTS)) view.sort = DEFAULT_VIEW.sort;
-		if (!(view.ending in ENDING)) view.ending = "";
-		if (!(view.mine in MINE)) view.mine = "";
-		return view;
+		return {
+			...view,
+			sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
+			ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
+			mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine
+		};
 	}
 	var activeFilterCount = (v) => [
 		v.search.trim(),
@@ -6597,9 +6624,12 @@
 	].filter(Boolean).length;
 	var sortKeys = new Map();
 	function titleKey(title) {
-		let k = sortKeys.get(title);
-		if (k === void 0) sortKeys.set(title, k = sortKey(title));
-		return k;
+		let key = sortKeys.get(title);
+		if (key === void 0) {
+			key = sortKey(title);
+			sortKeys.set(title, key);
+		}
+		return key;
 	}
 	var regexCache = null;
 	function compiledFilters(words) {
@@ -6623,17 +6653,6 @@
 			others: []
 		};
 	}
-	function endingWindow(e, now) {
-		if (!e) return null;
-		if (e === "1h") return [now, now + 36e5];
-		if (e === "3h") return [now, now + 108e5];
-		const d = new Date(now);
-		d.setHours(0, 0, 0, 0);
-		if (e === "tomorrow") d.setDate(d.getDate() + 1);
-		const start = d.getTime();
-		d.setDate(d.getDate() + 1);
-		return [Math.max(start, now), d.getTime()];
-	}
 	function computeView(lots, view, pickup, ex, now) {
 		const matches = makeMatcher(view, now);
 		const matchCounts = new Map(ex.words.map((w) => [w, 0]));
@@ -6645,20 +6664,15 @@
 		for (const lot of lots) {
 			if (lot.endsAt <= now) continue;
 			open++;
-			for (const { word, re } of compiled) if (re && re.test(lot.title)) matchCounts.set(word, (matchCounts.get(word) || 0) + 1);
+			for (const { word, re } of compiled) if (re?.test(lot.title)) matchCounts.set(word, matchCounts.get(word) + 1);
 			const row = makeRow(lot, pickup, ex);
-			if (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered) {
-				removed++;
-				continue;
-			}
-			if (!matches(row)) {
-				filteredOut++;
-				continue;
-			}
-			rows.push(row);
+			if (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered) removed++;
+			else if (!matches(row)) filteredOut++;
+			else rows.push(row);
 		}
 		const { cards, groups } = combineDuplicates(rows);
-		cards.sort(comparator(view.sort));
+		const compare = SORTS[view.sort].compare;
+		cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
 		return {
 			rows: cards,
 			open,
@@ -6671,20 +6685,10 @@
 	}
 	var byPrice = (a, b) => a.currentPrice - b.currentPrice || a.endsAt - b.endsAt || a.id - b.id;
 	function combineDuplicates(rows) {
-		const buckets = new Map();
-		const cards = [];
-		for (const row of rows) {
-			const { lot } = row;
-			if (lot.hasBid || lot.yourStanding || row.hidden || row.matched) {
-				cards.push(row);
-				continue;
-			}
-			const key = `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ""}\u0000${lot.location?.name ?? ""}`;
-			const b = buckets.get(key);
-			if (b) b.push(row);
-			else buckets.set(key, [row]);
-		}
+		const ownCard = (row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
+		const cards = rows.filter(ownCard);
 		const groups = new Map();
+		const buckets = Map.groupBy(rows.filter((row) => !ownCard(row)), ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ""}\u0000${lot.location?.name ?? ""}`);
 		for (const bucket of buckets.values()) {
 			if (bucket.length === 1) {
 				cards.push(bucket[0]);
@@ -6696,122 +6700,68 @@
 				...bucket[0],
 				others: lots.slice(1)
 			});
-			for (const l of lots) groups.set(l.id, lots);
+			lots.forEach((l) => groups.set(l.id, lots));
 		}
 		return {
 			cards,
 			groups
 		};
 	}
-	function makeMatcher(view, now) {
-		const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
-		const win = endingWindow(view.ending, now);
-		const cats = new Set(view.categories);
-		const conds = new Set(view.conditions);
-		const locs = new Set(view.locations);
-		return (row) => passes(row, view, terms, win, cats, conds, locs);
+	function oneOf(selected) {
+		const set = new Set(selected);
+		return (value) => !set.size || set.has(value);
 	}
-	function passes({ lot, total, pickupOnly }, v, terms, win, cats, conds, locs) {
-		if (v.newSince != null && (lot.firstSeenAt ?? 0) <= v.newSince) return false;
-		if (terms.length) {
+	function makeMatcher(v, now) {
+		const terms = v.search.toLowerCase().split(/\s+/).filter(Boolean);
+		const win = ENDING[v.ending].window?.(now);
+		const category = oneOf(v.categories);
+		const condition = oneOf(v.conditions);
+		const location = oneOf(v.locations);
+		const mine = MINE[v.mine].test;
+		const searchMatches = (lot) => {
 			const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
-			if (!terms.every((t) => hay.includes(t))) return false;
-		}
-		if (cats.size && !cats.has(lot.category?.value ?? "")) return false;
-		if (conds.size && !conds.has(lot.condition?.value ?? -1)) return false;
-		if (locs.size && !locs.has(lot.location?.name ?? "")) return false;
-		if (v.reachable && pickupOnly) return false;
-		if (v.priceMin != null && lot.currentPrice < v.priceMin) return false;
-		if (v.priceMax != null && lot.currentPrice > v.priceMax) return false;
-		if (v.totalMax != null && total > v.totalMax) return false;
-		if (v.retailMin != null && (lot.estimatedRetailPrice ?? 0) < v.retailMin) return false;
-		if (win && (lot.endsAt < win[0] || lot.endsAt >= win[1])) return false;
-		switch (v.mine) {
-			case "bid":
-				if (!lot.hasBid && !lot.yourStanding) return false;
-				break;
-			case "leading":
-				if (!lot.yourStanding?.isLeading) return false;
-				break;
-			case "outbid":
-				if (!(lot.hasBid || lot.yourStanding) || lot.yourStanding?.isLeading) return false;
-				break;
-			case "watch": if (!lot.isWatchlisted) return false;
-		}
-		return true;
+			return terms.every((t) => hay.includes(t));
+		};
+		return ({ lot, total, pickupOnly }) => (v.newSince == null || (lot.firstSeenAt ?? 0) > v.newSince) && (!terms.length || searchMatches(lot)) && category(lot.category?.value ?? "") && condition(lot.condition?.value ?? -1) && location(lot.location?.name ?? "") && !(v.reachable && pickupOnly) && (v.priceMin == null || lot.currentPrice >= v.priceMin) && (v.priceMax == null || lot.currentPrice <= v.priceMax) && (v.totalMax == null || total <= v.totalMax) && (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) && (!win || lot.endsAt >= win[0] && lot.endsAt < win[1]) && mine(lot);
 	}
-	function comparator(sort) {
-		const tie = (a, b) => a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
-		const by = (f) => (a, b) => f(a, b) || tie(a, b);
-		switch (sort) {
-			case "newly-listed": return (a, b) => b.lot.id - a.lot.id;
-			case "title-asc": return by((a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title)));
-			case "title-desc": return by((a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title)));
-			case "total-asc": return by((a, b) => a.total - b.total);
-			case "total-desc": return by((a, b) => b.total - a.total);
-			case "retail-pct-asc": return by((a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity));
-			case "retail-desc": return by((a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1));
-			case "bids-most": return by((a, b) => b.lot.bidCount - a.lot.bidCount);
-			case "bids-fewest": return by((a, b) => a.lot.bidCount - b.lot.bidCount);
-			default: return tie;
-		}
+	function tally(items) {
+		const groups = Map.groupBy(items.filter((i) => i != null), (i) => i.value);
+		return Array.from(groups.values(), (g) => ({
+			value: g[0].value,
+			label: g[0].label,
+			count: g.length
+		}));
 	}
 	function computeFacets(lots, now) {
-		const cats = new Map();
-		const conds = new Map();
-		const locs = new Map();
-		for (const l of lots) {
-			if (l.endsAt <= now) continue;
-			if (l.category) {
-				const c = cats.get(l.category.value) ?? cats.set(l.category.value, {
-					...l.category,
-					count: 0
-				}).get(l.category.value);
-				c.count++;
-			}
-			if (l.condition) {
-				const c = conds.get(l.condition.value) ?? conds.set(l.condition.value, {
-					...l.condition,
-					count: 0
-				}).get(l.condition.value);
-				c.count++;
-			}
-			if (l.location) {
-				const c = locs.get(l.location.name) ?? locs.set(l.location.name, {
-					name: l.location.name,
-					count: 0
-				}).get(l.location.name);
-				c.count++;
-			}
-		}
+		const open = Array.from(lots).filter((l) => l.endsAt > now);
 		return {
-			categories: [...cats.values()].sort((a, b) => a.label.localeCompare(b.label)),
-			conditions: [...conds.values()].sort((a, b) => a.value - b.value),
-			locations: [...locs.values()].sort((a, b) => b.count - a.count)
+			categories: tally(open.map((l) => l.category)).sort((a, b) => a.label.localeCompare(b.label)),
+			conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
+			locations: tally(open.map((l) => l.location && {
+				value: l.location.name,
+				label: l.location.name
+			})).sort((a, b) => b.count - a.count)
 		};
 	}
-	var savedFilters = (v) => {
-		const { newSince, ...rest } = v;
-		return rest;
-	};
+	var savedFilters = ({ newSince, ...rest }) => rest;
 	function sameFilters(a, b) {
 		const strip = ({ sort, ...rest }) => rest;
 		return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
 	}
 	function suggestName(v, facets) {
-		const parts = [];
-		if (v.search.trim()) parts.push(v.search.trim());
-		for (const c of v.categories) parts.push(facets.categories.find((f) => f.value === c)?.label ?? c);
-		if (v.locations.length) parts.push(v.locations.join("/"));
-		if (v.priceMax != null) parts.push(`≤ $${v.priceMax}`);
-		if (v.totalMax != null) parts.push(`total ≤ $${v.totalMax}`);
-		return parts.join(" · ") || "Saved search";
+		return [
+			v.search.trim(),
+			...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
+			v.locations.join("/"),
+			v.priceMax != null && `≤ $${v.priceMax}`,
+			v.totalMax != null && `total ≤ $${v.totalMax}`
+		].filter(Boolean).join(" · ") || "Saved search";
 	}
 	function savedSearchStats(lots, searches, pickup, ex, now) {
 		const matchers = searches.map((s) => ({
 			s,
-			m: makeMatcher(normalizeView(s.view), now),
-			st: {
+			matches: makeMatcher(normalizeView(s.view), now),
+			stats: {
 				total: 0,
 				fresh: 0
 			}
@@ -6820,13 +6770,12 @@
 			if (lot.endsAt <= now) continue;
 			const row = makeRow(lot, pickup, ex);
 			if (row.hidden || row.matched) continue;
-			for (const { s, m, st } of matchers) {
-				if (!m(row)) continue;
-				st.total++;
-				if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) st.fresh++;
+			for (const { s, matches, stats } of matchers) if (matches(row)) {
+				stats.total++;
+				if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) stats.fresh++;
 			}
 		}
-		return new Map(matchers.map(({ s, st }) => [s.id, st]));
+		return new Map(matchers.map(({ s, stats }) => [s.id, stats]));
 	}
 	function Sidebar(props) {
 		return u("div", {
@@ -6841,7 +6790,7 @@
 				u(SettingsSection, {
 					pickup: props.pickup,
 					accountPickup: props.accountPickup,
-					locations: props.facets.locations.map((l) => l.name)
+					locations: props.facets.locations.map((l) => l.value)
 				})
 			]
 		});
@@ -6869,27 +6818,51 @@
 			})]
 		});
 	}
-	function toggle(list, v) {
-		return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+	function CheckList({ facets, selected, onChange }) {
+		const toggle = (v) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+		return u(S, { children: facets.map((f) => u("label", {
+			class: "check",
+			children: [
+				u("input", {
+					type: "checkbox",
+					checked: selected.includes(f.value),
+					onChange: () => toggle(f.value)
+				}),
+				u("span", { children: f.label }),
+				u("span", {
+					class: "count",
+					children: fmtCount(f.count)
+				})
+			]
+		})) });
 	}
-	function NumberField({ label, value, onChange }) {
-		const [text, setText] = d(value == null ? "" : String(value));
-		h(() => setText(value == null ? "" : String(value)), [value]);
+	function NumberInput({ label, value, parse, onChange, ...input }) {
+		const format = (v) => v == null ? "" : String(v);
+		const [text, setText] = d(format(value));
+		h(() => setText(format(value)), [value]);
 		const commit = () => {
-			const n = parseNum(text);
-			if (n !== value) onChange(n);
+			const v = parse(text);
+			setText(format(v));
+			if (v !== value) onChange(v);
 		};
 		return u("label", {
 			class: "field",
 			children: [u("span", { children: label }), u("input", {
-				type: "text",
-				inputMode: "decimal",
-				placeholder: "$",
+				...input,
 				value: text,
 				onInput: (e) => setText(e.currentTarget.value),
 				onBlur: commit,
 				onKeyDown: (e) => e.key === "Enter" && commit()
 			})]
+		});
+	}
+	function PriceField(props) {
+		return u(NumberInput, {
+			...props,
+			parse: parseNum,
+			type: "text",
+			inputMode: "decimal",
+			placeholder: "$"
 		});
 	}
 	function FiltersSection({ view, setView, facets, pickup, authed }) {
@@ -6918,7 +6891,7 @@
 					children: [u("span", { children: "My lots" }), u("select", {
 						value: view.mine,
 						onChange: (e) => setView({ mine: e.currentTarget.value }),
-						children: Object.entries(MINE).map(([k, label]) => u("option", {
+						children: Object.entries(MINE).map(([k, { label }]) => u("option", {
 							value: k,
 							disabled: !!k && !authed,
 							children: label
@@ -6930,7 +6903,7 @@
 					children: [u("span", { children: "Ending" }), u("select", {
 						value: view.ending,
 						onChange: (e) => setView({ ending: e.currentTarget.value }),
-						children: Object.entries(ENDING).map(([k, label]) => u("option", {
+						children: Object.entries(ENDING).map(([k, { label }]) => u("option", {
 							value: k,
 							children: label
 						}))
@@ -6939,21 +6912,11 @@
 				u(Collapsible, {
 					id: "f-location",
 					title: "Location",
-					children: [facets.locations.map((l) => u("label", {
-						class: "check",
-						children: [
-							u("input", {
-								type: "checkbox",
-								checked: view.locations.includes(l.name),
-								onChange: () => setView({ locations: toggle(view.locations, l.name) })
-							}),
-							u("span", { children: l.name }),
-							u("span", {
-								class: "count",
-								children: fmtCount(l.count)
-							})
-						]
-					})), u("label", {
+					children: [u(CheckList, {
+						facets: facets.locations,
+						selected: view.locations,
+						onChange: (locations) => setView({ locations })
+					}), u("label", {
 						class: "check",
 						children: [u("input", {
 							type: "checkbox",
@@ -6969,70 +6932,105 @@
 				u(Collapsible, {
 					id: "f-category",
 					title: "Category",
-					children: facets.categories.map((c) => u("label", {
-						class: "check",
-						children: [
-							u("input", {
-								type: "checkbox",
-								checked: view.categories.includes(c.value),
-								onChange: () => setView({ categories: toggle(view.categories, c.value) })
-							}),
-							u("span", { children: c.label }),
-							u("span", {
-								class: "count",
-								children: fmtCount(c.count)
-							})
-						]
-					}))
+					children: u(CheckList, {
+						facets: facets.categories,
+						selected: view.categories,
+						onChange: (categories) => setView({ categories })
+					})
 				}),
 				u(Collapsible, {
 					id: "f-condition",
 					title: "Condition",
-					children: facets.conditions.map((c) => u("label", {
-						class: "check",
-						children: [
-							u("input", {
-								type: "checkbox",
-								checked: view.conditions.includes(c.value),
-								onChange: () => setView({ conditions: toggle(view.conditions, c.value) })
-							}),
-							u("span", { children: c.label }),
-							u("span", {
-								class: "count",
-								children: fmtCount(c.count)
-							})
-						]
-					}))
+					children: u(CheckList, {
+						facets: facets.conditions,
+						selected: view.conditions,
+						onChange: (conditions) => setView({ conditions })
+					})
 				}),
 				u(Collapsible, {
 					id: "f-price",
 					title: "Price",
 					children: [u("div", {
 						class: "field-row",
-						children: [u(NumberField, {
+						children: [u(PriceField, {
 							label: "Bid min",
 							value: view.priceMin,
-							onChange: (v) => setView({ priceMin: v })
-						}), u(NumberField, {
+							onChange: (priceMin) => setView({ priceMin })
+						}), u(PriceField, {
 							label: "Bid max",
 							value: view.priceMax,
-							onChange: (v) => setView({ priceMax: v })
+							onChange: (priceMax) => setView({ priceMax })
 						})]
 					}), u("div", {
 						class: "field-row",
-						children: [u(NumberField, {
+						children: [u(PriceField, {
 							label: "Max est. total",
 							value: view.totalMax,
-							onChange: (v) => setView({ totalMax: v })
-						}), u(NumberField, {
+							onChange: (totalMax) => setView({ totalMax })
+						}), u(PriceField, {
 							label: "Min retail",
 							value: view.retailMin,
-							onChange: (v) => setView({ retailMin: v })
+							onChange: (retailMin) => setView({ retailMin })
 						})]
 					})]
 				})
 			]
 		});
+	}
+	function useInlineEdit() {
+		const [editing, setEditing] = d(null);
+		const [text, setText] = d("");
+		const [error, setError] = d(null);
+		const box = A$1(null);
+		const open = A$1(null);
+		h(() => {
+			if (editing != null) box.current?.select();
+		}, [editing]);
+		const start = (id, initial) => {
+			open.current = id;
+			setEditing(id);
+			setText(initial);
+			setError(null);
+		};
+		const close = () => {
+			open.current = null;
+			setEditing(null);
+			setError(null);
+		};
+		const save = (id, onSave) => {
+			if (open.current !== id) return;
+			const next = text.trim();
+			const err = next ? onSave(next) : void 0;
+			if (err) setError(err);
+			else close();
+		};
+		const boxProps = (id, onSave) => ({
+			ref: box,
+			value: text,
+			onInput: (e) => {
+				setText(e.currentTarget.value.replace(/\n/g, ""));
+				setError(null);
+			},
+			onKeyDown: (e) => {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					save(id, onSave);
+				} else if (e.key === "Escape") {
+					e.preventDefault();
+					e.stopPropagation();
+					close();
+				}
+			},
+			onBlur: () => save(id, onSave)
+		});
+		return {
+			editing,
+			text,
+			error,
+			start,
+			save,
+			boxProps
+		};
 	}
 	function PatternText({ pattern }) {
 		const parts = pattern.split("|");
@@ -7045,33 +7043,12 @@
 		});
 	}
 	function FilterRow({ pattern, count, onRemove, onSave }) {
-		const [editing, setEditing] = d(false);
-		const [text, setText] = d(pattern);
-		const [err, setErr] = d(null);
-		const box = A$1(null);
+		const edit = useInlineEdit();
+		const editing = edit.editing != null;
 		const ok = !!compileFilter(pattern);
-		h(() => {
-			if (editing) box.current?.select();
-		}, [editing]);
-		const isOpen = A$1(false);
-		const start = () => {
-			setText(pattern);
-			setErr(null);
-			isOpen.current = true;
-			setEditing(true);
-		};
-		const cancel = () => {
-			isOpen.current = false;
-			setEditing(false);
-			setErr(null);
-		};
-		const save = () => {
-			if (!isOpen.current) return;
-			const next = text.trim();
-			if (!next || next === pattern) return cancel();
-			if (!compileFilter(next)) return setErr("Invalid regex");
-			isOpen.current = false;
-			setEditing(false);
+		const save = (next) => {
+			if (next === pattern) return;
+			if (!compileFilter(next)) return "Invalid regex";
 			onSave(next);
 		};
 		return u("li", {
@@ -7091,36 +7068,20 @@
 				editing ? u("div", {
 					class: "filter-edit",
 					children: [u("textarea", {
-						class: err ? "has-error" : "",
+						class: edit.error ? "has-error" : "",
 						"aria-label": "Edit filter regex",
 						spellcheck: false,
-						rows: Math.min(6, Math.max(1, Math.ceil(text.length / 26))),
-						value: text,
-						ref: box,
-						onInput: (e) => {
-							setText(e.currentTarget.value.replace(/\n/g, ""));
-							setErr(null);
-						},
-						onKeyDown: (e) => {
-							if (e.key === "Enter") {
-								e.preventDefault();
-								save();
-							} else if (e.key === "Escape") {
-								e.preventDefault();
-								e.stopPropagation();
-								cancel();
-							}
-						},
-						onBlur: save
+						rows: Math.min(6, Math.max(1, Math.ceil(edit.text.length / 26))),
+						...edit.boxProps("pattern", save)
 					}), u("span", {
-						class: err ? "error small" : "muted small",
-						children: err ?? "Enter to save · Esc to cancel"
+						class: edit.error ? "error small" : "muted small",
+						children: edit.error ?? "Enter to save · Esc to cancel"
 					})]
 				}) : u("button", {
 					type: "button",
 					class: "filter-pattern",
 					title: ok ? `/\\b(?:${pattern})\\b/i – click to edit` : "Invalid regex – ignored. Click to edit",
-					onClick: start,
+					onClick: () => edit.start("pattern", pattern),
 					children: u(PatternText, { pattern })
 				}),
 				ok && !editing && u("span", {
@@ -7151,11 +7112,16 @@
 		const [err, setErr] = d(null);
 		const add = () => {
 			const list = splitFilters(input);
-			if (!list.length) return;
 			const bad = list.filter((p) => !compileFilter(p));
-			if (bad.length) return setErr(`Invalid regex: ${bad.join(", ")}`);
-			setWords([...words, ...list.filter((p) => !words.includes(p))]);
-			setInput("");
+			if (bad.length) setErr(`Invalid regex: ${bad.join(", ")}`);
+			else if (list.length) {
+				setWords([...new Set([...words, ...list])]);
+				setInput("");
+			}
+		};
+		const unhide = (id) => {
+			const { [id]: _, ...rest } = hiddenLots;
+			setHiddenLots(rest);
 		};
 		const hidden = Object.entries(hiddenLots).sort((a, b) => b[1].ts - a[1].ts);
 		return u("section", {
@@ -7205,17 +7171,17 @@
 				}),
 				u(Switch, {
 					label: "Apply filters",
-					checked: !!filterOn,
+					checked: filterOn,
 					onChange: setFilterOn
 				}),
 				u(Switch, {
 					label: "Remove filtered lots instead of graying out",
-					checked: !!removeFiltered,
+					checked: removeFiltered,
 					onChange: setRemoveFiltered
 				}),
 				u(Switch, {
 					label: "Show hidden lots",
-					checked: !!showHidden,
+					checked: showHidden,
 					onChange: setShowHidden
 				}),
 				u(Collapsible, {
@@ -7226,22 +7192,14 @@
 						children: hidden.map(([id, info]) => u("li", { children: [u("a", {
 							href: info.href,
 							title: info.title,
-							onClick: (e) => {
-								if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
-								e.preventDefault();
-								onOpenHidden(Number(id));
-							},
+							onClick: openHandler(() => onOpenHidden(Number(id))),
 							children: info.title || `Lot ${id}`
 						}), u("button", {
 							type: "button",
 							class: "icon-btn",
 							title: "Unhide",
 							"aria-label": `Unhide ${info.title}`,
-							onClick: () => {
-								const next = { ...hiddenLots };
-								delete next[id];
-								setHiddenLots(next);
-							},
+							onClick: () => unhide(id),
 							children: u(Icon, {
 								name: "visibility",
 								size: 18
@@ -7260,34 +7218,19 @@
 	function SettingsSection({ pickup, accountPickup, locations }) {
 		const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
 		const [override, setOverride] = useSetting(KEYS.pickup);
-		const [text, setText] = d(String(minutes));
-		h(() => setText(String(minutes)), [minutes]);
-		const commit = () => {
-			const n = Math.max(1, Math.round(parseNum(text) ?? 5));
-			setText(String(n));
-			if (n !== minutes) setMinutes(n);
-		};
-		const options = [...new Set([...locations, pickup])];
 		return u("section", {
 			class: "panel",
 			children: u(Collapsible, {
 				id: "settings",
 				title: u("h2", { children: "Settings" }),
-				children: [u("label", {
-					class: "field",
-					children: [u("span", { children: [
-						"Full catalog refresh at most every (minutes, min ",
-						1,
-						")"
-					] }), u("input", {
-						type: "number",
-						min: 1,
-						step: 1,
-						value: text,
-						onInput: (e) => setText(e.currentTarget.value),
-						onBlur: commit,
-						onKeyDown: (e) => e.key === "Enter" && commit()
-					})]
+				children: [u(NumberInput, {
+					label: `Full catalog refresh at most every (minutes, min 1)`,
+					value: minutes,
+					parse: (text) => Math.max(1, Math.round(parseNum(text) ?? 5)),
+					onChange: setMinutes,
+					type: "number",
+					min: 1,
+					step: 1
 				}), u("label", {
 					class: "field",
 					children: [u("span", { children: "Pickup location (for transfer fees)" }), u("select", {
@@ -7300,7 +7243,7 @@
 								accountPickup ?? "Raleigh",
 								")"
 							]
-						}), options.map((o) => u("option", {
+						}), [...new Set([...locations, pickup])].map((o) => u("option", {
 							value: o,
 							children: o
 						}))]
@@ -7310,48 +7253,9 @@
 		});
 	}
 	function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedName, onSave, onOpen, onDelete, onRename }) {
-		const [naming, setNaming] = d(false);
-		const [name, setName] = d("");
-		const [renaming, setRenaming] = d(null);
-		const input = A$1(null);
-		h(() => {
-			if (naming || renaming) input.current?.select();
-		}, [naming, renaming]);
-		const open = A$1(null);
-		const startSave = () => {
-			setName(suggestedName);
-			open.current = "new";
-			setNaming(true);
-		};
-		const cancelSave = () => {
-			open.current = null;
-			setNaming(false);
-		};
-		const commitSave = () => {
-			if (open.current !== "new") return;
-			open.current = null;
-			setNaming(false);
-			if (name.trim()) onSave(name.trim());
-		};
-		const cancelRename = () => {
-			open.current = null;
-			setRenaming(null);
-		};
-		const commitRename = (id) => {
-			if (open.current !== id) return;
-			open.current = null;
-			setRenaming(null);
-			if (name.trim()) onRename(id, name.trim());
-		};
-		const keys = (commit, cancel) => (e) => {
-			if (e.key === "Enter") {
-				e.preventDefault();
-				commit();
-			} else if (e.key === "Escape") {
-				e.preventDefault();
-				cancel();
-			}
-		};
+		const edit = useInlineEdit();
+		const naming = edit.editing === "new";
+		const saveNew = (name) => onSave(name);
 		return u("section", {
 			class: "panel",
 			children: [
@@ -7361,7 +7265,7 @@
 						type: "button",
 						class: "btn-text",
 						disabled: !canSave,
-						onClick: startSave,
+						onClick: () => edit.start("new", suggestedName),
 						title: canSave ? "Save the current filters" : "Set some filters first, or this search is already saved",
 						children: "Save current"
 					})]
@@ -7369,18 +7273,14 @@
 				naming && u("div", {
 					class: "add-filter",
 					children: [u("input", {
-						ref: input,
 						type: "text",
 						"aria-label": "Name for saved search",
-						value: name,
-						onInput: (e) => setName(e.currentTarget.value),
-						onKeyDown: keys(commitSave, cancelSave),
-						onBlur: commitSave
+						...edit.boxProps("new", saveNew)
 					}), u("button", {
 						type: "button",
 						class: "btn-text",
 						onMouseDown: (e) => e.preventDefault(),
-						onClick: commitSave,
+						onClick: () => edit.save("new", saveNew),
 						children: "Save"
 					})]
 				}),
@@ -7409,25 +7309,17 @@
 										size: 16
 									})
 								}),
-								renaming === s.id ? u("input", {
-									ref: input,
+								edit.editing === s.id ? u("input", {
 									class: "rename",
 									type: "text",
 									"aria-label": "Rename saved search",
-									value: name,
-									onInput: (e) => setName(e.currentTarget.value),
-									onKeyDown: keys(() => commitRename(s.id), cancelRename),
-									onBlur: () => commitRename(s.id)
+									...edit.boxProps(s.id, (name) => onRename(s.id, name))
 								}) : u("button", {
 									type: "button",
 									class: "saved-name",
 									title: "Click to open · double-click to rename",
 									onClick: () => onOpen(s, false),
-									onDblClick: () => {
-										setName(s.name);
-										open.current = s.id;
-										setRenaming(s.id);
-									},
+									onDblClick: () => edit.start(s.id, s.name),
 									children: s.name
 								}),
 								st.fresh > 0 && u("button", {
@@ -7450,23 +7342,17 @@
 		});
 	}
 	var PAGE_SIZE = 60;
-	var DAY = 864e5;
 	function useAccountPickup(lots, authed) {
 		const [acct] = useSetting(KEYS.accountPickup);
 		h(() => {
-			if (!authed || acct && Date.now() - acct.at < DAY) return;
-			fetchPickupLocation().then((p) => setSetting(KEYS.accountPickup, {
+			if (authed && !(acct && Date.now() - acct.at < 864e5)) fetchPickupLocation().then((p) => setSetting(KEYS.accountPickup, {
 				id: p?.id ?? null,
 				name: p?.name ?? null,
 				at: Date.now()
 			}), () => {});
 		}, [authed]);
-		if (!acct) return null;
-		if (acct.name) return acct.name;
-		if (acct.id != null) {
-			for (const l of lots.values()) if (l.location?.id === acct.id) return l.location.name;
-		}
-		return null;
+		if (acct?.name || acct?.id == null) return acct?.name ?? null;
+		return lots.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 	}
 	function App() {
 		const catalog = useCatalog();
@@ -7508,16 +7394,17 @@
 			return () => clearTimeout(t);
 		}, [search]);
 		h(() => {
-			if (view.search === pushed.current) return;
-			pushed.current = view.search;
-			setSearch(view.search);
+			if (view.search !== pushed.current) {
+				pushed.current = view.search;
+				setSearch(view.search);
+			}
 		}, [view.search]);
 		const exclusions = T$1(() => ({
 			words,
-			filterOn: !!filterOn,
-			removeFiltered: !!removeFiltered,
+			filterOn,
+			removeFiltered,
 			hidden: hiddenLots,
-			showHidden: !!showHidden
+			showHidden
 		}), [
 			words,
 			filterOn,
@@ -7545,9 +7432,10 @@
 			exclusions,
 			now30
 		]);
-		const totalNew = [...savedStats.values()].reduce((n, s) => n + s.fresh, 0);
+		const totalNew = savedStats.values().reduce((n, s) => n + s.fresh, 0);
 		const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
 		const newSince = view.newSince ?? (highlight && activeSaved?.id === highlight.id ? highlight.since : null);
+		const isNew = (lot) => newSince != null && (lot.firstSeenAt ?? 0) > newSince;
 		h(() => {
 			document.title = totalNew ? `(${totalNew}) TL Catalog` : "TL Catalog";
 		}, [totalNew]);
@@ -7597,25 +7485,25 @@
 		const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
 		const curPage = Math.min(page, pages);
 		const pageRows = result.rows.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
-		const watchKey = [...pageRows.map((r) => r.lot.id), ...openId ? [openId] : []].join(",");
+		const watchIds = [...pageRows.map((r) => r.lot.id), ...openId ? [openId] : []];
 		h(() => {
-			if (!catalog.loaded) return;
-			const ids = watchKey ? watchKey.split(",").map(Number) : [];
-			const t = setTimeout(() => void watchLots(ids).catch(() => {}), 300);
-			return () => clearTimeout(t);
-		}, [watchKey, catalog.loaded]);
+			if (catalog.loaded) {
+				const t = setTimeout(() => void watchLots(watchIds).catch(() => {}), 300);
+				return () => clearTimeout(t);
+			}
+		}, [watchIds.join(","), catalog.loaded]);
 		const toggleHide = q$1((lot) => {
-			const next = { ...getSetting(KEYS.hidden) };
-			if (next[lot.id]) delete next[lot.id];
-			else next[lot.id] = {
-				title: lot.title,
-				href: lotHref(lot.auctionPeriod, lot.id),
-				ts: Date.now()
-			};
-			setHiddenLots(next);
+			const { [lot.id]: wasHidden, ...rest } = getSetting(KEYS.hidden);
+			setHiddenLots(wasHidden ? rest : {
+				...rest,
+				[lot.id]: {
+					title: lot.title,
+					href: lotHref(lot.auctionPeriod, lot.id),
+					ts: Date.now()
+				}
+			});
 		}, []);
 		const openLot = q$1((lot) => setOpenId(lot.id), []);
-		const askBid = q$1((req) => setBidReq(req), []);
 		const openHidden = q$1((id) => {
 			if (getLot(id)) setOpenId(id);
 			else window.open(getSetting(KEYS.hidden)[id]?.href ?? "/", "_blank", "noopener");
@@ -7627,6 +7515,7 @@
 		const openLotObj = openId != null ? catalog.lots.get(openId) : void 0;
 		const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : void 0;
 		const nFilters = activeFilterCount(view);
+		const freshMatches = view.newSince == null && activeSaved && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
 		return u("div", {
 			class: "app",
 			children: [
@@ -7652,7 +7541,7 @@
 							"aria-label": "Sort",
 							value: view.sort,
 							onChange: (e) => setView({ sort: e.currentTarget.value }),
-							children: Object.entries(SORTS).map(([k, label]) => u("option", {
+							children: Object.entries(SORTS).map(([k, { label }]) => u("option", {
 								value: k,
 								children: label
 							}))
@@ -7709,54 +7598,51 @@
 							u("div", {
 								class: "results-line",
 								ref: gridTop,
-								children: [u("span", { children: [
-									result.rows.length ? `${fmtCount((curPage - 1) * PAGE_SIZE + 1)}–${fmtCount((curPage - 1) * PAGE_SIZE + pageRows.length)} of ${fmtCount(result.rows.length)}` : catalog.loaded && !catalog.progress ? "No lots match" : "",
-									result.removed > 0 && u("span", {
-										class: "muted",
-										children: [
-											" · ",
-											fmtCount(result.removed),
-											" hidden or removed"
-										]
-									}),
-									result.filteredOut > 0 && u("span", {
-										class: "muted",
-										children: [
-											" · ",
-											fmtCount(result.filteredOut),
-											" outside filters"
-										]
-									}),
-									result.combined > 0 && u("span", {
-										class: "muted",
-										children: [
-											" · ",
-											fmtCount(result.combined),
-											" duplicates combined"
-										]
-									})
-								] }), view.newSince != null ? u("span", {
-									class: "new-line",
-									children: [
-										"Only lots listed since ",
-										new Date(view.newSince).toLocaleString([], {
-											weekday: "short",
-											hour: "numeric",
-											minute: "2-digit"
+								children: [
+									u("span", { children: [
+										result.rows.length ? `${fmtCount((curPage - 1) * PAGE_SIZE + 1)}–${fmtCount((curPage - 1) * PAGE_SIZE + pageRows.length)} of ${fmtCount(result.rows.length)}` : catalog.loaded && !catalog.progress ? "No lots match" : "",
+										result.removed > 0 && u("span", {
+											class: "muted",
+											children: [
+												" · ",
+												fmtCount(result.removed),
+												" hidden or removed"
+											]
 										}),
-										u("button", {
-											type: "button",
-											class: "btn-text",
-											onClick: () => setView({ newSince: null }),
-											children: "Show all"
+										result.filteredOut > 0 && u("span", {
+											class: "muted",
+											children: [
+												" · ",
+												fmtCount(result.filteredOut),
+												" outside filters"
+											]
+										}),
+										result.combined > 0 && u("span", {
+											class: "muted",
+											children: [
+												" · ",
+												fmtCount(result.combined),
+												" duplicates combined"
+											]
 										})
-									]
-								}) : activeSaved && newSince != null && (() => {
-									const n = result.rows.filter((r) => (r.lot.firstSeenAt ?? 0) > newSince).length;
-									return n > 0 ? u("span", {
+									] }),
+									view.newSince != null && u("span", {
 										class: "new-line",
 										children: [
-											fmtCount(n),
+											"Only lots listed since ",
+											shortTime(view.newSince),
+											u("button", {
+												type: "button",
+												class: "btn-text",
+												onClick: () => setView({ newSince: null }),
+												children: "Show all"
+											})
+										]
+									}),
+									freshMatches > 0 && u("span", {
+										class: "new-line",
+										children: [
+											fmtCount(freshMatches),
 											" new since your last look at “",
 											activeSaved.name,
 											"”",
@@ -7767,17 +7653,17 @@
 												children: "Show only new"
 											})
 										]
-									}) : null;
-								})()]
+									})
+								]
 							}),
 							u("div", {
 								class: "grid",
 								children: pageRows.map((row) => u(LotCard, {
 									row,
-									isNew: newSince != null && (row.lot.firstSeenAt ?? 0) > newSince,
+									isNew: isNew(row.lot),
 									onOpen: openLot,
 									onToggleHide: toggleHide,
-									onBid: askBid
+									onBid: setBidReq
 								}, row.lot.id))
 							}),
 							pages > 1 && u(Pager, {
@@ -7792,7 +7678,7 @@
 					row: makeRow(openLotObj, pickup, exclusions),
 					onClose: () => setOpenId(null),
 					onToggleHide: () => toggleHide(openLotObj),
-					onBid: askBid,
+					onBid: setBidReq,
 					group: result.groups.get(openLotObj.id),
 					onOpenLot: openLot
 				}),
@@ -7806,6 +7692,12 @@
 			]
 		});
 	}
+	var LIVE_LABELS = {
+		connected: "Live",
+		connecting: "Connecting",
+		off: "Live off",
+		disconnected: "Offline"
+	};
 	function StatusBar() {
 		const catalog = useCatalog();
 		const live = useLiveState();
@@ -7813,11 +7705,10 @@
 		const { meta, progress, error, loaded } = catalog;
 		const wait = nextPullAt() - now;
 		const due = wait <= 0;
-		let text;
+		let text = "No cached catalog yet";
 		if (!loaded) text = "Reading local cache…";
 		else if (progress) text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : "Refreshing catalog…";
 		else if (meta.fetchedAt) text = `${fmtCount(catalog.lots.size)} lots · refreshed ${ago(meta.fetchedAt, now)}`;
-		else text = "No cached catalog yet";
 		const pct = progress?.total ? Math.round(progress.done / progress.total * 100) : 0;
 		return u("div", {
 			class: "statusbar",
@@ -7826,7 +7717,7 @@
 				u("span", {
 					class: `live live-${live}`,
 					title: `Live price updates for lots on screen: ${live}`,
-					children: ["● ", live === "connected" ? "Live" : live === "connecting" ? "Connecting" : live === "off" ? "Live off" : "Offline"]
+					children: ["● ", LIVE_LABELS[live]]
 				}),
 				u("button", {
 					type: "button",
@@ -7866,12 +7757,7 @@
 			page,
 			page + 1
 		])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
-		const out = [];
-		nums.forEach((n, i) => {
-			if (i && n - nums[i - 1] > 1) out.push("…");
-			out.push(n);
-		});
-		return out;
+		return nums.flatMap((n, i) => i && n - nums[i - 1] > 1 ? ["…", n] : [n]);
 	}
 	function Pager({ page, pages, go }) {
 		return u("nav", {
@@ -7924,13 +7810,13 @@
 		body.appendChild(mount);
 		root.append(head, body);
 		new MutationObserver((records) => {
-			for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLScriptElement || n instanceof HTMLLinkElement && n.rel !== "icon") n.remove();
+			for (const node of records.flatMap((r) => [...r.addedNodes])) if (node instanceof HTMLScriptElement || node instanceof HTMLLinkElement && node.rel !== "icon") node.remove();
 		}).observe(root, {
 			childList: true,
 			subtree: true
 		});
 		startAuth();
-		R(u(App, {}), mount);
+		R$1(u(App, {}), mount);
 		startCatalog();
 	}
 	if (location.pathname.replace(/\/+$/, "") === "/tlx") takeOver();

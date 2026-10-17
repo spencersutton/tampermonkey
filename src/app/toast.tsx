@@ -1,5 +1,6 @@
 // Small transient messages (bid results), shown bottom-center.
-import { useEffect, useState } from 'preact/hooks';
+import { useSyncExternalStore } from 'preact/compat';
+import { emitter } from './util';
 
 export type ToastKind = 'good' | 'bad' | 'info';
 interface Toast {
@@ -11,10 +12,7 @@ interface Toast {
 /** Toasts currently on screen (at most four). */
 let toasts: Toast[] = [];
 let nextId = 1;
-/** Setters of mounted <Toasts> components. */
-const subs = new Set<(t: Toast[]) => void>();
-/** Push the current toast list to subscribers. */
-const emit = () => subs.forEach((f) => f(toasts));
+const { subscribe, emit } = emitter();
 
 /** Show a message for `ms` (errors stay up longer). */
 export function toast(kind: ToastKind, text: string, ms = kind === 'bad' ? 8000 : 4000) {
@@ -32,11 +30,7 @@ function dismiss(id: number) {
 
 /** Renders the toast stack; mounted once by App. */
 export function Toasts() {
-  const [list, set] = useState(toasts);
-  useEffect(() => {
-    subs.add(set);
-    return () => void subs.delete(set);
-  }, []);
+  const list = useSyncExternalStore(subscribe, () => toasts);
   return (
     <div class="toasts" role="status" aria-live="polite">
       {list.map((t) => (

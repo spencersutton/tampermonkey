@@ -1,15 +1,16 @@
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter, splitFilters } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { useSetting } from './gm';
 import { Icon } from './icons';
-import { fmtCount, parseNum } from './util';
+import { fmtCount, openHandler, parseNum } from './util';
 import {
   activeFilterCount,
   DEFAULT_VIEW,
   ENDING,
   MINE,
+  type Facet,
   type Facets,
   type SavedSearch,
   type SavedSearchStats,
@@ -35,7 +36,7 @@ export function Sidebar(props: Props) {
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
       <HideFilterSection matchCounts={props.matchCounts} onOpenHidden={props.onOpenHidden} />
-      <SettingsSection pickup={props.pickup} accountPickup={props.accountPickup} locations={props.facets.locations.map((l) => l.name)} />
+      <SettingsSection pickup={props.pickup} accountPickup={props.accountPickup} locations={props.facets.locations.map((l) => l.value)} />
     </div>
   );
 }
@@ -55,33 +56,52 @@ function Collapsible({ id, title, children }: { id: string; title: ComponentChil
   );
 }
 
-/** Add the value to the list, or remove it if present. */
-function toggle<T>(list: T[], v: T): T[] {
-  return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
+/** A checkbox per facet value with its lot count; checking none means no filter. */
+function CheckList<T>({ facets, selected, onChange }: { facets: Facet<T>[]; selected: T[]; onChange: (next: T[]) => void }) {
+  const toggle = (v: T) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  return (
+    <>
+      {facets.map((f) => (
+        <label class="check">
+          <input type="checkbox" checked={selected.includes(f.value)} onChange={() => toggle(f.value)} />
+          <span>{f.label}</span>
+          <span class="count">{fmtCount(f.count)}</span>
+        </label>
+      ))}
+    </>
+  );
 }
 
-/** Numeric input that commits on blur/Enter; empty means no limit (null). */
-function NumberField({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number | null) => void }) {
-  const [text, setText] = useState(value == null ? '' : String(value));
-  useEffect(() => setText(value == null ? '' : String(value)), [value]);
+type NumberInputProps<T> = {
+  label: string;
+  value: T;
+  parse: (text: string) => T;
+  onChange: (v: T) => void;
+} & Omit<InputHTMLAttributes, 'label' | 'value' | 'onChange'>;
+
+/** Number input that commits on blur or Enter; `parse` turns the typed text into the value. */
+function NumberInput<T extends number | null>({ label, value, parse, onChange, ...input }: NumberInputProps<T>) {
+  const format = (v: T) => (v == null ? '' : String(v));
+  const [text, setText] = useState(format(value));
+  useEffect(() => setText(format(value)), [value]);
   const commit = () => {
-    const n = parseNum(text);
-    if (n !== value) onChange(n);
+    const v = parse(text);
+    setText(format(v));
+    if (v !== value) {
+      onChange(v);
+    }
   };
   return (
     <label class="field">
       <span>{label}</span>
-      <input
-        type="text"
-        inputMode="decimal"
-        placeholder="$"
-        value={text}
-        onInput={(e) => setText(e.currentTarget.value)}
-        onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && commit()}
-      />
+      <input {...input} value={text} onInput={(e) => setText(e.currentTarget.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()} />
     </label>
   );
+}
+
+/** Dollar amount; empty means no limit (null). */
+function PriceField(props: { label: string; value: number | null; onChange: (v: number | null) => void }) {
+  return <NumberInput {...props} parse={parseNum} type="text" inputMode="decimal" placeholder="$" />;
 }
 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
@@ -101,7 +121,7 @@ function FiltersSection({ view, setView, facets, pickup, authed }: Props) {
       <label class="field">
         <span>My lots</span>
         <select value={view.mine} onChange={(e) => setView({ mine: e.currentTarget.value as ViewState['mine'] })}>
-          {Object.entries(MINE).map(([k, label]) => (
+          {Object.entries(MINE).map(([k, { label }]) => (
             <option value={k} disabled={!!k && !authed}>
               {label}
             </option>
@@ -112,20 +132,14 @@ function FiltersSection({ view, setView, facets, pickup, authed }: Props) {
       <label class="field">
         <span>Ending</span>
         <select value={view.ending} onChange={(e) => setView({ ending: e.currentTarget.value as ViewState['ending'] })}>
-          {Object.entries(ENDING).map(([k, label]) => (
+          {Object.entries(ENDING).map(([k, { label }]) => (
             <option value={k}>{label}</option>
           ))}
         </select>
       </label>
 
       <Collapsible id="f-location" title="Location">
-        {facets.locations.map((l) => (
-          <label class="check">
-            <input type="checkbox" checked={view.locations.includes(l.name)} onChange={() => setView({ locations: toggle(view.locations, l.name) })} />
-            <span>{l.name}</span>
-            <span class="count">{fmtCount(l.count)}</span>
-          </label>
-        ))}
+        <CheckList facets={facets.locations} selected={view.locations} onChange={(locations) => setView({ locations })} />
         <label class="check">
           <input type="checkbox" checked={view.reachable} onChange={() => setView({ reachable: !view.reachable })} />
           <span>Available at {pickup} (incl. transfers)</span>
@@ -133,37 +147,94 @@ function FiltersSection({ view, setView, facets, pickup, authed }: Props) {
       </Collapsible>
 
       <Collapsible id="f-category" title="Category">
-        {facets.categories.map((c) => (
-          <label class="check">
-            <input type="checkbox" checked={view.categories.includes(c.value)} onChange={() => setView({ categories: toggle(view.categories, c.value) })} />
-            <span>{c.label}</span>
-            <span class="count">{fmtCount(c.count)}</span>
-          </label>
-        ))}
+        <CheckList facets={facets.categories} selected={view.categories} onChange={(categories) => setView({ categories })} />
       </Collapsible>
 
       <Collapsible id="f-condition" title="Condition">
-        {facets.conditions.map((c) => (
-          <label class="check">
-            <input type="checkbox" checked={view.conditions.includes(c.value)} onChange={() => setView({ conditions: toggle(view.conditions, c.value) })} />
-            <span>{c.label}</span>
-            <span class="count">{fmtCount(c.count)}</span>
-          </label>
-        ))}
+        <CheckList facets={facets.conditions} selected={view.conditions} onChange={(conditions) => setView({ conditions })} />
       </Collapsible>
 
       <Collapsible id="f-price" title="Price">
         <div class="field-row">
-          <NumberField label="Bid min" value={view.priceMin} onChange={(v) => setView({ priceMin: v })} />
-          <NumberField label="Bid max" value={view.priceMax} onChange={(v) => setView({ priceMax: v })} />
+          <PriceField label="Bid min" value={view.priceMin} onChange={(priceMin) => setView({ priceMin })} />
+          <PriceField label="Bid max" value={view.priceMax} onChange={(priceMax) => setView({ priceMax })} />
         </div>
         <div class="field-row">
-          <NumberField label="Max est. total" value={view.totalMax} onChange={(v) => setView({ totalMax: v })} />
-          <NumberField label="Min retail" value={view.retailMin} onChange={(v) => setView({ retailMin: v })} />
+          <PriceField label="Max est. total" value={view.totalMax} onChange={(totalMax) => setView({ totalMax })} />
+          <PriceField label="Min retail" value={view.retailMin} onChange={(retailMin) => setView({ retailMin })} />
         </div>
       </Collapsible>
     </section>
   );
+}
+
+/** Saves the edited text; returns an error message to keep the editor open. */
+type SaveFn = (text: string) => string | void;
+
+/**
+ * Inline text editors, one open at a time (identified by an id). Enter or
+ * blur saves the trimmed text (empty just closes), Escape cancels.
+ */
+function useInlineEdit() {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const box = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  // Which editor is open, updated synchronously: Enter closes the editor, and
+  // removing the focused box then fires a blur whose handler still sees the
+  // old state – this keeps that second save from running.
+  const open = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (editing != null) {
+      box.current?.select();
+    }
+  }, [editing]);
+
+  const start = (id: string, initial: string) => {
+    open.current = id;
+    setEditing(id);
+    setText(initial);
+    setError(null);
+  };
+  const close = () => {
+    open.current = null;
+    setEditing(null);
+    setError(null);
+  };
+  const save = (id: string, onSave: SaveFn) => {
+    if (open.current !== id) {
+      return;
+    }
+    const next = text.trim();
+    const err = next ? onSave(next) : undefined;
+    if (err) {
+      setError(err);
+    } else {
+      close();
+    }
+  };
+  /** Props for the editor's input or textarea. */
+  const boxProps = (id: string, onSave: SaveFn) => ({
+    ref: box,
+    value: text,
+    onInput: (e: { currentTarget: HTMLInputElement | HTMLTextAreaElement }) => {
+      setText(e.currentTarget.value.replace(/\n/g, ''));
+      setError(null);
+    },
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        save(id, onSave);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      }
+    },
+    onBlur: () => save(id, onSave),
+  });
+  return { editing, text, error, start, save, boxProps };
 }
 
 // Each "alternative|" is its own inline-block, so long alternations wrap
@@ -188,36 +259,16 @@ interface FilterRowProps {
 
 // One filter per line: remove button, pattern (click to edit), match count.
 function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(pattern);
-  const [err, setErr] = useState<string | null>(null);
-  const box = useRef<HTMLTextAreaElement>(null);
+  const edit = useInlineEdit();
+  const editing = edit.editing != null;
   const ok = !!compileFilter(pattern);
-
-  useEffect(() => {
-    if (editing) box.current?.select();
-  }, [editing]);
-
-  // Synchronous flag: the blur that follows Enter/Esc must not save again.
-  const isOpen = useRef(false);
-  const start = () => {
-    setText(pattern);
-    setErr(null);
-    isOpen.current = true;
-    setEditing(true);
-  };
-  const cancel = () => {
-    isOpen.current = false;
-    setEditing(false);
-    setErr(null);
-  };
-  const save = () => {
-    if (!isOpen.current) return;
-    const next = text.trim();
-    if (!next || next === pattern) return cancel();
-    if (!compileFilter(next)) return setErr('Invalid regex');
-    isOpen.current = false;
-    setEditing(false);
+  const save: SaveFn = (next) => {
+    if (next === pattern) {
+      return;
+    }
+    if (!compileFilter(next)) {
+      return 'Invalid regex';
+    }
     onSave(next);
   };
 
@@ -229,36 +280,20 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
       {editing ? (
         <div class="filter-edit">
           <textarea
-            class={err ? 'has-error' : ''}
+            class={edit.error ? 'has-error' : ''}
             aria-label="Edit filter regex"
             spellcheck={false}
-            rows={Math.min(6, Math.max(1, Math.ceil(text.length / 26)))}
-            value={text}
-            ref={box}
-            onInput={(e) => {
-              setText(e.currentTarget.value.replace(/\n/g, ''));
-              setErr(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                save();
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                cancel();
-              }
-            }}
-            onBlur={save}
+            rows={Math.min(6, Math.max(1, Math.ceil(edit.text.length / 26)))}
+            {...edit.boxProps('pattern', save)}
           />
-          <span class={err ? 'error small' : 'muted small'}>{err ?? 'Enter to save · Esc to cancel'}</span>
+          <span class={edit.error ? 'error small' : 'muted small'}>{edit.error ?? 'Enter to save · Esc to cancel'}</span>
         </div>
       ) : (
         <button
           type="button"
           class="filter-pattern"
           title={ok ? `/\\b(?:${pattern})\\b/i – click to edit` : 'Invalid regex – ignored. Click to edit'}
-          onClick={start}
+          onClick={() => edit.start('pattern', pattern)}
         >
           <PatternText pattern={pattern} />
         </button>
@@ -290,11 +325,17 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
 
   const add = () => {
     const list = splitFilters(input);
-    if (!list.length) return;
     const bad = list.filter((p) => !compileFilter(p));
-    if (bad.length) return setErr(`Invalid regex: ${bad.join(', ')}`);
-    setWords([...words, ...list.filter((p) => !words.includes(p))]);
-    setInput('');
+    if (bad.length) {
+      setErr(`Invalid regex: ${bad.join(', ')}`);
+    } else if (list.length) {
+      setWords([...new Set([...words, ...list])]);
+      setInput('');
+    }
+  };
+  const unhide = (id: string) => {
+    const { [id]: _, ...rest } = hiddenLots;
+    setHiddenLots(rest);
   };
   const hidden = Object.entries(hiddenLots).sort((a, b) => b[1].ts - a[1].ts);
 
@@ -335,36 +376,18 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
         </ul>
       </Collapsible>
 
-      <Switch label="Apply filters" checked={!!filterOn} onChange={setFilterOn} />
-      <Switch label="Remove filtered lots instead of graying out" checked={!!removeFiltered} onChange={setRemoveFiltered} />
-      <Switch label="Show hidden lots" checked={!!showHidden} onChange={setShowHidden} />
+      <Switch label="Apply filters" checked={filterOn} onChange={setFilterOn} />
+      <Switch label="Remove filtered lots instead of graying out" checked={removeFiltered} onChange={setRemoveFiltered} />
+      <Switch label="Show hidden lots" checked={showHidden} onChange={setShowHidden} />
 
       <Collapsible id="hidden" title={`Hidden lots (${hidden.length})`}>
         <ul class="hidden-list">
           {hidden.map(([id, info]) => (
             <li>
-              <a
-                href={info.href}
-                title={info.title}
-                onClick={(e) => {
-                  if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
-                  e.preventDefault();
-                  onOpenHidden(Number(id));
-                }}
-              >
+              <a href={info.href} title={info.title} onClick={openHandler(() => onOpenHidden(Number(id)))}>
                 {info.title || `Lot ${id}`}
               </a>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Unhide"
-                aria-label={`Unhide ${info.title}`}
-                onClick={() => {
-                  const next = { ...hiddenLots };
-                  delete next[id];
-                  setHiddenLots(next);
-                }}
-              >
+              <button type="button" class="icon-btn" title="Unhide" aria-label={`Unhide ${info.title}`} onClick={() => unhide(id)}>
                 <Icon name="visibility" size={18} />
               </button>
             </li>
@@ -384,34 +407,23 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
 function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
   const [override, setOverride] = useSetting(KEYS.pickup);
-  const [text, setText] = useState(String(minutes));
-  useEffect(() => setText(String(minutes)), [minutes]);
-  const commit = () => {
-    const n = Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? DEFAULT_SYNC_MINUTES));
-    setText(String(n));
-    if (n !== minutes) setMinutes(n);
-  };
-  const options = [...new Set([...locations, pickup])];
   return (
     <section class="panel">
       <Collapsible id="settings" title={<h2>Settings</h2>}>
-        <label class="field">
-          <span>Full catalog refresh at most every (minutes, min {MIN_SYNC_MINUTES})</span>
-          <input
-            type="number"
-            min={MIN_SYNC_MINUTES}
-            step={1}
-            value={text}
-            onInput={(e) => setText(e.currentTarget.value)}
-            onBlur={commit}
-            onKeyDown={(e) => e.key === 'Enter' && commit()}
-          />
-        </label>
+        <NumberInput
+          label={`Full catalog refresh at most every (minutes, min ${MIN_SYNC_MINUTES})`}
+          value={minutes}
+          parse={(text) => Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? DEFAULT_SYNC_MINUTES))}
+          onChange={setMinutes}
+          type="number"
+          min={MIN_SYNC_MINUTES}
+          step={1}
+        />
         <label class="field">
           <span>Pickup location (for transfer fees)</span>
           <select value={override ?? ''} onChange={(e) => setOverride(e.currentTarget.value || null)}>
             <option value="">Account default ({accountPickup ?? 'Raleigh'})</option>
-            {options.map((o) => (
+            {[...new Set([...locations, pickup])].map((o) => (
               <option value={o}>{o}</option>
             ))}
           </select>
@@ -435,76 +447,31 @@ export interface SavedSearchesProps {
 
 /** Saved searches with total/new counts, plus save, rename and delete. */
 function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedName, onSave, onOpen, onDelete, onRename }: SavedSearchesProps) {
-  const [naming, setNaming] = useState(false);
-  const [name, setName] = useState('');
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const input = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (naming || renaming) input.current?.select();
-  }, [naming, renaming]);
-
-  // Which inline editor is open, updated synchronously: Enter closes the editor,
-  // and removing the focused input then fires a blur whose handler still sees
-  // the old state – this ref keeps that second commit from running.
-  const open = useRef<string | null>(null);
-
-  const startSave = () => {
-    setName(suggestedName);
-    open.current = 'new';
-    setNaming(true);
-  };
-  const cancelSave = () => {
-    open.current = null;
-    setNaming(false);
-  };
-  const commitSave = () => {
-    if (open.current !== 'new') return;
-    open.current = null;
-    setNaming(false);
-    if (name.trim()) onSave(name.trim());
-  };
-  const cancelRename = () => {
-    open.current = null;
-    setRenaming(null);
-  };
-  const commitRename = (id: string) => {
-    if (open.current !== id) return;
-    open.current = null;
-    setRenaming(null);
-    if (name.trim()) onRename(id, name.trim());
-  };
-  const keys = (commit: () => void, cancel: () => void) => (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commit();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      cancel();
-    }
-  };
+  // Editor ids: 'new' names a new saved search; otherwise it's the id being renamed.
+  const edit = useInlineEdit();
+  const naming = edit.editing === 'new';
+  const saveNew: SaveFn = (name) => onSave(name);
 
   return (
     <section class="panel">
       <div class="panel-head">
         <h2>Saved searches</h2>
         {!naming && (
-          <button type="button" class="btn-text" disabled={!canSave} onClick={startSave} title={canSave ? 'Save the current filters' : 'Set some filters first, or this search is already saved'}>
+          <button
+            type="button"
+            class="btn-text"
+            disabled={!canSave}
+            onClick={() => edit.start('new', suggestedName)}
+            title={canSave ? 'Save the current filters' : 'Set some filters first, or this search is already saved'}
+          >
             Save current
           </button>
         )}
       </div>
       {naming && (
         <div class="add-filter">
-          <input
-            ref={input}
-            type="text"
-            aria-label="Name for saved search"
-            value={name}
-            onInput={(e) => setName(e.currentTarget.value)}
-            onKeyDown={keys(commitSave, cancelSave)}
-            onBlur={commitSave}
-          />
-          <button type="button" class="btn-text" onMouseDown={(e) => e.preventDefault()} onClick={commitSave}>
+          <input type="text" aria-label="Name for saved search" {...edit.boxProps('new', saveNew)} />
+          <button type="button" class="btn-text" onMouseDown={(e) => e.preventDefault()} onClick={() => edit.save('new', saveNew)}>
             Save
           </button>
         </div>
@@ -517,31 +484,24 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
           const st = stats.get(s.id) ?? { total: 0, fresh: 0 };
           return (
             <li class={`filter-row saved-row ${s.id === activeId ? 'active' : ''}`}>
-              <button type="button" class="filter-remove" aria-label={`Delete ${s.name}`} title="Delete saved search" onClick={() => confirm(`Delete saved search “${s.name}”?`) && onDelete(s.id)}>
+              <button
+                type="button"
+                class="filter-remove"
+                aria-label={`Delete ${s.name}`}
+                title="Delete saved search"
+                onClick={() => confirm(`Delete saved search “${s.name}”?`) && onDelete(s.id)}
+              >
                 <Icon name="cancel" size={16} />
               </button>
-              {renaming === s.id ? (
-                <input
-                  ref={input}
-                  class="rename"
-                  type="text"
-                  aria-label="Rename saved search"
-                  value={name}
-                  onInput={(e) => setName(e.currentTarget.value)}
-                  onKeyDown={keys(() => commitRename(s.id), cancelRename)}
-                  onBlur={() => commitRename(s.id)}
-                />
+              {edit.editing === s.id ? (
+                <input class="rename" type="text" aria-label="Rename saved search" {...edit.boxProps(s.id, (name) => onRename(s.id, name))} />
               ) : (
                 <button
                   type="button"
                   class="saved-name"
                   title="Click to open · double-click to rename"
                   onClick={() => onOpen(s, false)}
-                  onDblClick={() => {
-                    setName(s.name);
-                    open.current = s.id;
-                    setRenaming(s.id);
-                  }}
+                  onDblClick={() => edit.start(s.id, s.name)}
                 >
                   {s.name}
                 </button>

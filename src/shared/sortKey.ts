@@ -45,7 +45,9 @@ export function sortKey(title: string): string {
   const moved: string[] = [];
   for (let i = 0; i < 12; i++) {
     const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
-    if (!m || !m[0]) break;
+    if (!m?.[0]) {
+      break;
+    }
     moved.push(m[0].trim());
     rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, '');
   }

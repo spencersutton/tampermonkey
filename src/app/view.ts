@@ -3,41 +3,76 @@ import { buildRegexes, firstMatch, type CompiledFilter } from '../shared/filters
 import { totalCost } from '../shared/cost';
 import { collator, sortKey } from '../shared/sortKey';
 import type { HiddenLot } from '../shared/keys';
+import { hasBidOn } from './bid';
 import type { Lot } from './types';
+import { HOUR } from './util';
 
-/** Sort options, id -> label. */
+/** A lot with everything the grid needs computed once. */
+export interface Row {
+  lot: Lot;
+  transferFee: number; // fee to get it to my pickup location (0 if already there)
+  pickupOnly: boolean; // at another location and not transferable
+  total: number;
+  retailPct: number | null;
+  matched: string | null; // regex filter that matched the title
+  hidden: boolean;
+  others: Lot[]; // identical listings folded into this card (cheapest first)
+}
+
+type Compare = (a: Row, b: Row) => number;
+
+/** Sort options. Ties always fall back to ending soonest. */
 export const SORTS = {
-  'ending-soonest': 'Ending soonest',
-  'newly-listed': 'Newly listed',
-  'title-asc': 'Title A–Z',
-  'title-desc': 'Title Z–A',
-  'total-asc': 'Total cost: low to high',
-  'total-desc': 'Total cost: high to low',
-  'retail-pct-asc': 'Best deal (% of retail)',
-  'retail-desc': 'Retail price: high to low',
-  'bids-most': 'Most bids',
-  'bids-fewest': 'Fewest bids',
-} as const;
+  'ending-soonest': { label: 'Ending soonest', compare: () => 0 },
+  'newly-listed': { label: 'Newly listed', compare: (a, b) => b.lot.id - a.lot.id },
+  'title-asc': { label: 'Title A–Z', compare: (a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title)) },
+  'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title)) },
+  'total-asc': { label: 'Total cost: low to high', compare: (a, b) => a.total - b.total },
+  'total-desc': { label: 'Total cost: high to low', compare: (a, b) => b.total - a.total },
+  'retail-pct-asc': { label: 'Best deal (% of retail)', compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) },
+  'retail-desc': { label: 'Retail price: high to low', compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1) },
+  'bids-most': { label: 'Most bids', compare: (a, b) => b.lot.bidCount - a.lot.bidCount },
+  'bids-fewest': { label: 'Fewest bids', compare: (a, b) => a.lot.bidCount - b.lot.bidCount },
+} satisfies Record<string, { label: string; compare: Compare }>;
 export type SortId = keyof typeof SORTS;
 
-/** "Ending" filter options, id -> label. */
+type Window = [start: number, end: number];
+
+/** The next `h` hours. */
+function nextHours(h: number) {
+  return (now: number): Window => [now, now + h * HOUR];
+}
+
+/** The calendar day `offset` days from today, minus the part already past. */
+function day(offset: number) {
+  return (now: number): Window => {
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + offset);
+    const start = d.getTime();
+    d.setDate(d.getDate() + 1);
+    return [Math.max(start, now), d.getTime()];
+  };
+}
+
+/** "Ending" filter options, with the closing-time window each allows. */
 export const ENDING = {
-  '': 'Any time',
-  '1h': 'Within 1 hour',
-  '3h': 'Within 3 hours',
-  today: 'Today',
-  tomorrow: 'Tomorrow',
-} as const;
+  '': { label: 'Any time', window: null },
+  '1h': { label: 'Within 1 hour', window: nextHours(1) },
+  '3h': { label: 'Within 3 hours', window: nextHours(3) },
+  today: { label: 'Today', window: day(0) },
+  tomorrow: { label: 'Tomorrow', window: day(1) },
+} satisfies Record<string, { label: string; window: ((now: number) => Window) | null }>;
 export type EndingId = keyof typeof ENDING;
 
-/** "My lots" filter options, id -> label. */
+/** "My lots" filter options. */
 export const MINE = {
-  '': 'All lots',
-  bid: 'Lots I bid on',
-  leading: 'I’m winning',
-  outbid: 'I’m outbid',
-  watch: 'Watchlist',
-} as const;
+  '': { label: 'All lots', test: () => true },
+  bid: { label: 'Lots I bid on', test: hasBidOn },
+  leading: { label: 'I’m winning', test: (l) => !!l.yourStanding?.isLeading },
+  outbid: { label: 'I’m outbid', test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading },
+  watch: { label: 'Watchlist', test: (l) => l.isWatchlisted },
+} satisfies Record<string, { label: string; test: (lot: Lot) => boolean }>;
 export type MineId = keyof typeof MINE;
 
 export interface ViewState {
@@ -75,12 +110,13 @@ export const DEFAULT_VIEW: ViewState = {
 
 /** Turn a stored (possibly old or invalid) view into a complete ViewState. */
 export function normalizeView(v: unknown): ViewState {
-  const o = v && typeof v === 'object' ? (v as Partial<ViewState>) : {};
-  const view = { ...DEFAULT_VIEW, ...o };
-  if (!(view.sort in SORTS)) view.sort = DEFAULT_VIEW.sort;
-  if (!(view.ending in ENDING)) view.ending = '';
-  if (!(view.mine in MINE)) view.mine = '';
-  return view;
+  const view = { ...DEFAULT_VIEW, ...(v && typeof v === 'object' ? (v as Partial<ViewState>) : {}) };
+  return {
+    ...view,
+    sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
+    ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
+    mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine,
+  };
 }
 
 /** How many filters the view has turned on (shown on the "Clear" button). */
@@ -99,18 +135,6 @@ export const activeFilterCount = (v: ViewState) =>
     v.newSince != null,
   ].filter(Boolean).length;
 
-/** A lot with everything the grid needs computed once. */
-export interface Row {
-  lot: Lot;
-  transferFee: number; // fee to get it to my pickup location (0 if already there)
-  pickupOnly: boolean; // at another location and not transferable
-  total: number;
-  retailPct: number | null;
-  matched: string | null; // regex filter that matched the title
-  hidden: boolean;
-  others: Lot[]; // identical listings folded into this card (cheapest first)
-}
-
 export interface Exclusions {
   words: string[];
   filterOn: boolean;
@@ -121,18 +145,25 @@ export interface Exclusions {
 
 /** Memoized sortKey() results by title. */
 const sortKeys = new Map<string, string>();
+
 /** sortKey() for a title, cached. */
 function titleKey(title: string) {
-  let k = sortKeys.get(title);
-  if (k === undefined) sortKeys.set(title, (k = sortKey(title)));
-  return k;
+  let key = sortKeys.get(title);
+  if (key === undefined) {
+    key = sortKey(title);
+    sortKeys.set(title, key);
+  }
+  return key;
 }
 
 /** Compiled regex filters for the most recent word list. */
 let regexCache: { words: string[]; compiled: CompiledFilter[] } | null = null;
+
 /** Compiled regexes for the filter words, recompiled only when the list changes. */
 function compiledFilters(words: string[]) {
-  if (regexCache?.words !== words) regexCache = { words, compiled: buildRegexes(words) };
+  if (regexCache?.words !== words) {
+    regexCache = { words, compiled: buildRegexes(words) };
+  }
   return regexCache.compiled;
 }
 
@@ -152,19 +183,6 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   };
 }
 
-/** The [start, end) time range for an "Ending" filter, or null for any time. */
-function endingWindow(e: EndingId, now: number): [number, number] | null {
-  if (!e) return null;
-  if (e === '1h') return [now, now + 3600_000];
-  if (e === '3h') return [now, now + 3 * 3600_000];
-  const d = new Date(now);
-  d.setHours(0, 0, 0, 0);
-  if (e === 'tomorrow') d.setDate(d.getDate() + 1);
-  const start = d.getTime();
-  d.setDate(d.getDate() + 1);
-  return [Math.max(start, now), d.getTime()];
-}
-
 export interface ViewResult {
   rows: Row[]; // after all filters, sorted
   open: number; // lots still open
@@ -178,7 +196,7 @@ export interface ViewResult {
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
 export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: number): ViewResult {
   const matches = makeMatcher(view, now);
-  const matchCounts = new Map<string, number>(ex.words.map((w) => [w, 0]));
+  const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const compiled = compiledFilters(ex.words);
 
   const rows: Row[] = [];
@@ -186,23 +204,27 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   let removed = 0;
   let filteredOut = 0;
   for (const lot of lots) {
-    if (lot.endsAt <= now) continue;
+    if (lot.endsAt <= now) {
+      continue;
+    }
     open++;
-    for (const { word, re } of compiled) if (re && re.test(lot.title)) matchCounts.set(word, (matchCounts.get(word) || 0) + 1);
-
+    for (const { word, re } of compiled) {
+      if (re?.test(lot.title)) {
+        matchCounts.set(word, matchCounts.get(word)! + 1);
+      }
+    }
     const row = makeRow(lot, pickup, ex);
     if ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered)) {
       removed++;
-      continue;
-    }
-    if (!matches(row)) {
+    } else if (!matches(row)) {
       filteredOut++;
-      continue;
+    } else {
+      rows.push(row);
     }
-    rows.push(row);
   }
   const { cards, groups } = combineDuplicates(rows);
-  cards.sort(comparator(view.sort));
+  const compare: Compare = SORTS[view.sort].compare;
+  cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
   return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
 }
 
@@ -215,20 +237,13 @@ const byPrice = (a: Lot, b: Lot) => a.currentPrice - b.currentPrice || a.endsAt 
  * their own card.
  */
 function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Lot[]> } {
-  const buckets = new Map<string, Row[]>();
-  const cards: Row[] = [];
-  for (const row of rows) {
-    const { lot } = row;
-    if (lot.hasBid || lot.yourStanding || row.hidden || row.matched) {
-      cards.push(row);
-      continue;
-    }
-    const key = `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ''}\u0000${lot.location?.name ?? ''}`;
-    const b = buckets.get(key);
-    if (b) b.push(row);
-    else buckets.set(key, [row]);
-  }
+  const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
+  const cards = rows.filter(ownCard);
   const groups = new Map<number, Lot[]>();
+  const buckets = Map.groupBy(
+    rows.filter((row) => !ownCard(row)),
+    ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ''}\u0000${lot.location?.name ?? ''}`,
+  );
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {
       cards.push(bucket[0]);
@@ -237,120 +252,72 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Lot
     bucket.sort((a, b) => byPrice(a.lot, b.lot));
     const lots = bucket.map((r) => r.lot);
     cards.push({ ...bucket[0], others: lots.slice(1) });
-    for (const l of lots) groups.set(l.id, lots);
+    lots.forEach((l) => groups.set(l.id, lots));
   }
   return { cards, groups };
 }
 
+/** Predicate for "value is one of the selected", where selecting nothing allows everything. */
+function oneOf<T>(selected: T[]): (value: T) => boolean {
+  const set = new Set(selected);
+  return (value) => !set.size || set.has(value);
+}
+
 /** Predicate for the view's own filters (not hide / regex exclusions). */
-export function makeMatcher(view: ViewState, now: number): (row: Row) => boolean {
-  const terms = view.search.toLowerCase().split(/\s+/).filter(Boolean);
-  const win = endingWindow(view.ending, now);
-  const cats = new Set(view.categories);
-  const conds = new Set(view.conditions);
-  const locs = new Set(view.locations);
-  return (row) => passes(row, view, terms, win, cats, conds, locs);
-}
-
-/** Whether a row passes every filter in the view. */
-function passes(
-  { lot, total, pickupOnly }: Row,
-  v: ViewState,
-  terms: string[],
-  win: [number, number] | null,
-  cats: Set<string>,
-  conds: Set<number>,
-  locs: Set<string>,
-): boolean {
-  if (v.newSince != null && (lot.firstSeenAt ?? 0) <= v.newSince) return false;
-  if (terms.length) {
+export function makeMatcher(v: ViewState, now: number): (row: Row) => boolean {
+  const terms = v.search.toLowerCase().split(/\s+/).filter(Boolean);
+  const win = ENDING[v.ending].window?.(now);
+  const category = oneOf(v.categories);
+  const condition = oneOf(v.conditions);
+  const location = oneOf(v.locations);
+  const mine: (lot: Lot) => boolean = MINE[v.mine].test;
+  const searchMatches = (lot: Lot) => {
     const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
-    if (!terms.every((t) => hay.includes(t))) return false;
-  }
-  if (cats.size && !cats.has(lot.category?.value ?? '')) return false;
-  if (conds.size && !conds.has(lot.condition?.value ?? -1)) return false;
-  if (locs.size && !locs.has(lot.location?.name ?? '')) return false;
-  if (v.reachable && pickupOnly) return false;
-  if (v.priceMin != null && lot.currentPrice < v.priceMin) return false;
-  if (v.priceMax != null && lot.currentPrice > v.priceMax) return false;
-  if (v.totalMax != null && total > v.totalMax) return false;
-  if (v.retailMin != null && (lot.estimatedRetailPrice ?? 0) < v.retailMin) return false;
-  if (win && (lot.endsAt < win[0] || lot.endsAt >= win[1])) return false;
-  switch (v.mine) {
-    case 'bid':
-      if (!lot.hasBid && !lot.yourStanding) return false;
-      break;
-    case 'leading':
-      if (!lot.yourStanding?.isLeading) return false;
-      break;
-    case 'outbid':
-      if (!(lot.hasBid || lot.yourStanding) || lot.yourStanding?.isLeading) return false;
-      break;
-    case 'watch':
-      if (!lot.isWatchlisted) return false;
-      break;
-  }
-  return true;
+    return terms.every((t) => hay.includes(t));
+  };
+  return ({ lot, total, pickupOnly }) =>
+    (v.newSince == null || (lot.firstSeenAt ?? 0) > v.newSince) &&
+    (!terms.length || searchMatches(lot)) &&
+    category(lot.category?.value ?? '') &&
+    condition(lot.condition?.value ?? -1) &&
+    location(lot.location?.name ?? '') &&
+    !(v.reachable && pickupOnly) &&
+    (v.priceMin == null || lot.currentPrice >= v.priceMin) &&
+    (v.priceMax == null || lot.currentPrice <= v.priceMax) &&
+    (v.totalMax == null || total <= v.totalMax) &&
+    (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) &&
+    (!win || (lot.endsAt >= win[0] && lot.endsAt < win[1])) &&
+    mine(lot);
 }
 
-/** Compare function for a sort option; ties fall back to ending soonest. */
-function comparator(sort: SortId): (a: Row, b: Row) => number {
-  const tie = (a: Row, b: Row) => a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
-  const by = (f: (a: Row, b: Row) => number) => (a: Row, b: Row) => f(a, b) || tie(a, b);
-  switch (sort) {
-    case 'newly-listed':
-      return (a, b) => b.lot.id - a.lot.id;
-    case 'title-asc':
-      return by((a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title)));
-    case 'title-desc':
-      return by((a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title)));
-    case 'total-asc':
-      return by((a, b) => a.total - b.total);
-    case 'total-desc':
-      return by((a, b) => b.total - a.total);
-    case 'retail-pct-asc':
-      return by((a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity));
-    case 'retail-desc':
-      return by((a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1));
-    case 'bids-most':
-      return by((a, b) => b.lot.bidCount - a.lot.bidCount);
-    case 'bids-fewest':
-      return by((a, b) => a.lot.bidCount - b.lot.bidCount);
-    default:
-      return tie;
-  }
+export interface Facet<T> {
+  value: T;
+  label: string;
+  count: number;
 }
 
 export interface Facets {
-  categories: { value: string; label: string; count: number }[];
-  conditions: { value: number; label: string; count: number }[];
-  locations: { name: string; count: number }[];
+  categories: Facet<string>[];
+  conditions: Facet<number>[];
+  locations: Facet<string>[];
+}
+
+/** Distinct values with how often each occurs (the first label seen wins). */
+function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
+  const groups = Map.groupBy(
+    items.filter((i) => i != null),
+    (i) => i.value,
+  );
+  return Array.from(groups.values(), (g) => ({ value: g[0].value, label: g[0].label, count: g.length }));
 }
 
 /** Categories, conditions and locations among open lots, with counts, for the filter lists. */
 export function computeFacets(lots: Iterable<Lot>, now: number): Facets {
-  const cats = new Map<string, { value: string; label: string; count: number }>();
-  const conds = new Map<number, { value: number; label: string; count: number }>();
-  const locs = new Map<string, { name: string; count: number }>();
-  for (const l of lots) {
-    if (l.endsAt <= now) continue;
-    if (l.category) {
-      const c = cats.get(l.category.value) ?? cats.set(l.category.value, { ...l.category, count: 0 }).get(l.category.value)!;
-      c.count++;
-    }
-    if (l.condition) {
-      const c = conds.get(l.condition.value) ?? conds.set(l.condition.value, { ...l.condition, count: 0 }).get(l.condition.value)!;
-      c.count++;
-    }
-    if (l.location) {
-      const c = locs.get(l.location.name) ?? locs.set(l.location.name, { name: l.location.name, count: 0 }).get(l.location.name)!;
-      c.count++;
-    }
-  }
+  const open = Array.from(lots).filter((l) => l.endsAt > now);
   return {
-    categories: [...cats.values()].sort((a, b) => a.label.localeCompare(b.label)),
-    conditions: [...conds.values()].sort((a, b) => a.value - b.value),
-    locations: [...locs.values()].sort((a, b) => b.count - a.count),
+    categories: tally(open.map((l) => l.category)).sort((a, b) => a.label.localeCompare(b.label)),
+    conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
+    locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).sort((a, b) => b.count - a.count),
   };
 }
 
@@ -365,10 +332,7 @@ export interface SavedSearch {
 }
 
 /** The parts of a view that a saved search stores. */
-export const savedFilters = (v: ViewState): Omit<ViewState, 'newSince'> => {
-  const { newSince, ...rest } = v;
-  return rest;
-};
+export const savedFilters = ({ newSince, ...rest }: ViewState): Omit<ViewState, 'newSince'> => rest;
 
 /** Same filters (ignoring sort and the "new only" toggle)? */
 export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boolean {
@@ -378,13 +342,14 @@ export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boole
 
 /** Default name for a new saved search, built from its filters. */
 export function suggestName(v: ViewState, facets: Facets): string {
-  const parts: string[] = [];
-  if (v.search.trim()) parts.push(v.search.trim());
-  for (const c of v.categories) parts.push(facets.categories.find((f) => f.value === c)?.label ?? c);
-  if (v.locations.length) parts.push(v.locations.join('/'));
-  if (v.priceMax != null) parts.push(`≤ $${v.priceMax}`);
-  if (v.totalMax != null) parts.push(`total ≤ $${v.totalMax}`);
-  return parts.join(' · ') || 'Saved search';
+  const parts = [
+    v.search.trim(),
+    ...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
+    v.locations.join('/'),
+    v.priceMax != null && `≤ $${v.priceMax}`,
+    v.totalMax != null && `total ≤ $${v.totalMax}`,
+  ];
+  return parts.filter(Boolean).join(' · ') || 'Saved search';
 }
 
 export interface SavedSearchStats {
@@ -400,16 +365,23 @@ export function savedSearchStats(
   ex: Exclusions,
   now: number,
 ): Map<string, SavedSearchStats> {
-  const matchers = searches.map((s) => ({ s, m: makeMatcher(normalizeView(s.view), now), st: { total: 0, fresh: 0 } }));
+  const matchers = searches.map((s) => ({ s, matches: makeMatcher(normalizeView(s.view), now), stats: { total: 0, fresh: 0 } }));
   for (const lot of lots) {
-    if (lot.endsAt <= now) continue;
+    if (lot.endsAt <= now) {
+      continue;
+    }
     const row = makeRow(lot, pickup, ex);
-    if (row.hidden || row.matched) continue;
-    for (const { s, m, st } of matchers) {
-      if (!m(row)) continue;
-      st.total++;
-      if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) st.fresh++;
+    if (row.hidden || row.matched) {
+      continue;
+    }
+    for (const { s, matches, stats } of matchers) {
+      if (matches(row)) {
+        stats.total++;
+        if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) {
+          stats.fresh++;
+        }
+      }
     }
   }
-  return new Map(matchers.map(({ s, st }) => [s.id, st]));
+  return new Map(matchers.map(({ s, stats }) => [s.id, stats]));
 }

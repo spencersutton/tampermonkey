@@ -11,16 +11,17 @@
 // - Between pulls, prices for lots on screen stay current over the site's
 //   websocket (see live.ts), and opening a lot fetches just that lot
 //   (cached for DETAIL_TTL).
-import { useEffect, useState } from 'preact/hooks';
+import { useSyncExternalStore } from 'preact/compat';
 import { fetchLotDetail, fetchLotPage, isAuthenticated, LIST_PAGE_SIZE } from './api';
 import { putLots, readAll, readMeta, replaceAll, writeMeta, EMPTY_META, type CatalogMeta } from './db';
 import { getSetting, onSetting } from './gm';
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import type { Lot, LotDetail } from './types';
+import { emitter, MINUTE } from './util';
 
 /** How long a fetched lot detail is reused. */
-const DETAIL_TTL = 2 * 60_000;
-const ACTIVE_WINDOW = 10 * 60_000; // auto-refresh only if the page was used this recently
+const DETAIL_TTL = 2 * MINUTE;
+const ACTIVE_WINDOW = 10 * MINUTE; // auto-refresh only if the page was used this recently
 /** How often to check whether a full pull is due. */
 const CHECK_EVERY = 15_000;
 
@@ -48,25 +49,17 @@ const state: CatalogState = {
   rev: 0,
 };
 
-/** Re-render callbacks for components using the catalog. */
-const subs = new Set<() => void>();
+const { subscribe, emit } = emitter();
+
 /** Bump the revision and re-render subscribers. */
 function changed() {
   state.rev++;
-  subs.forEach((f) => f());
+  emit();
 }
 
 /** Preact hook: the catalog state, re-rendering on every change. */
 export function useCatalog(): CatalogState {
-  const [, force] = useState(0);
-  const renderedRev = state.rev;
-  useEffect(() => {
-    const f = () => force((n) => n + 1);
-    subs.add(f);
-    // Effects can run well after render (e.g. in a background tab); catch up on missed changes.
-    if (state.rev !== renderedRev) f();
-    return () => void subs.delete(f);
-  }, []);
+  useSyncExternalStore(subscribe, () => state.rev);
   return state;
 }
 
@@ -76,7 +69,7 @@ export const getLot = (id: number) => state.lots.get(id);
 /** Minimum time between full pulls, from settings (never under MIN_SYNC_MINUTES). */
 export function syncIntervalMs(): number {
   const m = Number(getSetting(KEYS.syncMinutes));
-  return Math.max(MIN_SYNC_MINUTES, Number.isFinite(m) ? m : DEFAULT_SYNC_MINUTES) * 60_000;
+  return Math.max(MIN_SYNC_MINUTES, Number.isFinite(m) ? m : DEFAULT_SYNC_MINUTES) * MINUTE;
 }
 
 /** Epoch ms when the next full pull is allowed. */
@@ -88,11 +81,17 @@ export function nextPullAt(meta = state.meta): number {
 // Cross-tab coordination
 // ---------------------------------------------------------------------------
 /** Lets tabs tell each other when a pull starts or finishes. */
-const channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('tlx-catalog') : null;
+const channel = new BroadcastChannel('tlx-catalog');
 type Msg = { type: 'synced' } | { type: 'meta' };
-channel?.addEventListener('message', (e: MessageEvent<Msg>) => {
-  if (e.data?.type === 'synced') void reloadFromDb();
-  else if (e.data?.type === 'meta') void readMeta().then((m) => ((state.meta = m), changed()));
+const broadcast = (msg: Msg) => channel.postMessage(msg);
+
+channel.addEventListener('message', async (e: MessageEvent<Msg>) => {
+  if (e.data?.type === 'synced') {
+    await reloadFromDb();
+  } else if (e.data?.type === 'meta') {
+    state.meta = await readMeta();
+    changed();
+  }
 });
 
 /** Replace the in-memory catalog with the IndexedDB copy (e.g. after another tab pulled). */
@@ -102,11 +101,11 @@ async function reloadFromDb() {
   const map = new Map(lots.map((l) => [l.id, l]));
   for (const [id, mine] of state.lots) {
     const theirs = map.get(id);
-    if (theirs && mine.version > theirs.version) map.set(id, mine);
+    if (theirs && mine.version > theirs.version) {
+      map.set(id, mine);
+    }
   }
-  state.lots = map;
-  state.meta = meta;
-  state.loaded = true;
+  Object.assign(state, { lots: map, meta, loaded: true });
   changed();
 }
 
@@ -120,18 +119,13 @@ export type PullResult = 'done' | 'not-due' | 'busy' | 'error';
 
 /** Run a full pull if it's due and no other tab is already doing one. */
 export async function pullCatalog(): Promise<PullResult> {
-  if (pulling) return 'busy';
+  if (pulling) {
+    return 'busy';
+  }
   pulling = true;
   try {
-    const run = () => runPull();
     // One tab at a time; if another tab is pulling, it will broadcast the result.
-    if (navigator.locks) {
-      const r = await navigator.locks.request('tlx-catalog-pull', { ifAvailable: true }, (lock) =>
-        lock ? run() : ('busy' as const),
-      );
-      return r;
-    }
-    return await run();
+    return await navigator.locks.request('tlx-catalog-pull', { ifAvailable: true }, (lock) => (lock ? runPull() : 'busy'));
   } finally {
     pulling = false;
   }
@@ -142,11 +136,13 @@ async function runPull(): Promise<PullResult> {
   // Re-check against the shared record: another tab may have just pulled.
   const meta = await readMeta();
   if (Date.now() < nextPullAt(meta)) {
-    if (meta.fetchedAt !== state.meta.fetchedAt) await reloadFromDb();
+    if (meta.fetchedAt !== state.meta.fetchedAt) {
+      await reloadFromDb();
+    }
     return 'not-due';
   }
   state.meta = await writeMeta({ pullStartedAt: Date.now() });
-  channel?.postMessage({ type: 'meta' } satisfies Msg);
+  broadcast({ type: 'meta' });
 
   const firstLoad = state.lots.size === 0;
   const startedAt = Date.now();
@@ -169,31 +165,42 @@ async function runPull(): Promise<PullResult> {
         count = d.count;
         pages = Math.max(1, Math.ceil(d.count / LIST_PAGE_SIZE));
       }
-      for (const l of d.results) pulled.set(l.id, stamp(l));
+      for (const l of d.results) {
+        pulled.set(l.id, stamp(l));
+        // With nothing cached yet, show lots as they arrive.
+        if (firstLoad) {
+          state.lots.set(l.id, pulled.get(l.id)!);
+        }
+      }
       state.progress = { done: pulled.size, total: count };
-      // With nothing cached yet, show lots as they arrive.
-      if (firstLoad) for (const l of d.results) state.lots.set(l.id, pulled.get(l.id)!);
       changed();
-      if (!d.results.length) break;
+      if (!d.results.length) {
+        break;
+      }
     }
 
     // Websocket updates that arrived during the pull may be newer.
     for (const [id, mine] of state.lots) {
       const fresh = pulled.get(id);
-      if (fresh && mine.version > fresh.version) pulled.set(id, { ...mine, firstSeenAt: fresh.firstSeenAt });
+      if (fresh && mine.version > fresh.version) {
+        pulled.set(id, { ...mine, firstSeenAt: fresh.firstSeenAt });
+      }
     }
     // If lots closed mid-pull, page boundaries shift and a few lots can be
     // skipped; keep still-open ones from the previous pull until next time.
     if (pulled.size < count) {
       const now = Date.now();
-      for (const [id, l] of state.lots) if (!pulled.has(id) && l.endsAt > now) pulled.set(id, l);
+      for (const [id, l] of state.lots) {
+        if (!pulled.has(id) && l.endsAt > now) {
+          pulled.set(id, l);
+        }
+      }
     }
 
-    const fetchedAt = Date.now();
-    await replaceAll([...pulled.values()], { fetchedAt, count, authed: isAuthenticated() });
+    await replaceAll([...pulled.values()], { fetchedAt: Date.now(), count, authed: isAuthenticated() });
     state.lots = pulled;
     state.meta = await readMeta();
-    channel?.postMessage({ type: 'synced' } satisfies Msg);
+    broadcast({ type: 'synced' });
     return 'done';
   } catch (err) {
     // On a first load, the partial results stay on screen (not persisted).
@@ -211,24 +218,24 @@ async function runPull(): Promise<PullResult> {
 /** Updated lots waiting to be written to IndexedDB. */
 const dirty = new Map<number, Lot>();
 let flushTimer = 0;
+
 /** Queue a lot to be saved; writes are batched every couple of seconds. */
 function persistSoon(lot: Lot) {
   dirty.set(lot.id, lot);
-  if (!flushTimer) {
-    flushTimer = window.setTimeout(() => {
-      flushTimer = 0;
-      const batch = [...dirty.values()];
-      dirty.clear();
-      void putLots(batch).catch(() => {});
-    }, 2000);
-  }
+  flushTimer ||= window.setTimeout(() => {
+    flushTimer = 0;
+    const batch = [...dirty.values()];
+    dirty.clear();
+    void putLots(batch).catch(() => {});
+  }, 2000);
 }
 
 /** Apply a partial update if it is newer than what we have (by `version`). */
 export function updateLot(id: number, patch: Partial<Lot>, opts: { force?: boolean } = {}) {
   const cur = state.lots.get(id);
-  if (!cur) return;
-  if (!opts.force && patch.version != null && patch.version <= cur.version) return;
+  if (!cur || (!opts.force && patch.version != null && patch.version <= cur.version)) {
+    return;
+  }
   const next = { ...cur, ...patch };
   state.lots.set(id, next);
   persistSoon(next);
@@ -242,8 +249,10 @@ const details = new Map<number, { at: number; data?: LotDetail; promise?: Promis
 export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: AbortSignal): Promise<LotDetail> {
   const hit = details.get(lot.id);
   if (hit && Date.now() - hit.at < DETAIL_TTL) {
-    if (hit.data) return Promise.resolve(hit.data);
-    if (hit.promise) return hit.promise;
+    const cached = hit.data ? Promise.resolve(hit.data) : hit.promise;
+    if (cached) {
+      return cached;
+    }
   }
   const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
     (d) => {
@@ -251,7 +260,9 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
       const { description, brand, model, lotFee, bidHistory, ...base } = d;
       const cur = state.lots.get(lot.id);
       // Detail responses are authoritative for account fields even at equal versions.
-      if (cur && base.version >= cur.version) updateLot(lot.id, base, { force: true });
+      if (cur && base.version >= cur.version) {
+        updateLot(lot.id, base, { force: true });
+      }
       return d;
     },
     (err) => {
@@ -282,17 +293,17 @@ const markActive = () => (lastActivity = Date.now());
 
 /** Start a pull if the cache is stale and the tab is visible and in use. */
 function maybeAutoPull() {
-  if (!state.loaded || pulling) return;
-  if (document.visibilityState !== 'visible') return;
-  if (Date.now() - lastActivity > ACTIVE_WINDOW) return;
-  if (Date.now() < nextPullAt()) return;
-  void pullCatalog();
+  const idle = Date.now() - lastActivity > ACTIVE_WINDOW;
+  if (state.loaded && !pulling && document.visibilityState === 'visible' && !idle && Date.now() >= nextPullAt()) {
+    void pullCatalog();
+  }
 }
 
 /** Load the cache, track activity, and start the auto-pull timer. */
 export async function startCatalog() {
-  for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'] as const)
+  for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'] as const) {
     window.addEventListener(ev, markActive, { passive: true, capture: true });
+  }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       markActive();

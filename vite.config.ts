@@ -5,14 +5,14 @@ const RAW = 'https://raw.githubusercontent.com/spencersutton/tampermonkey/main/t
 
 export default defineConfig({
   oxc: { jsx: { runtime: 'automatic', importSource: 'preact' } },
-  build: { minify: false },
+  build: { minify: false, target: 'esnext' },
   plugins: [
     monkey({
       entry: 'src/main.ts',
       userscript: {
         name: 'Triangle Liquidators – Hide, Filter & Bid Confirm',
         namespace: 'https://triangleliquidators.com/',
-        version: '3.3.1',
+        version: '3.3.2',
         description: 'A fast cached catalog view at /tlx, with confirmed bidding. The site\'s other pages are left unchanged.',
         match: ['https://triangleliquidators.com/tlx*', 'https://www.triangleliquidators.com/tlx*'],
         homepageURL: 'https://github.com/spencersutton/tampermonkey',

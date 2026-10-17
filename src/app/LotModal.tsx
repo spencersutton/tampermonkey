@@ -7,7 +7,7 @@ import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type B
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
 import { LocationText, StandingBadge, TimeLeft, WatchButton } from './LotCard';
-import { fmtCount, parseNum, useNow } from './util';
+import { fmtCount, parseNum, plural, shortTime, useDialog, useNow } from './util';
 import type { Lot, LotDetail } from './types';
 import type { Row } from './view';
 
@@ -32,31 +32,32 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
     const ac = new AbortController();
     setError(null);
     loadDetail(lot, ac.signal).then(setDetail, (e) => {
-      if (!ac.signal.aborted) setError((e as Error).message || String(e));
+      if (!ac.signal.aborted) {
+        setError((e as Error).message || String(e));
+      }
     });
     return () => ac.abort();
   }, [lot.id, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading]);
 
   const images = (detail ?? lot).images;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      else if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      else if (e.key === 'ArrowLeft') setImgIdx((i) => (i - 1 + images.length) % Math.max(images.length, 1));
-      else if (e.key === 'ArrowRight') setImgIdx((i) => (i + 1) % Math.max(images.length, 1));
-    };
-    document.addEventListener('keydown', onKey);
-    const prevFocus = document.activeElement as HTMLElement | null;
-    dialog.current?.focus();
-    document.body.classList.add('modal-open');
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.classList.remove('modal-open');
-      prevFocus?.focus?.();
-    };
-  }, [images.length]);
-
   const img = images[Math.min(imgIdx, images.length - 1)];
+  /** Move through the images by `delta`, wrapping around. */
+  const step = (delta: number) => setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
+
+  useDialog(dialog, (e) => {
+    const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+    if (e.key === 'Escape') {
+      onClose();
+    } else if (!typing && e.key === 'ArrowLeft') {
+      step(-1);
+    } else if (!typing && e.key === 'ArrowRight') {
+      step(1);
+    }
+  });
+  useEffect(() => {
+    document.body.classList.add('modal-open');
+    return () => document.body.classList.remove('modal-open');
+  }, []);
 
   return (
     <div class="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -70,10 +71,10 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
               {img ? <img src={`${CDN}/${img.large}`} alt="" /> : <span class="noimg">No image</span>}
               {images.length > 1 && (
                 <>
-                  <button type="button" class="icon-btn gal-prev" aria-label="Previous image" onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}>
+                  <button type="button" class="icon-btn gal-prev" aria-label="Previous image" onClick={() => step(-1)}>
                     <Icon name="chevronLeft" size={24} />
                   </button>
-                  <button type="button" class="icon-btn gal-next" aria-label="Next image" onClick={() => setImgIdx((i) => (i + 1) % images.length)}>
+                  <button type="button" class="icon-btn gal-next" aria-label="Next image" onClick={() => step(1)}>
                     <Icon name="chevronRight" size={24} />
                   </button>
                 </>
@@ -101,7 +102,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
             <div class="modal-price">
               <div>
                 <div class="price big">{dollars(lot.currentPrice)}</div>
-                <div class="muted small">Current bid · {fmtCount(lot.bidCount)} bids</div>
+                <div class="muted small">Current bid · {plural(lot.bidCount, 'bid')}</div>
               </div>
               <div>
                 <div class="total big" title={costBreakdown(lot.currentPrice, row.transferFee)}>
@@ -113,7 +114,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
                 <div class="big">
                   <TimeLeft endsAt={lot.endsAt} />
                 </div>
-                <div class="muted small">{new Date(lot.endsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</div>
+                <div class="muted small">{shortTime(lot.endsAt)}</div>
               </div>
             </div>
             <div class="row-gap">
@@ -145,11 +146,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
             {detail && (
               <>
                 {(detail.brand || detail.model) && (
-                  <p class="small">
-                    {detail.brand && <span>Brand: {detail.brand}</span>}
-                    {detail.brand && detail.model && ' · '}
-                    {detail.model && <span>Model: {detail.model}</span>}
-                  </p>
+                  <p class="small">{[detail.brand && `Brand: ${detail.brand}`, detail.model && `Model: ${detail.model}`].filter(Boolean).join(' · ')}</p>
                 )}
                 {detail.description && <div class="description">{detail.description}</div>}
                 {detail.bidHistory.length > 0 && (
@@ -185,7 +182,7 @@ function SameListings({ group, current, onOpen }: { group: Lot[]; current: numbe
             <button type="button" class={l.id === current ? 'on' : ''} aria-current={l.id === current ? 'true' : undefined} onClick={() => onOpen(l)}>
               <span class="price">{dollars(l.currentPrice)}</span>
               <span class="muted small">
-                {fmtCount(l.bidCount)} bid{l.bidCount === 1 ? '' : 's'} · Lot #{l.lotNumber}
+                {plural(l.bidCount, 'bid')} · Lot #{l.lotNumber}
               </span>
               <TimeLeft endsAt={l.endsAt} />
             </button>
@@ -225,20 +222,14 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
   const leading = isLeading(lot);
   const min = minMaxBid(lot);
   const quick = quickBidAmount(lot);
-  const n = value.trim() ? parseNum(value) : null;
-  const error =
-    value.trim() && n == null
-      ? 'Enter a dollar amount'
-      : n != null && !Number.isInteger(n)
-        ? 'Whole dollars only'
-        : n != null && n < min
-          ? `Must be at least ${dollars(min)}`
-          : null;
+  const n = parseNum(value);
+  const error = maxBidError(value, n, min);
 
   const submit = (e: Event) => {
     e.preventDefault();
-    if (n == null || error || pending) return;
-    onBid({ lotId: lot.id, amount: n, type: 'max_bid' });
+    if (n != null && !error && !pending) {
+      onBid({ lotId: lot.id, amount: n, type: 'max_bid' });
+    }
   };
 
   return (
@@ -280,4 +271,18 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
       </div>
     </form>
   );
+}
+
+/** Why the typed max bid can't be used, or null if it's fine (or empty). */
+function maxBidError(text: string, n: number | null, min: number): string | null {
+  if (!text.trim()) {
+    return null;
+  }
+  if (n == null) {
+    return 'Enter a dollar amount';
+  }
+  if (!Number.isInteger(n)) {
+    return 'Whole dollars only';
+  }
+  return n < min ? `Must be at least ${dollars(min)}` : null;
 }

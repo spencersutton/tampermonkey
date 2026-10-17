@@ -30,8 +30,11 @@ export function takeOver() {
 
   // Belt and braces: drop any of the site's scripts that still make it in.
   const guard = new MutationObserver((records) => {
-    for (const r of records)
-      for (const n of r.addedNodes) if (n instanceof HTMLScriptElement || (n instanceof HTMLLinkElement && n.rel !== 'icon')) n.remove();
+    for (const node of records.flatMap((r) => [...r.addedNodes])) {
+      if (node instanceof HTMLScriptElement || (node instanceof HTMLLinkElement && node.rel !== 'icon')) {
+        node.remove();
+      }
+    }
   });
   guard.observe(root, { childList: true, subtree: true });
 

@@ -1,11 +1,11 @@
 // Confirmation step for every bid: amount, estimated total cost if won, and a
 // warning when the lot isn't at your pickup location.
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { bidBlocker, minMaxBid, quickBidAmount, submitBid, useBidPending, type BidRequest } from './bid';
 import { useAuthed } from './auth';
 import { TimeLeft } from './LotCard';
-import { useNow } from './util';
+import { plural, useDialog, useNow } from './util';
 import type { Row } from './view';
 
 interface Props {
@@ -24,22 +24,18 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const now = useNow(1000);
   const okBtn = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    // Capture phase, so Escape closes only this dialog and not the lot popup beneath it.
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.stopPropagation();
-      e.preventDefault();
-      onClose();
-    };
-    document.addEventListener('keydown', onKey, true);
-    const prevFocus = document.activeElement as HTMLElement | null;
-    okBtn.current?.focus();
-    return () => {
-      document.removeEventListener('keydown', onKey, true);
-      prevFocus?.focus?.();
-    };
-  }, []);
+  // Capture phase, so Escape closes only this dialog and not the lot popup beneath it.
+  useDialog(
+    okBtn,
+    (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.preventDefault();
+        onClose();
+      }
+    },
+    true,
+  );
 
   const isMax = req.type === 'max_bid';
   const blocker = bidBlocker(row, now);
@@ -47,11 +43,13 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const min = isMax ? minMaxBid(lot) : quickBidAmount(lot);
   const stale = amount < min;
   const disabled = pending || !!blocker || stale;
-  const elsewhere = lot.location && lot.location.name !== pickup ? lot.location.name : null;
+  // Only shown when the lot isn't at your pickup location.
+  const elsewhere = lot.location?.name;
 
   const confirm = async () => {
-    if (disabled) return;
-    if (await submitBid({ ...req, amount })) onClose();
+    if (!disabled && (await submitBid({ ...req, amount }))) {
+      onClose();
+    }
   };
 
   return (
@@ -71,7 +69,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
             <dd title={costBreakdown(amount, row.transferFee)}>≈ {money(totalCost(amount, row.transferFee))}</dd>
             <dt>Current bid</dt>
             <dd>
-              {dollars(lot.currentPrice)} · {lot.bidCount} bid{lot.bidCount === 1 ? '' : 's'}
+              {dollars(lot.currentPrice)} · {plural(lot.bidCount, 'bid')}
             </dd>
             <dt>Ends</dt>
             <dd>
