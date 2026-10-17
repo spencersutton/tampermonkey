@@ -216,6 +216,10 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .card-media .pill-good { color: #1b7a3d; }
 .card-media .pill-bad { color: #b3261e; }
 .pill-watch { background: #fff; color: #d49a00; padding: 3px 5px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+.watch-btn { border: 0; cursor: pointer; color: #666; }
+.watch-btn.on, .watch-btn:hover { color: #d49a00; }
+.watch-btn:disabled { cursor: default; opacity: 0.7; }
+.modal-info .btn-text[aria-pressed='true'] svg { color: #d49a00; }
 .card-body { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px 12px; flex: 1; }
 .card-title {
   color: var(--text); text-decoration: none; font-weight: 600; line-height: 1.3;

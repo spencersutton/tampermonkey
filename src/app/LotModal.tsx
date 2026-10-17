@@ -5,7 +5,7 @@ import { CDN, isAuthenticated } from './api';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
-import { LocationText, StandingBadge, TimeLeft } from './LotCard';
+import { LocationText, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fmtCount, parseNum, useNow } from './util';
 import type { LotDetail } from './types';
 import type { Row } from './view';
@@ -128,6 +128,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid }: Props) {
               <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
                 Open on Triangle Liquidators <Icon name="open" size={16} />
               </a>
+              <WatchButton lot={lot} />
               <button type="button" class="btn btn-text" onClick={onToggleHide}>
                 <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} /> {row.hidden ? 'Unhide' : 'Hide'}
               </button>

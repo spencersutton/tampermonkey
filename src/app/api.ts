@@ -164,6 +164,24 @@ export class BidError extends Error {
 const pick = (o: Raw, snake: string, camel: string) => o?.[snake] ?? o?.[camel];
 const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
+/** Add or remove a lot from your watchlist, like the site's star button. */
+export async function setWatchlisted(auctionPeriod: string, lotId: number, on: boolean): Promise<void> {
+  if (!isAuthenticated()) throw new ApiError('Log in on the site to use your watchlist.', 401);
+  const res = await fetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
+    method: on ? 'POST' : 'DELETE',
+    credentials: 'same-origin',
+    headers: headers(true, on ? { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' } : { 'X-CSRF-Protection': '1' }),
+    body: on ? '{}' : undefined,
+  });
+  if (res.ok) return;
+  if (res.status === 401) tokenRejected = true;
+  const data: Raw = await res.json().catch(() => ({}));
+  throw new ApiError(
+    data.code === 'lot_already_bid' && data.error ? String(data.error) : 'Couldn’t update your watchlist. Please try again.',
+    res.status,
+  );
+}
+
 export async function placeBid(lotId: number, amount: number, type: BidType): Promise<BidResult> {
   if (!isAuthenticated()) throw new BidError('Log in on the site to bid.', 401);
   let res: Response;

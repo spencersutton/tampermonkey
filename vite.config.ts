@@ -12,7 +12,7 @@ export default defineConfig({
       userscript: {
         name: 'Triangle Liquidators – Hide, Filter & Bid Confirm',
         namespace: 'https://triangleliquidators.com/',
-        version: '3.1.0',
+        version: '3.2.0',
         description: 'A fast cached catalog view at /tlx, with confirmed bidding. The site\'s other pages are left unchanged.',
         match: ['https://triangleliquidators.com/tlx*', 'https://www.triangleliquidators.com/tlx*'],
         homepageURL: 'https://github.com/spencersutton/tampermonkey',

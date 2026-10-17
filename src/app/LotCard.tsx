@@ -2,6 +2,7 @@ import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN, isAuthenticated } from './api';
+import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
 import { fmtCount, timeLabel, useNow } from './util';
@@ -29,6 +30,41 @@ export function LocationText({ row }: { row: Row }) {
   if (row.pickupOnly) return <span title="Not transferable – pick up at this location">{name} only</span>;
   if (row.transferFee) return <span title={`Transfer to your pickup location for ${money(row.transferFee)}`}>{name} · transfer</span>;
   return <span>{name}</span>;
+}
+
+/** Watchlist toggle on the card image; a plain marker once you've bid (the site doesn't allow toggling then). */
+function WatchStar({ lot }: { lot: Lot }) {
+  const pending = useWatchPending(lot.id);
+  if (!canWatch(lot))
+    return lot.isWatchlisted ? (
+      <span class="pill pill-watch" title="On your watchlist">
+        <Icon name="star" size={13} />
+      </span>
+    ) : null;
+  const label = lot.isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist';
+  return (
+    <button
+      type="button"
+      class={`pill pill-watch watch-btn ${lot.isWatchlisted ? 'on' : ''}`}
+      title={label}
+      aria-label={label}
+      aria-pressed={lot.isWatchlisted}
+      disabled={pending}
+      onClick={() => void toggleWatch(lot.id)}
+    >
+      <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} size={13} />
+    </button>
+  );
+}
+
+export function WatchButton({ lot }: { lot: Lot }) {
+  const pending = useWatchPending(lot.id);
+  if (!canWatch(lot)) return null;
+  return (
+    <button type="button" class="btn btn-text" aria-pressed={lot.isWatchlisted} disabled={pending} onClick={() => void toggleWatch(lot.id)}>
+      <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} /> {lot.isWatchlisted ? 'On watchlist' : 'Add to watchlist'}
+    </button>
+  );
 }
 
 /** Plain click opens in-app; modified/middle clicks follow the real link. */
@@ -71,11 +107,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
         </button>
         <div class="media-tr">
           {isNew && <span class="pill pill-new">New</span>}
-          {lot.isWatchlisted && (
-            <span class="pill pill-watch" title="On your watchlist">
-              <Icon name="star" size={13} />
-            </span>
-          )}
+          <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
         </div>
         {(hidden || matched) && <span class="media-badge">{hidden ? 'Hidden' : `Filtered: ${matched}`}</span>}
