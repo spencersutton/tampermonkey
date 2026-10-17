@@ -7,6 +7,7 @@ import { getSetting, setSetting, useSetting } from './gm';
 import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
+import { CategoryEditor } from './CategoryEditor';
 import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
@@ -70,6 +71,7 @@ export function App() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingCategories, setEditingCategories] = useState(false);
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
 
@@ -233,6 +235,7 @@ export function App() {
             accountPickup={accountPickup}
             authed={authed}
             onOpenHidden={openHidden}
+            onEditCategories={() => setEditingCategories(true)}
             saved={savedProps}
           />
         </aside>
@@ -303,6 +306,7 @@ export function App() {
       {bidReq && bidLot && (
         <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
       )}
+      {editingCategories && <CategoryEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
       <Toasts />
     </div>
   );
