@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { bidBlocker, minMaxBid, quickBidAmount, submitBid, useBidPending, type BidRequest } from './bid';
+import { useAuthed } from './auth';
 import { TimeLeft } from './LotCard';
 import { useNow } from './util';
 import type { Row } from './view';
@@ -18,6 +19,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const { lot } = row;
   const [amount, setAmount] = useState(req.amount);
   const pending = useBidPending(lot.id);
+  useAuthed();
   const now = useNow(1000);
   const okBtn = useRef<HTMLButtonElement>(null);
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.2.0
+// @version      3.2.1
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -463,6 +463,119 @@
 		[KEYS.accountPickup]: null
 	};
 	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
+	var SESSION_URL = "/api/auth/session";
+	var FOCUS_MIN_GAP = 6e4;
+	var EXPIRY_MARGIN = 12e4;
+	function authToken() {
+		for (const part of document.cookie.split(";")) {
+			const [k, ...v] = part.trim().split("=");
+			if (k === "token") return decodeURIComponent(v.join("=")) || null;
+		}
+		return null;
+	}
+	var signedOut = false;
+	var rejectedToken = null;
+	function isAuthenticated() {
+		const t = authToken();
+		return !signedOut && t !== null && t !== rejectedToken;
+	}
+	var subs$4 = new Set();
+	var lastState = isAuthenticated();
+	function notify() {
+		const now = isAuthenticated();
+		if (now === lastState) return;
+		lastState = now;
+		subs$4.forEach((f) => f());
+	}
+	function onAuthChange(fn) {
+		subs$4.add(fn);
+		return () => void subs$4.delete(fn);
+	}
+	function useAuthed() {
+		const [authed, set] = d(isAuthenticated);
+		h(() => {
+			const f = () => set(isAuthenticated());
+			f();
+			return onAuthChange(f);
+		}, []);
+		return authed;
+	}
+	function tokenExpiry(token) {
+		try {
+			const part = token?.split(".")[1];
+			if (!part) return null;
+			const exp = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/"))).exp;
+			return typeof exp === "number" ? exp * 1e3 : null;
+		} catch {
+			return null;
+		}
+	}
+	var inflight = null;
+	var lastCheck = 0;
+	var timer = 0;
+	function refreshSession() {
+		return inflight ??= checkSession().finally(() => {
+			inflight = null;
+			lastCheck = Date.now();
+			notify();
+			scheduleRefresh();
+		});
+	}
+	async function checkSession() {
+		try {
+			const res = await fetch(SESSION_URL, {
+				credentials: "same-origin",
+				cache: "no-store",
+				headers: { Accept: "application/json" }
+			});
+			if (!res.ok) return isAuthenticated();
+			const s = await res.json().catch(() => null);
+			signedOut = !s || typeof s !== "object" || !Object.keys(s).length || !!s.error;
+		} catch {}
+		return isAuthenticated();
+	}
+	function scheduleRefresh() {
+		clearTimeout(timer);
+		const exp = tokenExpiry(authToken());
+		if (exp == null || signedOut) return;
+		timer = window.setTimeout(() => void refreshSession(), Math.max(3e4, exp - EXPIRY_MARGIN - Date.now()));
+	}
+	var ready = Promise.resolve();
+	function startAuth() {
+		ready = refreshSession();
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "visible" && Date.now() - lastCheck > FOCUS_MIN_GAP) refreshSession();
+		});
+		window.cookieStore?.addEventListener?.("change", (e) => {
+			if ([...e.changed ?? [], ...e.deleted ?? []].some((c) => c?.name === "token") && Date.now() - lastCheck > 5e3) refreshSession();
+		});
+	}
+	function withAuth(headers, withToken) {
+		const token = withToken ? authToken() : null;
+		return token ? {
+			...headers,
+			Authorization: `Bearer ${token}`
+		} : headers;
+	}
+	async function authedFetch(url, init = {}, anonFallback = false) {
+		await ready.catch(() => {});
+		const send = (withToken) => fetch(url, {
+			...init,
+			credentials: "same-origin",
+			headers: withAuth(init.headers ?? {}, withToken)
+		});
+		const had = isAuthenticated();
+		let res = await send(had);
+		if (res.status !== 401 || !had) return res;
+		const used = authToken();
+		if (await refreshSession()) res = await send(true);
+		if (res.status === 401) {
+			if (authToken() === used) rejectedToken = used;
+			notify();
+			if (anonFallback) res = await send(false);
+		}
+		return res;
+	}
 	var BASE = "/backend";
 	var CDN = "https://cdn.triangleliquidators.com";
 	var ApiError = class extends Error {
@@ -472,37 +585,12 @@
 			this.status = status;
 		}
 	};
-	function authToken() {
-		for (const part of document.cookie.split(";")) {
-			const [k, ...v] = part.trim().split("=");
-			if (k === "token") return decodeURIComponent(v.join("=")) || null;
-		}
-		return null;
-	}
-	var tokenRejected = false;
-	var isAuthenticated = () => !tokenRejected && authToken() !== null;
-	function headers(withToken, extra = {}) {
-		const h = {
-			Accept: "application/json",
-			...extra
-		};
-		const token = withToken ? authToken() : null;
-		if (token) h.Authorization = `Bearer ${token}`;
-		return h;
-	}
 	async function get(path, params = {}, signal) {
 		const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
-		const url = `${BASE}${path}${qs ? `?${qs}` : ""}`;
-		const send = (withToken) => fetch(url, {
-			headers: headers(withToken),
-			signal,
-			credentials: "same-origin"
-		});
-		let res = await send(isAuthenticated());
-		if (res.status === 401 && isAuthenticated()) {
-			tokenRejected = true;
-			res = await send(false);
-		}
+		const res = await authedFetch(`${BASE}${path}${qs ? `?${qs}` : ""}`, {
+			headers: { Accept: "application/json" },
+			signal
+		}, true);
 		if (!res.ok) throw new ApiError(`${res.status} ${res.statusText || "error"} for ${path}`, res.status);
 		return res.json();
 	}
@@ -606,17 +694,20 @@
 	var numOrNull = (v) => typeof v === "number" && Number.isFinite(v) ? v : null;
 	async function setWatchlisted(auctionPeriod, lotId, on) {
 		if (!isAuthenticated()) throw new ApiError("Log in on the site to use your watchlist.", 401);
-		const res = await fetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
+		const res = await authedFetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
 			method: on ? "POST" : "DELETE",
-			credentials: "same-origin",
-			headers: headers(true, on ? {
+			headers: on ? {
+				Accept: "application/json",
 				"Content-Type": "application/json",
 				"X-CSRF-Protection": "1"
-			} : { "X-CSRF-Protection": "1" }),
+			} : {
+				Accept: "application/json",
+				"X-CSRF-Protection": "1"
+			},
 			body: on ? "{}" : void 0
 		});
 		if (res.ok) return;
-		if (res.status === 401) tokenRejected = true;
+		if (res.status === 401) throw new ApiError("You’re logged out. Log in on the site, then try again.", 401);
 		const data = await res.json().catch(() => ({}));
 		throw new ApiError(data.code === "lot_already_bid" && data.error ? String(data.error) : "Couldn’t update your watchlist. Please try again.", res.status);
 	}
@@ -624,15 +715,15 @@
 		if (!isAuthenticated()) throw new BidError("Log in on the site to bid.", 401);
 		let res;
 		try {
-			res = await fetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
+			res = await authedFetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
 				method: "POST",
-				credentials: "same-origin",
-				headers: headers(true, {
+				headers: {
+					Accept: "application/json",
 					"Content-Type": "application/json",
 					"X-CSRF-Protection": "1",
 					"X-Bid-Surface": "other",
 					"X-Bid-Type": type
-				}),
+				},
 				body: JSON.stringify({ amount })
 			});
 		} catch {
@@ -640,9 +731,8 @@
 		}
 		const data = await res.json().catch(() => ({}));
 		if (!res.ok) {
-			if (res.status === 401) tokenRejected = true;
 			const details = data.details || {};
-			const msg = Array.isArray(details.amount) && details.amount[0] || data.error || (res.status === 401 || res.status === 403 ? "Your session has expired. Log in on the site, then reload." : res.status === 409 ? "This lot has closed." : `Bid failed (${res.status}).`);
+			const msg = Array.isArray(details.amount) && details.amount[0] || data.error || (res.status === 401 || res.status === 403 ? "You’re logged out. Log in on the site, then try again." : res.status === 409 ? "This lot has closed." : `Bid failed (${res.status}).`);
 			throw new BidError(String(msg), res.status, data.code ?? null, numOrNull(pick(details, "min_next_bid", "minNextBid")));
 		}
 		return {
@@ -5083,6 +5173,22 @@
 	}
 	var connecting = null;
 	var connect = () => connecting ??= open();
+	var watched = [];
+	onAuthChange(() => {
+		const old = connecting;
+		if (!old) return;
+		const oldSubs = [...subs$2.values()];
+		subs$2.clear();
+		connecting = null;
+		old.then((c) => {
+			for (const sub of oldSubs) {
+				sub.unsubscribe();
+				c.removeSubscription(sub);
+			}
+			c.disconnect();
+		});
+		watchLots(watched).catch(() => {});
+	});
 	async function open() {
 		let token = null;
 		if (isAuthenticated()) token = await fetchWsToken().catch(() => null);
@@ -5130,6 +5236,7 @@
 		updateLot(data.id, patch);
 	}
 	async function watchLots(ids) {
+		watched = ids;
 		const c = await connect();
 		const want = new Set(ids);
 		for (const [id, sub] of subs$2) {
@@ -5594,6 +5701,7 @@
 		return u("span", { children: name });
 	}
 	function WatchStar({ lot }) {
+		useAuthed();
 		const pending = useWatchPending(lot.id);
 		if (!canWatch(lot)) return lot.isWatchlisted ? u("span", {
 			class: "pill pill-watch",
@@ -5619,6 +5727,7 @@
 		});
 	}
 	function WatchButton({ lot }) {
+		useAuthed();
 		const pending = useWatchPending(lot.id);
 		if (!canWatch(lot)) return null;
 		return u("button", {
@@ -5759,8 +5868,9 @@
 	function CardBidButton({ row, href, onOpen, onBid }) {
 		const { lot } = row;
 		const pending = useBidPending(lot.id);
+		const authed = useAuthed();
 		const blocker = bidBlocker(row);
-		if (blocker && !isAuthenticated() && !row.hidden && !row.matched) return u("a", {
+		if (blocker && !authed && !row.hidden && !row.matched) return u("a", {
 			class: "btn btn-small",
 			href,
 			target: "_blank",
@@ -5806,6 +5916,7 @@
 		const { lot } = row;
 		const [amount, setAmount] = d(req.amount);
 		const pending = useBidPending(lot.id);
+		useAuthed();
 		const now = useNow(1e3);
 		const okBtn = A$1(null);
 		h(() => {
@@ -6198,17 +6309,20 @@
 		const { lot } = row;
 		const now = useNow(1e3);
 		const pending = useBidPending(lot.id);
+		const authed = useAuthed();
 		const [value, setValue] = d("");
 		h(() => setValue(""), [lot.id, lot.yourStanding?.yourMaxBid]);
 		const blocker = bidBlocker(row, now);
 		if (blocker) return u("div", {
 			class: "bid-panel",
-			children: !isAuthenticated() ? u("span", {
+			children: !authed ? u("span", {
 				class: "muted",
 				children: [u("a", {
 					href: "/",
+					target: "_blank",
+					rel: "noopener",
 					children: "Log in on Triangle Liquidators"
-				}), ", then reload this page to bid here."]
+				}), " to bid here."]
 			}) : u("span", {
 				class: "btn",
 				"aria-disabled": "true",
@@ -7243,16 +7357,16 @@
 	}
 	var PAGE_SIZE = 60;
 	var DAY = 864e5;
-	function useAccountPickup(lots) {
+	function useAccountPickup(lots, authed) {
 		const [acct] = useSetting(KEYS.accountPickup);
 		h(() => {
-			if (!isAuthenticated() || acct && Date.now() - acct.at < DAY) return;
+			if (!authed || acct && Date.now() - acct.at < DAY) return;
 			fetchPickupLocation().then((p) => setSetting(KEYS.accountPickup, {
 				id: p?.id ?? null,
 				name: p?.name ?? null,
 				at: Date.now()
 			}), () => {});
-		}, []);
+		}, [authed]);
 		if (!acct) return null;
 		if (acct.name) return acct.name;
 		if (acct.id != null) {
@@ -7270,7 +7384,8 @@
 		const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
 		const [showHidden] = useSetting(KEYS.showHidden);
 		const [pickupOverride] = useSetting(KEYS.pickup);
-		const accountPickup = useAccountPickup(catalog.lots);
+		const authed = useAuthed();
+		const accountPickup = useAccountPickup(catalog.lots, authed);
 		const pickup = pickupOverride || accountPickup || "Raleigh";
 		const [page, setPage] = d(1);
 		const [openId, setOpenId] = d(null);
@@ -7417,7 +7532,6 @@
 		};
 		const openLotObj = openId != null ? catalog.lots.get(openId) : void 0;
 		const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : void 0;
-		const authed = isAuthenticated();
 		const nFilters = activeFilterCount(view);
 		return u("div", {
 			class: "app",
@@ -7491,9 +7605,11 @@
 									"Not logged in: your bids, standings and watchlist aren’t shown. ",
 									u("a", {
 										href: "/",
+										target: "_blank",
+										rel: "noopener",
 										children: "Log in on the site"
 									}),
-									", then reload."
+									" and this page picks it up."
 								]
 							}),
 							u("div", {
@@ -7709,6 +7825,7 @@
 			childList: true,
 			subtree: true
 		});
+		startAuth();
 		R(u(App, {}), mount);
 		startCatalog();
 	}

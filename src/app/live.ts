@@ -4,6 +4,7 @@
 import { Centrifuge, type Subscription } from 'centrifuge';
 import { useEffect, useState } from 'preact/hooks';
 import { fetchWsToken, isAuthenticated, normalizeStanding } from './api';
+import { onAuthChange } from './auth';
 import { getLot, updateLot } from './catalog';
 import type { Lot } from './types';
 
@@ -32,6 +33,25 @@ export function useLiveState(): LiveState {
 
 let connecting: Promise<Centrifuge> | null = null;
 const connect = () => (connecting ??= open());
+let watched: number[] = [];
+
+// The connection token decides whether we get this account's outbid/winning
+// events, so log in/out means a new connection (with the same lot channels).
+onAuthChange(() => {
+  const old = connecting;
+  if (!old) return;
+  const oldSubs = [...subs.values()];
+  subs.clear();
+  connecting = null;
+  void old.then((c) => {
+    for (const sub of oldSubs) {
+      sub.unsubscribe();
+      c.removeSubscription(sub);
+    }
+    c.disconnect();
+  });
+  void watchLots(watched).catch(() => {});
+});
 
 async function open(): Promise<Centrifuge> {
   let token: string | null = null;
@@ -73,6 +93,7 @@ function onLotPublication(data: any) {
 
 /** Keep subscriptions in sync with the lots on screen. */
 export async function watchLots(ids: number[]) {
+  watched = ids;
   const c = await connect();
   const want = new Set(ids);
   for (const [id, sub] of subs) {

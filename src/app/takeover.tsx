@@ -3,6 +3,7 @@
 import { render } from 'preact';
 import css from './app.css?inline';
 import { App } from './App';
+import { startAuth } from './auth';
 import { startCatalog } from './catalog';
 
 export function takeOver() {
@@ -33,6 +34,7 @@ export function takeOver() {
   });
   guard.observe(root, { childList: true, subtree: true });
 
+  startAuth();
   render(<App />, mount);
   void startCatalog();
 }

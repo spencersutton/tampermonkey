@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { CDN, isAuthenticated } from './api';
+import { CDN } from './api';
+import { useAuthed } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
@@ -172,6 +173,7 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
   const { lot } = row;
   const now = useNow(1000);
   const pending = useBidPending(lot.id);
+  const authed = useAuthed();
   const [value, setValue] = useState('');
   useEffect(() => setValue(''), [lot.id, lot.yourStanding?.yourMaxBid]);
 
@@ -179,9 +181,9 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
   if (blocker) {
     return (
       <div class="bid-panel">
-        {!isAuthenticated() ? (
+        {!authed ? (
           <span class="muted">
-            <a href="/">Log in on Triangle Liquidators</a>, then reload this page to bid here.
+            <a href="/" target="_blank" rel="noopener">Log in on Triangle Liquidators</a> to bid here.
           </span>
         ) : (
           <span class="btn" aria-disabled="true">

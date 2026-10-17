@@ -1,6 +1,7 @@
 // Thin client for the site's JSON API. Requests carry the same bearer token
-// the site's own client sends (from its readable `token` cookie), so lots
-// include account fields like your standing and watchlist state.
+// the site's own client sends (see auth.ts), so lots include account fields
+// like your standing and watchlist state.
+import { authedFetch, isAuthenticated } from './auth';
 import type { BidHistoryEntry, Lot, LotDetail, LotImage, Standing } from './types';
 
 const BASE = '/backend';
@@ -16,35 +17,12 @@ export class ApiError extends Error {
   }
 }
 
-export function authToken(): string | null {
-  for (const part of document.cookie.split(';')) {
-    const [k, ...v] = part.trim().split('=');
-    if (k === 'token') return decodeURIComponent(v.join('=')) || null;
-  }
-  return null;
-}
-
-// Set once a request with the token is rejected, so we stop sending it.
-let tokenRejected = false;
-export const isAuthenticated = () => !tokenRejected && authToken() !== null;
-
-function headers(withToken: boolean, extra: Record<string, string> = {}): Record<string, string> {
-  const h: Record<string, string> = { Accept: 'application/json', ...extra };
-  const token = withToken ? authToken() : null;
-  if (token) h.Authorization = `Bearer ${token}`;
-  return h;
-}
+export { authToken, isAuthenticated } from './auth';
 
 async function get<T>(path: string, params: Record<string, string | number> = {}, signal?: AbortSignal): Promise<T> {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
-  const url = `${BASE}${path}${qs ? `?${qs}` : ''}`;
-  const send = (withToken: boolean) => fetch(url, { headers: headers(withToken), signal, credentials: 'same-origin' });
-  let res = await send(isAuthenticated());
-  if (res.status === 401 && isAuthenticated()) {
-    // Expired session: fall back to anonymous data rather than failing.
-    tokenRejected = true;
-    res = await send(false);
-  }
+  // If the session is gone, fall back to anonymous data rather than failing.
+  const res = await authedFetch(`${BASE}${path}${qs ? `?${qs}` : ''}`, { headers: { Accept: 'application/json' }, signal }, true);
   if (!res.ok) throw new ApiError(`${res.status} ${res.statusText || 'error'} for ${path}`, res.status);
   return res.json() as Promise<T>;
 }
@@ -167,14 +145,15 @@ const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ?
 /** Add or remove a lot from your watchlist, like the site's star button. */
 export async function setWatchlisted(auctionPeriod: string, lotId: number, on: boolean): Promise<void> {
   if (!isAuthenticated()) throw new ApiError('Log in on the site to use your watchlist.', 401);
-  const res = await fetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
+  const res = await authedFetch(`${BASE}/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, {
     method: on ? 'POST' : 'DELETE',
-    credentials: 'same-origin',
-    headers: headers(true, on ? { 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' } : { 'X-CSRF-Protection': '1' }),
+    headers: on
+      ? { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-Protection': '1' }
+      : { Accept: 'application/json', 'X-CSRF-Protection': '1' },
     body: on ? '{}' : undefined,
   });
   if (res.ok) return;
-  if (res.status === 401) tokenRejected = true;
+  if (res.status === 401) throw new ApiError('You’re logged out. Log in on the site, then try again.', 401);
   const data: Raw = await res.json().catch(() => ({}));
   throw new ApiError(
     data.code === 'lot_already_bid' && data.error ? String(data.error) : 'Couldn’t update your watchlist. Please try again.',
@@ -186,15 +165,15 @@ export async function placeBid(lotId: number, amount: number, type: BidType): Pr
   if (!isAuthenticated()) throw new BidError('Log in on the site to bid.', 401);
   let res: Response;
   try {
-    res = await fetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
+    res = await authedFetch(`${BASE}/v1/auctions/lots/${lotId}/bids`, {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: headers(true, {
+      headers: {
+        Accept: 'application/json',
         'Content-Type': 'application/json',
         'X-CSRF-Protection': '1',
         'X-Bid-Surface': 'other',
         'X-Bid-Type': type,
-      }),
+      },
       body: JSON.stringify({ amount }),
     });
   } catch {
@@ -202,13 +181,12 @@ export async function placeBid(lotId: number, amount: number, type: BidType): Pr
   }
   const data: Raw = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401) tokenRejected = true;
     const details: Raw = data.details || {};
     const msg =
       (Array.isArray(details.amount) && details.amount[0]) ||
       data.error ||
       (res.status === 401 || res.status === 403
-        ? 'Your session has expired. Log in on the site, then reload.'
+        ? 'You’re logged out. Log in on the site, then try again.'
         : res.status === 409
           ? 'This lot has closed.'
           : `Bid failed (${res.status}).`);

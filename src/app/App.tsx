@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref } from '../shared/keys';
-import { fetchPickupLocation, isAuthenticated } from './api';
+import { fetchPickupLocation } from './api';
+import { useAuthed } from './auth';
 import { getLot, nextPullAt, pullCatalog, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
 import { Icon } from './icons';
@@ -31,15 +32,15 @@ import type { Lot } from './types';
 const PAGE_SIZE = 60;
 const DAY = 86400_000;
 
-function useAccountPickup(lots: Map<number, Lot>): string | null {
+function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | null {
   const [acct] = useSetting(KEYS.accountPickup);
   useEffect(() => {
-    if (!isAuthenticated() || (acct && Date.now() - acct.at < DAY)) return;
+    if (!authed || (acct && Date.now() - acct.at < DAY)) return;
     fetchPickupLocation().then(
       (p) => setSetting(KEYS.accountPickup, { id: p?.id ?? null, name: p?.name ?? null, at: Date.now() }),
       () => {},
     );
-  }, []);
+  }, [authed]);
   if (!acct) return null;
   if (acct.name) return acct.name;
   if (acct.id != null) for (const l of lots.values()) if (l.location?.id === acct.id) return l.location.name;
@@ -56,7 +57,8 @@ export function App() {
   const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
   const [showHidden] = useSetting(KEYS.showHidden);
   const [pickupOverride] = useSetting(KEYS.pickup);
-  const accountPickup = useAccountPickup(catalog.lots);
+  const authed = useAuthed();
+  const accountPickup = useAccountPickup(catalog.lots, authed);
   const pickup = pickupOverride || accountPickup || 'Raleigh';
 
   const [page, setPage] = useState(1);
@@ -179,7 +181,6 @@ export function App() {
 
   const openLotObj = openId != null ? catalog.lots.get(openId) : undefined;
   const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
-  const authed = isAuthenticated();
   const nFilters = activeFilterCount(view);
 
   return (
@@ -226,7 +227,7 @@ export function App() {
           <StatusBar />
           {!authed && (
             <p class="notice">
-              Not logged in: your bids, standings and watchlist aren’t shown. <a href="/">Log in on the site</a>, then reload.
+              Not logged in: your bids, standings and watchlist aren’t shown. <a href="/" target="_blank" rel="noopener">Log in on the site</a> and this page picks it up.
             </p>
           )}
           <div class="results-line" ref={gridTop}>

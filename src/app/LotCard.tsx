@@ -1,7 +1,8 @@
 import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { CDN, isAuthenticated } from './api';
+import { CDN } from './api';
+import { useAuthed } from './auth';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
@@ -34,6 +35,7 @@ export function LocationText({ row }: { row: Row }) {
 
 /** Watchlist toggle on the card image; a plain marker once you've bid (the site doesn't allow toggling then). */
 function WatchStar({ lot }: { lot: Lot }) {
+  useAuthed();
   const pending = useWatchPending(lot.id);
   if (!canWatch(lot))
     return lot.isWatchlisted ? (
@@ -58,6 +60,7 @@ function WatchStar({ lot }: { lot: Lot }) {
 }
 
 export function WatchButton({ lot }: { lot: Lot }) {
+  useAuthed();
   const pending = useWatchPending(lot.id);
   if (!canWatch(lot)) return null;
   return (
@@ -151,8 +154,9 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
 function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; onOpen: () => void; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
   const pending = useBidPending(lot.id);
+  const authed = useAuthed();
   const blocker = bidBlocker(row);
-  if (blocker && !isAuthenticated() && !row.hidden && !row.matched)
+  if (blocker && !authed && !row.hidden && !row.matched)
     return (
       <a class="btn btn-small" href={href} target="_blank" rel="noopener" title="Log in on Triangle Liquidators to bid here">
         Bid <Icon name="open" size={14} />
