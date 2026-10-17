@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.5.0
+// @version      3.6.0
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -5875,7 +5875,7 @@
 		});
 	});
 	function DupeCount({ row, onOpen }) {
-		const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${shortTime(l.endsAt)}`).join("\n");
+		const list = row.others.map((r) => `${money(r.total)} total · ${r.lot.location?.name ?? "Unknown"} · ends ${shortTime(r.lot.endsAt)}`).join("\n");
 		return u("button", {
 			type: "button",
 			class: "pill pill-dupes",
@@ -6367,24 +6367,23 @@
 			groups
 		};
 	}
-	var byPrice = (a, b) => a.currentPrice - b.currentPrice || a.endsAt - b.endsAt || a.id - b.id;
+	var byCost = (a, b) => +a.pickupOnly - +b.pickupOnly || a.total - b.total || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
 	function combineDuplicates(rows) {
 		const ownCard = (row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
 		const cards = rows.filter(ownCard);
 		const groups = new Map();
-		const buckets = Map.groupBy(rows.filter((row) => !ownCard(row)), ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ""}\u0000${lot.location?.name ?? ""}`);
+		const buckets = Map.groupBy(rows.filter((row) => !ownCard(row)), ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ""}`);
 		for (const bucket of buckets.values()) {
 			if (bucket.length === 1) {
 				cards.push(bucket[0]);
 				continue;
 			}
-			bucket.sort((a, b) => byPrice(a.lot, b.lot));
-			const lots = bucket.map((r) => r.lot);
+			bucket.sort(byCost);
 			cards.push({
 				...bucket[0],
-				others: lots.slice(1)
+				others: bucket.slice(1)
 			});
-			lots.forEach((l) => groups.set(l.id, lots));
+			bucket.forEach((r) => groups.set(r.lot.id, bucket));
 		}
 		return {
 			cards,
@@ -7051,25 +7050,33 @@
 	function SameListings({ group, current, onOpen }) {
 		return u("div", { children: [u("h3", { children: [fmtCount(group.length), " identical listings"] }), u("ol", {
 			class: "dupes",
-			children: group.map((l) => u("li", { children: u("button", {
+			children: group.map((r) => u("li", { children: u("button", {
 				type: "button",
-				class: l.id === current ? "on" : "",
-				"aria-current": l.id === current ? "true" : void 0,
-				onClick: () => onOpen(l),
+				class: r.lot.id === current ? "on" : "",
+				"aria-current": r.lot.id === current ? "true" : void 0,
+				onClick: () => onOpen(r.lot),
 				children: [
 					u("span", {
 						class: "price",
-						children: dollars(l.currentPrice)
+						title: costBreakdown(r.lot.currentPrice, r.transferFee),
+						children: [
+							dollars(r.lot.currentPrice),
+							" ",
+							u("span", {
+								class: "muted small",
+								children: ["≈ ", money(r.total)]
+							})
+						]
 					}),
 					u("span", {
 						class: "muted small",
 						children: [
-							plural(l.bidCount, "bid"),
-							" · Lot #",
-							l.lotNumber
+							u(LocationText, { row: r }),
+							" · ",
+							plural(r.lot.bidCount, "bid")
 						]
 					}),
-					u(TimeLeft, { endsAt: l.endsAt })
+					u(TimeLeft, { endsAt: r.lot.endsAt })
 				]
 			}) }))
 		})] });

@@ -17,7 +17,7 @@ export interface Row {
   retailPct: number | null;
   matched: string | null; // regex filter that matched the title
   hidden: boolean;
-  others: Lot[]; // identical listings folded into this card (cheapest first)
+  others: Row[]; // identical listings folded into this card (cheapest first)
 }
 
 type Compare = (a: Row, b: Row) => number;
@@ -216,7 +216,7 @@ export interface ViewResult {
   filteredOut: number; // open lots dropped by the view's own filters
   matchCounts: Map<string, number>; // open lots each regex filter matches
   combined: number; // listings folded into another card as duplicates
-  groups: Map<number, Lot[]>; // lot id -> every listing in its group (cheapest first)
+  groups: Map<number, Row[]>; // lot id -> every listing in its group (cheapest first)
 }
 
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
@@ -254,31 +254,35 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
 }
 
-/** Cheapest first; ties go to the one ending soonest. */
-const byPrice = (a: Lot, b: Lot) => a.currentPrice - b.currentPrice || a.endsAt - b.endsAt || a.id - b.id;
+/**
+ * Cheapest total cost first (so a transfer fee counts against a lot at another
+ * location); ties go to the one ending soonest. Lots you can't get to your
+ * pickup location come last.
+ */
+const byCost = (a: Row, b: Row) =>
+  +a.pickupOnly - +b.pickupOnly || a.total - b.total || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
 
 /**
- * Fold listings with the same title, condition and location into one card
- * showing the cheapest (ties: ending soonest). Lots you've bid on, hidden lots and regex-filtered lots keep
- * their own card.
+ * Fold listings with the same title and condition, at any location, into one
+ * card showing the cheapest by total cost (ties: ending soonest). Lots you've
+ * bid on, hidden lots and regex-filtered lots keep their own card.
  */
-function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Lot[]> } {
+function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
   const cards = rows.filter(ownCard);
-  const groups = new Map<number, Lot[]>();
+  const groups = new Map<number, Row[]>();
   const buckets = Map.groupBy(
     rows.filter((row) => !ownCard(row)),
-    ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ''}\u0000${lot.location?.name ?? ''}`,
+    ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ''}`,
   );
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {
       cards.push(bucket[0]);
       continue;
     }
-    bucket.sort((a, b) => byPrice(a.lot, b.lot));
-    const lots = bucket.map((r) => r.lot);
-    cards.push({ ...bucket[0], others: lots.slice(1) });
-    lots.forEach((l) => groups.set(l.id, lots));
+    bucket.sort(byCost);
+    cards.push({ ...bucket[0], others: bucket.slice(1) });
+    bucket.forEach((r) => groups.set(r.lot.id, bucket));
   }
   return { cards, groups };
 }

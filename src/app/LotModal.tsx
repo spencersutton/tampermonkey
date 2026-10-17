@@ -16,7 +16,7 @@ interface Props {
   onClose: () => void;
   onToggleHide: () => void;
   onBid: (req: BidRequest) => void;
-  group?: Lot[]; // identical listings, cheapest first
+  group?: Row[]; // identical listings, cheapest total first
   onOpenLot?: (lot: Lot) => void;
 }
 
@@ -172,19 +172,21 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
 }
 
 /** List of identical listings in this lot's group; click one to switch to it. */
-function SameListings({ group, current, onOpen }: { group: Lot[]; current: number; onOpen: (lot: Lot) => void }) {
+function SameListings({ group, current, onOpen }: { group: Row[]; current: number; onOpen: (lot: Lot) => void }) {
   return (
     <div>
       <h3>{fmtCount(group.length)} identical listings</h3>
       <ol class="dupes">
-        {group.map((l) => (
+        {group.map((r) => (
           <li>
-            <button type="button" class={l.id === current ? 'on' : ''} aria-current={l.id === current ? 'true' : undefined} onClick={() => onOpen(l)}>
-              <span class="price">{dollars(l.currentPrice)}</span>
-              <span class="muted small">
-                {plural(l.bidCount, 'bid')} · Lot #{l.lotNumber}
+            <button type="button" class={r.lot.id === current ? 'on' : ''} aria-current={r.lot.id === current ? 'true' : undefined} onClick={() => onOpen(r.lot)}>
+              <span class="price" title={costBreakdown(r.lot.currentPrice, r.transferFee)}>
+                {dollars(r.lot.currentPrice)} <span class="muted small">≈ {money(r.total)}</span>
               </span>
-              <TimeLeft endsAt={l.endsAt} />
+              <span class="muted small">
+                <LocationText row={r} /> · {plural(r.lot.bidCount, 'bid')}
+              </span>
+              <TimeLeft endsAt={r.lot.endsAt} />
             </button>
           </li>
         ))}
