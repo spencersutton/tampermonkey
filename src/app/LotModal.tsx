@@ -8,7 +8,7 @@ import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
 import { LocationText, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fmtCount, parseNum, useNow } from './util';
-import type { LotDetail } from './types';
+import type { Lot, LotDetail } from './types';
 import type { Row } from './view';
 
 interface Props {
@@ -16,9 +16,11 @@ interface Props {
   onClose: () => void;
   onToggleHide: () => void;
   onBid: (req: BidRequest) => void;
+  group?: Lot[]; // identical listings closing within the hour, cheapest first
+  onOpenLot?: (lot: Lot) => void;
 }
 
-export function LotModal({ row, onClose, onToggleHide, onBid }: Props) {
+export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +137,8 @@ export function LotModal({ row, onClose, onToggleHide, onBid }: Props) {
               </button>
             </div>
 
+            {group && group.length > 1 && onOpenLot && <SameListings group={group} current={lot.id} onOpen={onOpenLot} />}
+
             {error && <p class="error">Couldn’t load lot details: {error}</p>}
             {!detail && !error && <p class="muted">Loading details…</p>}
             {detail && (
@@ -165,6 +169,27 @@ export function LotModal({ row, onClose, onToggleHide, onBid }: Props) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SameListings({ group, current, onOpen }: { group: Lot[]; current: number; onOpen: (lot: Lot) => void }) {
+  return (
+    <div>
+      <h3>{fmtCount(group.length)} identical listings</h3>
+      <ol class="dupes">
+        {group.map((l) => (
+          <li>
+            <button type="button" class={l.id === current ? 'on' : ''} aria-current={l.id === current ? 'true' : undefined} onClick={() => onOpen(l)}>
+              <span class="price">{dollars(l.currentPrice)}</span>
+              <span class="muted small">
+                {fmtCount(l.bidCount)} bid{l.bidCount === 1 ? '' : 's'} · Lot #{l.lotNumber}
+              </span>
+              <TimeLeft endsAt={l.endsAt} />
+            </button>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

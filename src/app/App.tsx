@@ -239,6 +239,7 @@ export function App() {
                   : ''}
               {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
               {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
+              {result.combined > 0 && <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>}
             </span>
             {view.newSince != null ? (
               <span class="new-line">
@@ -287,6 +288,8 @@ export function App() {
           onClose={() => setOpenId(null)}
           onToggleHide={() => toggleHide(openLotObj)}
           onBid={askBid}
+          group={result.groups.get(openLotObj.id)}
+          onOpenLot={openLot}
         />
       )}
       {bidReq && bidLot && (

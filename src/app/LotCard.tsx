@@ -110,6 +110,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
         </button>
         <div class="media-tr">
           {isNew && <span class="pill pill-new">New</span>}
+          {row.others.length > 0 && <DupeCount row={row} onOpen={onOpen} />}
           <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
         </div>
@@ -150,6 +151,17 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
     </article>
   );
 });
+
+/** "+N" badge for identical listings folded into this card; opens the cheapest's popup, which lists them all. */
+function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
+  const n = row.others.length;
+  const list = row.others.map((l) => `${dollars(l.currentPrice)} · ends ${new Date(l.endsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`).join('\n');
+  return (
+    <button type="button" class="pill pill-dupes" title={`${n} more identical listing${n === 1 ? '' : 's'} closing within the hour:\n${list}`} onClick={() => onOpen(row.lot)}>
+      +{n} more
+    </button>
+  );
+}
 
 function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; onOpen: () => void; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
