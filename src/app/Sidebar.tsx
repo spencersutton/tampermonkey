@@ -7,6 +7,7 @@ import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';
 import {
   activeFilterCount,
+  customCategoryValue,
   DEFAULT_VIEW,
   ENDING,
   MINE,
@@ -148,6 +149,7 @@ function FiltersSection({ view, setView, facets, pickup, authed }: Props) {
 
       <Collapsible id="f-category" title="Category">
         <CheckList facets={facets.categories} selected={view.categories} onChange={(categories) => setView({ categories })} />
+        <CustomCategories view={view} setView={setView} facets={facets} />
       </Collapsible>
 
       <Collapsible id="f-condition" title="Condition">
@@ -251,6 +253,7 @@ function PatternText({ pattern }: { pattern: string }) {
 }
 
 interface FilterRowProps {
+  label?: string; // shown before the pattern (custom category name)
   pattern: string;
   count: number;
   onRemove: () => void;
@@ -258,7 +261,7 @@ interface FilterRowProps {
 }
 
 // One filter per line: remove button, pattern (click to edit), match count.
-function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
+function FilterRow({ label, pattern, count, onRemove, onSave }: FilterRowProps) {
   const edit = useInlineEdit();
   const editing = edit.editing != null;
   const ok = !!compileFilter(pattern);
@@ -274,9 +277,16 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
 
   return (
     <li class={`filter-row ${ok ? '' : 'filter-error'}`}>
-      <button type="button" class="filter-remove" aria-label={`Remove ${pattern}`} title="Remove filter" onClick={onRemove}>
+      <button
+        type="button"
+        class="filter-remove"
+        aria-label={`Remove ${label ?? pattern}`}
+        title={label ? 'Remove category' : 'Remove filter'}
+        onClick={onRemove}
+      >
         <Icon name="cancel" size={16} />
       </button>
+      {label && <span class="filter-label">{label}</span>}
       {editing ? (
         <div class="filter-edit">
           <textarea
@@ -300,6 +310,89 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
       )}
       {ok && !editing && <span class="count">{fmtCount(count)}</span>}
     </li>
+  );
+}
+
+/**
+ * Categories of my own: lots whose title matches the regex move out of their
+ * site category into this one. The first matching category wins.
+ */
+function CustomCategories({ view, setView, facets }: Pick<Props, 'view' | 'setView' | 'facets'>) {
+  const [cats, setCats] = useSetting(KEYS.customCategories);
+  const [name, setName] = useState('');
+  const [pattern, setPattern] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const count = (n: string) => facets.categories.find((f) => f.value === customCategoryValue(n))?.count ?? 0;
+
+  const add = () => {
+    const n = name.trim();
+    const p = pattern.trim();
+    if (!n || !p) {
+      setErr('Enter a name and a regex');
+    } else if (cats.some((c) => c.name.toLowerCase() === n.toLowerCase())) {
+      setErr(`“${n}” already exists`);
+    } else if (!compileFilter(p)) {
+      setErr('Invalid regex');
+    } else {
+      setCats([...cats, { name: n, pattern: p }]);
+      setName('');
+      setPattern('');
+    }
+  };
+  const remove = (n: string) => {
+    setCats(cats.filter((c) => c.name !== n));
+    setView({ categories: view.categories.filter((v) => v !== customCategoryValue(n)) });
+  };
+  const onInput = (set: (v: string) => void) => (e: { currentTarget: HTMLInputElement }) => {
+    set(e.currentTarget.value);
+    setErr(null);
+  };
+
+  return (
+    <div class="custom-cats">
+      <h3>Custom categories</h3>
+      <ul class="filter-list">
+        {cats.map((c) => (
+          <FilterRow
+            key={c.name}
+            label={c.name}
+            pattern={c.pattern}
+            count={count(c.name)}
+            onRemove={() => remove(c.name)}
+            onSave={(next) => setCats(cats.map((x) => (x.name === c.name ? { ...x, pattern: next } : x)))}
+          />
+        ))}
+      </ul>
+      <input
+        class="add-filter"
+        type="text"
+        placeholder="Name"
+        aria-label="Custom category name"
+        value={name}
+        onInput={onInput(setName)}
+        onKeyDown={(e) => e.key === 'Enter' && add()}
+      />
+      <div class={`add-filter ${err ? 'has-error' : ''}`}>
+        <input
+          type="text"
+          placeholder="Regex, e.g. pressure washers?"
+          aria-label="Custom category title regex"
+          autocomplete="off"
+          spellcheck={false}
+          value={pattern}
+          onInput={onInput(setPattern)}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+        <button type="button" class="btn-text" onClick={add}>
+          Add
+        </button>
+      </div>
+      {err ? (
+        <p class="error small">{err}</p>
+      ) : (
+        <p class="muted small">Lots whose title matches move here from their own category. Same regex rules as filters.</p>
+      )}
+    </div>
   );
 }
 

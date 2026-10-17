@@ -61,6 +61,7 @@ export function App() {
   const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
   const [showHidden] = useSetting(KEYS.showHidden);
   const [pickupOverride] = useSetting(KEYS.pickup);
+  const [customCategories] = useSetting(KEYS.customCategories);
   const authed = useAuthed();
   const accountPickup = useAccountPickup(catalog.lots, authed);
   const pickup = pickupOverride || accountPickup || 'Raleigh';
@@ -108,14 +109,17 @@ export function App() {
   }, [view.search]);
 
   const exclusions = useMemo(
-    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden }),
-    [words, filterOn, removeFiltered, hiddenLots, showHidden],
+    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories }),
+    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories],
   );
   const result = useMemo(
     () => computeView(catalog.lots.values(), view, pickup, exclusions, now30),
     [catalog.rev, view, pickup, exclusions, now30],
   );
-  const facets = useMemo(() => computeFacets(catalog.lots.values(), now30), [catalog.lots, catalog.meta.fetchedAt, catalog.loaded, now30]);
+  const facets = useMemo(
+    () => computeFacets(catalog.lots.values(), now30, customCategories),
+    [catalog.lots, catalog.meta.fetchedAt, catalog.loaded, now30, customCategories],
+  );
 
   const savedStats = useMemo(
     () => savedSearchStats(catalog.lots.values(), saved, pickup, exclusions, now30),

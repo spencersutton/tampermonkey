@@ -11,12 +11,19 @@ export const KEYS = {
   view: 'tlxView', // persisted catalog view state (sort, filters)
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
+  customCategories: 'tlxCustomCategories', // CustomCategory[] – title regexes that move lots into a category of their own
 } as const;
 
 export interface HiddenLot {
   title: string;
   href: string;
   ts: number;
+}
+
+/** A category of my own: lots whose title matches `pattern` (same rules as the regex filters) go in it instead of their site category. */
+export interface CustomCategory {
+  name: string;
+  pattern: string;
 }
 
 // Full catalog pulls default to every 5 minutes and are never allowed more often than every minute.
@@ -36,6 +43,7 @@ export const DEFAULTS = {
   [KEYS.view]: null as unknown,
   [KEYS.savedSearches]: [] as unknown[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
+  [KEYS.customCategories]: [] as CustomCategory[],
 };
 
 /** Path of a lot's page on the real site. */

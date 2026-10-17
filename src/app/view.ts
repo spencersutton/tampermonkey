@@ -1,8 +1,8 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
-import { buildRegexes, firstMatch, type CompiledFilter } from '../shared/filters';
+import { buildRegexes, compileFilter, firstMatch, type CompiledFilter } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { collator, sortKey } from '../shared/sortKey';
-import type { HiddenLot } from '../shared/keys';
+import type { CustomCategory, HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR } from './util';
@@ -10,6 +10,7 @@ import { HOUR } from './util';
 /** A lot with everything the grid needs computed once. */
 export interface Row {
   lot: Lot;
+  category: Lot['category']; // my custom category if one matches the title, else the site's
   transferFee: number; // fee to get it to my pickup location (0 if already there)
   pickupOnly: boolean; // at another location and not transferable
   total: number;
@@ -141,6 +142,7 @@ export interface Exclusions {
   removeFiltered: boolean;
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
+  customCategories: CustomCategory[];
 }
 
 /** Memoized sortKey() results by title. */
@@ -167,12 +169,36 @@ function compiledFilters(words: string[]) {
   return regexCache.compiled;
 }
 
+/** Prefix that keeps custom category values apart from the site's. */
+const CUSTOM_PREFIX = 'custom:';
+
+/** Filter value of a custom category. */
+export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
+
+/** Compiled custom categories for the most recent list. */
+let categoryCache: { cats: CustomCategory[]; compiled: { category: NonNullable<Lot['category']>; re: RegExp | null }[] } | null = null;
+
+/**
+ * The lot's category: the first custom category whose regex matches the
+ * title, else the site's. A lot in a custom category is in that one only.
+ */
+export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
+  if (categoryCache?.cats !== cats) {
+    categoryCache = {
+      cats,
+      compiled: cats.map((c) => ({ category: { value: customCategoryValue(c.name), label: c.name }, re: compileFilter(c.pattern) })),
+    };
+  }
+  return categoryCache.compiled.find(({ re }) => re?.test(lot.title))?.category ?? lot.category;
+}
+
 /** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const elsewhere = !!lot.location && lot.location.name !== pickup;
   const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
   return {
     lot,
+    category: categoryOf(lot, ex.customCategories),
     transferFee,
     pickupOnly: elsewhere && !lot.isTransferable,
     total: totalCost(lot.currentPrice, transferFee),
@@ -275,10 +301,10 @@ export function makeMatcher(v: ViewState, now: number): (row: Row) => boolean {
     const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
     return terms.every((t) => hay.includes(t));
   };
-  return ({ lot, total, pickupOnly }) =>
+  return ({ lot, category: cat, total, pickupOnly }) =>
     (v.newSince == null || (lot.firstSeenAt ?? 0) > v.newSince) &&
     (!terms.length || searchMatches(lot)) &&
-    category(lot.category?.value ?? '') &&
+    category(cat?.value ?? '') &&
     condition(lot.condition?.value ?? -1) &&
     location(lot.location?.name ?? '') &&
     !(v.reachable && pickupOnly) &&
@@ -311,11 +337,11 @@ function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
   return Array.from(groups.values(), (g) => ({ value: g[0].value, label: g[0].label, count: g.length }));
 }
 
-/** Categories, conditions and locations among open lots, with counts, for the filter lists. */
-export function computeFacets(lots: Iterable<Lot>, now: number): Facets {
+/** Categories (custom ones included), conditions and locations among open lots, with counts, for the filter lists. */
+export function computeFacets(lots: Iterable<Lot>, now: number, customCategories: CustomCategory[]): Facets {
   const open = Array.from(lots).filter((l) => l.endsAt > now);
   return {
-    categories: tally(open.map((l) => l.category)).sort((a, b) => a.label.localeCompare(b.label)),
+    categories: tally(open.map((l) => categoryOf(l, customCategories))).sort((a, b) => a.label.localeCompare(b.label)),
     conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
     locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).sort((a, b) => b.count - a.count),
   };

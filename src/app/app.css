@@ -156,6 +156,10 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 }
 .filter-edit textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
 .filter-edit textarea.has-error { border-color: var(--bad); outline-color: var(--bad); }
+.filter-label { flex: none; max-width: 45%; margin-top: 2px; font-weight: 600; font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+.custom-cats { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.custom-cats h3 { margin: 0; font-size: 13px; }
+.custom-cats p { margin: 0; }
 .saved-row { align-items: center; border-radius: 6px; }
 .saved-row.active { background: var(--primary-soft); }
 .saved-name {

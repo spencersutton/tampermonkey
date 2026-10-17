@@ -96,7 +96,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
             <div class="card-meta">
               <LocationText row={row} />
               {lot.condition && <span>{lot.condition.label}</span>}
-              {lot.category && <span>{lot.category.label}</span>}
+              {row.category && <span>{row.category.label}</span>}
               <span>Lot #{lot.lotNumber}</span>
             </div>
             <div class="modal-price">
