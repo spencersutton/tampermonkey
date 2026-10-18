@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.0
+// @version      3.8.3
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -1410,28 +1410,6 @@
 	}
 	function firstMatch(filters, title) {
 		return filters.find(({ re }) => re?.test(title))?.word ?? null;
-	}
-	function splitFilters(text) {
-		const out = [];
-		let cur = "";
-		let depth = 0;
-		let inClass = false;
-		let escaped = false;
-		for (const ch of text) {
-			if (escaped) escaped = false;
-			else if (ch === "\\") escaped = true;
-			else if (inClass) inClass = ch !== "]";
-			else if (ch === "[") inClass = true;
-			else if (ch === "," && depth === 0) {
-				out.push(cur);
-				cur = "";
-				continue;
-			} else if (ch === "(" || ch === "{") depth++;
-			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
-			cur += ch;
-		}
-		out.push(cur);
-		return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 	}
 	var FEES = {
 		premium: .15,
@@ -7673,13 +7651,8 @@
 		const [input, setInput] = d("");
 		const [err, setErr] = d(null);
 		const add = () => {
-			const list = splitFilters(input);
-			const bad = list.filter((p) => !compileFilter(p));
-			if (bad.length) setErr(`Invalid regex: ${bad.join(", ")}`);
-			else if (list.length) {
-				setWords([...new Set([...words, ...list])]);
-				setInput("");
-			}
+			setWords([...new Set([...words, input])]);
+			setInput("");
 		};
 		const unhide = (id) => {
 			const { [id]: _, ...rest } = hiddenLots;

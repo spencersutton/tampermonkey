@@ -1,6 +1,6 @@
 import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { compileFilter, splitFilters } from '../shared/filters';
+import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { useSetting } from './gm';
 import { Icon } from './icons';
@@ -320,14 +320,8 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
   const [err, setErr] = useState<string | null>(null);
 
   const add = () => {
-    const list = splitFilters(input);
-    const bad = list.filter((p) => !compileFilter(p));
-    if (bad.length) {
-      setErr(`Invalid regex: ${bad.join(', ')}`);
-    } else if (list.length) {
-      setWords([...new Set([...words, ...list])]);
-      setInput('');
-    }
+    setWords([...new Set([...words, input])]);
+    setInput('');
   };
   const unhide = (id: string) => {
     const { [id]: _, ...rest } = hiddenLots;
