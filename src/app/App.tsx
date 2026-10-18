@@ -4,7 +4,7 @@ import { fetchPickupLocation } from './api';
 import { useAuthed } from './auth';
 import { getLot, nextPullAt, pullCatalog, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
-import { useHistory } from './history';
+import { navFromUrl, useHistory } from './history';
 import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
@@ -54,6 +54,14 @@ function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | nul
 
 /** The whole /tlx page: sidebar, toolbar, lot grid, pager, and the lot / bid popups. */
 export function App() {
+  // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, page and open lot.
+  const [fromUrl] = useState(() => {
+    const nav = navFromUrl();
+    if (nav) {
+      setSetting(KEYS.view, nav.view);
+    }
+    return nav;
+  });
   const catalog = useCatalog();
   const [storedView, setStoredView] = useSetting(KEYS.view);
   const view = useMemo(() => normalizeView(storedView), [storedView]);
@@ -68,8 +76,8 @@ export function App() {
   const accountPickup = useAccountPickup(catalog.lots, authed);
   const pickup = pickupOverride || accountPickup || 'Raleigh';
 
-  const [page, setPage] = useState(1);
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [page, setPage] = useState(fromUrl?.page ?? 1);
+  const [openId, setOpenId] = useState<number | null>(fromUrl?.openId ?? null);
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);

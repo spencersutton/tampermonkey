@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.7.0
+// @version      3.8.0
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -1395,6 +1395,587 @@
 		maybeAutoPull();
 		window.setInterval(maybeAutoPull, CHECK_EVERY);
 	}
+	function compileFilter(pattern) {
+		try {
+			return new RegExp(`\\b(?:${pattern})\\b`, "i");
+		} catch {
+			return null;
+		}
+	}
+	function buildRegexes(words) {
+		return words.filter((w) => w.trim()).map((w) => ({
+			word: w,
+			re: compileFilter(w)
+		}));
+	}
+	function firstMatch(filters, title) {
+		return filters.find(({ re }) => re?.test(title))?.word ?? null;
+	}
+	function splitFilters(text) {
+		const out = [];
+		let cur = "";
+		let depth = 0;
+		let inClass = false;
+		let escaped = false;
+		for (const ch of text) {
+			if (escaped) escaped = false;
+			else if (ch === "\\") escaped = true;
+			else if (inClass) inClass = ch !== "]";
+			else if (ch === "[") inClass = true;
+			else if (ch === "," && depth === 0) {
+				out.push(cur);
+				cur = "";
+				continue;
+			} else if (ch === "(" || ch === "{") depth++;
+			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
+			cur += ch;
+		}
+		out.push(cur);
+		return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
+	}
+	var FEES = {
+		premium: .15,
+		lotFee: 1,
+		transferFee: 5,
+		salesTax: .0725
+	};
+	function totalCost(bid, transferFee = 0) {
+		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
+	}
+	function costBreakdown(bid, transferFee = 0) {
+		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
+	}
+	var money = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD"
+	});
+	var dollars = (n) => n.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		maximumFractionDigits: 0
+	});
+	var collator = new Intl.Collator(void 0, {
+		numeric: true,
+		sensitivity: "base"
+	});
+	var SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
+	var SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
+	var SORT_UNIT = [
+		String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`,
+		String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
+		String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
+		String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,
+		String.raw`v|volts?|w|watts?|kw|amps?|a|ah|mah|wh|btus?|psi|gpm|cfm|mph|hp|lm|lumens?`,
+		String.raw`[mg]bps|[gkm]?hz|rpm|db|deg(?:rees?)?|°|%`,
+		String.raw`pcs?\.?|pieces?|pk|packs?|count|ct|pairs?|tiers?|panels?|channels?`
+	].join("|");
+	var SORT_HYPHEN_UNIT = String.raw`(?:light|bulb|gang|outlet|port|drawer|shelf|shelves|cube|seat|person|burner|speed|blade|tool|bottle|door|zone|way|step|cutter|cycle|stroke|handle|row|tooth|teeth)s?`;
+	var SORT_MARK = String.raw`(?:"|''|”|″|'|′)`;
+	var SORT_MEASURE = String.raw`${SORT_NUM}\s*(?:${SORT_MARK}|-?\s*(?:${SORT_UNIT}))?`;
+	var SORT_LEAD = new RegExp("^(?:" + [
+		String.raw`[(\[][^)\]]*[)\]]`,
+		String.raw`(?:set|pack|box|case|lot)\s+of\s+\d+`,
+		`${SORT_MEASURE}(?:\\s*[x×]\\s*${SORT_MEASURE})+(?=[\\s,.)/]|$)`,
+		`${SORT_NUM}\\s*${SORT_MARK}`,
+		`${SORT_NUM}-${SORT_HYPHEN_UNIT}(?=[\\s,.)/]|$)`,
+		`${SORT_NUM}[\\s-]?(?:${SORT_UNIT})(?=[\\s,.)/x×]|$)`,
+		`${SORT_NUM}\\s*[x×](?=\\s*\\d)`
+	].join("|") + ")", "iu");
+	var SORT_SEP = /^[x×]\s*(?=\d)/i;
+	function sortKey(title) {
+		let rest = title.trim();
+		const moved = [];
+		for (let i = 0; i < 12; i++) {
+			const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
+			if (!m?.[0]) break;
+			moved.push(m[0].trim());
+			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
+		}
+		return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
+	}
+	var f = 0;
+	Array.isArray;
+	function u(e, t, n, o, i, u) {
+		t || (t = {});
+		var a, c, p = t;
+		if ("ref" in p) for (c in p = {}, t) "ref" == c ? a = t[c] : p[c] = t[c];
+		var l = {
+			type: e,
+			props: p,
+			key: n,
+			ref: a,
+			__k: null,
+			__: null,
+			__b: 0,
+			__e: null,
+			__c: null,
+			constructor: void 0,
+			__v: --f,
+			__i: -1,
+			__u: 0,
+			__source: i,
+			__self: u
+		};
+		if ("function" == typeof e && (a = e.defaultProps)) for (c in a) void 0 === p[c] && (p[c] = a[c]);
+		return l$1.vnode && l$1.vnode(l), l;
+	}
+	var toasts = [];
+	var nextId = 1;
+	var { subscribe, emit } = emitter();
+	function toast(kind, text, ms = kind === "bad" ? 8e3 : 4e3) {
+		const id = nextId++;
+		toasts = [...toasts, {
+			id,
+			kind,
+			text
+		}].slice(-4);
+		emit();
+		setTimeout(() => dismiss(id), ms);
+	}
+	function dismiss(id) {
+		toasts = toasts.filter((t) => t.id !== id);
+		emit();
+	}
+	function Toasts() {
+		return u("div", {
+			class: "toasts",
+			role: "status",
+			"aria-live": "polite",
+			children: C(subscribe, () => toasts).map((t) => u("button", {
+				type: "button",
+				class: `toast toast-${t.kind}`,
+				onClick: () => dismiss(t.id),
+				title: "Dismiss",
+				children: t.text
+			}, t.id))
+		});
+	}
+	var isClosed = (lot, now = Date.now()) => lot.status !== "live" || lot.endsAt <= now;
+	var hasBidOn = (lot) => lot.hasBid || !!lot.yourStanding;
+	var isLeading = (lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
+	var quickBidAmount = (lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
+	function minMaxBid(lot) {
+		const min = quickBidAmount(lot);
+		const mine = lot.yourStanding?.yourMaxBid;
+		return isLeading(lot) && mine != null ? Math.max(mine + 1, min) : min;
+	}
+	function bidBlocker(row, now = Date.now()) {
+		if (row.hidden) return "Bidding is disabled for hidden lots";
+		if (row.matched) return `Bidding is disabled for filtered lots (${row.matched})`;
+		if (isClosed(row.lot, now)) return "This lot has closed";
+		if (!isAuthenticated()) return "Log in on the site to bid";
+		return null;
+	}
+	var pending$1 = observableSet();
+	var useBidPending = (lotId) => pending$1.useHas(lotId);
+	async function submitBid({ lotId, amount, type }) {
+		const lot = getLot(lotId);
+		if (!lot || pending$1.has(lotId)) return false;
+		if (isLeading(lot) && amount === lot.yourStanding?.yourMaxBid) {
+			toast("info", "Your max bid is already set to this amount.");
+			return false;
+		}
+		pending$1.add(lotId);
+		try {
+			const r = await placeBid(lotId, amount, type);
+			const cur = getLot(lotId) ?? lot;
+			const patch = {
+				hasBid: true,
+				yourStanding: {
+					isLeading: r.isLeading,
+					yourMaxBid: amount
+				}
+			};
+			if (r.version != null && r.version > cur.version) {
+				patch.version = r.version;
+				patch.currentPrice = r.currentPrice ?? cur.currentPrice;
+				patch.nextMinIncrement = r.minNextBid ?? cur.nextMinIncrement;
+			}
+			updateLot(lotId, patch, { force: true });
+			invalidateDetail(lotId);
+			const title = short(lot.title);
+			if (r.isLeading) toast("good", `Bid placed – you’re winning “${title}”.`);
+			else if (r.isMaxCollision) toast("bad", `Another bidder set this max bid first – you’re outbid on “${title}”.`);
+			else toast("bad", `Bid placed, but you’re outbid on “${title}” – another bidder’s max is higher.`);
+			return true;
+		} catch (e) {
+			const err = e instanceof BidError ? e : new BidError(e.message || String(e), 0);
+			if (err.status === 409) updateLot(lotId, { status: "closed" }, { force: true });
+			if (err.status === 422 && err.code === "bid_too_low" && err.minNextBid != null) updateLot(lotId, { nextMinIncrement: err.minNextBid }, { force: true });
+			invalidateDetail(lotId);
+			toast("bad", err.message);
+			return false;
+		} finally {
+			pending$1.delete(lotId);
+		}
+	}
+	var short = (s) => s.length > 60 ? `${s.slice(0, 57)}…` : s;
+	var SORTS = {
+		"ending-soonest": {
+			label: "Ending soonest",
+			compare: () => 0
+		},
+		"newly-listed": {
+			label: "Newly listed",
+			compare: (a, b) => b.lot.id - a.lot.id
+		},
+		"title-asc": {
+			label: "Title A–Z",
+			compare: (a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title))
+		},
+		"title-desc": {
+			label: "Title Z–A",
+			compare: (a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title))
+		},
+		"total-asc": {
+			label: "Total cost: low to high",
+			compare: (a, b) => a.total - b.total
+		},
+		"total-desc": {
+			label: "Total cost: high to low",
+			compare: (a, b) => b.total - a.total
+		},
+		"retail-pct-asc": {
+			label: "Best deal (% of retail)",
+			compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity)
+		},
+		"retail-desc": {
+			label: "Retail price: high to low",
+			compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1)
+		},
+		"bids-most": {
+			label: "Most bids",
+			compare: (a, b) => b.lot.bidCount - a.lot.bidCount
+		},
+		"bids-fewest": {
+			label: "Fewest bids",
+			compare: (a, b) => a.lot.bidCount - b.lot.bidCount
+		}
+	};
+	function nextHours(h) {
+		return (now) => [now, now + h * HOUR];
+	}
+	function day(offset) {
+		return (now) => {
+			const d = new Date(now);
+			d.setHours(0, 0, 0, 0);
+			d.setDate(d.getDate() + offset);
+			const start = d.getTime();
+			d.setDate(d.getDate() + 1);
+			return [Math.max(start, now), d.getTime()];
+		};
+	}
+	var ENDING = {
+		"": {
+			label: "Any time",
+			window: null
+		},
+		"1h": {
+			label: "Within 1 hour",
+			window: nextHours(1)
+		},
+		"3h": {
+			label: "Within 3 hours",
+			window: nextHours(3)
+		},
+		today: {
+			label: "Today",
+			window: day(0)
+		},
+		tomorrow: {
+			label: "Tomorrow",
+			window: day(1)
+		}
+	};
+	var MINE = {
+		"": {
+			label: "All lots",
+			test: () => true
+		},
+		bid: {
+			label: "Lots I bid on",
+			test: hasBidOn
+		},
+		leading: {
+			label: "I’m winning",
+			test: (l) => !!l.yourStanding?.isLeading
+		},
+		outbid: {
+			label: "I’m outbid",
+			test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading
+		},
+		watch: {
+			label: "Watchlist",
+			test: (l) => l.isWatchlisted
+		}
+	};
+	var DEFAULT_VIEW = {
+		sort: "ending-soonest",
+		search: "",
+		categories: [],
+		conditions: [],
+		locations: [],
+		reachable: false,
+		priceMin: null,
+		priceMax: null,
+		totalMax: null,
+		retailMin: null,
+		ending: "",
+		mine: "",
+		newSince: null
+	};
+	function normalizeView(v) {
+		const view = {
+			...DEFAULT_VIEW,
+			...v && typeof v === "object" ? v : {}
+		};
+		return {
+			...view,
+			sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
+			ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
+			mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine
+		};
+	}
+	var activeFilterCount = (v) => [
+		v.search.trim(),
+		v.categories.length,
+		v.conditions.length,
+		v.locations.length,
+		v.reachable,
+		v.priceMin != null || v.priceMax != null,
+		v.totalMax != null,
+		v.retailMin != null,
+		v.ending,
+		v.mine,
+		v.newSince != null
+	].filter(Boolean).length;
+	var sortKeys = new Map();
+	function titleKey(title) {
+		let key = sortKeys.get(title);
+		if (key === void 0) {
+			key = sortKey(title);
+			sortKeys.set(title, key);
+		}
+		return key;
+	}
+	var regexCache = null;
+	function compiledFilters(words) {
+		if (regexCache?.words !== words) regexCache = {
+			words,
+			compiled: buildRegexes(words)
+		};
+		return regexCache.compiled;
+	}
+	var CUSTOM_PREFIX = "custom:";
+	var customCategoryValue = (name) => CUSTOM_PREFIX + name;
+	var categoryCache = null;
+	function categoryOf(lot, cats) {
+		if (categoryCache?.cats !== cats) categoryCache = {
+			cats,
+			compiled: cats.map((c) => ({
+				category: {
+					value: customCategoryValue(c.name),
+					label: c.name
+				},
+				re: compileFilter(c.pattern)
+			}))
+		};
+		return categoryCache.compiled.find(({ re }) => re?.test(lot.title))?.category ?? lot.category;
+	}
+	function makeRow(lot, pickup, ex) {
+		const elsewhere = !!lot.location && lot.location.name !== pickup;
+		const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
+		return {
+			lot,
+			category: categoryOf(lot, ex.customCategories),
+			transferFee,
+			pickupOnly: elsewhere && !lot.isTransferable,
+			total: totalCost(lot.currentPrice, transferFee),
+			retailPct: lot.estimatedRetailPrice ? lot.currentPrice / lot.estimatedRetailPrice : null,
+			matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
+			hidden: !!ex.hidden[lot.id],
+			others: []
+		};
+	}
+	function computeView(lots, view, pickup, ex, now) {
+		const matches = makeMatcher(view, now);
+		const matchCounts = new Map(ex.words.map((w) => [w, 0]));
+		const compiled = compiledFilters(ex.words);
+		const rows = [];
+		let open = 0;
+		let removed = 0;
+		let filteredOut = 0;
+		for (const lot of lots) {
+			if (lot.endsAt <= now) continue;
+			open++;
+			for (const { word, re } of compiled) if (re?.test(lot.title)) matchCounts.set(word, matchCounts.get(word) + 1);
+			const row = makeRow(lot, pickup, ex);
+			if (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered) removed++;
+			else if (!matches(row)) filteredOut++;
+			else rows.push(row);
+		}
+		const { cards, groups } = combineDuplicates(rows);
+		const compare = SORTS[view.sort].compare;
+		cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
+		return {
+			rows: cards,
+			open,
+			removed,
+			filteredOut,
+			matchCounts,
+			combined: rows.length - cards.length,
+			groups
+		};
+	}
+	var byCost = (a, b) => +a.pickupOnly - +b.pickupOnly || a.total - b.total || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
+	function combineDuplicates(rows) {
+		const ownCard = (row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
+		const cards = rows.filter(ownCard);
+		const groups = new Map();
+		const buckets = Map.groupBy(rows.filter((row) => !ownCard(row)), ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ""}`);
+		for (const bucket of buckets.values()) {
+			if (bucket.length === 1) {
+				cards.push(bucket[0]);
+				continue;
+			}
+			bucket.sort(byCost);
+			cards.push({
+				...bucket[0],
+				others: bucket.slice(1)
+			});
+			bucket.forEach((r) => groups.set(r.lot.id, bucket));
+		}
+		return {
+			cards,
+			groups
+		};
+	}
+	function oneOf(selected) {
+		const set = new Set(selected);
+		return (value) => !set.size || set.has(value);
+	}
+	function makeMatcher(v, now) {
+		const terms = v.search.toLowerCase().split(/\s+/).filter(Boolean);
+		const win = ENDING[v.ending].window?.(now);
+		const category = oneOf(v.categories);
+		const condition = oneOf(v.conditions);
+		const location = oneOf(v.locations);
+		const mine = MINE[v.mine].test;
+		const searchMatches = (lot) => {
+			const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
+			return terms.every((t) => hay.includes(t));
+		};
+		return ({ lot, category: cat, total, pickupOnly }) => (v.newSince == null || (lot.firstSeenAt ?? 0) > v.newSince) && (!terms.length || searchMatches(lot)) && category(cat?.value ?? "") && condition(lot.condition?.value ?? -1) && location(lot.location?.name ?? "") && !(v.reachable && pickupOnly) && (v.priceMin == null || lot.currentPrice >= v.priceMin) && (v.priceMax == null || lot.currentPrice <= v.priceMax) && (v.totalMax == null || total <= v.totalMax) && (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) && (!win || lot.endsAt >= win[0] && lot.endsAt < win[1]) && mine(lot);
+	}
+	function tally(items) {
+		const groups = Map.groupBy(items.filter((i) => i != null), (i) => i.value);
+		return Array.from(groups.values(), (g) => ({
+			value: g[0].value,
+			label: g[0].label,
+			count: g.length
+		}));
+	}
+	function computeFacets(lots, now, customCategories) {
+		const open = Array.from(lots).filter((l) => l.endsAt > now);
+		return {
+			categories: tally(open.map((l) => categoryOf(l, customCategories))).sort((a, b) => a.label.localeCompare(b.label)),
+			conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
+			locations: tally(open.map((l) => l.location && {
+				value: l.location.name,
+				label: l.location.name
+			})).sort((a, b) => b.count - a.count)
+		};
+	}
+	var savedFilters = ({ newSince, ...rest }) => rest;
+	function sameFilters(a, b) {
+		const strip = ({ sort, ...rest }) => rest;
+		return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
+	}
+	function suggestName(v, facets) {
+		return [
+			v.search.trim(),
+			...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
+			v.locations.join("/"),
+			v.priceMax != null && `≤ $${v.priceMax}`,
+			v.totalMax != null && `total ≤ $${v.totalMax}`
+		].filter(Boolean).join(" · ") || "Saved search";
+	}
+	function savedSearchStats(lots, searches, pickup, ex, now) {
+		const matchers = searches.map((s) => ({
+			s,
+			matches: makeMatcher(normalizeView(s.view), now),
+			stats: {
+				total: 0,
+				fresh: 0
+			}
+		}));
+		for (const lot of lots) {
+			if (lot.endsAt <= now) continue;
+			const row = makeRow(lot, pickup, ex);
+			if (row.hidden || row.matched) continue;
+			for (const { s, matches, stats } of matchers) if (matches(row)) {
+				stats.total++;
+				if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) stats.fresh++;
+			}
+		}
+		return new Map(matchers.map(({ s, stats }) => [s.id, stats]));
+	}
+	var LISTS = [
+		"categories",
+		"conditions",
+		"locations"
+	];
+	var NUMBERS = [
+		"priceMin",
+		"priceMax",
+		"totalMax",
+		"retailMin"
+	];
+	var LIST_PARAM = {
+		categories: "category",
+		conditions: "condition",
+		locations: "location"
+	};
+	function navToUrl({ view, page, openId }) {
+		const q = new URLSearchParams();
+		const put = (k, v, def) => v != null && v !== "" && v !== def && q.append(k, String(v));
+		put("search", view.search.trim());
+		put("sort", view.sort, DEFAULT_VIEW.sort);
+		for (const f of LISTS) view[f].forEach((v) => put(LIST_PARAM[f], v));
+		put("reachable", view.reachable ? 1 : null);
+		for (const f of NUMBERS) put(f, view[f]);
+		put("ending", view.ending);
+		put("mine", view.mine);
+		put("page", page, 1);
+		put("lot", openId);
+		const qs = q.toString();
+		return location.pathname + (qs ? `?${qs}` : "");
+	}
+	function navFromUrl(search = location.search) {
+		const q = new URLSearchParams(search);
+		if (![...q.keys()].length) return null;
+		const num = (k) => {
+			const v = q.get(k);
+			return v != null && v.trim() !== "" && Number.isFinite(+v) ? +v : null;
+		};
+		const view = normalizeView({
+			search: q.get("search") ?? "",
+			sort: q.get("sort") ?? void 0,
+			categories: q.getAll("category"),
+			conditions: q.getAll("condition").map(Number).filter(Number.isFinite),
+			locations: q.getAll("location"),
+			reachable: q.has("reachable") && q.get("reachable") !== "0",
+			...Object.fromEntries(NUMBERS.map((f) => [f, num(f)])),
+			ending: q.get("ending") ?? void 0,
+			mine: q.get("mine") ?? void 0
+		});
+		const page = num("page");
+		return {
+			view,
+			page: page && page >= 1 ? Math.floor(page) : 1,
+			openId: num("lot")
+		};
+	}
 	var isEntry = (s) => !!s && typeof s === "object" && s.tlx === true;
 	var navKey = (n) => JSON.stringify([
 		n.view,
@@ -1410,7 +1991,7 @@
 			kind: "other"
 		};
 		if (!isEntry(prev)) {
-			history.replaceState(entry, "");
+			history.replaceState(entry, "", navToUrl(nav));
 			return;
 		}
 		if (sameView(prev.view, nav.view) && prev.page === nav.page && nav.openId != null) {
@@ -1419,7 +2000,7 @@
 					...entry,
 					kind: prev.kind,
 					scrollY: prev.scrollY
-				}, "");
+				}, "", navToUrl(nav));
 				return;
 			}
 			entry.kind = "lot";
@@ -1435,11 +2016,11 @@
 				history.replaceState({
 					...entry,
 					scrollY: prev.scrollY
-				}, "");
+				}, "", navToUrl(nav));
 				return;
 			}
 		}
-		history.pushState(entry, "");
+		history.pushState(entry, "", navToUrl(nav));
 	}
 	function useHistory(nav, restore, close) {
 		const key = navKey(nav);
@@ -1493,32 +2074,6 @@
 			if (isEntry(cur) && cur.kind === "lot" && cur.openId === nav.openId) history.back();
 			else close();
 		};
-	}
-	var f = 0;
-	Array.isArray;
-	function u(e, t, n, o, i, u) {
-		t || (t = {});
-		var a, c, p = t;
-		if ("ref" in p) for (c in p = {}, t) "ref" == c ? a = t[c] : p[c] = t[c];
-		var l = {
-			type: e,
-			props: p,
-			key: n,
-			ref: a,
-			__k: null,
-			__: null,
-			__b: 0,
-			__e: null,
-			__c: null,
-			constructor: void 0,
-			__v: --f,
-			__i: -1,
-			__u: 0,
-			__source: i,
-			__self: u
-		};
-		if ("function" == typeof e && (a = e.defaultProps)) for (c in a) void 0 === p[c] && (p[c] = a[c]);
-		return l$1.vnode && l$1.vnode(l), l;
 	}
 	var PATHS = {
 		visibilityOff: "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7M2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2m4.31-.78 3.15 3.15.02-.16c0-1.66-1.34-3-3-3z",
@@ -5655,118 +6210,6 @@
 			subs.set(id, sub);
 		}
 	}
-	var FEES = {
-		premium: .15,
-		lotFee: 1,
-		transferFee: 5,
-		salesTax: .0725
-	};
-	function totalCost(bid, transferFee = 0) {
-		return (bid * (1 + FEES.premium) + FEES.lotFee + transferFee) * (1 + FEES.salesTax);
-	}
-	function costBreakdown(bid, transferFee = 0) {
-		return `${money(bid)} + ${+(FEES.premium * 100).toFixed(2)}% premium + ${money(FEES.lotFee)} lot fee` + (transferFee ? ` + ${money(transferFee)} transfer` : "") + `, then ${(FEES.salesTax * 100).toFixed(2)}% sales tax`;
-	}
-	var money = (n) => n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD"
-	});
-	var dollars = (n) => n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
-		maximumFractionDigits: 0
-	});
-	var toasts = [];
-	var nextId = 1;
-	var { subscribe, emit } = emitter();
-	function toast(kind, text, ms = kind === "bad" ? 8e3 : 4e3) {
-		const id = nextId++;
-		toasts = [...toasts, {
-			id,
-			kind,
-			text
-		}].slice(-4);
-		emit();
-		setTimeout(() => dismiss(id), ms);
-	}
-	function dismiss(id) {
-		toasts = toasts.filter((t) => t.id !== id);
-		emit();
-	}
-	function Toasts() {
-		return u("div", {
-			class: "toasts",
-			role: "status",
-			"aria-live": "polite",
-			children: C(subscribe, () => toasts).map((t) => u("button", {
-				type: "button",
-				class: `toast toast-${t.kind}`,
-				onClick: () => dismiss(t.id),
-				title: "Dismiss",
-				children: t.text
-			}, t.id))
-		});
-	}
-	var isClosed = (lot, now = Date.now()) => lot.status !== "live" || lot.endsAt <= now;
-	var hasBidOn = (lot) => lot.hasBid || !!lot.yourStanding;
-	var isLeading = (lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
-	var quickBidAmount = (lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
-	function minMaxBid(lot) {
-		const min = quickBidAmount(lot);
-		const mine = lot.yourStanding?.yourMaxBid;
-		return isLeading(lot) && mine != null ? Math.max(mine + 1, min) : min;
-	}
-	function bidBlocker(row, now = Date.now()) {
-		if (row.hidden) return "Bidding is disabled for hidden lots";
-		if (row.matched) return `Bidding is disabled for filtered lots (${row.matched})`;
-		if (isClosed(row.lot, now)) return "This lot has closed";
-		if (!isAuthenticated()) return "Log in on the site to bid";
-		return null;
-	}
-	var pending$1 = observableSet();
-	var useBidPending = (lotId) => pending$1.useHas(lotId);
-	async function submitBid({ lotId, amount, type }) {
-		const lot = getLot(lotId);
-		if (!lot || pending$1.has(lotId)) return false;
-		if (isLeading(lot) && amount === lot.yourStanding?.yourMaxBid) {
-			toast("info", "Your max bid is already set to this amount.");
-			return false;
-		}
-		pending$1.add(lotId);
-		try {
-			const r = await placeBid(lotId, amount, type);
-			const cur = getLot(lotId) ?? lot;
-			const patch = {
-				hasBid: true,
-				yourStanding: {
-					isLeading: r.isLeading,
-					yourMaxBid: amount
-				}
-			};
-			if (r.version != null && r.version > cur.version) {
-				patch.version = r.version;
-				patch.currentPrice = r.currentPrice ?? cur.currentPrice;
-				patch.nextMinIncrement = r.minNextBid ?? cur.nextMinIncrement;
-			}
-			updateLot(lotId, patch, { force: true });
-			invalidateDetail(lotId);
-			const title = short(lot.title);
-			if (r.isLeading) toast("good", `Bid placed – you’re winning “${title}”.`);
-			else if (r.isMaxCollision) toast("bad", `Another bidder set this max bid first – you’re outbid on “${title}”.`);
-			else toast("bad", `Bid placed, but you’re outbid on “${title}” – another bidder’s max is higher.`);
-			return true;
-		} catch (e) {
-			const err = e instanceof BidError ? e : new BidError(e.message || String(e), 0);
-			if (err.status === 409) updateLot(lotId, { status: "closed" }, { force: true });
-			if (err.status === 422 && err.code === "bid_too_low" && err.minNextBid != null) updateLot(lotId, { nextMinIncrement: err.minNextBid }, { force: true });
-			invalidateDetail(lotId);
-			toast("bad", err.message);
-			return false;
-		} finally {
-			pending$1.delete(lotId);
-		}
-	}
-	var short = (s) => s.length > 60 ? `${s.slice(0, 57)}…` : s;
 	var canWatch = (lot) => isAuthenticated() && !hasBidOn(lot);
 	var pending = observableSet();
 	var useWatchPending = (lotId) => pending.useHas(lotId);
@@ -6171,393 +6614,6 @@
 				]
 			})
 		});
-	}
-	function compileFilter(pattern) {
-		try {
-			return new RegExp(`\\b(?:${pattern})\\b`, "i");
-		} catch {
-			return null;
-		}
-	}
-	function buildRegexes(words) {
-		return words.filter((w) => w.trim()).map((w) => ({
-			word: w,
-			re: compileFilter(w)
-		}));
-	}
-	function firstMatch(filters, title) {
-		return filters.find(({ re }) => re?.test(title))?.word ?? null;
-	}
-	function splitFilters(text) {
-		const out = [];
-		let cur = "";
-		let depth = 0;
-		let inClass = false;
-		let escaped = false;
-		for (const ch of text) {
-			if (escaped) escaped = false;
-			else if (ch === "\\") escaped = true;
-			else if (inClass) inClass = ch !== "]";
-			else if (ch === "[") inClass = true;
-			else if (ch === "," && depth === 0) {
-				out.push(cur);
-				cur = "";
-				continue;
-			} else if (ch === "(" || ch === "{") depth++;
-			else if ((ch === ")" || ch === "}") && depth > 0) depth--;
-			cur += ch;
-		}
-		out.push(cur);
-		return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
-	}
-	var collator = new Intl.Collator(void 0, {
-		numeric: true,
-		sensitivity: "base"
-	});
-	var SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
-	var SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
-	var SORT_UNIT = [
-		String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`,
-		String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
-		String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
-		String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,
-		String.raw`v|volts?|w|watts?|kw|amps?|a|ah|mah|wh|btus?|psi|gpm|cfm|mph|hp|lm|lumens?`,
-		String.raw`[mg]bps|[gkm]?hz|rpm|db|deg(?:rees?)?|°|%`,
-		String.raw`pcs?\.?|pieces?|pk|packs?|count|ct|pairs?|tiers?|panels?|channels?`
-	].join("|");
-	var SORT_HYPHEN_UNIT = String.raw`(?:light|bulb|gang|outlet|port|drawer|shelf|shelves|cube|seat|person|burner|speed|blade|tool|bottle|door|zone|way|step|cutter|cycle|stroke|handle|row|tooth|teeth)s?`;
-	var SORT_MARK = String.raw`(?:"|''|”|″|'|′)`;
-	var SORT_MEASURE = String.raw`${SORT_NUM}\s*(?:${SORT_MARK}|-?\s*(?:${SORT_UNIT}))?`;
-	var SORT_LEAD = new RegExp("^(?:" + [
-		String.raw`[(\[][^)\]]*[)\]]`,
-		String.raw`(?:set|pack|box|case|lot)\s+of\s+\d+`,
-		`${SORT_MEASURE}(?:\\s*[x×]\\s*${SORT_MEASURE})+(?=[\\s,.)/]|$)`,
-		`${SORT_NUM}\\s*${SORT_MARK}`,
-		`${SORT_NUM}-${SORT_HYPHEN_UNIT}(?=[\\s,.)/]|$)`,
-		`${SORT_NUM}[\\s-]?(?:${SORT_UNIT})(?=[\\s,.)/x×]|$)`,
-		`${SORT_NUM}\\s*[x×](?=\\s*\\d)`
-	].join("|") + ")", "iu");
-	var SORT_SEP = /^[x×]\s*(?=\d)/i;
-	function sortKey(title) {
-		let rest = title.trim();
-		const moved = [];
-		for (let i = 0; i < 12; i++) {
-			const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
-			if (!m?.[0]) break;
-			moved.push(m[0].trim());
-			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
-		}
-		return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
-	}
-	var SORTS = {
-		"ending-soonest": {
-			label: "Ending soonest",
-			compare: () => 0
-		},
-		"newly-listed": {
-			label: "Newly listed",
-			compare: (a, b) => b.lot.id - a.lot.id
-		},
-		"title-asc": {
-			label: "Title A–Z",
-			compare: (a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title))
-		},
-		"title-desc": {
-			label: "Title Z–A",
-			compare: (a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title))
-		},
-		"total-asc": {
-			label: "Total cost: low to high",
-			compare: (a, b) => a.total - b.total
-		},
-		"total-desc": {
-			label: "Total cost: high to low",
-			compare: (a, b) => b.total - a.total
-		},
-		"retail-pct-asc": {
-			label: "Best deal (% of retail)",
-			compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity)
-		},
-		"retail-desc": {
-			label: "Retail price: high to low",
-			compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1)
-		},
-		"bids-most": {
-			label: "Most bids",
-			compare: (a, b) => b.lot.bidCount - a.lot.bidCount
-		},
-		"bids-fewest": {
-			label: "Fewest bids",
-			compare: (a, b) => a.lot.bidCount - b.lot.bidCount
-		}
-	};
-	function nextHours(h) {
-		return (now) => [now, now + h * HOUR];
-	}
-	function day(offset) {
-		return (now) => {
-			const d = new Date(now);
-			d.setHours(0, 0, 0, 0);
-			d.setDate(d.getDate() + offset);
-			const start = d.getTime();
-			d.setDate(d.getDate() + 1);
-			return [Math.max(start, now), d.getTime()];
-		};
-	}
-	var ENDING = {
-		"": {
-			label: "Any time",
-			window: null
-		},
-		"1h": {
-			label: "Within 1 hour",
-			window: nextHours(1)
-		},
-		"3h": {
-			label: "Within 3 hours",
-			window: nextHours(3)
-		},
-		today: {
-			label: "Today",
-			window: day(0)
-		},
-		tomorrow: {
-			label: "Tomorrow",
-			window: day(1)
-		}
-	};
-	var MINE = {
-		"": {
-			label: "All lots",
-			test: () => true
-		},
-		bid: {
-			label: "Lots I bid on",
-			test: hasBidOn
-		},
-		leading: {
-			label: "I’m winning",
-			test: (l) => !!l.yourStanding?.isLeading
-		},
-		outbid: {
-			label: "I’m outbid",
-			test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading
-		},
-		watch: {
-			label: "Watchlist",
-			test: (l) => l.isWatchlisted
-		}
-	};
-	var DEFAULT_VIEW = {
-		sort: "ending-soonest",
-		search: "",
-		categories: [],
-		conditions: [],
-		locations: [],
-		reachable: false,
-		priceMin: null,
-		priceMax: null,
-		totalMax: null,
-		retailMin: null,
-		ending: "",
-		mine: "",
-		newSince: null
-	};
-	function normalizeView(v) {
-		const view = {
-			...DEFAULT_VIEW,
-			...v && typeof v === "object" ? v : {}
-		};
-		return {
-			...view,
-			sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
-			ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
-			mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine
-		};
-	}
-	var activeFilterCount = (v) => [
-		v.search.trim(),
-		v.categories.length,
-		v.conditions.length,
-		v.locations.length,
-		v.reachable,
-		v.priceMin != null || v.priceMax != null,
-		v.totalMax != null,
-		v.retailMin != null,
-		v.ending,
-		v.mine,
-		v.newSince != null
-	].filter(Boolean).length;
-	var sortKeys = new Map();
-	function titleKey(title) {
-		let key = sortKeys.get(title);
-		if (key === void 0) {
-			key = sortKey(title);
-			sortKeys.set(title, key);
-		}
-		return key;
-	}
-	var regexCache = null;
-	function compiledFilters(words) {
-		if (regexCache?.words !== words) regexCache = {
-			words,
-			compiled: buildRegexes(words)
-		};
-		return regexCache.compiled;
-	}
-	var CUSTOM_PREFIX = "custom:";
-	var customCategoryValue = (name) => CUSTOM_PREFIX + name;
-	var categoryCache = null;
-	function categoryOf(lot, cats) {
-		if (categoryCache?.cats !== cats) categoryCache = {
-			cats,
-			compiled: cats.map((c) => ({
-				category: {
-					value: customCategoryValue(c.name),
-					label: c.name
-				},
-				re: compileFilter(c.pattern)
-			}))
-		};
-		return categoryCache.compiled.find(({ re }) => re?.test(lot.title))?.category ?? lot.category;
-	}
-	function makeRow(lot, pickup, ex) {
-		const elsewhere = !!lot.location && lot.location.name !== pickup;
-		const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
-		return {
-			lot,
-			category: categoryOf(lot, ex.customCategories),
-			transferFee,
-			pickupOnly: elsewhere && !lot.isTransferable,
-			total: totalCost(lot.currentPrice, transferFee),
-			retailPct: lot.estimatedRetailPrice ? lot.currentPrice / lot.estimatedRetailPrice : null,
-			matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
-			hidden: !!ex.hidden[lot.id],
-			others: []
-		};
-	}
-	function computeView(lots, view, pickup, ex, now) {
-		const matches = makeMatcher(view, now);
-		const matchCounts = new Map(ex.words.map((w) => [w, 0]));
-		const compiled = compiledFilters(ex.words);
-		const rows = [];
-		let open = 0;
-		let removed = 0;
-		let filteredOut = 0;
-		for (const lot of lots) {
-			if (lot.endsAt <= now) continue;
-			open++;
-			for (const { word, re } of compiled) if (re?.test(lot.title)) matchCounts.set(word, matchCounts.get(word) + 1);
-			const row = makeRow(lot, pickup, ex);
-			if (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered) removed++;
-			else if (!matches(row)) filteredOut++;
-			else rows.push(row);
-		}
-		const { cards, groups } = combineDuplicates(rows);
-		const compare = SORTS[view.sort].compare;
-		cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
-		return {
-			rows: cards,
-			open,
-			removed,
-			filteredOut,
-			matchCounts,
-			combined: rows.length - cards.length,
-			groups
-		};
-	}
-	var byCost = (a, b) => +a.pickupOnly - +b.pickupOnly || a.total - b.total || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
-	function combineDuplicates(rows) {
-		const ownCard = (row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
-		const cards = rows.filter(ownCard);
-		const groups = new Map();
-		const buckets = Map.groupBy(rows.filter((row) => !ownCard(row)), ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ""}`);
-		for (const bucket of buckets.values()) {
-			if (bucket.length === 1) {
-				cards.push(bucket[0]);
-				continue;
-			}
-			bucket.sort(byCost);
-			cards.push({
-				...bucket[0],
-				others: bucket.slice(1)
-			});
-			bucket.forEach((r) => groups.set(r.lot.id, bucket));
-		}
-		return {
-			cards,
-			groups
-		};
-	}
-	function oneOf(selected) {
-		const set = new Set(selected);
-		return (value) => !set.size || set.has(value);
-	}
-	function makeMatcher(v, now) {
-		const terms = v.search.toLowerCase().split(/\s+/).filter(Boolean);
-		const win = ENDING[v.ending].window?.(now);
-		const category = oneOf(v.categories);
-		const condition = oneOf(v.conditions);
-		const location = oneOf(v.locations);
-		const mine = MINE[v.mine].test;
-		const searchMatches = (lot) => {
-			const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
-			return terms.every((t) => hay.includes(t));
-		};
-		return ({ lot, category: cat, total, pickupOnly }) => (v.newSince == null || (lot.firstSeenAt ?? 0) > v.newSince) && (!terms.length || searchMatches(lot)) && category(cat?.value ?? "") && condition(lot.condition?.value ?? -1) && location(lot.location?.name ?? "") && !(v.reachable && pickupOnly) && (v.priceMin == null || lot.currentPrice >= v.priceMin) && (v.priceMax == null || lot.currentPrice <= v.priceMax) && (v.totalMax == null || total <= v.totalMax) && (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) && (!win || lot.endsAt >= win[0] && lot.endsAt < win[1]) && mine(lot);
-	}
-	function tally(items) {
-		const groups = Map.groupBy(items.filter((i) => i != null), (i) => i.value);
-		return Array.from(groups.values(), (g) => ({
-			value: g[0].value,
-			label: g[0].label,
-			count: g.length
-		}));
-	}
-	function computeFacets(lots, now, customCategories) {
-		const open = Array.from(lots).filter((l) => l.endsAt > now);
-		return {
-			categories: tally(open.map((l) => categoryOf(l, customCategories))).sort((a, b) => a.label.localeCompare(b.label)),
-			conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
-			locations: tally(open.map((l) => l.location && {
-				value: l.location.name,
-				label: l.location.name
-			})).sort((a, b) => b.count - a.count)
-		};
-	}
-	var savedFilters = ({ newSince, ...rest }) => rest;
-	function sameFilters(a, b) {
-		const strip = ({ sort, ...rest }) => rest;
-		return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
-	}
-	function suggestName(v, facets) {
-		return [
-			v.search.trim(),
-			...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
-			v.locations.join("/"),
-			v.priceMax != null && `≤ $${v.priceMax}`,
-			v.totalMax != null && `total ≤ $${v.totalMax}`
-		].filter(Boolean).join(" · ") || "Saved search";
-	}
-	function savedSearchStats(lots, searches, pickup, ex, now) {
-		const matchers = searches.map((s) => ({
-			s,
-			matches: makeMatcher(normalizeView(s.view), now),
-			stats: {
-				total: 0,
-				fresh: 0
-			}
-		}));
-		for (const lot of lots) {
-			if (lot.endsAt <= now) continue;
-			const row = makeRow(lot, pickup, ex);
-			if (row.hidden || row.matched) continue;
-			for (const { s, matches, stats } of matchers) if (matches(row)) {
-				stats.total++;
-				if ((lot.firstSeenAt ?? 0) > s.lastViewedAt) stats.fresh++;
-			}
-		}
-		return new Map(matchers.map(({ s, stats }) => [s.id, stats]));
 	}
 	var PREVIEW_LIMIT = 50;
 	var nextKey = 0;
@@ -7861,6 +7917,11 @@
 		return lots.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 	}
 	function App() {
+		const [fromUrl] = d(() => {
+			const nav = navFromUrl();
+			if (nav) setSetting(KEYS.view, nav.view);
+			return nav;
+		});
 		const catalog = useCatalog();
 		const [storedView, setStoredView] = useSetting(KEYS.view);
 		const view = T$1(() => normalizeView(storedView), [storedView]);
@@ -7874,8 +7935,8 @@
 		const authed = useAuthed();
 		const accountPickup = useAccountPickup(catalog.lots, authed);
 		const pickup = pickupOverride || accountPickup || "Raleigh";
-		const [page, setPage] = d(1);
-		const [openId, setOpenId] = d(null);
+		const [page, setPage] = d(fromUrl?.page ?? 1);
+		const [openId, setOpenId] = d(fromUrl?.openId ?? null);
 		const [bidReq, setBidReq] = d(null);
 		const [sidebarOpen, setSidebarOpen] = d(false);
 		const [editingCategories, setEditingCategories] = d(false);

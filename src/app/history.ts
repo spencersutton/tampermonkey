@@ -1,7 +1,9 @@
 // Browser back/forward for the /tlx app. Each change of view, page or open lot
-// becomes a history entry (the URL stays /tlx), and popping an entry restores it.
+// becomes a history entry, and popping an entry restores it. The state is also
+// written into the URL (/tlx?search=foo&sort=price-low&page=2&lot=123) so a
+// view can be bookmarked or shared; only values that differ from the defaults appear.
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
-import type { ViewState } from './view';
+import { DEFAULT_VIEW, normalizeView, type ViewState } from './view';
 
 /** What a history entry restores. */
 export interface NavState {
@@ -21,6 +23,57 @@ interface Entry extends NavState {
   scrollY?: number;
 }
 
+const LISTS = ['categories', 'conditions', 'locations'] as const;
+const NUMBERS = ['priceMin', 'priceMax', 'totalMax', 'retailMin'] as const;
+/** URL parameter for each list field. */
+const LIST_PARAM = { categories: 'category', conditions: 'condition', locations: 'location' } as const;
+
+/** The URL (path and query) that shows `nav`. */
+export function navToUrl({ view, page, openId }: NavState): string {
+  const q = new URLSearchParams();
+  const put = (k: string, v: string | number | null | undefined, def?: unknown) => v != null && v !== '' && v !== def && q.append(k, String(v));
+  put('search', view.search.trim());
+  put('sort', view.sort, DEFAULT_VIEW.sort);
+  for (const f of LISTS) {
+    view[f].forEach((v: string | number) => put(LIST_PARAM[f], v));
+  }
+  put('reachable', view.reachable ? 1 : null);
+  for (const f of NUMBERS) {
+    put(f, view[f]);
+  }
+  put('ending', view.ending);
+  put('mine', view.mine);
+  put('page', page, 1);
+  put('lot', openId);
+  const qs = q.toString();
+  return location.pathname + (qs ? `?${qs}` : '');
+}
+
+/** The state a /tlx URL describes, or null when it has no parameters. */
+export function navFromUrl(search = location.search): NavState | null {
+  const q = new URLSearchParams(search);
+  if (![...q.keys()].length) {
+    return null;
+  }
+  const num = (k: string) => {
+    const v = q.get(k);
+    return v != null && v.trim() !== '' && Number.isFinite(+v) ? +v : null;
+  };
+  const view = normalizeView({
+    search: q.get('search') ?? '',
+    sort: q.get('sort') ?? undefined,
+    categories: q.getAll('category'),
+    conditions: q.getAll('condition').map(Number).filter(Number.isFinite),
+    locations: q.getAll('location'),
+    reachable: q.has('reachable') && q.get('reachable') !== '0',
+    ...Object.fromEntries(NUMBERS.map((f) => [f, num(f)])),
+    ending: q.get('ending') ?? undefined,
+    mine: q.get('mine') ?? undefined,
+  });
+  const page = num('page');
+  return { view, page: page && page >= 1 ? Math.floor(page) : 1, openId: num('lot') };
+}
+
 const isEntry = (s: unknown): s is Entry => !!s && typeof s === 'object' && (s as Entry).tlx === true;
 const navKey = (n: NavState) => JSON.stringify([n.view, n.page, n.openId]);
 const sameView = (a: ViewState, b: ViewState) => JSON.stringify(a) === JSON.stringify(b);
@@ -30,24 +83,24 @@ function record(nav: NavState) {
   const prev: unknown = history.state;
   const entry: Entry = { tlx: true, ...nav, kind: 'other' };
   if (!isEntry(prev)) {
-    history.replaceState(entry, '');
+    history.replaceState(entry, '', navToUrl(nav));
     return;
   }
   if (sameView(prev.view, nav.view) && prev.page === nav.page && nav.openId != null) {
     if (prev.openId != null) {
       // Moving between listings inside the popup: one entry for the whole visit.
-      history.replaceState({ ...entry, kind: prev.kind, scrollY: prev.scrollY }, '');
+      history.replaceState({ ...entry, kind: prev.kind, scrollY: prev.scrollY }, '', navToUrl(nav));
       return;
     }
     entry.kind = 'lot';
   } else if (prev.openId === nav.openId && prev.view.search !== nav.view.search && sameView({ ...prev.view, search: '' }, { ...nav.view, search: '' })) {
     entry.kind = 'search';
     if (prev.kind === 'search') {
-      history.replaceState({ ...entry, scrollY: prev.scrollY }, '');
+      history.replaceState({ ...entry, scrollY: prev.scrollY }, '', navToUrl(nav));
       return;
     }
   }
-  history.pushState(entry, '');
+  history.pushState(entry, '', navToUrl(nav));
 }
 
 /**
