@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.6.0
+// @version      3.7.0
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -1394,6 +1394,105 @@
 		}
 		maybeAutoPull();
 		window.setInterval(maybeAutoPull, CHECK_EVERY);
+	}
+	var isEntry = (s) => !!s && typeof s === "object" && s.tlx === true;
+	var navKey = (n) => JSON.stringify([
+		n.view,
+		n.page,
+		n.openId
+	]);
+	var sameView = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+	function record(nav) {
+		const prev = history.state;
+		const entry = {
+			tlx: true,
+			...nav,
+			kind: "other"
+		};
+		if (!isEntry(prev)) {
+			history.replaceState(entry, "");
+			return;
+		}
+		if (sameView(prev.view, nav.view) && prev.page === nav.page && nav.openId != null) {
+			if (prev.openId != null) {
+				history.replaceState({
+					...entry,
+					kind: prev.kind,
+					scrollY: prev.scrollY
+				}, "");
+				return;
+			}
+			entry.kind = "lot";
+		} else if (prev.openId === nav.openId && prev.view.search !== nav.view.search && sameView({
+			...prev.view,
+			search: ""
+		}, {
+			...nav.view,
+			search: ""
+		})) {
+			entry.kind = "search";
+			if (prev.kind === "search") {
+				history.replaceState({
+					...entry,
+					scrollY: prev.scrollY
+				}, "");
+				return;
+			}
+		}
+		history.pushState(entry, "");
+	}
+	function useHistory(nav, restore, close) {
+		const key = navKey(nav);
+		const latest = A$1({
+			key,
+			restore
+		});
+		latest.current = {
+			key,
+			restore
+		};
+		const pendingScroll = A$1(null);
+		_(() => {
+			const cur = history.state;
+			if (!isEntry(cur) || navKey(cur) !== key) record(nav);
+			if (pendingScroll.current != null) {
+				window.scrollTo(0, pendingScroll.current);
+				pendingScroll.current = null;
+			}
+		}, [key]);
+		h(() => {
+			history.scrollRestoration = "manual";
+			const onPop = (e) => {
+				if (!isEntry(e.state)) return;
+				if (navKey(e.state) === latest.current.key) window.scrollTo(0, e.state.scrollY ?? 0);
+				else {
+					pendingScroll.current = e.state.scrollY ?? 0;
+					latest.current.restore(e.state);
+				}
+			};
+			let t;
+			const onScroll = () => {
+				clearTimeout(t);
+				t = setTimeout(() => {
+					if (isEntry(history.state)) history.replaceState({
+						...history.state,
+						scrollY: window.scrollY
+					}, "");
+				}, 200);
+			};
+			window.addEventListener("popstate", onPop);
+			window.addEventListener("scroll", onScroll, { passive: true });
+			return () => {
+				window.removeEventListener("popstate", onPop);
+				window.removeEventListener("scroll", onScroll);
+				clearTimeout(t);
+			};
+		}, []);
+		return function closeLot() {
+			const cur = history.state;
+			if (isEntry(cur) && cur.kind === "lot" && cur.openId === nav.openId) history.back();
+			else close();
+		};
 	}
 	var f = 0;
 	Array.isArray;
@@ -7924,6 +8023,15 @@
 			setPage(p);
 			gridTop.current?.scrollIntoView({ block: "start" });
 		};
+		const closeLot = useHistory({
+			view,
+			page,
+			openId
+		}, (nav) => {
+			setStoredView(normalizeView(nav.view));
+			setPage(nav.page);
+			setOpenId(nav.openId);
+		}, () => setOpenId(null));
 		const openLotObj = openId != null ? catalog.lots.get(openId) : void 0;
 		const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : void 0;
 		const nFilters = activeFilterCount(view);
@@ -8089,7 +8197,7 @@
 				}),
 				openLotObj && u(LotModal, {
 					row: makeRow(openLotObj, pickup, exclusions),
-					onClose: () => setOpenId(null),
+					onClose: closeLot,
 					onToggleHide: () => toggleHide(openLotObj),
 					onBid: setBidReq,
 					group: result.groups.get(openLotObj.id),

@@ -4,6 +4,7 @@ import { fetchPickupLocation } from './api';
 import { useAuthed } from './auth';
 import { getLot, nextPullAt, pullCatalog, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
+import { useHistory } from './history';
 import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
@@ -193,6 +194,16 @@ export function App() {
     gridTop.current?.scrollIntoView({ block: 'start' });
   };
 
+  const closeLot = useHistory(
+    { view, page, openId },
+    (nav) => {
+      setStoredView(normalizeView(nav.view));
+      setPage(nav.page);
+      setOpenId(nav.openId);
+    },
+    () => setOpenId(null),
+  );
+
   const openLotObj = openId != null ? catalog.lots.get(openId) : undefined;
   const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
   const nFilters = activeFilterCount(view);
@@ -296,7 +307,7 @@ export function App() {
       {openLotObj && (
         <LotModal
           row={makeRow(openLotObj, pickup, exclusions)}
-          onClose={() => setOpenId(null)}
+          onClose={closeLot}
           onToggleHide={() => toggleHide(openLotObj)}
           onBid={setBidReq}
           group={result.groups.get(openLotObj.id)}
