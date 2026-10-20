@@ -354,7 +354,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
 
       <Collapsible id="words" title={`Filter patterns (${words.length})`}>
         <ul class="filter-list">
-          {words.map((w) => (
+          {words.sort((a, b) => (matchCounts.get(b) ?? 0) - (matchCounts.get(a) ?? 0)).map((w) => (
             <FilterRow
               key={w}
               pattern={w}
