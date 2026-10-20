@@ -118,7 +118,9 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
         </div>
-        {(hidden || matched) && <span class="media-badge">{hidden ? 'Hidden' : `Filtered: ${matched}`}</span>}
+        {(hidden || matched) && <span class="media-badge" title={hidden ? 'Hidden' : `Filtered: ${matched}`}>
+          {hidden ? 'Hidden' : `Filtered: ${matched}`}
+        </span>}
       </div>
       <div class="card-body">
         <a class="card-title" href={href} title={lot.title} onClick={open}>
