@@ -1,8 +1,9 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.6
+// @version      3.8.7
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
 // @updateURL    https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
