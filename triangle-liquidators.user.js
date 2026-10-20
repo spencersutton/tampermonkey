@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.4
+// @version      3.8.5
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @homepageURL  https://github.com/spencersutton/tampermonkey
 // @downloadURL  https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js
@@ -7696,7 +7696,7 @@
 					title: `Filter patterns (${words.length})`,
 					children: u("ul", {
 						class: "filter-list",
-						children: words.sort((a, b) => (matchCounts.get(b) ?? 0) - (matchCounts.get(a) ?? 0)).map((w) => u(FilterRow, {
+						children: words.sort().map((w) => u(FilterRow, {
 							pattern: w,
 							count: matchCounts.get(w) ?? 0,
 							onRemove: () => setWords(words.filter((x) => x !== w)),
