@@ -1,11 +1,37 @@
 ---
 name: simplify-filters
-description: Simplify a pasted list of lot-title filter regexes without changing what they match. Use when the user pastes filter patterns and asks to simplify, merge or clean them up.
+description: Simplify the lot-title filter regexes stored in the tlx server database, show a diff, and save them after the user confirms. Use when the user asks to simplify, merge or clean up their filters.
 model: haiku
-argument-hint: <paste filter list, one regex per line>
+allowed-tools: Bash(env PYTHONPATH=server python3 -m tlx_server.filters get), Bash(env PYTHONPATH=server python3 -m tlx_server.filters diff:*)
 ---
 
-Simplify the filter regexes the user pasted (one per line). Only make a change when the result is still a short, readable regex. Leaving a filter alone is better than a clever rewrite.
+Simplify the filter regexes stored in the tlx server database. Only make a change when the result is still a short, readable regex. Leaving a filter alone is better than a clever rewrite.
+
+Always read and write the filters through `tlx_server.filters`, run from the repo root. Never open the database with `sqlite3` or any other tool, and never write the filters any other way: `apply` is what backs up the database and checks nobody else edited the list.
+
+## Steps
+
+1. Read the current filters:
+   ```bash
+   env PYTHONPATH=server python3 -m tlx_server.filters get
+   ```
+   The first line is `# rev N, …`. Remember N.
+2. Work out the simplified list using the rules below.
+3. Show the diff, passing the whole new list on stdin with a quoted heredoc (so `\`, `$` and quotes stay as they are):
+   ```bash
+   env PYTHONPATH=server python3 -m tlx_server.filters diff <<'EOF'
+   …one filter per line…
+   EOF
+   ```
+   If it prints `no changes`, say nothing could be simplified safely and stop.
+4. Reply with the diff and the notes described under Output, then ask the user to confirm. Stop and wait. Don't run `apply` in the same turn.
+5. Only after the user says yes, save the exact same list:
+   ```bash
+   env PYTHONPATH=server python3 -m tlx_server.filters apply --rev N <<'EOF'
+   …the same lines…
+   EOF
+   ```
+   It backs up the database first and prints where. If it says the filters changed since rev N, start again from step 1. If the user asks for changes, go back to step 3 with the edited list.
 
 ## How filters are matched
 
@@ -43,10 +69,12 @@ A merge that makes a filter match more titles than before is allowed if it's cle
 
 ## Output
 
-1. The full simplified list in one fenced code block, one filter per line, in the same order as the input (merged filters go where the first one was).
-2. A short bullet per change: what changed, and why it matches exactly the same titles. Give one example title it still matches if that helps. For a broader merge, start the bullet with **⚠ Broader:** and list the titles it now catches that it didn't before.
-3. If nothing can be simplified safely, say so in one line and repeat the list unchanged.
+Keep the filters in their stored order; a merged filter goes where the first of its parts was.
 
-Don't edit any files. This skill only answers in chat.
+1. The diff from step 3 in a fenced `diff` block.
+2. A short bullet per change: what changed, and why it matches exactly the same titles. Give one example title it still matches if that helps. For a broader merge, start the bullet with **⚠ Broader:** and list the titles it now catches that it didn't before.
+3. One line asking whether to save it.
+
+Don't edit any files. The database only changes through `apply`.
 
 $ARGUMENTS
