@@ -11,7 +11,9 @@
     "skipLibCheck": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    // The standalone build's catalog source; the server build swaps in source-server.tsx (see vite.config.ts).
+    "paths": { "@source": ["./src/app/source-local.tsx"] }
   },
   "include": ["src", "vite.config.ts"]
 }

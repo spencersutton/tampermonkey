@@ -26,6 +26,27 @@ A separate, faster catalog for [triangleliquidators.com](https://triangleliquida
 [triangle-liquidators.user.js (raw)](https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js).
 Tampermonkey auto-updates from that URL whenever `@version` increases.
 
+### Server version
+
+A second build, [triangle-liquidators-server.user.js (raw)](https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators-server.user.js), gets the catalog from your own small server (`server/`, Python 3.12+, standard library only). Install this script **or** the standalone one, not both, since both take over `/tlx`.
+
+The page works the same way, with these differences:
+
+- **The server pulls the catalog** and stores it in SQLite, with the same load rules: at most once per interval, measured from the start of the last pull, and pages fetched one at a time. It also pulls only while some `/tlx` tab is visible and in use. Each tab fetches only the lots that changed since its last check, about every 15 seconds.
+- **Shared history.** A lot's first-seen time, which drives the saved-search "new" counts, is recorded once on the server, so it agrees across browsers and devices.
+- **Synced settings.** The server stores hidden lots, regex filters, custom categories, saved searches, your pickup location and the refresh interval. Every browser using that server shares them. The current filters and collapsed panels stay per browser. On the first connection, any setting the server doesn't have yet is copied up from this browser.
+- **Optional background pulls.** With `--background-minutes N`, the server also pulls every N minutes when no tab is open, so saved searches keep counting new lots.
+- **Login.** To include your standing and watchlist, the page passes the site login token to the server with each check. The server keeps the token in memory only. If the token has expired, for example during a background pull, the server pulls anonymously and keeps the account fields from the previous pull.
+- **What stays in the page.** Bidding, the watchlist star, lot details and live prices still go straight from the page to the site, as before.
+
+```bash
+cd server
+python3 -m tlx_server                  # http://127.0.0.1:8765, data in ~/.local/share/tlx-server/
+python3 -m tlx_server --help           # --port, --db, --background-minutes, --key, --allow-host
+```
+
+If the server runs somewhere other than this machine, start it with `--host 0.0.0.0 --allow-host <its name> --key <secret>`. Then set the address and key under *Settings* on `/tlx`, and Tampermonkey will ask once to allow the connection. The server accepts only requests that carry the userscript's `X-TLX-Client` header and a known `Host`, and it sends no CORS headers, so other websites can't use it.
+
 ### Development
 
 Source is in `src/` (TypeScript + Preact, bundled with Vite and `vite-plugin-monkey`). The built
@@ -33,9 +54,10 @@ Source is in `src/` (TypeScript + Preact, bundled with Vite and `vite-plugin-mon
 
 ```bash
 npm install
-npm run build   # typecheck, bundle, copy to ./triangle-liquidators.user.js
+npm run build   # typecheck, bundle both builds, copy them to the repo root
 ```
 
 - `src/main.ts`: takes over `/tlx` with the catalog app.
-- `src/app/`: the catalog view (`catalog.ts` holds the caching and rate-limit rules).
+- `src/app/`: the catalog view. `catalog.ts` holds the shared in-memory catalog. `@source` is where pulls come from: `source-local.tsx` (IndexedDB, rate-limit rules) in the standalone build, `source-server.tsx` in the server build (`vite build --mode server`).
+- `server/tlx_server/`: the Python server (`site.py` API client, `catalog.py` pulls, `store.py` SQLite, `server.py` HTTP).
 - `src/shared/`: filters, cost formula, title sort key and settings keys.

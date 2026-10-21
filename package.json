@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && cp dist/triangle-liquidators.user.js .",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc --noEmit && rm -rf dist && vite build && vite build --mode server && cp dist/*.user.js .",
+    "typecheck": "tsc --noEmit",
+    "dev:server": "vite --mode server"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

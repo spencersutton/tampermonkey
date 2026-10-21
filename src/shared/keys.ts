@@ -12,7 +12,22 @@ export const KEYS = {
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – title regexes that move lots into a category of their own
+  serverUrl: 'tlxServerUrl', // string – tlx server address (server build only)
+  serverKey: 'tlxServerKey', // string – the server's --key, if it has one (server build only)
 } as const;
+
+/** Settings the server build keeps on the tlx server, so every browser using it shares them. The rest stay per browser. */
+export const SYNCED_KEYS = [
+  KEYS.hidden,
+  KEYS.words,
+  KEYS.filterOn,
+  KEYS.showHidden,
+  KEYS.removeFiltered,
+  KEYS.syncMinutes, // the server's own pull interval
+  KEYS.pickup,
+  KEYS.savedSearches,
+  KEYS.customCategories,
+] as const;
 
 export interface HiddenLot {
   title: string;
@@ -44,6 +59,8 @@ export const DEFAULTS = {
   [KEYS.savedSearches]: [] as unknown[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
+  [KEYS.serverUrl]: 'http://127.0.0.1:8765',
+  [KEYS.serverKey]: '',
 };
 
 /** Path of a lot's page on the real site. */

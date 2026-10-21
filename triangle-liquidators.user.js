@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.7
+// @version      3.8.8
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -450,8 +450,11 @@
 		view: "tlxView",
 		savedSearches: "tlxSavedSearches",
 		accountPickup: "tlxAccountPickup",
-		customCategories: "tlxCustomCategories"
+		customCategories: "tlxCustomCategories",
+		serverUrl: "tlxServerUrl",
+		serverKey: "tlxServerKey"
 	};
+	KEYS.hidden, KEYS.words, KEYS.filterOn, KEYS.showHidden, KEYS.removeFiltered, KEYS.syncMinutes, KEYS.pickup, KEYS.savedSearches, KEYS.customCategories;
 	var DEFAULTS = {
 		[KEYS.hidden]: {},
 		[KEYS.words]: [],
@@ -467,7 +470,9 @@
 		[KEYS.view]: null,
 		[KEYS.savedSearches]: [],
 		[KEYS.accountPickup]: null,
-		[KEYS.customCategories]: []
+		[KEYS.customCategories]: [],
+		[KEYS.serverUrl]: "http://127.0.0.1:8765",
+		[KEYS.serverKey]: ""
 	};
 	var lotHref = (auctionPeriod, id) => `/lots/${auctionPeriod}/${id}`;
 	function g(n, t) {
@@ -1146,39 +1151,8 @@
 		lots.forEach((l) => store.put(l));
 		await done(tx);
 	}
-	var _GM_addValueChangeListener = (() => typeof GM_addValueChangeListener != "undefined" ? GM_addValueChangeListener : void 0)();
-	var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
-	var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
-	var cache = new Map();
-	var changes = new EventTarget();
-	function getSetting(key) {
-		if (!cache.has(key)) {
-			cache.set(key, _GM_getValue(key, DEFAULTS[key]));
-			_GM_addValueChangeListener(key, (_name, _old, value, remote) => {
-				if (remote) {
-					cache.set(key, value ?? DEFAULTS[key]);
-					changes.dispatchEvent(new Event(key));
-				}
-			});
-		}
-		return cache.get(key);
-	}
-	function setSetting(key, value) {
-		cache.set(key, value);
-		_GM_setValue(key, value);
-		changes.dispatchEvent(new Event(key));
-	}
-	function onSetting(key, fn) {
-		getSetting(key);
-		changes.addEventListener(key, fn);
-		return () => changes.removeEventListener(key, fn);
-	}
-	function useSetting(key) {
-		return [C(q$1((fn) => onSetting(key, fn), [key]), () => getSetting(key)), (v) => setSetting(key, v)];
-	}
 	var DETAIL_TTL = 2 * MINUTE;
 	var ACTIVE_WINDOW = 10 * MINUTE;
-	var CHECK_EVERY = 15e3;
 	var state$1 = {
 		loaded: false,
 		lots: new Map(),
@@ -1197,6 +1171,115 @@
 		return state$1;
 	}
 	var getLot = (id) => state$1.lots.get(id);
+	function keepNewer(pulled) {
+		for (const [id, mine] of state$1.lots) {
+			const fresh = pulled.get(id);
+			if (fresh && mine.version > fresh.version) pulled.set(id, {
+				...mine,
+				firstSeenAt: fresh.firstSeenAt
+			});
+		}
+		return pulled;
+	}
+	var onUpdate = () => {};
+	var setUpdateHook = (fn) => void (onUpdate = fn);
+	function updateLot(id, patch, opts = {}) {
+		const cur = state$1.lots.get(id);
+		if (!cur || !opts.force && patch.version != null && patch.version <= cur.version) return;
+		const next = {
+			...cur,
+			...patch
+		};
+		state$1.lots.set(id, next);
+		onUpdate(next);
+		changed();
+	}
+	var details = new Map();
+	function loadDetail(lot, signal) {
+		const hit = details.get(lot.id);
+		if (hit && Date.now() - hit.at < DETAIL_TTL) {
+			const cached = hit.data ? Promise.resolve(hit.data) : hit.promise;
+			if (cached) return cached;
+		}
+		const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then((d) => {
+			details.set(lot.id, {
+				at: Date.now(),
+				data: d
+			});
+			const { description, brand, model, lotFee, bidHistory, ...base } = d;
+			const cur = state$1.lots.get(lot.id);
+			if (cur && base.version >= cur.version) updateLot(lot.id, base, { force: true });
+			return d;
+		}, (err) => {
+			details.delete(lot.id);
+			throw err;
+		});
+		details.set(lot.id, {
+			at: Date.now(),
+			promise
+		});
+		return promise;
+	}
+	var invalidateDetail = (id) => void details.delete(id);
+	function cachedDetail(id) {
+		const hit = details.get(id);
+		return hit && Date.now() - hit.at < DETAIL_TTL ? hit.data : void 0;
+	}
+	var lastActivity = Date.now();
+	var inUse = () => document.visibilityState === "visible" && Date.now() - lastActivity <= ACTIVE_WINDOW;
+	function trackActivity(onVisible) {
+		const markActive = () => lastActivity = Date.now();
+		for (const ev of [
+			"pointerdown",
+			"keydown",
+			"wheel",
+			"touchstart",
+			"scroll"
+		]) window.addEventListener(ev, markActive, {
+			passive: true,
+			capture: true
+		});
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState === "visible") {
+				markActive();
+				onVisible();
+			}
+		});
+	}
+	var _GM_addValueChangeListener = (() => typeof GM_addValueChangeListener != "undefined" ? GM_addValueChangeListener : void 0)();
+	var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
+	var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
+	var cache = new Map();
+	var changes = new EventTarget();
+	function getSetting(key) {
+		if (!cache.has(key)) {
+			cache.set(key, _GM_getValue(key, DEFAULTS[key]));
+			_GM_addValueChangeListener(key, (_name, _old, value, remote) => {
+				if (remote) {
+					cache.set(key, value ?? DEFAULTS[key]);
+					changes.dispatchEvent(new Event(key));
+				}
+			});
+		}
+		return cache.get(key);
+	}
+	function applySetting(key, value) {
+		cache.set(key, value);
+		_GM_setValue(key, value);
+		changes.dispatchEvent(new Event(key));
+	}
+	function setSetting(key, value) {
+		applySetting(key, value);
+	}
+	function onSetting(key, fn) {
+		getSetting(key);
+		changes.addEventListener(key, fn);
+		return () => changes.removeEventListener(key, fn);
+	}
+	function useSetting(key) {
+		return [C(q$1((fn) => onSetting(key, fn), [key]), () => getSetting(key)), (v) => setSetting(key, v)];
+	}
+	var CHECK_EVERY = 15e3;
 	function syncIntervalMs() {
 		const m = Number(getSetting(KEYS.syncMinutes));
 		return Math.max(1, Number.isFinite(m) ? m : 5) * MINUTE;
@@ -1215,13 +1298,8 @@
 	});
 	async function reloadFromDb() {
 		const { lots, meta } = await readAll();
-		const map = new Map(lots.map((l) => [l.id, l]));
-		for (const [id, mine] of state$1.lots) {
-			const theirs = map.get(id);
-			if (theirs && mine.version > theirs.version) map.set(id, mine);
-		}
 		Object.assign(state$1, {
-			lots: map,
+			lots: keepNewer(new Map(lots.map((l) => [l.id, l]))),
 			meta,
 			loaded: true
 		});
@@ -1281,13 +1359,7 @@
 				changed();
 				if (!d.results.length) break;
 			}
-			for (const [id, mine] of state$1.lots) {
-				const fresh = pulled.get(id);
-				if (fresh && mine.version > fresh.version) pulled.set(id, {
-					...mine,
-					firstSeenAt: fresh.firstSeenAt
-				});
-			}
+			keepNewer(pulled);
 			if (pulled.size < count) {
 				const now = Date.now();
 				for (const [id, l] of state$1.lots) if (!pulled.has(id) && l.endsAt > now) pulled.set(id, l);
@@ -1320,82 +1392,28 @@
 			putLots(batch).catch(() => {});
 		}, 2e3);
 	}
-	function updateLot(id, patch, opts = {}) {
-		const cur = state$1.lots.get(id);
-		if (!cur || !opts.force && patch.version != null && patch.version <= cur.version) return;
-		const next = {
-			...cur,
-			...patch
-		};
-		state$1.lots.set(id, next);
-		persistSoon(next);
-		changed();
-	}
-	var details = new Map();
-	function loadDetail(lot, signal) {
-		const hit = details.get(lot.id);
-		if (hit && Date.now() - hit.at < DETAIL_TTL) {
-			const cached = hit.data ? Promise.resolve(hit.data) : hit.promise;
-			if (cached) return cached;
-		}
-		const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then((d) => {
-			details.set(lot.id, {
-				at: Date.now(),
-				data: d
-			});
-			const { description, brand, model, lotFee, bidHistory, ...base } = d;
-			const cur = state$1.lots.get(lot.id);
-			if (cur && base.version >= cur.version) updateLot(lot.id, base, { force: true });
-			return d;
-		}, (err) => {
-			details.delete(lot.id);
-			throw err;
-		});
-		details.set(lot.id, {
-			at: Date.now(),
-			promise
-		});
-		return promise;
-	}
-	var invalidateDetail = (id) => void details.delete(id);
-	function cachedDetail(id) {
-		const hit = details.get(id);
-		return hit && Date.now() - hit.at < DETAIL_TTL ? hit.data : void 0;
-	}
-	var lastActivity = Date.now();
-	var markActive = () => lastActivity = Date.now();
 	function maybeAutoPull() {
-		const idle = Date.now() - lastActivity > ACTIVE_WINDOW;
-		if (state$1.loaded && !pulling && document.visibilityState === "visible" && !idle && Date.now() >= nextPullAt()) pullCatalog();
+		if (state$1.loaded && !pulling && inUse() && Date.now() >= nextPullAt()) pullCatalog();
 	}
-	async function startCatalog() {
-		for (const ev of [
-			"pointerdown",
-			"keydown",
-			"wheel",
-			"touchstart",
-			"scroll"
-		]) window.addEventListener(ev, markActive, {
-			passive: true,
-			capture: true
-		});
-		document.addEventListener("visibilitychange", () => {
-			if (document.visibilityState === "visible") {
-				markActive();
-				maybeAutoPull();
+	var source = {
+		async start() {
+			setUpdateHook(persistSoon);
+			trackActivity(maybeAutoPull);
+			onSetting(KEYS.syncMinutes, changed);
+			try {
+				await reloadFromDb();
+			} catch (err) {
+				state$1.loaded = true;
+				state$1.error = `Couldn’t read the local cache: ${err.message || err}`;
+				changed();
 			}
-		});
-		onSetting(KEYS.syncMinutes, changed);
-		try {
-			await reloadFromDb();
-		} catch (err) {
-			state$1.loaded = true;
-			state$1.error = `Couldn’t read the local cache: ${err.message || err}`;
-			changed();
-		}
-		maybeAutoPull();
-		window.setInterval(maybeAutoPull, CHECK_EVERY);
-	}
+			maybeAutoPull();
+			window.setInterval(maybeAutoPull, CHECK_EVERY);
+		},
+		pullCatalog,
+		nextPullAt: () => nextPullAt(),
+		Settings: () => null
+	};
 	function compileFilter(pattern) {
 		try {
 			return new RegExp(`\\b(?:${pattern})\\b`, "i");
@@ -7760,32 +7778,36 @@
 			children: u(Collapsible, {
 				id: "settings",
 				title: u("h2", { children: "Settings" }),
-				children: [u(NumberInput, {
-					label: `Full catalog refresh at most every (minutes, min 1)`,
-					value: minutes,
-					parse: (text) => Math.max(1, Math.round(parseNum(text) ?? 5)),
-					onChange: setMinutes,
-					type: "number",
-					min: 1,
-					step: 1
-				}), u("label", {
-					class: "field",
-					children: [u("span", { children: "Pickup location (for transfer fees)" }), u("select", {
-						value: override ?? "",
-						onChange: (e) => setOverride(e.currentTarget.value || null),
-						children: [u("option", {
-							value: "",
-							children: [
-								"Account default (",
-								accountPickup ?? "Raleigh",
-								")"
-							]
-						}), [...new Set([...locations, pickup])].map((o) => u("option", {
-							value: o,
-							children: o
-						}))]
-					})]
-				})]
+				children: [
+					u(NumberInput, {
+						label: `Full catalog refresh at most every (minutes, min 1)`,
+						value: minutes,
+						parse: (text) => Math.max(1, Math.round(parseNum(text) ?? 5)),
+						onChange: setMinutes,
+						type: "number",
+						min: 1,
+						step: 1
+					}),
+					u("label", {
+						class: "field",
+						children: [u("span", { children: "Pickup location (for transfer fees)" }), u("select", {
+							value: override ?? "",
+							onChange: (e) => setOverride(e.currentTarget.value || null),
+							children: [u("option", {
+								value: "",
+								children: [
+									"Account default (",
+									accountPickup ?? "Raleigh",
+									")"
+								]
+							}), [...new Set([...locations, pickup])].map((o) => u("option", {
+								value: o,
+								children: o
+							}))]
+						})]
+					}),
+					u(source.Settings, {})
+				]
 			})
 		});
 	}
@@ -8264,10 +8286,10 @@
 		const live = useLiveState();
 		const now = useNow(1e3);
 		const { meta, progress, error, loaded } = catalog;
-		const wait = nextPullAt() - now;
+		const wait = source.nextPullAt() - now;
 		const due = wait <= 0;
 		let text = "No cached catalog yet";
-		if (!loaded) text = "Reading local cache…";
+		if (!loaded) text = "Loading catalog…";
 		else if (progress) text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : "Refreshing catalog…";
 		else if (meta.fetchedAt) text = `${fmtCount(catalog.lots.size)} lots · refreshed ${ago(meta.fetchedAt, now)}`;
 		const pct = progress?.total ? Math.round(progress.done / progress.total * 100) : 0;
@@ -8284,7 +8306,7 @@
 					type: "button",
 					class: "btn-text",
 					disabled: !loaded || !!progress || !due,
-					onClick: () => void pullCatalog(),
+					onClick: () => void source.pullCatalog(),
 					title: due ? "Pull the full catalog now" : "Full refreshes are rate-limited; change the interval in Settings",
 					children: [
 						u(Icon, {
@@ -8378,7 +8400,7 @@
 		});
 		startAuth();
 		R$1(u(App, {}), mount);
-		startCatalog();
+		source.start();
 	}
 	if (location.pathname.replace(/\/+$/, "") === "/tlx") takeOver();
 })();

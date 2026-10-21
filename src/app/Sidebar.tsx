@@ -2,6 +2,7 @@ import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
+import { source } from '@source';
 import { useSetting } from './gm';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';
@@ -393,7 +394,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
   );
 }
 
-/** Pickup location and full-refresh interval settings. */
+/** Pickup location and full-refresh interval settings, plus the build's own (the server address in the server build). */
 function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
   const [override, setOverride] = useSetting(KEYS.pickup);
@@ -418,6 +419,7 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
             ))}
           </select>
         </label>
+        <source.Settings />
       </Collapsible>
     </section>
   );

@@ -1,0 +1,16 @@
+[project]
+name = "tlx-server"
+version = "1.0.0"
+description = "Catalog server for the server build of the Triangle Liquidators /tlx userscript"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+tlx-server = "tlx_server.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 140

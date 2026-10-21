@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { KEYS, lotHref } from '../shared/keys';
 import { fetchPickupLocation } from './api';
 import { useAuthed } from './auth';
-import { getLot, nextPullAt, pullCatalog, useCatalog } from './catalog';
+import { source } from '@source';
+import { getLot, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
 import { navFromUrl, useHistory } from './history';
 import { Icon } from './icons';
@@ -339,12 +340,12 @@ function StatusBar() {
   const live = useLiveState();
   const now = useNow(1000);
   const { meta, progress, error, loaded } = catalog;
-  const wait = nextPullAt() - now;
+  const wait = source.nextPullAt() - now;
   const due = wait <= 0;
 
   let text = 'No cached catalog yet';
   if (!loaded) {
-    text = 'Reading local cache…';
+    text = 'Loading catalog…';
   } else if (progress) {
     text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : 'Refreshing catalog…';
   } else if (meta.fetchedAt) {
@@ -362,7 +363,7 @@ function StatusBar() {
         type="button"
         class="btn-text"
         disabled={!loaded || !!progress || !due}
-        onClick={() => void pullCatalog()}
+        onClick={() => void source.pullCatalog()}
         title={due ? 'Pull the full catalog now' : 'Full refreshes are rate-limited; change the interval in Settings'}
       >
         <Icon name="refresh" size={16} /> {progress ? 'Refreshing' : due ? 'Refresh' : `Refresh in ${countdown(wait)}`}

@@ -4,7 +4,7 @@ import { render } from 'preact';
 import css from './app.css?inline';
 import { App } from './App';
 import { startAuth } from './auth';
-import { startCatalog } from './catalog';
+import { source } from '@source';
 
 /** Stop the site's page, build a fresh document, and mount the /tlx app in it. */
 export function takeOver() {
@@ -40,5 +40,5 @@ export function takeOver() {
 
   startAuth();
   render(<App />, mount);
-  void startCatalog();
+  void source.start();
 }

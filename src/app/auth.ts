@@ -106,6 +106,9 @@ function scheduleRefresh() {
 /** The startup session check; requests wait for it so they use a fresh token. */
 let ready: Promise<unknown> = Promise.resolve();
 
+/** Resolves once the startup session check is done (the token is as fresh as it will get). */
+export const authReady = () => ready.then(() => {}, () => {});
+
 /** Check the session once at startup (like the site's page load) and keep it fresh afterwards. */
 export function startAuth() {
   ready = refreshSession();
