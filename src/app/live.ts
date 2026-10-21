@@ -1,11 +1,11 @@
 // Live updates over the site's own Centrifugo websocket. Like the site, we
 // subscribe only to the lots currently on screen (`lot:{id}`); when logged in,
 // the server also pushes this account's outbid/winning events.
-import { Centrifuge, type Subscription } from 'centrifuge';
+import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 import { useSyncExternalStore } from 'preact/compat';
 import { fetchWsToken, isAuthenticated, normalizeStanding } from './api';
 import { onAuthChange } from '@auth';
-import { getLot, updateLot } from './catalog';
+import { getLot, loadDetail, updateLot } from './catalog';
 import type { Lot } from './types';
 import { emitter } from './util';
 
@@ -130,7 +130,49 @@ export async function watchLots(ids: number[]) {
   for (const id of want.difference(subs)) {
     const sub = c.getSubscription(`lot:${id}`) ?? c.newSubscription(`lot:${id}`);
     sub.on('publication', (ctx) => onLotPublication(ctx.data));
+    sub.on('subscribed', (ctx) => catchUp(id, ctx));
     sub.subscribe();
     subs.set(id, sub);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Catching up lots that changed before they came on screen
+// ---------------------------------------------------------------------------
+// A subscription only delivers updates from now on (the site doesn't let
+// clients read channel history), so a card could show an old price until the
+// next bid. But the subscribe reply carries the channel's stream offset, which
+// is the lot's `version`. An offset ahead of ours means the lot changed since
+// we fetched it, so fetch just that lot. This also runs after a reconnect.
+const CATCH_UP_CONCURRENCY = 2;
+/** Lots waiting to be refetched, oldest first. */
+const behind: number[] = [];
+let fetching = 0;
+
+/** Queue the lot for a refetch if the channel is ahead of our copy. */
+function catchUp(id: number, ctx: SubscribedContext) {
+  const lot = getLot(id);
+  const offset = ctx.streamPosition?.offset;
+  if (lot && offset != null && offset > lot.version && !behind.includes(id)) {
+    behind.push(id);
+    pump();
+  }
+}
+
+/** Refetch queued lots a couple at a time, skipping any that left the screen. */
+function pump() {
+  while (fetching < CATCH_UP_CONCURRENCY && behind.length) {
+    const lot = getLot(behind.shift()!);
+    if (!lot || !subs.has(lot.id)) {
+      continue;
+    }
+    fetching++;
+    // loadDetail updates the catalog entry; failures just leave the old copy.
+    void loadDetail(lot)
+      .catch(() => {})
+      .finally(() => {
+        fetching--;
+        pump();
+      });
   }
 }

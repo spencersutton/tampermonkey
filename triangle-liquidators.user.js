@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.10
+// @version      3.8.11
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -6214,8 +6214,31 @@
 		for (const id of want.difference(subs)) {
 			const sub = c.getSubscription(`lot:${id}`) ?? c.newSubscription(`lot:${id}`);
 			sub.on("publication", (ctx) => onLotPublication(ctx.data));
+			sub.on("subscribed", (ctx) => catchUp(id, ctx));
 			sub.subscribe();
 			subs.set(id, sub);
+		}
+	}
+	var CATCH_UP_CONCURRENCY = 2;
+	var behind = [];
+	var fetching = 0;
+	function catchUp(id, ctx) {
+		const lot = getLot(id);
+		const offset = ctx.streamPosition?.offset;
+		if (lot && offset != null && offset > lot.version && !behind.includes(id)) {
+			behind.push(id);
+			pump();
+		}
+	}
+	function pump() {
+		while (fetching < CATCH_UP_CONCURRENCY && behind.length) {
+			const lot = getLot(behind.shift());
+			if (!lot || !subs.has(lot.id)) continue;
+			fetching++;
+			loadDetail(lot).catch(() => {}).finally(() => {
+				fetching--;
+				pump();
+			});
 		}
 	}
 	var canWatch = (lot) => isAuthenticated() && !hasBidOn(lot);
