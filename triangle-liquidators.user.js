@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.14
+// @version      3.8.15
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -6699,7 +6699,7 @@
 		})));
 	}
 	function CategoryEditor({ lots, onClose }) {
-		const initial = T$1(() => getSetting(KEYS.customCategories), []);
+		const [initial, setInitial] = d(() => getSetting(KEYS.customCategories));
 		const [drafts, setDrafts] = d(() => initial.map(toDraft));
 		const [selected, setSelected] = d(drafts[0]?.key ?? null);
 		const [drag, setDrag] = d(null);
@@ -6778,14 +6778,23 @@
 			setDrafts((ds) => ds.filter((x) => x.key !== d.key));
 			if (selected === d.key) setSelected(null);
 		};
-		const save = () => {
-			if (!valid) return;
+		const apply = () => {
+			if (!valid) return false;
 			const renames = new Map(initial.map((c) => [c.name, null]));
 			for (const d of drafts) if (d.from != null) renames.set(d.from, d.name.trim());
 			for (const [from, to] of renames) if (from === to) renames.delete(from);
-			setSetting(KEYS.customCategories, drafts.map(clean));
+			const saved = drafts.map(clean);
+			setSetting(KEYS.customCategories, saved);
 			if (renames.size) migrateFilters(renames);
-			onClose();
+			setInitial(saved);
+			setDrafts((ds) => ds.map((d) => ({
+				...d,
+				from: d.name.trim()
+			})));
+			return true;
+		};
+		const save = () => {
+			if (apply()) onClose();
 		};
 		const sel = drafts.find((d) => d.key === selected);
 		const selLots = sel ? assignment.taken.get(sel.key) : [];
@@ -7008,6 +7017,13 @@
 								class: "btn btn-outline",
 								onClick: close,
 								children: "Cancel"
+							}),
+							u("button", {
+								type: "button",
+								class: "btn btn-outline",
+								onClick: () => dirty && apply(),
+								"aria-disabled": valid && dirty ? void 0 : "true",
+								children: "Apply"
 							}),
 							u("button", {
 								type: "button",
