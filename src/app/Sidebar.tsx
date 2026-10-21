@@ -1,7 +1,7 @@
 import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
-import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
+import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
 import { source } from '@source';
 import { useSetting } from './gm';
 import { Icon } from './icons';
@@ -398,6 +398,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
 function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
   const [override, setOverride] = useSetting(KEYS.pickup);
+  const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
   return (
     <section class="panel">
       <Collapsible id="settings" title={<h2>Settings</h2>}>
@@ -408,6 +409,15 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
           onChange={setMinutes}
           type="number"
           min={MIN_SYNC_MINUTES}
+          step={1}
+        />
+        <NumberInput
+          label="Lot title lines in the grid (0 = show in full)"
+          value={titleLines}
+          parse={(text) => Math.max(0, Math.round(parseNum(text) ?? DEFAULT_TITLE_LINES))}
+          onChange={setTitleLines}
+          type="number"
+          min={0}
           step={1}
         />
         <label class="field">

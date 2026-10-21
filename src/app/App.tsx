@@ -74,6 +74,7 @@ export function App() {
   const [showHidden] = useSetting(KEYS.showHidden);
   const [pickupOverride] = useSetting(KEYS.pickup);
   const [customCategories] = useSetting(KEYS.customCategories);
+  const [titleLines] = useSetting(KEYS.titleLines);
   const authed = useAuthed();
   const accountPickup = useAccountPickup(catalog.lots, authed);
   const pickup = pickupOverride || accountPickup || 'Raleigh';
@@ -312,7 +313,7 @@ export function App() {
             )}
           </div>
 
-          <div class="grid">
+          <div class={`grid ${titleLines ? '' : 'full-titles'}`} style={titleLines ? { '--title-lines': titleLines } : undefined}>
             {pageRows.map((row) => (
               <LotCard
                 key={row.lot.id}

@@ -12,6 +12,7 @@ export const KEYS = {
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – title regexes that move lots into a category of their own
+  titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
 } as const;
 
 /** Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay per browser. */
@@ -43,6 +44,9 @@ export interface CustomCategory {
 export const DEFAULT_SYNC_MINUTES = 5;
 export const MIN_SYNC_MINUTES = 1;
 
+// Grid cards show titles in full unless they run past this many lines.
+export const DEFAULT_TITLE_LINES = 6;
+
 /** Value returned for each GM storage key when nothing has been saved yet. */
 export const DEFAULTS = {
   [KEYS.hidden]: {} as Record<string, HiddenLot>,
@@ -57,6 +61,7 @@ export const DEFAULTS = {
   [KEYS.savedSearches]: [] as unknown[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
+  [KEYS.titleLines]: DEFAULT_TITLE_LINES,
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
