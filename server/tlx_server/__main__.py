@@ -1,48 +1,71 @@
-"""Run the server: python -m tlx_server [--port 8765] [--background-minutes 30] ..."""
+"""Run the tlx server: the /tlx catalog as a web app (phones included), backed by
+its own catalog pulls, synced settings and login to the site.
+
+  python -m tlx_server                                   # this machine only
+  python -m tlx_server --host 0.0.0.0 --password ...     # reachable from your phone
+"""
 
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import logging
 import os
+import sys
 import threading
 from pathlib import Path
 
 from .catalog import Catalog
 from .server import Api, serve
+from .session import SiteSession
 from .store import Store
 
 DEFAULT_DB = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "tlx-server" / "tlx.db"
 
 
+def is_loopback(host: str) -> bool:
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def main() -> None:
-    p = argparse.ArgumentParser(prog="tlx-server", description=__doc__)
-    p.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1)")
+    p = argparse.ArgumentParser(prog="tlx-server", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--host", default="127.0.0.1", help="address to listen on (default 127.0.0.1; 0.0.0.0 for your phone)")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--db", type=Path, default=DEFAULT_DB, help=f"SQLite file (default {DEFAULT_DB})")
+    p.add_argument(
+        "--password",
+        default=os.environ.get("TLX_PASSWORD"),
+        help="password for the app (or set TLX_PASSWORD); required unless listening on loopback only",
+    )
     p.add_argument(
         "--background-minutes",
         type=float,
         default=0,
-        help="also pull this often when no /tlx tab is in use (default 0 = only while one is)",
+        help="also pull this often when no one has the app open (default 0 = only while it's in use)",
     )
-    p.add_argument("--key", default=os.environ.get("TLX_KEY"), help="require this key from the userscript (or set TLX_KEY)")
-    p.add_argument(
-        "--allow-host",
-        action="append",
-        default=[],
-        metavar="NAME",
-        help="extra Host header to accept, e.g. this machine's name when not using localhost",
-    )
+    p.add_argument("--tls-cert", type=Path, help="serve HTTPS with this certificate (PEM)")
+    p.add_argument("--tls-key", type=Path, help="private key for --tls-cert")
+    p.add_argument("--allow-host", action="append", default=[], metavar="NAME", help="extra Host name to accept when there's no password")
     p.add_argument("-v", "--verbose", action="store_true", help="log every request")
     args = p.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    if not args.password and not is_loopback(args.host):
+        sys.exit("tlx-server: set --password (or TLX_PASSWORD) to listen beyond this machine; the server can bid as you.")
+    if bool(args.tls_cert) != bool(args.tls_key):
+        sys.exit("tlx-server: --tls-cert and --tls-key go together.")
     store = Store(args.db)
-    catalog = Catalog(store, args.background_minutes)
+    session = SiteSession(store)
+    catalog = Catalog(store, session, args.background_minutes)
     threading.Thread(target=catalog.run_forever, name="puller", daemon=True).start()
+    api = Api(store, catalog, session, args.password, set(args.allow_host), tls=bool(args.tls_cert))
     try:
-        serve(Api(store, catalog, args.key, set(args.allow_host)), args.host, args.port)
+        serve(api, args.host, args.port, args.tls_cert, args.tls_key)
     except KeyboardInterrupt:
         pass
 

@@ -1,16 +1,16 @@
 // Thin client for the site's JSON API. Requests carry the same bearer token
 // the site's own client sends (see auth.ts), so lots include account fields
 // like your standing and watchlist state.
-import { authedFetch, isAuthenticated } from './auth';
+import { authedFetch, isAuthenticated, LOGIN_PLACE } from '@auth';
 import type { BidHistoryEntry, Lot, LotDetail, LotImage, Standing } from './types';
 
-/** Prefix for the site's API (proxied on the same origin). */
+/** Prefix for the site's API (proxied on the same origin, by the site itself or by the tlx server). */
 const BASE = '/backend';
 /** Host serving lot images. */
 export const CDN = 'https://cdn.triangleliquidators.com';
 export const LIST_PAGE_SIZE = 100; // the API's maximum per_page
 
-const LOGGED_OUT = 'You’re logged out. Log in on the site, then try again.';
+const LOGGED_OUT = `You’re logged out. Log in${LOGIN_PLACE}, then try again.`;
 
 /** A failed API request, with its HTTP status. */
 export class ApiError extends Error {
@@ -22,7 +22,7 @@ export class ApiError extends Error {
   }
 }
 
-export { authToken, isAuthenticated } from './auth';
+export { authToken, isAuthenticated } from '@auth';
 
 /** GET a JSON endpoint with query params, using the login token when there is one. */
 async function get<T>(path: string, params: Record<string, string | number> = {}, signal?: AbortSignal): Promise<T> {
@@ -137,7 +137,7 @@ export async function fetchWsToken(): Promise<string> {
 /** Add or remove a lot from your watchlist, like the site's star button. */
 export async function setWatchlisted(auctionPeriod: string, lotId: number, on: boolean): Promise<void> {
   if (!isAuthenticated()) {
-    throw new ApiError('Log in on the site to use your watchlist.', 401);
+    throw new ApiError(`Log in${LOGIN_PLACE} to use your watchlist.`, 401);
   }
   const res = await send(`/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, on ? 'POST' : 'DELETE', on ? {} : undefined);
   if (res.ok) {
@@ -187,7 +187,7 @@ function bidFailure(status: number) {
 /** Place a bid (a max bid or the next increment) and return the outcome. */
 export async function placeBid(lotId: number, amount: number, type: BidType): Promise<BidResult> {
   if (!isAuthenticated()) {
-    throw new BidError('Log in on the site to bid.', 401);
+    throw new BidError(`Log in${LOGIN_PLACE} to bid.`, 401);
   }
   let res: Response;
   try {

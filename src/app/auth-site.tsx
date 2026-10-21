@@ -1,4 +1,5 @@
-// Login state for /tlx.
+// Login state for the userscript (the web app's is auth-web.tsx; both are
+// imported as '@auth').
 //
 // The site's API token lives in a readable `token` cookie that the site's
 // server re-issues whenever the page calls next-auth's /api/auth/session. The
@@ -6,8 +7,21 @@
 // any 401. /tlx stops the site's own code from loading, so we make the same
 // calls here; otherwise the token quietly expires and /tlx looks logged out
 // while the rest of the site (which refreshes it) is fine.
+import type { ComponentChildren } from 'preact';
 import { useSyncExternalStore } from 'preact/compat';
 import { emitter, MINUTE } from './util';
+
+/** Where to log in, for messages like "Log in on the site to bid". */
+export const LOGIN_PLACE = ' on the site';
+
+/** A link to log in: the site's own page, in a new tab (this page notices the new login). */
+export function LoginLink({ href = '/', class: cls, title, children }: { href?: string; class?: string; title?: string; children: ComponentChildren }) {
+  return (
+    <a class={cls} href={href} target="_blank" rel="noopener" title={title}>
+      {children}
+    </a>
+  );
+}
 
 /** next-auth session endpoint; calling it re-issues the `token` cookie. */
 const SESSION_URL = '/api/auth/session';

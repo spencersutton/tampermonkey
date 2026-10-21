@@ -3,42 +3,60 @@ import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 
 // Two builds from the same source:
-// - default: standalone, the browser pulls and caches the catalog itself.
-// - `--mode server`: the catalog and synced settings come from the tlx server
-//   (server/), reached through GM_xmlhttpRequest.
-const RAW = 'https://raw.githubusercontent.com/spencersutton/tampermonkey/main';
+// - default: the Tampermonkey userscript. It takes over /tlx on the site,
+//   pulls and caches the catalog itself, and uses the site's own login.
+// - `--mode web`: a plain web app (phones included) that the tlx server
+//   (server/) serves; the server pulls the catalog, holds the site login,
+//   and stands in for the site's API and websocket.
+// Modules that differ are imported by alias and swapped per build.
+const RAW = 'https://raw.githubusercontent.com/spencersutton/tampermonkey/main/triangle-liquidators.user.js';
+const app = (file: string) => fileURLToPath(new URL(`src/app/${file}`, import.meta.url));
 
 export default defineConfig(({ mode }) => {
-  const server = mode === 'server';
-  const fileName = server ? 'triangle-liquidators-server.user.js' : 'triangle-liquidators.user.js';
+  const web = mode === 'web';
+  const alias = {
+    '@source': app(web ? 'source-web.tsx' : 'source-local.tsx'),
+    '@auth': app(web ? 'auth-web.tsx' : 'auth-site.tsx'),
+    '@storage': app(web ? 'storage-web.ts' : 'storage-gm.ts'),
+  };
+  const oxc = { jsx: { runtime: 'automatic', importSource: 'preact' } } as const;
+  if (web) {
+    return {
+      root: 'web',
+      oxc,
+      resolve: { alias },
+      // `npm run dev:web`: hot reload, with everything else answered by a tlx server on its default port.
+      server: {
+        proxy: {
+          '/api': 'http://127.0.0.1:8765',
+          '/backend': 'http://127.0.0.1:8765',
+          '/ws': { target: 'ws://127.0.0.1:8765', ws: true },
+        },
+      },
+      build: { outDir: fileURLToPath(new URL('server/tlx_server/static', import.meta.url)), emptyOutDir: true, target: 'es2023' },
+    };
+  }
   return {
-    oxc: { jsx: { runtime: 'automatic', importSource: 'preact' } },
-    resolve: {
-      alias: { '@source': fileURLToPath(new URL(`src/app/source-${server ? 'server' : 'local'}.tsx`, import.meta.url)) },
-    },
-    // Both builds write to dist/; don't let the second one wipe the first.
-    build: { minify: false, target: 'esnext', emptyOutDir: false },
+    oxc,
+    resolve: { alias },
+    build: { minify: false, target: 'esnext' },
     plugins: [
       monkey({
         entry: 'src/main.ts',
         userscript: {
-          name: server ? 'Triangle Liquidators – Hide, Filter & Bid Confirm (server)' : 'Triangle Liquidators – Hide, Filter & Bid Confirm',
+          name: 'Triangle Liquidators – Hide, Filter & Bid Confirm',
           namespace: 'https://triangleliquidators.com/',
-          version: server ? '1.0.0' : '3.8.9',
+          version: '3.8.10',
           icon: 'https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com',
-          description: server
-            ? 'The /tlx catalog view, backed by your own tlx server (catalog pulls, history and synced settings). Install this or the standalone script, not both.'
-            : 'A fast cached catalog view at /tlx, with confirmed bidding. The site\'s other pages are left unchanged.',
+          description: 'A fast cached catalog view at /tlx, with confirmed bidding. The site\'s other pages are left unchanged.',
           match: ['https://triangleliquidators.com/tlx*', 'https://www.triangleliquidators.com/tlx*'],
           homepageURL: 'https://github.com/spencersutton/tampermonkey',
-          updateURL: `${RAW}/${fileName}`,
-          downloadURL: `${RAW}/${fileName}`,
+          updateURL: RAW,
+          downloadURL: RAW,
           'run-at': 'document-start',
-          grant: ['GM_getValue', 'GM_setValue', 'GM_addValueChangeListener', ...(server ? (['GM_xmlhttpRequest'] as const) : [])],
-          // localhost by default; `*` lets Tampermonkey ask before reaching a server elsewhere.
-          ...(server ? { connect: ['127.0.0.1', 'localhost', '*'] } : {}),
+          grant: ['GM_getValue', 'GM_setValue', 'GM_addValueChangeListener'],
         },
-        build: { fileName, autoGrant: false },
+        build: { fileName: 'triangle-liquidators.user.js', autoGrant: false },
       }),
     ],
   };

@@ -12,11 +12,9 @@ export const KEYS = {
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – title regexes that move lots into a category of their own
-  serverUrl: 'tlxServerUrl', // string – tlx server address (server build only)
-  serverKey: 'tlxServerKey', // string – the server's --key, if it has one (server build only)
 } as const;
 
-/** Settings the server build keeps on the tlx server, so every browser using it shares them. The rest stay per browser. */
+/** Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay per browser. */
 export const SYNCED_KEYS = [
   KEYS.hidden,
   KEYS.words,
@@ -59,9 +57,10 @@ export const DEFAULTS = {
   [KEYS.savedSearches]: [] as unknown[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
-  [KEYS.serverUrl]: 'http://127.0.0.1:8765',
-  [KEYS.serverKey]: '',
 };
 
-/** Path of a lot's page on the real site. */
-export const lotHref = (auctionPeriod: string, id: number | string) => `/lots/${auctionPeriod}/${id}`;
+/** A lot's page on the real site (absolute, since the web app runs on another origin). */
+export const lotHref = (auctionPeriod: string, id: number | string) => `https://triangleliquidators.com/lots/${auctionPeriod}/${id}`;
+
+/** A link saved with a hidden lot as an absolute URL on the site (older ones were saved as paths). */
+export const siteUrl = (href: string) => new URL(href, 'https://triangleliquidators.com/').href;

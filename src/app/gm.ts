@@ -1,5 +1,7 @@
-// Reactive access to GM storage (synced across tabs).
-import { GM_addValueChangeListener, GM_getValue, GM_setValue } from 'vite-plugin-monkey/dist/client';
+// Reactive access to settings, synced across tabs. Where they're stored depends
+// on the build ('@storage'): GM storage in the userscript, localStorage in the
+// web app (which also keeps the SYNCED_KEYS on the server; see source-web.tsx).
+import { getValue, onRemoteChange, setValue } from '@storage';
 import { useSyncExternalStore } from 'preact/compat';
 import { useCallback } from 'preact/hooks';
 import { DEFAULTS } from '../shared/keys';
@@ -15,12 +17,10 @@ const changes = new EventTarget();
 /** Read a setting (or its default); the first read also starts listening for other tabs' changes. */
 export function getSetting<K extends Key>(key: K): Value<K> {
   if (!cache.has(key)) {
-    cache.set(key, GM_getValue(key, DEFAULTS[key]));
-    GM_addValueChangeListener(key, (_name, _old, value, remote) => {
-      if (remote) {
-        cache.set(key, value ?? DEFAULTS[key]);
-        changes.dispatchEvent(new Event(key));
-      }
+    cache.set(key, getValue(key, DEFAULTS[key]));
+    onRemoteChange(key, (value) => {
+      cache.set(key, value ?? DEFAULTS[key]);
+      changes.dispatchEvent(new Event(key));
     });
   }
   return cache.get(key) as Value<K>;
@@ -33,7 +33,7 @@ export const setSaveHook = (fn: (key: Key, value: unknown) => void) => void (onS
 /** Store a setting and notify everything in this tab that depends on it, without calling the save hook (for values from the server). */
 export function applySetting<K extends Key>(key: K, value: Value<K>) {
   cache.set(key, value);
-  GM_setValue(key, value);
+  setValue(key, value);
   changes.dispatchEvent(new Event(key));
 }
 

@@ -9,21 +9,20 @@
   saved searches keep counting new lots while the browser is closed.
 - Pages are fetched one at a time, by a single puller thread.
 
-Account fields (your standing, watchlist) come from the login token the
-userscript forwards. It's kept in memory only. A pull made without one (the
-token expired while no tab was open) keeps the account fields from the
-previous pull rather than wiping them.
+Account fields (your standing, watchlist) come from the server's own site
+login (session.py). A pull made while logged out keeps the account fields
+from the previous pull rather than wiping them.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from dataclasses import dataclass
 from typing import Any
 
-from .site import LIST_PAGE_SIZE, ApiError, fetch_lot_page, now_ms, token_expiry
+from .session import SiteSession
+from .site import LIST_PAGE_SIZE, ApiError, fetch_lot_page, now_ms
 from .store import CatalogMeta, Store
 
 log = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ DEFAULT_SYNC_MINUTES = 5
 MIN_SYNC_MINUTES = 1
 ACTIVE_WINDOW_MS = 10 * MINUTE_MS  # pull only if a tab was in use this recently
 CHECK_EVERY = 15  # seconds between checks whether a pull is due
-TOKEN_MARGIN = 30  # seconds; a token this close to expiry isn't used
 SYNC_MINUTES_KEY = "tlxSyncMinutes"  # same key as src/shared/keys.ts
 ACCOUNT_FIELDS = ("yourStanding", "isWatchlisted", "hasBid")
 
@@ -45,37 +43,23 @@ class Progress:
 
 
 class Catalog:
-    def __init__(self, store: Store, background_minutes: float = 0) -> None:
+    def __init__(self, store: Store, session: SiteSession, background_minutes: float = 0) -> None:
         self.store = store
+        self.session = session
         self.background_ms = background_minutes * MINUTE_MS
         self.progress: Progress | None = None
         self.error: str | None = None
         self._last_active = 0.0  # epoch ms of the last poll from a tab in use
-        self._token: str | None = None
-        self._token_lock = threading.Lock()
         self._requested = False
         self._wake = threading.Event()
 
     # -- what clients tell us ---------------------------------------------------
-    def heartbeat(self, active: bool, token: str | None) -> None:
-        """Record a poll: whether the tab is in use, and its login token ("" = logged out, None = not sent)."""
-        if token is not None:
-            with self._token_lock:
-                self._token = token or None
+    def heartbeat(self, active: bool) -> None:
+        """Record a poll, and whether the tab that made it is in use."""
         if active:
             self._last_active = now_ms()
             if self.due():
                 self._wake.set()
-
-    def _usable_token(self) -> str | None:
-        with self._token_lock:
-            exp = token_expiry(self._token)
-            return self._token if self._token and (exp is None or exp - TOKEN_MARGIN > time.time()) else None
-
-    def _reject_token(self, token: str) -> None:
-        with self._token_lock:
-            if self._token == token:
-                self._token = None
 
     # -- schedule ---------------------------------------------------------------
     def interval_ms(self) -> float:
@@ -130,7 +114,7 @@ class Catalog:
         self.store.write_meta(pullStartedAt=started)
         prev = self.store.all_lots()
         first_load = not prev
-        token = self._usable_token()
+        token = self.session.token()
         self.error = None
         self.progress = Progress(0, None)
         log.info("pull started (%s)", "logged in" if token else "anonymous")
@@ -153,10 +137,11 @@ class Catalog:
                 except ApiError as e:
                     if e.status != 401 or not token:
                         raise
-                    # The token was rejected: start over without it, so every page agrees.
-                    log.info("token rejected; pulling anonymously")
-                    self._reject_token(token)
-                    token, pulled, pages, page = None, {}, 1, 1
+                    # The token was rejected: refresh it, or go on without it, and
+                    # start over so every page agrees.
+                    token = self.session.rejected(token)
+                    log.info("token rejected; %s", "refreshed" if token else "pulling anonymously")
+                    pulled, pages, page = {}, 1, 1
                     continue
                 if page == 1:
                     count = d.count

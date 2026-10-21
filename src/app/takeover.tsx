@@ -3,7 +3,7 @@
 import { render } from 'preact';
 import css from './app.css?inline';
 import { App } from './App';
-import { startAuth } from './auth';
+import { startAuth } from '@auth';
 import { source } from '@source';
 
 /** Stop the site's page, build a fresh document, and mount the /tlx app in it. */

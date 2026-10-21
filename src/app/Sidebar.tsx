@@ -1,7 +1,7 @@
 import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
-import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
+import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
 import { source } from '@source';
 import { useSetting } from './gm';
 import { Icon } from './icons';
@@ -375,7 +375,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
         <ul class="hidden-list">
           {hidden.map(([id, info]) => (
             <li>
-              <a href={info.href} title={info.title} onClick={openHandler(() => onOpenHidden(Number(id)))}>
+              <a href={siteUrl(info.href)} title={info.title} onClick={openHandler(() => onOpenHidden(Number(id)))}>
                 {info.title || `Lot ${id}`}
               </a>
               <button type="button" class="icon-btn" title="Unhide" aria-label={`Unhide ${info.title}`} onClick={() => unhide(id)}>

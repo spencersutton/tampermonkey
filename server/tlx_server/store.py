@@ -1,4 +1,5 @@
-"""SQLite storage: the catalog (one row per lot), catalog meta, and synced settings.
+"""SQLite storage: the catalog (one row per lot), catalog meta, synced settings,
+the site login cookies, and sessions of this app's own password login.
 
 Every full pull that changes anything gets a new sequence number, and each lot
 row records the sequence of its last change, so a client that has seen
@@ -11,6 +12,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import time
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -21,6 +23,7 @@ CREATE TABLE IF NOT EXISTS lots (id INTEGER PRIMARY KEY, seq INTEGER NOT NULL, d
 CREATE INDEX IF NOT EXISTS lots_seq ON lots (seq);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
 """
 
 
@@ -45,10 +48,11 @@ class CatalogChanges:
 
 class Store:
     def __init__(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.executescript(SCHEMA)
+        path.chmod(0o600)  # holds the site login cookies
         self._lock = threading.Lock()
 
     # -- meta -----------------------------------------------------------------
@@ -58,6 +62,14 @@ class Store:
 
     def _set(self, key: str, value: Any) -> None:
         self._db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, dumps(value)))
+
+    def get_meta(self, key: str, default: Any = None) -> Any:
+        with self._lock:
+            return self._get(key, default)
+
+    def set_meta(self, key: str, value: Any) -> None:
+        with self._lock:
+            self._set(key, value)
 
     def meta(self) -> CatalogMeta:
         with self._lock:
@@ -135,3 +147,17 @@ class Store:
             self._set("settingsRev", rev)
             self._db.execute("COMMIT")
             return rev
+
+    # -- app sessions -----------------------------------------------------------
+    def add_session(self, sid: str) -> None:
+        with self._lock:
+            self._db.execute("INSERT INTO app_sessions (id, created) VALUES (?, ?)", (sid, time.time()))
+
+    def has_session(self, sid: str, max_age: float) -> bool:
+        with self._lock:
+            row = self._db.execute("SELECT created FROM app_sessions WHERE id = ?", (sid,)).fetchone()
+            return bool(row) and time.time() - row[0] < max_age
+
+    def drop_session(self, sid: str) -> None:
+        with self._lock:
+            self._db.execute("DELETE FROM app_sessions WHERE id = ?", (sid,))

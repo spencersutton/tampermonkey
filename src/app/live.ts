@@ -4,13 +4,19 @@
 import { Centrifuge, type Subscription } from 'centrifuge';
 import { useSyncExternalStore } from 'preact/compat';
 import { fetchWsToken, isAuthenticated, normalizeStanding } from './api';
-import { onAuthChange } from './auth';
+import { onAuthChange } from '@auth';
 import { getLot, updateLot } from './catalog';
 import type { Lot } from './types';
 import { emitter } from './util';
 
-/** The site's Centrifugo websocket endpoint. */
-const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';
+/**
+ * The site's Centrifugo websocket endpoint. It only accepts the site's own
+ * Origin, so the web app goes through the tlx server's relay instead.
+ */
+const WS_URL =
+  import.meta.env.MODE === 'web'
+    ? `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
+    : 'wss://ws.triangleliquidators.com/connection/websocket';
 
 export type LiveState = 'off' | 'connecting' | 'connected' | 'disconnected';
 

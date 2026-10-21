@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { KEYS, lotHref } from '../shared/keys';
+import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { fetchPickupLocation } from './api';
-import { useAuthed } from './auth';
+import { LOGIN_PLACE, LoginLink, useAuthed } from '@auth';
 import { source } from '@source';
 import { getLot, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
@@ -194,7 +194,7 @@ export function App() {
     if (getLot(id)) {
       setOpenId(id);
     } else {
-      window.open(getSetting(KEYS.hidden)[id]?.href ?? '/', '_blank', 'noopener');
+      window.open(siteUrl(getSetting(KEYS.hidden)[id]?.href ?? '/'), '_blank', 'noopener');
     }
   }, []);
 
@@ -264,7 +264,7 @@ export function App() {
           <StatusBar />
           {!authed && (
             <p class="notice">
-              Not logged in: your bids, standings and watchlist aren’t shown. <a href="/" target="_blank" rel="noopener">Log in on the site</a> and this page picks it up.
+              Not logged in: your bids, standings and watchlist aren’t shown. <LoginLink>Log in{LOGIN_PLACE}</LoginLink> to see them and bid.
             </p>
           )}
           <div class="results-line" ref={gridTop}>

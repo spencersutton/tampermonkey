@@ -2,7 +2,7 @@ import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { useAuthed } from './auth';
+import { LOGIN_PLACE, LoginLink, useAuthed } from '@auth';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
@@ -174,9 +174,9 @@ function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; o
   const blocker = bidBlocker(row);
   if (blocker && !authed && !row.hidden && !row.matched) {
     return (
-      <a class="btn btn-small" href={href} target="_blank" rel="noopener" title="Log in on Triangle Liquidators to bid here">
-        Bid <Icon name="open" size={14} />
-      </a>
+      <LoginLink class="btn btn-small" href={href} title="Log in to Triangle Liquidators to bid here">
+        Bid {LOGIN_PLACE && <Icon name="open" size={14} />}
+      </LoginLink>
     );
   }
   if (blocker || pending) {

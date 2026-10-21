@@ -404,3 +404,9 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
   .price { font-size: 17px; }
   .card-sub { flex-direction: column; gap: 2px; }
 }
+
+/* Web app only: password prompt, login form, account rows */
+.lock-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
+.login-form .field { flex: none; }
+.link-button { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; text-decoration: underline; cursor: pointer; }
+.account { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
