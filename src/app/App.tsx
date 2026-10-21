@@ -25,6 +25,7 @@ import {
   sameFilters,
   savedFilters,
   savedSearchStats,
+  searchRegexOf,
   SORTS,
   suggestName,
   type SavedSearch,
@@ -216,6 +217,7 @@ export function App() {
   const openLotObj = openId != null ? catalog.lots.get(openId) : undefined;
   const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
   const nFilters = activeFilterCount(view);
+  const badRegex = view.searchRegex && !!search.trim() && !searchRegexOf({ ...view, search });
   // On a saved search's own filters, how many of the matches are new since its last visit.
   const freshMatches = view.newSince == null && activeSaved && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
 
@@ -225,14 +227,28 @@ export function App() {
         <a class="brand" href="/" title="Back to Triangle Liquidators">
           TL <span>Catalog</span>
         </a>
-        <input
-          class="search"
-          type="search"
-          placeholder={`Search ${fmtCount(result.open)} lots`}
-          aria-label="Search lots"
-          value={search}
-          onInput={(e) => setSearch(e.currentTarget.value)}
-        />
+        <div class="search-box">
+          <input
+            class={`search ${badRegex ? 'has-error' : ''}`}
+            type="search"
+            placeholder={view.searchRegex ? `Regex search ${fmtCount(result.open)} lots` : `Search ${fmtCount(result.open)} lots`}
+            aria-label="Search lots"
+            aria-invalid={badRegex}
+            title={badRegex ? 'Invalid regex' : undefined}
+            spellcheck={!view.searchRegex}
+            value={search}
+            onInput={(e) => setSearch(e.currentTarget.value)}
+          />
+          <button
+            type="button"
+            class={`regex-toggle ${view.searchRegex ? 'on' : ''}`}
+            aria-pressed={view.searchRegex}
+            title={view.searchRegex ? 'Regex search on (case-insensitive)' : 'Use regex search'}
+            onClick={() => setView({ searchRegex: !view.searchRegex })}
+          >
+            .*
+          </button>
+        </div>
         <select class="sort" aria-label="Sort" value={view.sort} onChange={(e) => setView({ sort: e.currentTarget.value as ViewState['sort'] })}>
           {Object.entries(SORTS).map(([k, { label }]) => (
             <option value={k}>{label}</option>

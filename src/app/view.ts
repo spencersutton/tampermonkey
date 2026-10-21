@@ -79,6 +79,7 @@ export type MineId = keyof typeof MINE;
 export interface ViewState {
   sort: SortId;
   search: string;
+  searchRegex: boolean; // the search box holds a case-insensitive regex rather than words
   categories: string[];
   conditions: number[];
   locations: string[];
@@ -96,6 +97,7 @@ export interface ViewState {
 export const DEFAULT_VIEW: ViewState = {
   sort: 'ending-soonest',
   search: '',
+  searchRegex: false,
   categories: [],
   conditions: [],
   locations: [],
@@ -293,21 +295,36 @@ function oneOf<T>(selected: T[]): (value: T) => boolean {
   return (value) => !set.size || set.has(value);
 }
 
+/** The search box's regex in regex mode, or null when it's blank or invalid. */
+export function searchRegexOf(v: ViewState): RegExp | null {
+  const pattern = v.search.trim();
+  if (!v.searchRegex || !pattern) {
+    return null;
+  }
+  try {
+    return new RegExp(pattern, 'i');
+  } catch {
+    return null;
+  }
+}
+
 /** Predicate for the view's own filters (not hide / regex exclusions). */
 export function makeMatcher(v: ViewState, now: number): (row: Row) => boolean {
-  const terms = v.search.toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = v.searchRegex ? [] : v.search.toLowerCase().split(/\s+/).filter(Boolean);
+  // An invalid regex matches nothing, so the mistake is obvious.
+  const re = v.searchRegex && v.search.trim() ? (searchRegexOf(v) ?? /$^/) : null;
   const win = ENDING[v.ending].window?.(now);
   const category = oneOf(v.categories);
   const condition = oneOf(v.conditions);
   const location = oneOf(v.locations);
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
   const searchMatches = (lot: Lot) => {
-    const hay = `${lot.title} ${lot.lotNumber}`.toLowerCase();
-    return terms.every((t) => hay.includes(t));
+    const hay = `${lot.title} ${lot.lotNumber}`;
+    return re ? re.test(hay) : terms.every((t) => hay.toLowerCase().includes(t));
   };
   return ({ lot, category: cat, total, pickupOnly }) =>
     (v.newSince == null || (lot.firstSeenAt ?? 0) > v.newSince) &&
-    (!terms.length || searchMatches(lot)) &&
+    ((!terms.length && !re) || searchMatches(lot)) &&
     category(cat?.value ?? '') &&
     condition(lot.condition?.value ?? -1) &&
     location(lot.location?.name ?? '') &&
