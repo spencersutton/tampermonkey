@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.11
+// @version      3.8.12
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -1451,9 +1451,10 @@
 		nextPullAt: () => nextPullAt(),
 		Settings: () => null
 	};
+	var EDGE = "(?:(?<!\\w)|(?!\\w))";
 	function compileFilter(pattern) {
 		try {
-			return new RegExp(`\\b(?:${pattern})\\b`, "i");
+			return new RegExp(`${EDGE}(?:${pattern})${EDGE}`, "i");
 		} catch {
 			return null;
 		}

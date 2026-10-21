@@ -1,9 +1,12 @@
 // Each filter is a case-insensitive regex tested against the lot title.
-// Every pattern is implicitly whole-word: \b(?:pattern)\b.
+// Every pattern is implicitly whole-word: a match may not start or end inside
+// a word. Unlike \b, this also holds next to punctuation, so `\(Gold\)` can
+// match at the end of a title.
 // Returns null for an invalid pattern.
+const EDGE = '(?:(?<!\\w)|(?!\\w))';
 export function compileFilter(pattern: string): RegExp | null {
   try {
-    return new RegExp(`\\b(?:${pattern})\\b`, 'i');
+    return new RegExp(`${EDGE}(?:${pattern})${EDGE}`, 'i');
   } catch {
     return null;
   }
