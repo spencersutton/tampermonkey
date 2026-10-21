@@ -93,6 +93,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
 
           <div class="modal-info">
             <h2 id="lot-title">{lot.title}</h2>
+            {detail && <BrandModel brand={detail.brand} model={detail.model} />}
             <div class="card-meta">
               <LocationText row={row} />
               {lot.condition && <span>{lot.condition.label}</span>}
@@ -145,9 +146,6 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
             {!detail && !error && <p class="muted">Loading details…</p>}
             {detail && (
               <>
-                {(detail.brand || detail.model) && (
-                  <p class="small">{[detail.brand && `Brand: ${detail.brand}`, detail.model && `Model: ${detail.model}`].filter(Boolean).join(' · ')}</p>
-                )}
                 {detail.description && <div class="description">{detail.description}</div>}
                 {detail.bidHistory.length > 0 && (
                   <div>
@@ -168,6 +166,38 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Brand and model, right under the title. The model (or the brand, if there's
+ * no model) links to a Google search for both, to look up specs and prices.
+ */
+function BrandModel({ brand, model }: { brand: string | null; model: string | null }) {
+  if (!brand && !model) {
+    return null;
+  }
+  const query = [brand, model].filter(Boolean).join(' ');
+  const search = (text: string) => (
+    <a href={`https://www.google.com/search?q=${encodeURIComponent(query)}`} target="_blank" rel="noopener" title={`Search Google for “${query}”`}>
+      {text} <Icon name="open" size={14} />
+    </a>
+  );
+  return (
+    <dl class="brand-model">
+      {brand && (
+        <div>
+          <dt>Brand</dt>
+          <dd>{model ? brand : search(brand)}</dd>
+        </div>
+      )}
+      {model && (
+        <div>
+          <dt>Model</dt>
+          <dd>{search(model)}</dd>
+        </div>
+      )}
+    </dl>
   );
 }
 

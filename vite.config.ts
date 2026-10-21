@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
         userscript: {
           name: server ? 'Triangle Liquidators – Hide, Filter & Bid Confirm (server)' : 'Triangle Liquidators – Hide, Filter & Bid Confirm',
           namespace: 'https://triangleliquidators.com/',
-          version: server ? '1.0.0' : '3.8.8',
+          version: server ? '1.0.0' : '3.8.9',
           icon: 'https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com',
           description: server
             ? 'The /tlx catalog view, backed by your own tlx server (catalog pulls, history and synced settings). Install this or the standalone script, not both.'
