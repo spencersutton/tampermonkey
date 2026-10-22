@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
         userscript: {
           name: 'Triangle Liquidators – Hide, Filter & Bid Confirm',
           namespace: 'https://triangleliquidators.com/',
-          version: '3.8.15',
+          version: '3.8.16',
           icon: 'https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com',
           description: 'A fast cached catalog view at /tlx, with confirmed bidding. The site\'s other pages are left unchanged.',
           match: ['https://triangleliquidators.com/tlx*', 'https://www.triangleliquidators.com/tlx*'],
@@ -54,7 +54,7 @@ export default defineConfig(({ mode }) => {
           updateURL: RAW,
           downloadURL: RAW,
           'run-at': 'document-start',
-          grant: ['GM_getValue', 'GM_setValue', 'GM_addValueChangeListener'],
+          grant: ['GM_getValue', 'GM_setValue', 'GM_addValueChangeListener', 'unsafeWindow'],
         },
         build: { fileName: 'triangle-liquidators.user.js', autoGrant: false },
       }),

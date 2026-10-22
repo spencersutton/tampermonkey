@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.15
+// @version      3.8.16
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -12,6 +12,7 @@
 // @grant        GM_addValueChangeListener
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        unsafeWindow
 // @run-at       document-start
 // ==/UserScript==
 
@@ -1498,7 +1499,7 @@
 	var SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
 	var SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
 	var SORT_UNIT = [
-		String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`,
+		String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d+(?![\d.,/]))\.?`,
 		String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
 		String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
 		String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,
@@ -1762,6 +1763,7 @@
 		v.newSince != null
 	].filter(Boolean).length;
 	var sortKeys = new Map();
+	(typeof unsafeWindow !== "undefined" ? unsafeWindow : globalThis).tlxSortKeys = sortKeys;
 	function titleKey(title) {
 		let key = sortKeys.get(title);
 		if (key === void 0) {

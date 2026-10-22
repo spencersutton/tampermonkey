@@ -8,7 +8,7 @@ export const collator = new Intl.Collator(undefined, { numeric: true, sensitivit
 const SORT_ONE = String.raw`(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[- ]\d+\/\d+|\/\d+)?`;
 const SORT_NUM = String.raw`${SORT_ONE}(?:\s*[-–]\s*${SORT_ONE})?`;
 const SORT_UNIT = [
-  String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d)\.?`, // not "3-in-1" / "2 in 1"
+  String.raw`in(?:ch(?:es)?)?(?!\s*-|\s+\d+(?![\d.,/]))\.?`, // not "3-in-1" / "2 in 1", but "18.5 in 3.2 cu. ft."
   String.raw`ft\.?|feet|foot|yds?\.?|yards?|mm|cm|mil|ga\.?|gauge|awg`,
   String.raw`gal(?:lons?)?\.?|qts?\.?|quarts?|pints?|pt\.?|cups?|fl\.? ?oz\.?|oz\.?|lbs?\.?|pounds?|kg|tons?|ml|l|liters?|litres?|cc`,
   String.raw`(?:cu|sq)\.? ?(?:ft|in|yd)\.?`,

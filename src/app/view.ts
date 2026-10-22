@@ -149,6 +149,9 @@ export interface Exclusions {
 
 /** Memoized sortKey() results by title. */
 const sortKeys = new Map<string, string>();
+// Debugging: `tlxSortKeys.get(title)` in the dev console shows what a title sorts on.
+declare const unsafeWindow: Window | undefined;
+(typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis as any)).tlxSortKeys = sortKeys;
 
 /** sortKey() for a title, cached. */
 function titleKey(title: string) {
