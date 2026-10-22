@@ -342,6 +342,10 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .cat-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--line); }
 .cat-foot .error { margin-right: auto; }
 
+/* Title sort rule editor (shares the category editor's layout) */
+.cat-row.rw-row { grid-template-columns: auto minmax(0, 1fr) minmax(120px, 200px) 84px auto; }
+.rw-preview li { flex-direction: column; gap: 0; }
+
 /* Bidding */
 .bid-panel { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
 .bid-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -407,6 +411,8 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
   .cat-count { grid-area: count; flex-direction: row; gap: 6px; align-items: baseline; padding-top: 0; }
   .cat-delete { grid-area: del; }
   .cat-error { grid-area: err; }
+  .cat-row.rw-row { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'order pattern del' 'order repl repl' 'order count count' 'err err err'; }
+  .rw-repl { grid-area: repl; }
 }
 @media (max-width: 520px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

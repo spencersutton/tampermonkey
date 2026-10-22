@@ -10,6 +10,7 @@ import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
 import { CategoryEditor } from './CategoryEditor';
+import { SortRuleEditor } from './SortRuleEditor';
 import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
@@ -74,6 +75,7 @@ export function App() {
   const [showHidden] = useSetting(KEYS.showHidden);
   const [pickupOverride] = useSetting(KEYS.pickup);
   const [customCategories] = useSetting(KEYS.customCategories);
+  const [sortRules] = useSetting(KEYS.sortRules);
   const [titleLines] = useSetting(KEYS.titleLines);
   const authed = useAuthed();
   const accountPickup = useAccountPickup(catalog.lots, authed);
@@ -84,6 +86,7 @@ export function App() {
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
+  const [editingSortRules, setEditingSortRules] = useState(false);
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
 
@@ -123,8 +126,8 @@ export function App() {
   }, [view.search]);
 
   const exclusions = useMemo(
-    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories }),
-    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories],
+    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories, sortRules }),
+    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories, sortRules],
   );
   const result = useMemo(
     () => computeView(catalog.lots.values(), view, pickup, exclusions, now30),
@@ -273,6 +276,7 @@ export function App() {
             authed={authed}
             onOpenHidden={openHidden}
             onEditCategories={() => setEditingCategories(true)}
+            onEditSortRules={() => setEditingSortRules(true)}
             saved={savedProps}
           />
         </aside>
@@ -344,6 +348,7 @@ export function App() {
         <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
       )}
       {editingCategories && <CategoryEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
+      {editingSortRules && <SortRuleEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingSortRules(false)} />}
       <Toasts />
     </div>
   );

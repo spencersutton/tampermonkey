@@ -18,6 +18,7 @@ interface Props {
   authed: boolean;
   onOpenHidden: (id: number) => void;
   onEditCategories: () => void;
+  onEditSortRules: () => void;
   saved: SavedSearchesProps;
 }
 
@@ -28,7 +29,12 @@ export function Sidebar(props: Props) {
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
       <HideFilterSection matchCounts={props.matchCounts} onOpenHidden={props.onOpenHidden} />
-      <SettingsSection pickup={props.pickup} accountPickup={props.accountPickup} locations={props.facets.locations.map((l) => l.value)} />
+      <SettingsSection
+        pickup={props.pickup}
+        accountPickup={props.accountPickup}
+        locations={props.facets.locations.map((l) => l.value)}
+        onEditSortRules={props.onEditSortRules}
+      />
     </div>
   );
 }
@@ -395,8 +401,19 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
 }
 
 /** Pickup location and full-refresh interval settings, plus the build's own (the server address in the server build). */
-function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
+function SettingsSection({
+  pickup,
+  accountPickup,
+  locations,
+  onEditSortRules,
+}: {
+  pickup: string;
+  accountPickup: string | null;
+  locations: string[];
+  onEditSortRules: () => void;
+}) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
+  const [sortRules] = useSetting(KEYS.sortRules);
   const [override, setOverride] = useSetting(KEYS.pickup);
   const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
   return (
@@ -429,6 +446,9 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
             ))}
           </select>
         </label>
+        <button type="button" class="btn-text cat-edit-btn" onClick={onEditSortRules}>
+          <Icon name="edit" size={16} /> {sortRules.length ? `Edit title sort rules (${sortRules.length})` : 'Add title sort rules'}
+        </button>
         <source.Settings />
       </Collapsible>
     </section>

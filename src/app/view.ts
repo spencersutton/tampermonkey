@@ -1,8 +1,8 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, compileFilter, firstMatch, type CompiledFilter } from '../shared/filters';
 import { totalCost } from '../shared/cost';
-import { collator, sortKey } from '../shared/sortKey';
-import type { CustomCategory, HiddenLot } from '../shared/keys';
+import { collator, compileSortRules, sortKey, type CompiledSortRule } from '../shared/sortKey';
+import type { CustomCategory, HiddenLot, SortRule } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR } from './util';
@@ -145,6 +145,7 @@ export interface Exclusions {
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
   customCategories: CustomCategory[];
+  sortRules: SortRule[];
 }
 
 /** Memoized sortKey() results by title. */
@@ -153,11 +154,22 @@ const sortKeys = new Map<string, string>();
 declare const unsafeWindow: Window | undefined;
 (typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis as any)).tlxSortKeys = sortKeys;
 
+/** Compiled sort rules for the most recent rule list. */
+let sortRuleCache: { rules: SortRule[]; compiled: CompiledSortRule[] } = { rules: [], compiled: [] };
+
+/** Sort titles with these rules from now on, recompiling (and forgetting cached keys) only when the list changes. */
+function applySortRules(rules: SortRule[]) {
+  if (sortRuleCache.rules !== rules) {
+    sortRuleCache = { rules, compiled: compileSortRules(rules) };
+    sortKeys.clear();
+  }
+}
+
 /** sortKey() for a title, cached. */
 function titleKey(title: string) {
   let key = sortKeys.get(title);
   if (key === undefined) {
-    key = sortKey(title);
+    key = sortKey(title, sortRuleCache.compiled);
     sortKeys.set(title, key);
   }
   return key;
@@ -229,6 +241,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const matches = makeMatcher(view, now);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const compiled = compiledFilters(ex.words);
+  applySortRules(ex.sortRules);
 
   const rows: Row[] = [];
   let open = 0;

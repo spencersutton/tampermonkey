@@ -1,3 +1,5 @@
+import type { SortRule } from './keys';
+
 /** Case-insensitive, number-aware string comparison used for title sorting. */
 export const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 // Sort key: move leading specs (measurements, pack counts, "Set of 3",
@@ -39,15 +41,29 @@ const SORT_LEAD = new RegExp(
 // moved, so model names like "X20" or "X2 Robotic Pool Vacuum" stay put.
 const SORT_SEP = /^[x×]\s*(?=\d)/i;
 
-// Custom rewrites, applied in order to the title after its leading specs are
-// moved, so similar items sort together whatever words come first. Add a
-// [pattern, replacement] pair to group another kind of item.
-const SORT_REWRITES: [RegExp, string][] = [
-  [/^(.+?)\s+(garbage disposal)\b/i, '$2 $1'], // "Continuous Feed Garbage Disposal" -> "Garbage Disposal Continuous Feed"
-];
+/** A sort rule ready to apply; `re` is null if its pattern isn't a valid regex. */
+export interface CompiledSortRule {
+  re: RegExp | null;
+  replacement: string;
+}
 
-/** Title rearranged for sorting: leading specs moved to the end and leading punctuation dropped. */
-export function sortKey(title: string): string {
+/** Compile sort rules' patterns (case-insensitive). */
+export function compileSortRules(rules: SortRule[]): CompiledSortRule[] {
+  return rules.map(({ pattern, replacement }) => {
+    try {
+      return { re: new RegExp(pattern, 'iu'), replacement };
+    } catch {
+      return { re: null, replacement };
+    }
+  });
+}
+
+/**
+ * Title rearranged for sorting: leading specs moved to the end, then the sort
+ * rules applied in order to what's left, and leading punctuation dropped.
+ * `onRewrite` is called with the index of each rule that changed the title.
+ */
+export function sortKey(title: string, rules: CompiledSortRule[] = [], onRewrite?: (i: number) => void): string {
   let rest = title.trim();
   const moved: string[] = [];
   for (let i = 0; i < 12; i++) {
@@ -58,9 +74,13 @@ export function sortKey(title: string): string {
     moved.push(m[0].trim());
     rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, '');
   }
-  for (const [pattern, replacement] of SORT_REWRITES) {
-    rest = rest.replace(pattern, replacement);
-  }
+  rules.forEach(({ re, replacement }, i) => {
+    const next = re ? rest.replace(re, replacement) : rest;
+    if (next !== rest) {
+      rest = next;
+      onRewrite?.(i);
+    }
+  });
   const key = rest ? (moved.length ? `${rest} ${moved.join(' ')}` : rest) : title;
   return key.replace(/^[^\p{L}\p{N}]+/u, '');
 }

@@ -12,6 +12,7 @@ export const KEYS = {
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – title regexes that move lots into a category of their own
+  sortRules: 'tlxSortRules', // SortRule[] – title rewrites applied before sorting by title
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
 } as const;
 
@@ -26,6 +27,7 @@ export const SYNCED_KEYS = [
   KEYS.pickup,
   KEYS.savedSearches,
   KEYS.customCategories,
+  KEYS.sortRules,
 ] as const;
 
 export interface HiddenLot {
@@ -38,6 +40,12 @@ export interface HiddenLot {
 export interface CustomCategory {
   name: string;
   pattern: string;
+}
+
+/** A title rewrite for sorting: `pattern` (a case-insensitive regex) is replaced by `replacement` ($1, $2… for its groups). */
+export interface SortRule {
+  pattern: string;
+  replacement: string;
 }
 
 // Full catalog pulls default to every 5 minutes and are never allowed more often than every minute.
@@ -61,6 +69,8 @@ export const DEFAULTS = {
   [KEYS.savedSearches]: [] as unknown[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
+  // "Continuous Feed Garbage Disposal" sorts as "Garbage Disposal Continuous Feed".
+  [KEYS.sortRules]: [{ pattern: String.raw`^(.+?)\s+(garbage disposal)\b`, replacement: '$2 $1' }] as SortRule[],
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
 };
 
