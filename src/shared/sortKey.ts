@@ -1,5 +1,3 @@
-import type { SortRule } from './keys';
-
 /** Case-insensitive, number-aware string comparison used for title sorting. */
 export const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 // Sort key: move leading specs (measurements, pack counts, "Set of 3",
@@ -41,39 +39,25 @@ const SORT_LEAD = new RegExp(
 // moved, so model names like "X20" or "X2 Robotic Pool Vacuum" stay put.
 const SORT_SEP = /^[x×]\s*(?=\d)/i;
 
-/** A sort rule ready to apply; `re` is null if its pattern isn't a valid regex. */
-export interface CompiledSortRule {
-  re: RegExp | null;
-  replacement: string;
-}
-
-/** Compile sort rules' patterns (case-insensitive). */
-export function compileSortRules(rules: SortRule[]): CompiledSortRule[] {
-  return rules.map(({ pattern, replacement }) => {
-    try {
-      return { re: new RegExp(pattern, 'iu'), replacement };
-    } catch {
-      return { re: null, replacement };
-    }
-  });
-}
-
 /**
- * Title rearranged for sorting: the sort rules applied in order to the title
- * as listed, then leading specs moved to the end and leading punctuation dropped.
- * `onRewrite` is called with the index of each rule that changed the title.
+ * Title rearranged for sorting. The first item-type regex (compiled with
+ * compileFilter) that matches pulls the words it matched to the front, so
+ * "1/3 HP Continuous Feed Garbage Disposal" sorts as "Garbage Disposal
+ * Continuous Feed 1/3 HP". Then leading specs move to the end and leading
+ * punctuation is dropped. `onType` is called with the index of the type that matched.
  */
-export function sortKey(title: string, rules: CompiledSortRule[] = [], onRewrite?: (i: number) => void): string {
+export function sortKey(title: string, types: (RegExp | null)[] = [], onType?: (i: number) => void): string {
   let rest = title.trim();
-  rules.forEach(({ re, replacement }, i) => {
-    const next = re ? rest.replace(re, replacement) : rest;
-    if (next !== rest) {
-      rest = next;
-      onRewrite?.(i);
+  let type = '';
+  for (const [i, re] of types.entries()) {
+    const m = re && rest.match(re);
+    if (m?.[0]) {
+      type = m[0].trim();
+      rest = `${rest.slice(0, m.index)} ${rest.slice(m.index! + m[0].length)}`.replace(/\s+/g, ' ').replace(/^[\s,;:/–—-]+/, '').trim();
+      onType?.(i);
+      break;
     }
-  });
-  // Replacements can leave doubled or stray spaces ("$3 $2 $1").
-  rest = rest.replace(/\s+/g, ' ').trim();
+  }
   const moved: string[] = [];
   for (let i = 0; i < 12; i++) {
     const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
@@ -83,6 +67,6 @@ export function sortKey(title: string, rules: CompiledSortRule[] = [], onRewrite
     moved.push(m[0].trim());
     rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, '');
   }
-  const key = rest ? (moved.length ? `${rest} ${moved.join(' ')}` : rest) : title;
-  return key.replace(/^[^\p{L}\p{N}]+/u, '');
+  const key = [type, rest, ...moved].filter(Boolean).join(' ');
+  return (rest || type ? key : title).replace(/^[^\p{L}\p{N}]+/u, '');
 }

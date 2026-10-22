@@ -18,7 +18,7 @@ interface Props {
   authed: boolean;
   onOpenHidden: (id: number) => void;
   onEditCategories: () => void;
-  onEditSortRules: () => void;
+  onEditSortTypes: () => void;
   saved: SavedSearchesProps;
 }
 
@@ -33,7 +33,7 @@ export function Sidebar(props: Props) {
         pickup={props.pickup}
         accountPickup={props.accountPickup}
         locations={props.facets.locations.map((l) => l.value)}
-        onEditSortRules={props.onEditSortRules}
+        onEditSortTypes={props.onEditSortTypes}
       />
     </div>
   );
@@ -405,15 +405,15 @@ function SettingsSection({
   pickup,
   accountPickup,
   locations,
-  onEditSortRules,
+  onEditSortTypes,
 }: {
   pickup: string;
   accountPickup: string | null;
   locations: string[];
-  onEditSortRules: () => void;
+  onEditSortTypes: () => void;
 }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
-  const [sortRules] = useSetting(KEYS.sortRules);
+  const [sortTypes] = useSetting(KEYS.sortTypes);
   const [override, setOverride] = useSetting(KEYS.pickup);
   const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
   return (
@@ -446,8 +446,8 @@ function SettingsSection({
             ))}
           </select>
         </label>
-        <button type="button" class="btn-text cat-edit-btn" onClick={onEditSortRules}>
-          <Icon name="edit" size={16} /> {sortRules.length ? `Edit title sort rules (${sortRules.length})` : 'Add title sort rules'}
+        <button type="button" class="btn-text cat-edit-btn" onClick={onEditSortTypes}>
+          <Icon name="edit" size={16} /> {sortTypes.length ? `Edit item types for sorting (${sortTypes.length})` : 'Add item types for sorting'}
         </button>
         <source.Settings />
       </Collapsible>

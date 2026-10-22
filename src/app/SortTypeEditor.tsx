@@ -1,38 +1,39 @@
-// Editor for title sort rules: regex rewrites applied (top to bottom) to lot
-// titles before sorting by title, with a preview of the open lots each changes.
+// Editor for the item types used when sorting by title: regexes that find
+// the kind of item in a title ("garbage disposal", "mini fridge"), which then
+// leads the title so the same kind of item sorts together.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { KEYS, type SortRule } from '../shared/keys';
-import { compileSortRules, sortKey } from '../shared/sortKey';
+import { compileFilter } from '../shared/filters';
+import { KEYS } from '../shared/keys';
+import { sortKey } from '../shared/sortKey';
 import { getSetting, setSetting } from './gm';
 import { Icon } from './icons';
 import type { Lot } from './types';
 import { fmtCount, plural, useDialog } from './util';
 
-/** A rule being edited. */
+/** An item type being edited. */
 interface Draft {
   key: number;
   pattern: string;
-  replacement: string;
 }
 
-/** Changed titles listed in the preview. */
+/** Matching titles listed in the preview. */
 const PREVIEW_LIMIT = 50;
 
 let nextKey = 0;
-const toDraft = (r: SortRule): Draft => ({ key: nextKey++, ...r });
-const clean = (d: Draft): SortRule => ({ pattern: d.pattern.trim(), replacement: d.replacement });
+const toDraft = (pattern: string): Draft => ({ key: nextKey++, pattern });
+const clean = (d: Draft) => d.pattern.trim();
 
 /** What's wrong with a row, if anything. */
 function rowError(d: Draft): string | null {
-  if (!d.pattern.trim()) {
+  if (!clean(d)) {
     return 'Regex is required';
   }
-  return compileSortRules([clean(d)])[0].re ? null : 'Invalid regex';
+  return compileFilter(clean(d)) ? null : 'Invalid regex';
 }
 
-/** Dialog for managing title sort rules. Changes apply only on Apply or Save. */
-export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => void }) {
-  const [initial, setInitial] = useState(() => getSetting(KEYS.sortRules));
+/** Dialog for managing item types for sorting. Changes apply only on Apply or Save. */
+export function SortTypeEditor({ lots, onClose }: { lots: Lot[]; onClose: () => void }) {
+  const [initial, setInitial] = useState(() => getSetting(KEYS.sortTypes));
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
   const [selected, setSelected] = useState<number | null>(drafts[0]?.key ?? null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
@@ -44,7 +45,7 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const valid = [...errors.values()].every((e) => !e);
 
   const close = () => {
-    if (!dirty || confirm('Discard your changes to the sort rules?')) {
+    if (!dirty || confirm('Discard your changes to the item types?')) {
       onClose();
     }
   };
@@ -66,19 +67,29 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
   }, [focusKey]);
 
-  // Open lots each row changes, with the title they sort as.
-  const changed = useMemo(() => {
-    const compiled = compileSortRules(drafts.map(clean));
-    const byRow = drafts.map(() => [] as { lot: Lot; key: string }[]);
+  // Open lots each row takes (first match wins) with the title they sort as,
+  // plus lots a row's regex matches that an earlier row already took.
+  const assignment = useMemo(() => {
+    const compiled = drafts.map((d) => (clean(d) ? compileFilter(clean(d)) : null));
+    const taken = drafts.map(() => [] as { lot: Lot; key: string }[]);
+    const shadowed = drafts.map(() => 0);
     for (const lot of lots) {
-      const hits: number[] = [];
-      const key = sortKey(lot.title, compiled, (i) => hits.push(i));
-      hits.forEach((i) => byRow[i].push({ lot, key }));
+      let owner = -1;
+      const key = sortKey(lot.title, compiled, (i) => (owner = i));
+      if (owner < 0) {
+        continue;
+      }
+      taken[owner].push({ lot, key });
+      compiled.forEach((re, i) => {
+        if (i > owner && re?.test(lot.title)) {
+          shadowed[i]++;
+        }
+      });
     }
-    return new Map(drafts.map((d, i) => [d.key, byRow[i]]));
-  }, [JSON.stringify(drafts.map(clean)), lots]);
+    return new Map(drafts.map((d, i) => [d.key, { taken: taken[i], shadowed: shadowed[i] }]));
+  }, [drafts.map(clean).join('\u0000'), lots]);
 
-  const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+  const update = (key: number, pattern: string) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, pattern } : d)));
   const move = (from: number, to: number) =>
     setDrafts((ds) => {
       const next = [...ds];
@@ -86,7 +97,7 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       return next;
     });
   const add = () => {
-    const d: Draft = { key: nextKey++, pattern: '', replacement: '' };
+    const d = toDraft('');
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
     setFocusKey(d.key);
@@ -103,7 +114,7 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       return false;
     }
     const saved = drafts.map(clean);
-    setSetting(KEYS.sortRules, saved);
+    setSetting(KEYS.sortTypes, saved);
     setInitial(saved);
     return true;
   };
@@ -114,17 +125,18 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   };
 
   const sel = drafts.find((d) => d.key === selected);
-  const selLots = sel ? changed.get(sel.key)! : [];
+  const selLots = sel ? assignment.get(sel.key)!.taken : [];
 
   return (
     <div class="backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div class="modal cat-editor" role="dialog" aria-modal="true" aria-labelledby="sort-rule-editor-title" tabIndex={-1} ref={dialog}>
+      <div class="modal cat-editor" role="dialog" aria-modal="true" aria-labelledby="sort-type-editor-title" tabIndex={-1} ref={dialog}>
         <div class="cat-head">
           <div>
-            <h2 id="sort-rule-editor-title">Title sort rules</h2>
+            <h2 id="sort-type-editor-title">Item types for sorting</h2>
             <p class="muted small">
-              When sorting by title, each title as listed has every matching regex replaced, top to bottom; then any sizes and counts left at the start
-              move to the end. Case-insensitive; use $1, $2… in the replacement for the regex's groups.
+              When sorting by title, the words a regex matches move to the front, so the same kind of item sorts together: "1/3 HP Continuous Feed Garbage
+              Disposal" sorts as "Garbage Disposal Continuous Feed 1/3 HP". Case-insensitive, whole words. A title uses the first type (top to bottom) that
+              matches – use the arrows to reorder.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -134,12 +146,13 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
 
         <div class="cat-body">
           {drafts.length === 0 ? (
-            <p class="muted">No sort rules yet.</p>
+            <p class="muted">No item types yet.</p>
           ) : (
             <ol class="cat-list" ref={list}>
               {drafts.map((d, i) => {
                 const err = errors.get(d.key);
-                const count = changed.get(d.key)!.length;
+                const { taken, shadowed } = assignment.get(d.key)!;
+                const count = taken.length;
                 return (
                   <li
                     key={d.key}
@@ -149,32 +162,29 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     onMouseDown={() => setSelected(d.key)}
                   >
                     <div class="cat-order">
-                      <button type="button" class="icon-btn" aria-label="Move rule up" disabled={i === 0} onClick={() => move(i, i - 1)}>
+                      <button type="button" class="icon-btn" aria-label="Move type up" disabled={i === 0} onClick={() => move(i, i - 1)}>
                         <Icon name="arrowUp" size={16} />
                       </button>
-                      <button type="button" class="icon-btn" aria-label="Move rule down" disabled={i === drafts.length - 1} onClick={() => move(i, i + 1)}>
+                      <button type="button" class="icon-btn" aria-label="Move type down" disabled={i === drafts.length - 1} onClick={() => move(i, i + 1)}>
                         <Icon name="arrowDown" size={16} />
                       </button>
                     </div>
                     <label class="field cat-pattern">
-                      <span>Title regex</span>
+                      <span>Item type regex</span>
                       <textarea
                         rows={Math.min(6, Math.max(2, Math.ceil(d.pattern.length / 60)))}
                         spellcheck={false}
                         value={d.pattern}
-                        placeholder="e.g. ^(.+?)\s+(garbage disposal)\b"
-                        onInput={(e) => update(d.key, { pattern: e.currentTarget.value.replace(/\n/g, '') })}
+                        placeholder="e.g. mini (?:refrigerator|fridge)s?"
+                        onInput={(e) => update(d.key, e.currentTarget.value.replace(/\n/g, ''))}
                       />
                     </label>
-                    <label class="field rw-repl">
-                      <span>Replace with</span>
-                      <input type="text" spellcheck={false} value={d.replacement} placeholder="e.g. $2 $1" onInput={(e) => update(d.key, { replacement: e.currentTarget.value })} />
-                    </label>
-                    <div class="cat-count">
+                    <div class="cat-count" title={shadowed ? `Its regex also matches ${plural(shadowed, 'lot')} an earlier type took` : undefined}>
                       <b>{fmtCount(count)}</b>
                       <span class="muted small">{count === 1 ? 'lot' : 'lots'}</span>
+                      {shadowed > 0 && <span class="muted small">+{fmtCount(shadowed)} taken above</span>}
                     </div>
-                    <button type="button" class="icon-btn cat-delete" aria-label="Delete rule" title="Delete rule" onClick={() => remove(d)}>
+                    <button type="button" class="icon-btn cat-delete" aria-label="Delete type" title="Delete type" onClick={() => remove(d)}>
                       <Icon name="delete" size={20} />
                     </button>
                     {err && <p class="error small cat-error">{err}</p>}
@@ -184,12 +194,12 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             </ol>
           )}
           <button type="button" class="btn btn-outline btn-small cat-add" onClick={add}>
-            <Icon name="add" size={18} /> Add rule
+            <Icon name="add" size={18} /> Add item type
           </button>
 
           {sel && (
             <section class="cat-preview rw-preview">
-              <h3>Changes {plural(selLots.length, 'open lot')}</h3>
+              <h3>{plural(selLots.length, 'open lot')}</h3>
               {selLots.length ? (
                 <ul>
                   {selLots.slice(0, PREVIEW_LIMIT).map(({ lot, key }) => (
@@ -201,7 +211,7 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                   {selLots.length > PREVIEW_LIMIT && <li class="muted small">…and {fmtCount(selLots.length - PREVIEW_LIMIT)} more</li>}
                 </ul>
               ) : (
-                <p class="muted small">No open lots change{errors.get(sel.key) ? ' (fix the regex first)' : ''}.</p>
+                <p class="muted small">No open lots match{errors.get(sel.key) ? ' (fix the regex first)' : ''}.</p>
               )}
             </section>
           )}
