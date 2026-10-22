@@ -59,12 +59,21 @@ export function compileSortRules(rules: SortRule[]): CompiledSortRule[] {
 }
 
 /**
- * Title rearranged for sorting: leading specs moved to the end, then the sort
- * rules applied in order to what's left, and leading punctuation dropped.
+ * Title rearranged for sorting: the sort rules applied in order to the title
+ * as listed, then leading specs moved to the end and leading punctuation dropped.
  * `onRewrite` is called with the index of each rule that changed the title.
  */
 export function sortKey(title: string, rules: CompiledSortRule[] = [], onRewrite?: (i: number) => void): string {
   let rest = title.trim();
+  rules.forEach(({ re, replacement }, i) => {
+    const next = re ? rest.replace(re, replacement) : rest;
+    if (next !== rest) {
+      rest = next;
+      onRewrite?.(i);
+    }
+  });
+  // Replacements can leave doubled or stray spaces ("$3 $2 $1").
+  rest = rest.replace(/\s+/g, ' ').trim();
   const moved: string[] = [];
   for (let i = 0; i < 12; i++) {
     const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
@@ -74,13 +83,6 @@ export function sortKey(title: string, rules: CompiledSortRule[] = [], onRewrite
     moved.push(m[0].trim());
     rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, '');
   }
-  rules.forEach(({ re, replacement }, i) => {
-    const next = re ? rest.replace(re, replacement) : rest;
-    if (next !== rest) {
-      rest = next;
-      onRewrite?.(i);
-    }
-  });
   const key = rest ? (moved.length ? `${rest} ${moved.join(' ')}` : rest) : title;
   return key.replace(/^[^\p{L}\p{N}]+/u, '');
 }

@@ -123,8 +123,8 @@ export function SortRuleEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="sort-rule-editor-title">Title sort rules</h2>
             <p class="muted small">
-              When sorting by title, each title (with leading sizes and counts already moved to the end) has every matching regex replaced, top to bottom.
-              Case-insensitive; use $1, $2… in the replacement for the regex's groups.
+              When sorting by title, each title as listed has every matching regex replaced, top to bottom; then any sizes and counts left at the start
+              move to the end. Case-insensitive; use $1, $2… in the replacement for the regex's groups.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>

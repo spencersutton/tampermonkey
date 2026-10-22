@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.18
+// @version      3.8.19
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -1542,13 +1542,6 @@
 	}
 	function sortKey(title, rules = [], onRewrite) {
 		let rest = title.trim();
-		const moved = [];
-		for (let i = 0; i < 12; i++) {
-			const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
-			if (!m?.[0]) break;
-			moved.push(m[0].trim());
-			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
-		}
 		rules.forEach(({ re, replacement }, i) => {
 			const next = re ? rest.replace(re, replacement) : rest;
 			if (next !== rest) {
@@ -1556,6 +1549,14 @@
 				onRewrite?.(i);
 			}
 		});
+		rest = rest.replace(/\s+/g, " ").trim();
+		const moved = [];
+		for (let i = 0; i < 12; i++) {
+			const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
+			if (!m?.[0]) break;
+			moved.push(m[0].trim());
+			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
+		}
 		return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
 	}
 	var toasts = [];
@@ -7190,7 +7191,7 @@
 							children: "Title sort rules"
 						}), u("p", {
 							class: "muted small",
-							children: "When sorting by title, each title (with leading sizes and counts already moved to the end) has every matching regex replaced, top to bottom. Case-insensitive; use $1, $2… in the replacement for the regex's groups."
+							children: "When sorting by title, each title as listed has every matching regex replaced, top to bottom; then any sizes and counts left at the start move to the end. Case-insensitive; use $1, $2… in the replacement for the regex's groups."
 						})] }), u("button", {
 							type: "button",
 							class: "icon-btn",
