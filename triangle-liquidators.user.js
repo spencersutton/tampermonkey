@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.16
+// @version      3.8.17
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -1520,6 +1520,7 @@
 		`${SORT_NUM}\\s*[x×](?=\\s*\\d)`
 	].join("|") + ")", "iu");
 	var SORT_SEP = /^[x×]\s*(?=\d)/i;
+	var SORT_REWRITES = [[/^(.+?)\s+(garbage disposal)\b/i, "$2 $1"]];
 	function sortKey(title) {
 		let rest = title.trim();
 		const moved = [];
@@ -1529,6 +1530,7 @@
 			moved.push(m[0].trim());
 			rest = rest.slice(m[0].length).replace(/^[\s,;:/–—-]+/, "");
 		}
+		for (const [pattern, replacement] of SORT_REWRITES) rest = rest.replace(pattern, replacement);
 		return (rest ? moved.length ? `${rest} ${moved.join(" ")}` : rest : title).replace(/^[^\p{L}\p{N}]+/u, "");
 	}
 	var toasts = [];
