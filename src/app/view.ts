@@ -205,20 +205,24 @@ const CUSTOM_PREFIX = 'custom:';
 export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
 
 /** Compiled custom categories for the most recent list. */
-let categoryCache: { cats: CustomCategory[]; compiled: { category: NonNullable<Lot['category']>; re: RegExp | null }[] } | null = null;
+let categoryCache: {
+  cats: CustomCategory[];
+  compiled: { category: NonNullable<Lot['category']>; re: RegExp | null; within?: string }[];
+} | null = null;
 
 /**
  * The lot's category: the first custom category whose regex matches the
- * title, else the site's. A lot in a custom category is in that one only.
+ * title (and whose `within`, if set, is the lot's site category), else the
+ * site's. A lot in a custom category is in that one only.
  */
 export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
   if (categoryCache?.cats !== cats) {
     categoryCache = {
       cats,
-      compiled: cats.map((c) => ({ category: { value: customCategoryValue(c.name), label: c.name }, re: compileFilter(c.pattern) })),
+      compiled: cats.map((c) => ({ category: { value: customCategoryValue(c.name), label: c.name }, re: compileFilter(c.pattern), within: c.within })),
     };
   }
-  return categoryCache.compiled.find(({ re }) => re?.test(lot.title))?.category ?? lot.category;
+  return categoryCache.compiled.find(({ re, within }) => (!within || within === lot.category?.value) && re?.test(lot.title))?.category ?? lot.category;
 }
 
 /** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */

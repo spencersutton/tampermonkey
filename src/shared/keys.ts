@@ -36,10 +36,15 @@ export interface HiddenLot {
   ts: number;
 }
 
-/** A category of my own: lots whose title matches `pattern` (same rules as the regex filters) go in it instead of their site category. */
+/**
+ * A category of my own: lots whose title matches `pattern` (same rules as the
+ * regex filters) go in it instead of their site category. With `within` (a
+ * site category value), only lots in that site category are taken.
+ */
 export interface CustomCategory {
   name: string;
   pattern: string;
+  within?: string;
 }
 
 // Full catalog pulls default to every 5 minutes and are never allowed more often than every minute.

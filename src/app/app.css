@@ -323,6 +323,8 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .cat-order .icon-btn:disabled { opacity: 0.3; cursor: default; background: none; }
 .cat-handle { display: inline-flex; color: var(--muted); cursor: grab; padding: 2px; border-radius: 4px; }
 .cat-handle:active { cursor: grabbing; }
+.cat-within { grid-column: 2; grid-row: 2; }
+.cat-pattern { grid-row: 1 / span 2; }
 .cat-pattern textarea {
   width: 100%; resize: vertical; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--text);
   font: 13px/19px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -402,7 +404,8 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 }
 @media (max-width: 720px) {
   .cat-head, .cat-body, .cat-foot { padding-left: 16px; padding-right: 16px; }
-  .cat-row { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'order name del' 'order pattern pattern' 'order count count' 'err err err'; }
+  .cat-row { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'order name del' 'order within within' 'order pattern pattern' 'order count count' 'err err err'; }
+  .cat-within { grid-area: within; }
   .cat-order { grid-area: order; }
   .cat-name { grid-area: name; }
   .cat-pattern { grid-area: pattern; }

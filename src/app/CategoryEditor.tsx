@@ -15,13 +15,14 @@ interface Draft {
   from: string | null;
   name: string;
   pattern: string;
+  within: string; // site category value, '' for any
 }
 
 /** Matching titles listed in the preview. */
 const PREVIEW_LIMIT = 50;
 
 let nextKey = 0;
-const toDraft = (c: CustomCategory): Draft => ({ key: nextKey++, from: c.name, name: c.name, pattern: c.pattern });
+const toDraft = (c: CustomCategory): Draft => ({ key: nextKey++, from: c.name, name: c.name, pattern: c.pattern, within: c.within ?? '' });
 
 /** What's wrong with a row, if anything. */
 function rowError(d: Draft, drafts: Draft[]): string | null {
@@ -74,7 +75,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const dialog = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
 
-  const clean = (d: Draft): CustomCategory => ({ name: d.name.trim(), pattern: d.pattern.trim() });
+  const clean = (d: Draft): CustomCategory => ({ name: d.name.trim(), pattern: d.pattern.trim(), ...(d.within && { within: d.within }) });
   const dirty = JSON.stringify(drafts.map(clean)) !== JSON.stringify(initial);
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
   const valid = [...errors.values()].every((e) => !e);
@@ -102,16 +103,33 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
   }, [focusKey]);
 
+  // Site categories a row can be limited to: those of the open lots, plus any
+  // already chosen that no open lot is in right now.
+  const siteCategories = useMemo(() => {
+    const byValue = new Map<string, string>();
+    for (const l of lots) {
+      if (l.category) {
+        byValue.set(l.category.value, l.category.label);
+      }
+    }
+    for (const d of drafts) {
+      if (d.within && !byValue.has(d.within)) {
+        byValue.set(d.within, d.within);
+      }
+    }
+    return [...byValue].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [lots, drafts.map((d) => d.within).join('\u0000')]);
+
   // Which row takes each open lot (first match wins), with counts, plus lots a
   // row's regex matches that an earlier row already took.
   const assignment = useMemo(() => {
-    const compiled = drafts.map((d) => ({ key: d.key, re: d.pattern.trim() ? compileFilter(d.pattern.trim()) : null }));
+    const compiled = drafts.map((d) => ({ key: d.key, re: d.pattern.trim() ? compileFilter(d.pattern.trim()) : null, within: d.within }));
     const taken = new Map<number, Lot[]>(drafts.map((d) => [d.key, []]));
     const shadowed = new Map<number, number>(drafts.map((d) => [d.key, 0]));
     for (const lot of lots) {
       let owner: number | null = null;
-      for (const { key, re } of compiled) {
-        if (!re?.test(lot.title)) {
+      for (const { key, re, within } of compiled) {
+        if ((within && within !== lot.category?.value) || !re?.test(lot.title)) {
           continue;
         }
         if (owner == null) {
@@ -123,7 +141,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       }
     }
     return { taken, shadowed };
-  }, [drafts.map((d) => d.pattern).join('\u0000'), lots]);
+  }, [drafts.map((d) => `${d.within}\u0001${d.pattern}`).join('\u0000'), lots]);
 
   const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const move = (from: number, to: number) =>
@@ -133,7 +151,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       return next;
     });
   const add = () => {
-    const d: Draft = { key: nextKey++, from: null, name: '', pattern: '' };
+    const d: Draft = { key: nextKey++, from: null, name: '', pattern: '', within: '' };
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
     setFocusKey(d.key);
@@ -186,8 +204,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
-              Lots whose title matches a regex move out of their site category into that one. Case-insensitive, whole words: \b(?:pattern)\b. A lot goes in the
-              first category (top to bottom) that matches – drag or use the arrows to reorder.
+              Lots whose title matches a regex move out of their site category into that one; set “Only within” to take lots from one site category only.
+              Case-insensitive, whole words: \b(?:pattern)\b. A lot goes in the first category (top to bottom) that matches – drag or use the arrows to
+              reorder.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -268,6 +287,15 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     <label class="field cat-name">
                       <span>Name</span>
                       <input type="text" value={d.name} placeholder="e.g. Pressure Washer" onInput={(e) => update(d.key, { name: e.currentTarget.value })} />
+                    </label>
+                    <label class="field cat-within">
+                      <span>Only within</span>
+                      <select value={d.within} onChange={(e) => update(d.key, { within: e.currentTarget.value })}>
+                        <option value="">Any site category</option>
+                        {siteCategories.map((c) => (
+                          <option value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
                     </label>
                     <label class="field cat-pattern">
                       <span>Title regex</span>
