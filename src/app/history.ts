@@ -1,5 +1,6 @@
-// Browser back/forward for the /tlx app. Each change of view, page or open lot
-// becomes a history entry, and popping an entry restores it. The state is also
+// Browser back/forward for the /tlx app. Each change of view or open lot
+// becomes a history entry, and popping an entry restores it, with as many
+// pages of lots as were scrolled into the grid. The state is also
 // written into the URL (/tlx?search=foo&sort=price-low&page=2&lot=123) so a
 // view can be bookmarked or shared; only values that differ from the defaults appear.
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
@@ -86,6 +87,11 @@ function record(nav: NavState) {
   const entry: Entry = { tlx: true, ...nav, kind: 'other' };
   if (!isEntry(prev)) {
     history.replaceState(entry, '', navToUrl(nav));
+    return;
+  }
+  if (sameView(prev.view, nav.view) && prev.openId === nav.openId) {
+    // More lots scrolled into the grid: still the same entry.
+    history.replaceState({ ...entry, kind: prev.kind, scrollY: prev.scrollY }, '', navToUrl(nav));
     return;
   }
   if (sameView(prev.view, nav.view) && prev.page === nav.page && nav.openId != null) {

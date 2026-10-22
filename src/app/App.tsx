@@ -33,8 +33,41 @@ import {
 } from './view';
 import type { Lot } from './types';
 
-/** Lots per grid page. */
+/** Lots added to the grid each time the end of it scrolls into view. */
 const PAGE_SIZE = 60;
+
+/**
+ * Ids of the lot cards in `grid` that are on screen or close to it, for live
+ * updates. `key` changes whenever the rendered cards do.
+ */
+function useOnScreenLots(grid: { current: HTMLElement | null }, key: string): number[] {
+  const [ids, setIds] = useState<number[]>([]);
+  useEffect(() => {
+    const el = grid.current;
+    if (!el) {
+      return;
+    }
+    const near = new Set<number>();
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = Number((e.target as HTMLElement).dataset.lot);
+          e.isIntersecting ? near.add(id) : near.delete(id);
+        }
+        clearTimeout(t);
+        t = setTimeout(() => setIds([...near].sort((a, b) => a - b)), 150);
+      },
+      { rootMargin: '600px 0px' },
+    );
+    el.querySelectorAll('[data-lot]').forEach((c) => io.observe(c));
+    return () => {
+      io.disconnect();
+      clearTimeout(t);
+    };
+  }, [key]);
+  return ids;
+}
 
 /** Name of the account's pickup location, fetched at most once a day while logged in. */
 function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | null {
@@ -54,9 +87,9 @@ function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | nul
   return lots.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 }
 
-/** The whole /tlx page: sidebar, toolbar, lot grid, pager, and the lot / bid popups. */
+/** The whole /tlx page: sidebar, toolbar, infinitely scrolling lot grid, and the lot / bid popups. */
 export function App() {
-  // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, page and open lot.
+  // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
   const [fromUrl] = useState(() => {
     const nav = navFromUrl();
     if (nav) {
@@ -80,6 +113,7 @@ export function App() {
   const accountPickup = useAccountPickup(catalog.lots, authed);
   const pickup = pickupOverride || accountPickup || 'Raleigh';
 
+  // How many PAGE_SIZE batches of lots the grid shows; grows as the end of it scrolls into view.
   const [page, setPage] = useState(fromUrl?.page ?? 1);
   const [openId, setOpenId] = useState<number | null>(fromUrl?.openId ?? null);
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
@@ -87,6 +121,8 @@ export function App() {
   const [editingCategories, setEditingCategories] = useState(false);
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  const gridEnd = useRef<HTMLDivElement>(null);
 
   // Closed lots drop out on this cadence; countdowns tick on their own.
   const now30 = useNow(30_000);
@@ -176,10 +212,25 @@ export function App() {
 
   const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
   const curPage = Math.min(page, pages);
-  const pageRows = result.rows.slice((curPage - 1) * PAGE_SIZE, curPage * PAGE_SIZE);
+  const shownRows = result.rows.slice(0, curPage * PAGE_SIZE);
+
+  // Show the next batch once the end of the grid comes near. A new observer per
+  // batch reports straight away, so a short batch that leaves the end on screen loads another.
+  useEffect(() => {
+    const el = gridEnd.current;
+    if (!el || curPage >= pages) {
+      return;
+    }
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setPage(curPage + 1), {
+      rootMargin: '0px 0px 1200px 0px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [curPage, pages]);
 
   // Live prices for exactly the lots on screen (plus the open one).
-  const watchIds = [...pageRows.map((r) => r.lot.id), ...(openId ? [openId] : [])];
+  const onScreen = useOnScreenLots(grid, shownRows.map((r) => r.lot.id).join(','));
+  const watchIds = [...onScreen, ...(openId && !onScreen.includes(openId) ? [openId] : [])];
   const watchKey = watchIds.join(',');
   useEffect(() => {
     if (catalog.loaded) {
@@ -200,11 +251,6 @@ export function App() {
       window.open(siteUrl(getSetting(KEYS.hidden)[id]?.href ?? '/'), '_blank', 'noopener');
     }
   }, []);
-
-  const goPage = (p: number) => {
-    setPage(p);
-    gridTop.current?.scrollIntoView({ block: 'start' });
-  };
 
   const closeLot = useHistory(
     { view, page, openId },
@@ -289,7 +335,7 @@ export function App() {
           <div class="results-line" ref={gridTop}>
             <span>
               {result.rows.length
-                ? `${fmtCount((curPage - 1) * PAGE_SIZE + 1)}–${fmtCount((curPage - 1) * PAGE_SIZE + pageRows.length)} of ${fmtCount(result.rows.length)}`
+                ? `${fmtCount(result.rows.length)} ${result.rows.length === 1 ? 'lot' : 'lots'}`
                 : catalog.loaded && !catalog.progress
                   ? 'No lots match'
                   : ''}
@@ -315,8 +361,8 @@ export function App() {
             )}
           </div>
 
-          <div class={`grid ${titleLines ? '' : 'full-titles'}`} style={titleLines ? { '--title-lines': titleLines } : undefined}>
-            {pageRows.map((row) => (
+          <div class={`grid ${titleLines ? '' : 'full-titles'}`} ref={grid} style={titleLines ? { '--title-lines': titleLines } : undefined}>
+            {shownRows.map((row) => (
               <LotCard
                 key={row.lot.id}
                 row={row}
@@ -328,7 +374,8 @@ export function App() {
             ))}
           </div>
 
-          {pages > 1 && <Pager page={curPage} pages={pages} go={goPage} />}
+          <div ref={gridEnd} />
+          {curPage < pages && <p class="grid-more muted">Loading more lots…</p>}
         </main>
       </div>
 
@@ -394,34 +441,5 @@ function StatusBar() {
       )}
       {error && <span class="error">{error}</span>}
     </div>
-  );
-}
-
-/** Page numbers to show: first, last, and neighbours of the current page, with "…" for gaps. */
-function pagerItems(page: number, pages: number): (number | '…')[] {
-  const nums = [...new Set([1, pages, page - 1, page, page + 1])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
-  return nums.flatMap((n, i) => (i && n - nums[i - 1] > 1 ? ['…' as const, n] : [n]));
-}
-
-/** Previous / numbered / next page buttons. */
-function Pager({ page, pages, go }: { page: number; pages: number; go: (p: number) => void }) {
-  return (
-    <nav class="pager" aria-label="Pages">
-      <button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => go(page - 1)}>
-        <Icon name="chevronLeft" />
-      </button>
-      {pagerItems(page, pages).map((n) =>
-        n === '…' ? (
-          <span class="gap">…</span>
-        ) : (
-          <button type="button" aria-current={n === page ? 'page' : undefined} onClick={() => go(n)}>
-            {n}
-          </button>
-        ),
-      )}
-      <button type="button" aria-label="Next page" disabled={page === pages} onClick={() => go(page + 1)}>
-        <Icon name="chevronRight" />
-      </button>
-    </nav>
   );
 }
