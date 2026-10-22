@@ -10,7 +10,6 @@ import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
 import { CategoryEditor } from './CategoryEditor';
-import { SortTypeEditor } from './SortTypeEditor';
 import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
@@ -86,7 +85,6 @@ export function App() {
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
-  const [editingSortTypes, setEditingSortTypes] = useState(false);
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
 
@@ -276,7 +274,7 @@ export function App() {
             authed={authed}
             onOpenHidden={openHidden}
             onEditCategories={() => setEditingCategories(true)}
-            onEditSortTypes={() => setEditingSortTypes(true)}
+            typeCounts={result.typeCounts}
             saved={savedProps}
           />
         </aside>
@@ -348,7 +346,6 @@ export function App() {
         <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
       )}
       {editingCategories && <CategoryEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
-      {editingSortTypes && <SortTypeEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingSortTypes(false)} />}
       <Toasts />
     </div>
   );

@@ -162,17 +162,29 @@ function applySortTypes(types: string[]) {
   if (sortTypeCache.types !== types) {
     sortTypeCache = { types, compiled: types.map(compileFilter) };
     sortKeys.clear();
+    titleTypes.clear();
   }
 }
+
+/** Index of the item type each title sorts under (-1 for none), filled in with sortKeys. */
+const titleTypes = new Map<string, number>();
 
 /** sortKey() for a title, cached. */
 function titleKey(title: string) {
   let key = sortKeys.get(title);
   if (key === undefined) {
-    key = sortKey(title, sortTypeCache.compiled);
+    let type = -1;
+    key = sortKey(title, sortTypeCache.compiled, (i) => (type = i));
     sortKeys.set(title, key);
+    titleTypes.set(title, type);
   }
   return key;
+}
+
+/** The item type a title sorts under, if any. */
+function titleType(title: string): string | undefined {
+  titleKey(title);
+  return sortTypeCache.types[titleTypes.get(title)!];
 }
 
 /** Compiled regex filters for the most recent word list. */
@@ -232,6 +244,7 @@ export interface ViewResult {
   removed: number; // open lots dropped by hide / remove-filtered
   filteredOut: number; // open lots dropped by the view's own filters
   matchCounts: Map<string, number>; // open lots each regex filter matches
+  typeCounts: Map<string, number>; // open lots each item type sorts
   combined: number; // listings folded into another card as duplicates
   groups: Map<number, Row[]>; // lot id -> every listing in its group (cheapest first)
 }
@@ -242,6 +255,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const compiled = compiledFilters(ex.words);
   applySortTypes(ex.sortTypes);
+  const typeCounts = new Map(ex.sortTypes.map((t) => [t, 0]));
 
   const rows: Row[] = [];
   let open = 0;
@@ -257,6 +271,10 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
         matchCounts.set(word, matchCounts.get(word)! + 1);
       }
     }
+    const type = titleType(lot.title);
+    if (type !== undefined) {
+      typeCounts.set(type, typeCounts.get(type)! + 1);
+    }
     const row = makeRow(lot, pickup, ex);
     if ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered)) {
       removed++;
@@ -269,7 +287,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const { cards, groups } = combineDuplicates(rows);
   const compare: Compare = SORTS[view.sort].compare;
   cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
-  return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
+  return { rows: cards, open, removed, filteredOut, matchCounts, typeCounts, combined: rows.length - cards.length, groups };
 }
 
 /**

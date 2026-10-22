@@ -18,7 +18,7 @@ interface Props {
   authed: boolean;
   onOpenHidden: (id: number) => void;
   onEditCategories: () => void;
-  onEditSortTypes: () => void;
+  typeCounts: Map<string, number>;
   saved: SavedSearchesProps;
 }
 
@@ -33,7 +33,7 @@ export function Sidebar(props: Props) {
         pickup={props.pickup}
         accountPickup={props.accountPickup}
         locations={props.facets.locations.map((l) => l.value)}
-        onEditSortTypes={props.onEditSortTypes}
+        typeCounts={props.typeCounts}
       />
     </div>
   );
@@ -256,12 +256,14 @@ function PatternText({ pattern }: { pattern: string }) {
 interface FilterRowProps {
   pattern: string;
   count: number;
+  noun?: string; // what the row is, for labels
+  countTitle?: string;
   onRemove: () => void;
   onSave: (next: string) => void;
 }
 
-// One filter per line: remove button, pattern (click to edit), match count.
-function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
+// One regex per line: remove button, pattern (click to edit), match count.
+function FilterRow({ pattern, count, noun = 'filter', countTitle, onRemove, onSave }: FilterRowProps) {
   const edit = useInlineEdit();
   const editing = edit.editing != null;
   const ok = !!compileFilter(pattern);
@@ -277,14 +279,14 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
 
   return (
     <li class={`filter-row ${ok ? '' : 'filter-error'}`}>
-      <button type="button" class="filter-remove" aria-label={`Remove ${pattern}`} title="Remove filter" onClick={onRemove}>
+      <button type="button" class="filter-remove" aria-label={`Remove ${pattern}`} title={`Remove ${noun}`} onClick={onRemove}>
         <Icon name="cancel" size={16} />
       </button>
       {editing ? (
         <div class="filter-edit">
           <textarea
             class={edit.error ? 'has-error' : ''}
-            aria-label="Edit filter regex"
+            aria-label={`Edit ${noun} regex`}
             spellcheck={false}
             rows={Math.min(6, Math.max(1, Math.ceil(edit.text.length / 26)))}
             {...edit.boxProps('pattern', save)}
@@ -301,8 +303,53 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
           <PatternText pattern={pattern} />
         </button>
       )}
-      {ok && !editing && <span class="count">{fmtCount(count)}</span>}
+      {ok && !editing && (
+        <span class="count" title={countTitle}>
+          {fmtCount(count)}
+        </span>
+      )}
     </li>
+  );
+}
+
+/** Text box that adds a regex on Enter or the Add button, refusing invalid ones. */
+function AddPattern({ label, placeholder, onAdd }: { label: string; placeholder: string; onAdd: (pattern: string) => void }) {
+  const [input, setInput] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const add = () => {
+    const pattern = input.trim();
+    if (!pattern) {
+      return;
+    }
+    if (!compileFilter(pattern)) {
+      setErr('Invalid regex');
+      return;
+    }
+    onAdd(pattern);
+    setInput('');
+  };
+  return (
+    <>
+      <div class={`add-filter ${err ? 'has-error' : ''}`}>
+        <input
+          type="text"
+          placeholder={placeholder}
+          aria-label={label}
+          autocomplete="off"
+          spellcheck={false}
+          value={input}
+          onInput={(e) => {
+            setInput(e.currentTarget.value);
+            setErr(null);
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+        <button type="button" class="btn-text" onClick={add}>
+          Add
+        </button>
+      </div>
+      {err && <p class="error small">{err}</p>}
+    </>
   );
 }
 
@@ -405,15 +452,15 @@ function SettingsSection({
   pickup,
   accountPickup,
   locations,
-  onEditSortTypes,
+  typeCounts,
 }: {
   pickup: string;
   accountPickup: string | null;
   locations: string[];
-  onEditSortTypes: () => void;
+  typeCounts: Map<string, number>;
 }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
-  const [sortTypes] = useSetting(KEYS.sortTypes);
+  const [sortTypes, setSortTypes] = useSetting(KEYS.sortTypes);
   const [override, setOverride] = useSetting(KEYS.pickup);
   const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
   return (
@@ -446,9 +493,26 @@ function SettingsSection({
             ))}
           </select>
         </label>
-        <button type="button" class="btn-text cat-edit-btn" onClick={onEditSortTypes}>
-          <Icon name="edit" size={16} /> {sortTypes.length ? `Edit item types for sorting (${sortTypes.length})` : 'Add item types for sorting'}
-        </button>
+        <Collapsible id="sortTypes" title={`Item types for sorting (${sortTypes.length})`}>
+          <AddPattern label="Add item type regex" placeholder="Regex, e.g. mini (fridge|refrigerator)s?" onAdd={(t) => setSortTypes([...new Set([...sortTypes, t])])} />
+          <p class="muted small">
+            When sorting by title, the words a type matches lead the title, so "1/3 HP Garbage Disposal" sorts as "Garbage Disposal 1/3 HP". The longest
+            match wins. Case-insensitive, whole words.
+          </p>
+          <ul class="filter-list">
+            {sortTypes.toSorted().map((t) => (
+              <FilterRow
+                key={t}
+                pattern={t}
+                noun="item type"
+                count={typeCounts.get(t) ?? 0}
+                countTitle="Open lots sorted under this type"
+                onRemove={() => setSortTypes(sortTypes.filter((x) => x !== t))}
+                onSave={(next) => setSortTypes([...new Set(sortTypes.map((x) => (x === t ? next : x)))])}
+              />
+            ))}
+          </ul>
+        </Collapsible>
         <source.Settings />
       </Collapsible>
     </section>
