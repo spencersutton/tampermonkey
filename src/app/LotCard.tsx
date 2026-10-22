@@ -130,6 +130,11 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           <LocationText row={row} />
           {lot.condition && <span>{lot.condition.label}</span>}
         </div>
+        {row.sortType && (
+          <div class="sort-type" title={`Sorted under item type: ${row.sortType}`}>
+            Type <code>{row.sortType}</code>
+          </div>
+        )}
         <div class="card-price">
           <span class="price">{dollars(lot.currentPrice)}</span>
           <span class="total" title={costBreakdown(lot.currentPrice, row.transferFee)}>

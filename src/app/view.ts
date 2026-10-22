@@ -16,6 +16,7 @@ export interface Row {
   total: number;
   retailPct: number | null;
   matched: string | null; // regex filter that matched the title
+  sortType: string | null; // item type that led the title, set only while sorting by title
   hidden: boolean;
   others: Row[]; // identical listings folded into this card (cheapest first)
 }
@@ -238,6 +239,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     retailPct: lot.estimatedRetailPrice ? lot.currentPrice / lot.estimatedRetailPrice : null,
     matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
     hidden: !!ex.hidden[lot.id],
+    sortType: null,
     others: [],
   };
 }
@@ -260,6 +262,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const compiled = compiledFilters(ex.words);
   applySortTypes(ex.sortTypes);
   const typeCounts = new Map(ex.sortTypes.map((t) => [t, 0]));
+  const byTitle = view.sort === 'title-asc' || view.sort === 'title-desc';
 
   const rows: Row[] = [];
   let open = 0;
@@ -280,6 +283,9 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       typeCounts.set(type, typeCounts.get(type)! + 1);
     }
     const row = makeRow(lot, pickup, ex);
+    if (byTitle) {
+      row.sortType = type ?? null;
+    }
     if ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered)) {
       removed++;
     } else if (!matches(row)) {
