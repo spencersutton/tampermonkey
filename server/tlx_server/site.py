@@ -132,5 +132,17 @@ def fetch_lot_page(page: int, token: str | None) -> LotPage:
     return LotPage(count=int(d["count"]), results=[normalize_lot(r) for r in d["results"]])
 
 
+def fetch_lost(token: str) -> list[Raw]:
+    """Every closed lot you bid on and lost, as the API returns them (most recent first)."""
+    out: list[Raw] = []
+    page = 1
+    while True:
+        d = get("/v1/auctions/control-panel/closed/lost/", {"page": page, "per_page": LIST_PAGE_SIZE}, token)
+        out += d["results"]
+        if not d["results"] or len(out) >= int(d["count"]):
+            return out
+        page += 1
+
+
 def now_ms() -> int:
     return round(time.time() * 1000)

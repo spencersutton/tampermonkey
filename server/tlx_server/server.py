@@ -21,6 +21,7 @@ site:
     GET  /api/settings?since=N  settings changed after revision N
     PUT  /api/settings/<key>    {"value": ...}; last write wins
     GET  /api/health
+  /lost            a plain table of every lot you bid on and lost (not part of the app)
 
 Because the server is logged in to your account (and can bid), every request
 except the app's static files needs this app's own password (a session
@@ -36,6 +37,7 @@ from __future__ import annotations
 
 import gzip
 import hmac
+import html
 import json
 import logging
 import mimetypes
@@ -57,7 +59,7 @@ from urllib.parse import parse_qs, urlsplit
 from . import __version__
 from .catalog import Catalog
 from .session import SiteSession
-from .site import SITE, TIMEOUT, USER_AGENT, now_ms
+from .site import SITE, TIMEOUT, USER_AGENT, ApiError, fetch_lost, now_ms
 from .store import Store, dumps
 
 log = logging.getLogger(__name__)
@@ -195,7 +197,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not api.password and self._host() not in api.hosts:
                 self._error(HTTPStatus.FORBIDDEN, f"Host {self._host()!r} not allowed (use --allow-host, or set a password)")
                 return False
-            public = path in ("/api/me", "/api/app-login", "/api/health") or not path.startswith(("/api/", "/backend/", "/ws"))
+            public = path in ("/api/me", "/api/app-login", "/api/health") or not path.startswith(("/api/", "/backend/", "/ws", "/lost"))
             if method not in ("GET", "HEAD") and not self.headers.get("X-TLX-Client"):
                 self._error(HTTPStatus.FORBIDDEN, "Missing X-TLX-Client header")
                 return False
@@ -216,6 +218,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                     self._proxy(method)
                 elif path.startswith("/api/"):
                     self._api(method, path, parse_qs(url.query))
+                elif path == "/lost" and method in ("GET", "HEAD"):
+                    self._lost()
                 elif method in ("GET", "HEAD"):
                     self._static(path)
                 else:
@@ -379,6 +383,48 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             finally:
                 _shutdown(self.connection)
                 upstream.close()
+
+        # -- lost lots ------------------------------------------------------
+        def _lost(self) -> None:
+            def page(body: str) -> str:
+                return (
+                    '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+                    "<title>Lost lots</title><style>"
+                    "body{font:14px system-ui,sans-serif;margin:16px}table{border-collapse:collapse}"
+                    "th,td{border-bottom:1px solid #ccc;padding:4px 8px;text-align:left;vertical-align:middle}"
+                    "td.n,th.n{text-align:right}img{width:48px;height:48px;object-fit:cover}"
+                    f"</style>{body}"
+                )
+
+            token = api.session.token()
+            if not token:
+                self._send(HTTPStatus.OK, page("<p>The server isn’t logged in to the site.</p>"), "text/html; charset=utf-8")
+                return
+            try:
+                try:
+                    lots = fetch_lost(token)
+                except ApiError as e:
+                    if e.status != 401 or not (new := api.session.rejected(token)):
+                        raise
+                    lots = fetch_lost(new)
+            except ApiError as e:
+                self._error(HTTPStatus.BAD_GATEWAY, str(e))
+                return
+            esc = html.escape
+            rows = "".join(
+                "<tr>"
+                + (
+                    f'<td><img src="https://cdn.triangleliquidators.com/{esc(img)}" alt="" loading="lazy"></td>'
+                    if (img := r.get("hero_image"))
+                    else "<td></td>"
+                )
+                + f"<td>{esc(str(r.get('title') or ''))}</td><td>{esc(str(r.get('lot_number') or ''))}</td>"
+                + f"<td>{esc(str(r.get('location_name') or ''))}</td><td>{esc(str(r.get('auction_period') or ''))}</td>"
+                + f'<td class="n">${r.get("final_price") or 0:,.2f}</td></tr>'
+                for r in lots
+            )
+            head = '<tr><th></th><th>Title</th><th>Lot #</th><th>Location</th><th>Auction</th><th class="n">Final price</th></tr>'
+            self._send(HTTPStatus.OK, page(f"<h1>Lost lots ({len(lots)})</h1><table>{head}{rows}</table>"), "text/html; charset=utf-8")
 
         # -- the app itself -------------------------------------------------
         def _static(self, path: str) -> None:
