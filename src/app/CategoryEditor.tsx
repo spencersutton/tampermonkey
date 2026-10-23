@@ -14,7 +14,7 @@ interface Draft {
   key: number;
   from: string | null;
   name: string;
-  types: string; // comma-separated
+  types: string[];
   pattern: string;
   within: string; // site category value, '' for any
 }
@@ -27,18 +27,14 @@ const toDraft = (c: CustomCategory): Draft => ({
   key: nextKey++,
   from: c.name,
   name: c.name,
-  types: (c.types ?? []).join(', '),
+  types: c.types ?? [],
   pattern: c.pattern ?? '',
   within: c.within ?? '',
 });
 
-/** The item types in a draft's box. */
-const draftTypes = (d: Draft) => [...new Set(d.types.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))];
-
 /** The category a draft saves as. */
 const clean = (d: Draft): CustomCategory => {
-  const types = draftTypes(d);
-  return { name: d.name.trim(), ...(types.length && { types }), ...(d.pattern.trim() && { pattern: d.pattern.trim() }), ...(d.within && { within: d.within }) };
+  return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.pattern.trim() && { pattern: d.pattern.trim() }), ...(d.within && { within: d.within }) };
 };
 
 /** What's wrong with a row, if anything. */
@@ -50,7 +46,7 @@ function rowError(d: Draft, drafts: Draft[]): string | null {
   if (drafts.some((o) => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
     return 'Another category has this name';
   }
-  if (!d.pattern.trim() && !draftTypes(d).length) {
+  if (!d.pattern.trim() && !d.types.length) {
     return 'Add item types or a regex';
   }
   if (d.pattern.trim() && !compileFilter(d.pattern.trim())) {
@@ -155,7 +151,22 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       }
     }
     return { taken, shadowed };
-  }, [drafts.map((d) => `${d.within}\u0001${d.types}\u0001${d.pattern}`).join('\u0000'), lots]);
+  }, [drafts.map((d) => `${d.within}\u0001${d.types.join(',')}\u0001${d.pattern}`).join('\u0000'), lots]);
+
+  // Open lots of each item type, per site category ('' = all of them), for the type chips and suggestions.
+  const typeCounts = useMemo(() => {
+    const by = new Map<string, Map<string, number>>([['', new Map()]]);
+    for (const l of lots) {
+      if (l.itemType) {
+        for (const scope of ['', l.category?.value ?? '']) {
+          const m = by.get(scope) ?? by.set(scope, new Map()).get(scope)!;
+          m.set(l.itemType, (m.get(l.itemType) ?? 0) + 1);
+        }
+      }
+    }
+    return by;
+  }, [lots]);
+  const countsFor = (within: string) => typeCounts.get(within) ?? new Map<string, number>();
 
   const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const move = (from: number, to: number) =>
@@ -165,7 +176,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       return next;
     });
   const add = () => {
-    const d: Draft = { key: nextKey++, from: null, name: '', types: '', pattern: '', within: '' };
+    const d: Draft = { key: nextKey++, from: null, name: '', types: [], pattern: '', within: '' };
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
     setFocusKey(d.key);
@@ -311,16 +322,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                         ))}
                       </select>
                     </label>
-                    <label class="field cat-types">
-                      <span>Item types</span>
-                      <input
-                        type="text"
-                        value={d.types}
-                        placeholder="e.g. pressure washer, power washer"
-                        spellcheck={false}
-                        onInput={(e) => update(d.key, { types: e.currentTarget.value })}
-                      />
-                    </label>
+                    <TypeChips types={d.types} counts={countsFor(d.within)} listId={`cat-types-${d.within}`} onChange={(types) => update(d.key, { types })} />
                     <label class="field cat-pattern">
                       <span>Title regex</span>
                       <textarea
@@ -377,6 +379,17 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           )}
         </div>
 
+        {/* One list of suggestions per "Only within" choice in use, most common types first. */}
+        {[...new Set(drafts.map((d) => d.within))].map((w) => (
+          <datalist id={`cat-types-${w}`}>
+            {[...countsFor(w)]
+              .sort((a, b) => b[1] - a[1])
+              .map(([t, n]) => (
+                <option value={t}>{plural(n, 'open lot')}</option>
+              ))}
+          </datalist>
+        ))}
+
         <div class="cat-foot">
           {!valid && <span class="error small">Fix the highlighted rows to save.</span>}
           <button type="button" class="btn btn-outline" onClick={close}>
@@ -389,6 +402,67 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             Save
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The item types of a category as chips, each with how many open lots in its
+ * scope have that type (flagged when none do), plus a box that suggests the
+ * types lots really have. Enter, a comma or leaving the box adds what's typed.
+ */
+function TypeChips({ types, counts, listId, onChange }: { types: string[]; counts: Map<string, number>; listId: string; onChange: (types: string[]) => void }) {
+  const [text, setText] = useState('');
+  /** Add the comma-separated types in `raw`. */
+  const add = (raw: string) => {
+    const fresh = raw.split(',').map((t) => t.trim().toLowerCase().replace(/\s+/g, ' ')).filter((t) => t && !types.includes(t));
+    if (fresh.length) {
+      onChange([...new Set([...types, ...fresh])]);
+    }
+    setText('');
+  };
+  return (
+    <div class="field cat-types">
+      <span>Item types (exact names, as on the lot cards)</span>
+      <div class="type-chips">
+        {types.map((t) => {
+          const n = counts.get(t) ?? 0;
+          return (
+            <span class={`type-chip ${n ? '' : 'type-chip-none'}`} title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}>
+              {t} <span class="count">{n ? fmtCount(n) : 'none'}</span>
+              <button type="button" class="filter-remove" aria-label={`Remove ${t}`} onClick={() => onChange(types.filter((x) => x !== t))}>
+                <Icon name="cancel" size={14} />
+              </button>
+            </span>
+          );
+        })}
+        <input
+          type="text"
+          list={listId}
+          value={text}
+          aria-label="Add item type"
+          placeholder={types.length ? 'Add type…' : 'e.g. pressure washer'}
+          spellcheck={false}
+          onInput={(e) => {
+            const v = e.currentTarget.value;
+            // Picking a suggestion fills in a whole known type: add it straight away.
+            if (v.includes(',') || (counts.has(v) && !(e as InputEvent).inputType?.startsWith('insertText'))) {
+              add(v);
+            } else {
+              setText(v);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              add(text);
+            } else if (e.key === 'Backspace' && !text && types.length) {
+              onChange(types.slice(0, -1));
+            }
+          }}
+          onBlur={() => add(text)}
+        />
       </div>
     </div>
   );
