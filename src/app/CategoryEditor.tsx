@@ -1,4 +1,4 @@
-// Full-size editor for custom categories: add, rename, reorder (drag or
+// Full-size editor for custom categories, one line each until opened: add, rename, reorder (drag or
 // arrows), edit the item types and regex, and preview which open lots each one takes.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
@@ -36,6 +36,13 @@ const toDraft = (c: CustomCategory): Draft => ({
 const clean = (d: Draft): CustomCategory => {
   return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.pattern.trim() && { pattern: d.pattern.trim() }), ...(d.within && { within: d.within }) };
 };
+
+/** One-line description of a row: where it takes lots from and what it matches. */
+function summary(d: Draft, sites: { value: string; label: string }[]): string {
+  const where = d.within ? (sites.find((c) => c.value === d.within)?.label ?? d.within) : 'Any category';
+  const what = [d.types.length && plural(d.types.length, 'type'), d.pattern.trim() && 'regex'].filter(Boolean);
+  return [where, ...what].join(' · ');
+}
 
 /** What's wrong with a row, if anything. */
 function rowError(d: Draft, drafts: Draft[]): string | null {
@@ -82,7 +89,7 @@ export function migrateFilters(renames: Map<string, string | null>) {
 export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => void }) {
   const [initial, setInitial] = useState(() => getSetting(KEYS.customCategories));
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
-  const [selected, setSelected] = useState<number | null>(drafts[0]?.key ?? null);
+  const [selected, setSelected] = useState<number | null>(null);
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
   const dialog = useRef<HTMLDivElement>(null);
@@ -229,9 +236,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
-              Lots of a listed item type (the chip on each lot card), or whose title matches the regex, move into the category; “Only within” limits it to
-              one site category. Item types win, then the first regex (top to bottom) that matches – drag or use the arrows to reorder. Regexes are
-              case-insensitive, whole words: \b(?:pattern)\b.
+              Lots of a listed item type, or whose title matches the regex (case-insensitive, whole words), move into the category. Item types win, then the
+              first regex from the top – drag to reorder. Click a category to edit it.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -249,6 +255,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                 const count = assignment.taken.get(d.key)!.length;
                 const shadowed = assignment.shadowed.get(d.key)!;
                 const isDragOver = drag && drag.over === i && drag.from !== i;
+                const open = d.key === selected;
+                const label = d.name.trim() || 'New category';
                 return (
                   <li
                     key={d.key}
@@ -256,14 +264,12 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     class={[
                       'cat-row',
                       err && 'has-error',
-                      d.key === selected && 'selected',
+                      open && 'selected',
                       drag?.from === i && 'dragging',
                       isDragOver && (drag.from < i ? 'drop-after' : 'drop-before'),
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    onFocusIn={() => setSelected(d.key)}
-                    onMouseDown={() => setSelected(d.key)}
                     onDragOver={(e) => {
                       if (drag) {
                         e.preventDefault();
@@ -278,7 +284,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       setDrag(null);
                     }}
                   >
-                    <div class="cat-order">
+                    <div class="cat-line">
                       <span
                         class="cat-handle"
                         draggable
@@ -294,60 +300,70 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                         }}
                         onDragEnd={() => setDrag(null)}
                       >
-                        <Icon name="dragIndicator" size={20} />
+                        <Icon name="dragIndicator" size={18} />
                       </span>
-                      <button type="button" class="icon-btn" aria-label={`Move ${d.name || 'category'} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>
-                        <Icon name="arrowUp" size={16} />
-                      </button>
                       <button
                         type="button"
-                        class="icon-btn"
-                        aria-label={`Move ${d.name || 'category'} down`}
-                        disabled={i === drafts.length - 1}
-                        onClick={() => move(i, i + 1)}
+                        class="cat-summary"
+                        aria-expanded={open}
+                        title={open ? 'Close' : 'Edit'}
+                        onClick={() => setSelected(open ? null : d.key)}
                       >
-                        <Icon name="arrowDown" size={16} />
+                        <span class="cat-title">{label}</span>
+                        <span class={err ? 'error small' : 'muted small'}>{err ?? summary(d, siteCategories)}</span>
+                        <span class="cat-count" title={shadowed ? `Its regex also matches ${plural(shadowed, 'lot')} another category took` : undefined}>
+                          {plural(count, 'lot')}
+                          {shadowed > 0 && <span class="muted"> +{fmtCount(shadowed)}</span>}
+                        </span>
+                        <Icon name="expandMore" size={18} />
                       </button>
                     </div>
-                    <label class="field cat-name">
-                      <span>Name</span>
-                      <input type="text" value={d.name} placeholder="e.g. Pressure Washer" onInput={(e) => update(d.key, { name: e.currentTarget.value })} />
-                    </label>
-                    <label class="field cat-within">
-                      <span>Only within</span>
-                      <select value={d.within} onChange={(e) => update(d.key, { within: e.currentTarget.value })}>
-                        <option value="">Any site category</option>
-                        {siteCategories.map((c) => (
-                          <option value={c.value}>{c.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <TypeChips types={d.types} counts={countsFor(d.within)} listId={`cat-types-${d.within}`} onChange={(types) => update(d.key, { types })} />
-                    <label class="field cat-pattern">
-                      <span>Title regex</span>
-                      <textarea
-                        rows={Math.min(6, Math.max(2, Math.ceil(d.pattern.length / 60)))}
-                        spellcheck={false}
-                        value={d.pattern}
-                        placeholder="e.g. pressure washers?|power washers?"
-                        onInput={(e) => update(d.key, { pattern: e.currentTarget.value.replace(/\n/g, '') })}
-                      />
-                    </label>
-                    <div class="cat-count" title={shadowed ? `Its regex also matches ${plural(shadowed, 'lot')} another category took` : undefined}>
-                      <b>{fmtCount(count)}</b>
-                      <span class="muted small">{count === 1 ? 'lot' : 'lots'}</span>
-                      {shadowed > 0 && <span class="muted small">+{fmtCount(shadowed)} taken elsewhere</span>}
-                    </div>
-                    <button
-                      type="button"
-                      class="icon-btn cat-delete"
-                      aria-label={`Delete ${d.name || 'category'}`}
-                      title="Delete category"
-                      onClick={() => remove(d)}
-                    >
-                      <Icon name="delete" size={20} />
-                    </button>
-                    {err && <p class="error small cat-error">{err}</p>}
+                    {open && (
+                      <div class="cat-fields">
+                        <label class="field cat-name">
+                          <span>Name</span>
+                          <input type="text" value={d.name} placeholder="e.g. Tools - Pressure Washers" onInput={(e) => update(d.key, { name: e.currentTarget.value })} />
+                        </label>
+                        <label class="field cat-within">
+                          <span>Only within</span>
+                          <select value={d.within} onChange={(e) => update(d.key, { within: e.currentTarget.value })}>
+                            <option value="">Any site category</option>
+                            {siteCategories.map((c) => (
+                              <option value={c.value}>{c.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <TypeChips types={d.types} counts={countsFor(d.within)} listId={`cat-types-${d.within}`} onChange={(types) => update(d.key, { types })} />
+                        <label class="field cat-pattern">
+                          <span>Title regex</span>
+                          <textarea
+                            rows={Math.min(6, Math.max(1, Math.ceil(d.pattern.length / 70)))}
+                            spellcheck={false}
+                            value={d.pattern}
+                            placeholder="e.g. pressure washers?|power washers?"
+                            onInput={(e) => update(d.key, { pattern: e.currentTarget.value.replace(/\n/g, '') })}
+                          />
+                        </label>
+                        <div class="cat-actions">
+                          <button type="button" class="icon-btn" aria-label={`Move ${label} up`} title="Move up" disabled={i === 0} onClick={() => move(i, i - 1)}>
+                            <Icon name="arrowUp" size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            class="icon-btn"
+                            aria-label={`Move ${label} down`}
+                            title="Move down"
+                            disabled={i === drafts.length - 1}
+                            onClick={() => move(i, i + 1)}
+                          >
+                            <Icon name="arrowDown" size={16} />
+                          </button>
+                          <button type="button" class="btn-text cat-delete" onClick={() => remove(d)}>
+                            <Icon name="delete" size={16} /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </li>
                 );
               })}
