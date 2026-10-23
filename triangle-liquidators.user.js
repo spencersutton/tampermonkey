@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Triangle Liquidators – Hide, Filter & Bid Confirm
 // @namespace    https://triangleliquidators.com/
-// @version      3.8.26
+// @version      3.8.27
 // @description  A fast cached catalog view at /tlx, with confirmed bidding. The site's other pages are left unchanged.
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=triangleliquidators.com
 // @homepageURL  https://github.com/spencersutton/tampermonkey
@@ -1875,7 +1875,7 @@
 			if (type !== void 0) typeCounts.set(type, typeCounts.get(type) + 1);
 			const row = makeRow(lot, pickup, ex);
 			if (byTitle) row.sortType = type ?? null;
-			if (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered) removed++;
+			if (!view.mine && (row.hidden && !ex.showHidden || row.matched && ex.removeFiltered)) removed++;
 			else if (!matches(row)) filteredOut++;
 			else rows.push(row);
 		}

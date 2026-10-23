@@ -286,7 +286,8 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
     if (byTitle) {
       row.sortType = type ?? null;
     }
-    if ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered)) {
+    // My lots views show every lot of mine, hidden or regex-filtered included.
+    if (!view.mine && ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))) {
       removed++;
     } else if (!matches(row)) {
       filteredOut++;
