@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { LOGIN_PLACE, LoginLink, useAuthed } from './auth-web';
+import { LoginLink, useAuthed } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
@@ -240,7 +240,7 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
       <div class="bid-panel">
         {!authed ? (
           <span class="muted">
-            <LoginLink>Log in{LOGIN_PLACE}</LoginLink> to bid here.
+            <LoginLink>Log in</LoginLink> to bid here.
           </span>
         ) : (
           <span class="btn" aria-disabled="true">

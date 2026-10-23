@@ -1,10 +1,9 @@
 // The catalog: every live lot, held in memory for the view. The tlx server
 // (server/) pulls and stores it, and the page fetches what changed (see
-// source-web.tsx). Between pulls prices for lots on screen stay current over the
+// source.ts). Between pulls prices for lots on screen stay current over the
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
 import { useSyncExternalStore } from 'preact/compat';
-import type { JSX } from 'preact';
 import { fetchLotDetail } from './api';
 import type { Lot, LotDetail } from './types';
 import { emitter, MINUTE } from './util';
@@ -35,20 +34,6 @@ export interface CatalogState {
   rev: number; // bumps on every change
 }
 
-export type PullResult = 'done' | 'started' | 'not-due' | 'busy' | 'error';
-
-/** Where full pulls come from; source-web.tsx exports one of these as `source`. */
-export interface CatalogSource {
-  /** Load what's cached and start keeping it fresh. */
-  start(): Promise<void>;
-  /** The Refresh button: pull now if allowed. */
-  pullCatalog(): Promise<PullResult>;
-  /** Epoch ms when the next full pull is allowed. */
-  nextPullAt(): number;
-  /** Extra rows for the Settings panel. */
-  Settings(): JSX.Element | null;
-}
-
 /** The single shared catalog state; components read it through useCatalog(). */
 export const state: CatalogState = {
   loaded: false,
@@ -76,37 +61,16 @@ export function useCatalog(): CatalogState {
 /** Look up a cached lot by id. */
 export const getLot = (id: number) => state.lots.get(id);
 
-/**
- * Merge a fresh pull with what's in memory: websocket updates that arrived
- * since may be newer (by `version`), so those win, keeping the pull's
- * first-seen time.
- */
-export function keepNewer(pulled: Map<number, Lot>): Map<number, Lot> {
-  for (const [id, mine] of state.lots) {
-    const fresh = pulled.get(id);
-    if (fresh && mine.version > fresh.version) {
-      pulled.set(id, { ...mine, firstSeenAt: fresh.firstSeenAt });
-    }
-  }
-  return pulled;
-}
-
 // ---------------------------------------------------------------------------
 // Incremental updates (websocket, lot detail)
 // ---------------------------------------------------------------------------
-/** Called with every lot changed by updateLot (the local source saves it). */
-let onUpdate: (lot: Lot) => void = () => { };
-export const setUpdateHook = (fn: (lot: Lot) => void) => void (onUpdate = fn);
-
 /** Apply a partial update if it is newer than what we have (by `version`). */
 export function updateLot(id: number, patch: Partial<Lot>, opts: { force?: boolean } = {}) {
   const cur = state.lots.get(id);
   if (!cur || (!opts.force && patch.version != null && patch.version <= cur.version)) {
     return;
   }
-  const next = { ...cur, ...patch };
-  state.lots.set(id, next);
-  onUpdate(next);
+  state.lots.set(id, { ...cur, ...patch });
   changed();
 }
 

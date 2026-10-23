@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { fetchPickupLocation } from './api';
-import { LOGIN_PLACE, LoginLink, useAuthed } from './auth-web';
-import { source } from './source-web';
+import { LoginLink, useAuthed } from './auth';
+import { nextPullAt, pullCatalog } from './source';
 import { getLot, useCatalog } from './catalog';
-import { getSetting, setSetting, useSetting } from './gm';
+import { getSetting, setSetting, useSetting } from './settings';
 import { navFromUrl, useHistory } from './history';
 import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
@@ -127,8 +127,7 @@ export function App() {
   // Closed lots drop out on this cadence; countdowns tick on their own.
   const now30 = useNow(30_000);
 
-  const [savedRaw, setSavedRaw] = useSetting(KEYS.savedSearches);
-  const saved = savedRaw as SavedSearch[];
+  const [saved] = useSetting(KEYS.savedSearches);
   // While a saved search is open, lots that are new since its previous visit get a badge.
   const [highlight, setHighlight] = useState<{ id: string; since: number } | null>(null);
 
@@ -186,7 +185,7 @@ export function App() {
   }, [totalNew]);
 
   const updateSaved = (fn: (list: SavedSearch[]) => SavedSearch[]) =>
-    setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches) as SavedSearch[]));
+    setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches)));
   const savedProps = {
     searches: saved,
     stats: savedStats,
@@ -329,7 +328,7 @@ export function App() {
           <StatusBar />
           {!authed && (
             <p class="notice">
-              Not logged in: your bids, standings and watchlist aren’t shown. <LoginLink>Log in{LOGIN_PLACE}</LoginLink> to see them and bid.
+              Not logged in: your bids, standings and watchlist aren’t shown. <LoginLink>Log in</LoginLink> to see them and bid.
             </p>
           )}
           <div class="results-line" ref={gridTop}>
@@ -406,7 +405,7 @@ function StatusBar() {
   const live = useLiveState();
   const now = useNow(1000);
   const { meta, progress, error, loaded } = catalog;
-  const wait = source.nextPullAt() - now;
+  const wait = nextPullAt() - now;
   const due = wait <= 0;
 
   let text = 'No cached catalog yet';
@@ -429,7 +428,7 @@ function StatusBar() {
         type="button"
         class="btn-text"
         disabled={!loaded || !!progress || !due}
-        onClick={() => void source.pullCatalog()}
+        onClick={() => void pullCatalog()}
         title={due ? 'Pull the full catalog now' : 'Full refreshes are rate-limited; change the interval in Settings'}
       >
         <Icon name="refresh" size={16} /> {progress ? 'Refreshing' : due ? 'Refresh' : `Refresh in ${countdown(wait)}`}

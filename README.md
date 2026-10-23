@@ -60,6 +60,6 @@ npm run dev       # web app with hot reload; API calls go to a tlx server on 127
 ```
 
 - `src/web.tsx` and `web/`: the web app entry, page and icons.
-- `src/app/`: the catalog view. `catalog.ts` holds the in-memory catalog, `source-web.tsx` fetches it from the server, `auth-web.tsx` handles the server's login and the app password, and `storage-web.ts` keeps settings in `localStorage`.
+- `src/app/`: the catalog view. `catalog.ts` holds the in-memory catalog, `source.ts` fetches it from the server, `auth.tsx` handles the server's login and the app password, and `settings.ts` keeps settings in `localStorage` (and syncs some to the server).
 - `server/tlx_server/`: the Python server: `site.py` API client, `session.py` site login, `catalog.py` pulls, `store.py` SQLite, `server.py` HTTP (app, proxy, websocket relay).
 - `src/shared/`: filters, cost formula, title sort key and settings keys.

@@ -1,5 +1,6 @@
 // Watchlist toggling, same request and rules as the site's star button.
-import { isAuthenticated, setWatchlisted } from './api';
+import { setWatchlisted } from './api';
+import { isAuthenticated } from './auth';
 import { hasBidOn } from './bid';
 import { getLot, updateLot } from './catalog';
 import { toast } from './toast';

@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { KEYS, type CustomCategory } from '../shared/keys';
-import { getSetting, setSetting } from './gm';
+import { getSetting, setSetting } from './settings';
 import { Icon } from './icons';
 import type { Lot } from './types';
 import { fmtCount, plural, useDialog } from './util';
-import { customCategoryValue, normalizeView, type SavedSearch } from './view';
+import { customCategoryValue, normalizeView } from './view';
 
 /** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
 interface Draft {
@@ -58,7 +58,7 @@ function migrateFilters(renames: Map<string, string | null>) {
     });
   const view = normalizeView(getSetting(KEYS.view));
   setSetting(KEYS.view, { ...view, categories: fix(view.categories) });
-  const searches = getSetting(KEYS.savedSearches) as SavedSearch[];
+  const searches = getSetting(KEYS.savedSearches);
   setSetting(
     KEYS.savedSearches,
     searches.map((s) => ({ ...s, view: { ...s.view, categories: fix(s.view.categories ?? []) } })),

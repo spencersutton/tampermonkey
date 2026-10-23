@@ -1,15 +1,13 @@
 // Placing bids from /tlx. Every bid goes through BidConfirm first; this
 // module sends it and folds the result back into the catalog, the same way
 // the site's own bid buttons update their state.
-import { LOGIN_PLACE } from './auth-web';
-import { BidError, isAuthenticated, placeBid, type BidType } from './api';
+import { isAuthenticated } from './auth';
+import { BidError, placeBid, type BidType } from './api';
 import { getLot, invalidateDetail, updateLot } from './catalog';
 import { toast } from './toast';
 import type { Lot } from './types';
 import { observableSet } from './util';
 import type { Row } from './view';
-
-export type { BidType };
 
 export interface BidRequest {
   lotId: number;
@@ -19,9 +17,9 @@ export interface BidRequest {
 
 /** Whether the lot can no longer be bid on. */
 export const isClosed = (lot: Lot, now = Date.now()) => lot.status !== 'live' || lot.endsAt <= now;
-/** Whether you are currently the high bidder (and the price is still within your max). */
 /** Whether you have bid on the lot (winning or not). */
 export const hasBidOn = (lot: Lot) => lot.hasBid || !!lot.yourStanding;
+/** Whether you are currently the high bidder (and the price is still within your max). */
 export const isLeading = (lot: Lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
 
 /** Amount of a straight bid at the next increment (the API's next minimum bid). */
@@ -46,7 +44,7 @@ export function bidBlocker(row: Row, now = Date.now()): string | null {
     return 'This lot has closed';
   }
   if (!isAuthenticated()) {
-    return `Log in${LOGIN_PLACE} to bid`;
+    return 'Log in to bid';
   }
   return null;
 }

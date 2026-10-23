@@ -2,8 +2,8 @@ import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
-import { source } from './source-web';
-import { useSetting } from './gm';
+import { AccountSettings } from './auth';
+import { useSetting } from './settings';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';
 import { activeFilterCount, DEFAULT_VIEW, ENDING, MINE, type Facet, type Facets, type SavedSearch, type SavedSearchStats, type ViewState } from './view';
@@ -454,7 +454,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
   );
 }
 
-/** Pickup location and full-refresh interval settings, plus the build's own (the server address in the server build). */
+/** Pickup location, full-refresh interval, title lines, sort types and the account. */
 function SettingsSection({
   pickup,
   accountPickup,
@@ -520,7 +520,7 @@ function SettingsSection({
             ))}
           </ul>
         </Collapsible>
-        <source.Settings />
+        <AccountSettings />
       </Collapsible>
     </section>
   );

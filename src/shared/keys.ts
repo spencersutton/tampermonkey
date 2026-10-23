@@ -1,4 +1,6 @@
-// GM storage keys for the /tlx catalog view.
+// Settings keys (localStorage, and the server for SYNCED_KEYS).
+import type { SavedSearch } from '../app/view';
+
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
   words: 'filterWords', // string[]
@@ -54,7 +56,7 @@ export const MIN_SYNC_MINUTES = 1;
 // Grid cards show titles in full unless they run past this many lines.
 export const DEFAULT_TITLE_LINES = 6;
 
-/** Value returned for each GM storage key when nothing has been saved yet. */
+/** Value returned for each setting when nothing has been saved yet. */
 export const DEFAULTS = {
   [KEYS.hidden]: {} as Record<string, HiddenLot>,
   [KEYS.words]: [] as string[],
@@ -65,7 +67,7 @@ export const DEFAULTS = {
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.pickup]: null as string | null,
   [KEYS.view]: null as unknown,
-  [KEYS.savedSearches]: [] as unknown[],
+  [KEYS.savedSearches]: [] as SavedSearch[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
   // "1/3 HP Continuous Feed Garbage Disposal" sorts as "Garbage Disposal Continuous Feed 1/3 HP".

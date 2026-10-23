@@ -5,8 +5,8 @@ import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
 import './app/app.css';
 import { App } from './app/App';
-import { AppLock, LoginDialog, startAuth, useMe } from './app/auth-web';
-import { source } from './app/source-web';
+import { AppLock, LoginDialog, startAuth, useMe } from './app/auth';
+import { startCatalog } from './app/source';
 
 let started = false;
 
@@ -17,7 +17,7 @@ function Root() {
   useEffect(() => {
     if (unlocked && !started) {
       started = true;
-      void source.start();
+      startCatalog();
     }
   }, [unlocked]);
   if (!me) {

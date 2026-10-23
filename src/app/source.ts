@@ -7,9 +7,9 @@
 // Each poll tells the server whether this tab is in use (it only pulls while
 // some tab is, unless run with --background-minutes). Its pulls use its own
 // login to the site, so they include your standing and watchlist.
-import { AccountSettings, authReady, onAuthChange, refreshSession } from './auth-web';
-import { changed, inUse, keepNewer, state, trackActivity, type CatalogMeta, type CatalogSource, type PullResult } from './catalog';
-import { applySetting, getSetting, setSaveHook, type Key } from './gm';
+import { authReady, onAuthChange, refreshSession } from './auth';
+import { changed, inUse, state, trackActivity, type CatalogMeta } from './catalog';
+import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot } from './types';
 
@@ -95,7 +95,7 @@ function applyCatalog(r: CatalogReply) {
       next.forEach((_, id) => keep.has(id) || next.delete(id));
     }
     r.lots.forEach((l) => next.set(l.id, l));
-    state.lots = r.full ? keepNewer(next) : mergeChanged(next, r.lots);
+    state.lots = keepNewer(next, r.lots);
   }
   seq = r.seq;
   state.loaded = true;
@@ -110,8 +110,12 @@ function applyCatalog(r: CatalogReply) {
   }
 }
 
-/** Like keepNewer, but only for the lots that just changed. */
-function mergeChanged(next: Map<number, Lot>, lots: Lot[]): Map<number, Lot> {
+/**
+ * Websocket updates that arrived since the server's pull may be newer (by
+ * `version`) than the lots it sent, so those win, keeping the pull's
+ * first-seen time.
+ */
+function keepNewer(next: Map<number, Lot>, lots: Lot[]): Map<number, Lot> {
   for (const fresh of lots) {
     const mine = state.lots.get(fresh.id);
     if (mine && mine.version > fresh.version) {
@@ -155,20 +159,20 @@ function poll(): Promise<void> {
   })());
 }
 
-/** Ask the server to pull now; it refuses if the interval hasn't passed. */
-async function pullCatalog(): Promise<PullResult> {
+/** The Refresh button: ask the server to pull now; it refuses if the interval hasn't passed. */
+export async function pullCatalog() {
   try {
-    const r = await call<Status & { result: 'started' | 'not-due' | 'busy' }>('POST', '/api/pull');
-    applyStatus(r);
+    applyStatus(await call<Status>('POST', '/api/pull'));
     changed();
     // Poll soon so the progress bar shows up.
     window.setTimeout(() => void poll(), 500);
-    return r.result;
   } catch (err) {
     setServerError(err);
-    return 'error';
   }
 }
+
+/** Epoch ms when the next full pull is allowed. */
+export const nextPullAt = () => nextAt;
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -217,15 +221,11 @@ async function syncSettings() {
   settingsRev = r.rev;
 }
 
-export const source: CatalogSource = {
-  async start() {
-    setSaveHook((key, value) => synced.has(key) && void sendSetting(key, value));
-    trackActivity(() => void poll());
-    // A new login (or logout) changes what the server's pulls will see; check in now.
-    onAuthChange(() => void poll());
-    await poll();
-  },
-  pullCatalog,
-  nextPullAt: () => nextAt,
-  Settings: AccountSettings,
-};
+/** Load what the server has and keep it fresh. */
+export function startCatalog() {
+  setSaveHook((key, value) => synced.has(key) && void sendSetting(key, value));
+  trackActivity(() => void poll());
+  // A new login (or logout) changes what the server's pulls will see; check in now.
+  onAuthChange(() => void poll());
+  void poll();
+}

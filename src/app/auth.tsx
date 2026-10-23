@@ -39,18 +39,13 @@ export function onAuthChange(fn: () => void): () => void {
 
 /** Whether the server is logged in to the site. */
 export const isAuthenticated = () => !!me?.site?.loggedIn;
-/** The page never holds the site's token; the server adds it. */
-export const authToken = (): string | null => null;
 /** Re-renders when the site login changes. */
 export const useAuthed = () => useSyncExternalStore(subscribe, isAuthenticated);
 /** Re-renders on any login change; null until the server first answers. */
 export const useMe = () => useSyncExternalStore(subscribe, () => me);
 
-/** Where to log in, for messages like "Log in to bid". */
-export const LOGIN_PLACE = '';
-
 /** A link-styled button that opens the login form. */
-export function LoginLink({ class: cls = 'link-button', title, children }: { href?: string; class?: string; title?: string; children: ComponentChildren }) {
+export function LoginLink({ class: cls = 'link-button', title, children }: { class?: string; title?: string; children: ComponentChildren }) {
   return (
     <button type="button" class={cls} title={title} onClick={() => setLoginOpen(true)}>
       {children}
@@ -100,11 +95,8 @@ export function refreshSession(): Promise<boolean> {
 }
 
 let ready: Promise<unknown> = Promise.resolve();
-/** Resolves once the first login check is done. */
-export const authReady = () => ready.then(
-  () => {},
-  () => {},
-);
+/** Resolves once the first login check is done (it never rejects). */
+export const authReady = () => ready;
 
 /** Check the login state now, when the tab comes back, and every few minutes. */
 export function startAuth() {
@@ -122,7 +114,7 @@ export function startAuth() {
  * refreshes and retries it). A 401 means a login ended somewhere, so the
  * state is checked again.
  */
-export async function authedFetch(url: string, init: RequestInit & { headers?: Record<string, string> } = {}, _anonFallback = false): Promise<Response> {
+export async function authedFetch(url: string, init: RequestInit & { headers?: Record<string, string> } = {}): Promise<Response> {
   await authReady();
   const res = await fetch(url, { ...init, credentials: 'same-origin', headers: { ...init.headers, 'X-TLX-Client': '1' } });
   if (res.status === 401) {

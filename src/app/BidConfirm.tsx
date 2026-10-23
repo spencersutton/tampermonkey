@@ -3,7 +3,7 @@
 import { useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { bidBlocker, minMaxBid, quickBidAmount, submitBid, useBidPending, type BidRequest } from './bid';
-import { useAuthed } from './auth-web';
+import { useAuthed } from './auth';
 import { TimeLeft } from './LotCard';
 import { plural, useDialog, useNow } from './util';
 import type { Row } from './view';

@@ -1,5 +1,5 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
-import { buildRegexes, compileFilter, firstMatch, type CompiledFilter } from '../shared/filters';
+import { buildRegexes, compileFilter, firstMatch } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { collator, sortKey } from '../shared/sortKey';
 import type { CustomCategory, HiddenLot } from '../shared/keys';
@@ -187,18 +187,14 @@ function titleType(title: string): string | undefined {
   return sortTypeCache.types[titleTypes.get(title)!];
 }
 
-const compiledFilters = (function () {
-  /** Compiled regex filters for the most recent word list. */
-  let cache: { words: string[]; compiled: CompiledFilter[] } | null = null;
+/** `fn`, recomputed only when its argument changes (by identity), e.g. to compile a settings list once. */
+function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {
+  let last: { arg: A; result: R } | null = null;
+  return (arg) => (last?.arg === arg ? last : (last = { arg, result: fn(arg) })).result;
+}
 
-  /** Compiled regexes for the filter words, recompiled only when the list changes. */
-  return (words: string[]) => {
-    if (cache?.words !== words) {
-      cache = { words, compiled: buildRegexes(words) };
-    }
-    return cache.compiled;
-  }
-})()
+/** Compiled regexes for the filter words. */
+const compiledFilters = memoLast(buildRegexes);
 
 /** Prefix that keeps custom category values apart from the site's. */
 const CUSTOM_PREFIX = 'custom:';
@@ -206,28 +202,19 @@ const CUSTOM_PREFIX = 'custom:';
 /** Filter value of a custom category. */
 export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
 
-export const categoryOf = (function () {
-  /** Compiled custom categories for the most recent list. */
-  let categoryCache: {
-    cats: CustomCategory[];
-    compiled: { category: NonNullable<Lot['category']>; re: RegExp | null; within?: string }[];
-  } | null = null;
+/** Compiled custom categories. */
+const compiledCategories = memoLast((cats: CustomCategory[]) =>
+  cats.map((c) => ({ category: { value: customCategoryValue(c.name), label: c.name }, re: compileFilter(c.pattern), within: c.within })),
+);
 
-  /**
-   * The lot's category: the first custom category whose regex matches the
-   * title (and whose `within`, if set, is the lot's site category), else the
-   * site's. A lot in a custom category is in that one only.
-   */
-  return function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
-    if (categoryCache?.cats !== cats) {
-      categoryCache = {
-        cats,
-        compiled: cats.map((c) => ({ category: { value: customCategoryValue(c.name), label: c.name }, re: compileFilter(c.pattern), within: c.within })),
-      };
-    }
-    return categoryCache.compiled.find(({ re, within }) => (!within || within === lot.category?.value) && re?.test(lot.title))?.category ?? lot.category;
-  }
-})()
+/**
+ * The lot's category: the first custom category whose regex matches the
+ * title (and whose `within`, if set, is the lot's site category), else the
+ * site's. A lot in a custom category is in that one only.
+ */
+export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
+  return compiledCategories(cats).find(({ re, within }) => (!within || within === lot.category?.value) && re?.test(lot.title))?.category ?? lot.category;
+}
 
 /** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {

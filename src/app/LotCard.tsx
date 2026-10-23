@@ -2,7 +2,7 @@ import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { LOGIN_PLACE, LoginLink, useAuthed } from './auth-web';
+import { LoginLink, useAuthed } from './auth';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
@@ -154,7 +154,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
         </div>
         <div class="card-foot">
           <TimeLeft endsAt={lot.endsAt} />
-          <CardBidButton row={row} href={href} onOpen={() => onOpen(lot)} onBid={onBid} />
+          <CardBidButton row={row} onOpen={() => onOpen(lot)} onBid={onBid} />
         </div>
       </div>
     </article>
@@ -172,15 +172,15 @@ function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
 }
 
 /** The card's bid button: next-increment bid, raise max, or a disabled/login state. */
-function CardBidButton({ row, href, onOpen, onBid }: { row: Row; href: string; onOpen: () => void; onBid: (req: BidRequest) => void }) {
+function CardBidButton({ row, onOpen, onBid }: { row: Row; onOpen: () => void; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
   const pending = useBidPending(lot.id);
   const authed = useAuthed();
   const blocker = bidBlocker(row);
   if (blocker && !authed && !row.hidden && !row.matched) {
     return (
-      <LoginLink class="btn btn-small" href={href} title="Log in to Triangle Liquidators to bid here">
-        Bid {LOGIN_PLACE && <Icon name="open" size={14} />}
+      <LoginLink class="btn btn-small" title="Log in to Triangle Liquidators to bid here">
+        Bid
       </LoginLink>
     );
   }
