@@ -6,7 +6,19 @@ import { AccountSettings } from './auth';
 import { useSetting } from './settings';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';
-import { activeFilterCount, DEFAULT_VIEW, ENDING, MINE, type Facet, type Facets, type SavedSearch, type SavedSearchStats, type ViewState } from './view';
+import { collator } from '../shared/sortKey';
+import {
+  activeFilterCount,
+  DEFAULT_VIEW,
+  ENDING,
+  isCustomCategory,
+  MINE,
+  type Facet,
+  type Facets,
+  type SavedSearch,
+  type SavedSearchStats,
+  type ViewState,
+} from './view';
 
 interface Props {
   view: ViewState;
@@ -61,6 +73,99 @@ function CheckList<T>({ facets, selected, onChange }: { facets: Facet<T>[]; sele
         </label>
       ))}
     </>
+  );
+}
+
+/** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
+interface CategoryGroup {
+  facet: Facet<string>;
+  subs: Facet<string>[]; // labelled with just the part after "<it> - ", A–Z
+}
+
+/** Separator between a site category's name and a subcategory's in custom category names. */
+const SUB = ' - ';
+
+/** Nest custom categories under the site category their name starts with (the longest such name), e.g. "Plumbing & Bath - Ice Maker Hoses". */
+function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
+  const parents = siteCategories.toSorted((a, b) => b.label.length - a.label.length);
+  const subs = new Map<string, Facet<string>[]>();
+  const top: Facet<string>[] = [];
+  for (const f of categories) {
+    const p = isCustomCategory(f.value) ? parents.find((s) => f.label.startsWith(s.label + SUB)) : undefined;
+    if (p) {
+      subs.set(p.value, [...(subs.get(p.value) ?? []), { ...f, label: f.label.slice(p.label.length + SUB.length) }]);
+    } else {
+      top.push(f);
+    }
+  }
+  // A site category whose lots all moved into subcategories still heads them.
+  for (const p of siteCategories) {
+    if (subs.has(p.value) && !top.some((f) => f.value === p.value)) {
+      top.push({ ...p, count: 0 });
+    }
+  }
+  return top
+    .sort((a, b) => collator.compare(a.label, b.label))
+    .map((facet) => ({ facet, subs: (subs.get(facet.value) ?? []).sort((a, b) => collator.compare(a.label, b.label)) }));
+}
+
+/** Category checkboxes; a site category with subcategories expands to list them, and checking it checks them all. */
+function CategoryList({ facets, selected, onChange }: { facets: Facets; selected: string[]; onChange: (next: string[]) => void }) {
+  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  return (
+    <>
+      {groupCategories(facets).map(({ facet, subs }) => {
+        if (!subs.length) {
+          return <CheckRow facet={facet} checked={selected.includes(facet.value)} onChange={() => toggle(facet.value)} />;
+        }
+        const values = [facet.value, ...subs.map((s) => s.value)];
+        const all = values.every((v) => selected.includes(v));
+        const some = values.some((v) => selected.includes(v));
+        // Subcategory lists start closed; `collapsed[id] === false` means opened.
+        const id = `cat:${facet.value}`;
+        const open = collapsed?.[id] === false;
+        const total = facet.count + subs.reduce((n, s) => n + s.count, 0);
+        return (
+          <div class="check-group">
+            <div class="check-parent">
+              <CheckRow
+                facet={{ ...facet, count: total }}
+                checked={all}
+                indeterminate={some && !all}
+                onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
+              />
+              <button
+                type="button"
+                class="icon-btn check-expand"
+                aria-expanded={open}
+                aria-label={`${open ? 'Hide' : 'Show'} ${facet.label} subcategories`}
+                onClick={() => setCollapsed({ ...collapsed, [id]: open })}
+              >
+                <Icon name="expandMore" size={18} />
+              </button>
+            </div>
+            {open && (
+              <div class="check-subs">
+                {subs.map((s) => (
+                  <CheckRow facet={s} checked={selected.includes(s.value)} onChange={() => toggle(s.value)} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function CheckRow({ facet, checked, indeterminate, onChange }: { facet: Facet<string>; checked: boolean; indeterminate?: boolean; onChange: () => void }) {
+  return (
+    <label class="check">
+      <input type="checkbox" checked={checked} indeterminate={indeterminate} onChange={onChange} />
+      <span>{facet.label}</span>
+      <span class="count">{fmtCount(facet.count)}</span>
+    </label>
   );
 }
 
@@ -148,7 +253,7 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
       </Collapsible>
 
       <Collapsible id="f-category" title="Category">
-        <CheckList facets={facets.categories} selected={view.categories} onChange={(categories) => setView({ categories })} />
+        <CategoryList facets={facets} selected={view.categories} onChange={(categories) => setView({ categories })} />
         <button type="button" class="btn-text cat-edit-btn" onClick={onEditCategories}>
           <Icon name="edit" size={16} /> {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
         </button>

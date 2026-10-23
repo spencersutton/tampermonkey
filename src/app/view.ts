@@ -178,6 +178,9 @@ const CUSTOM_PREFIX = 'custom:';
 /** Filter value of a custom category. */
 export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
 
+/** Whether a category value is one of my custom categories. */
+export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFIX);
+
 export interface CompiledCategories {
   byType: Map<string, number>; // `${within}\0${type}` -> index of the first category listing that type ('' within = any)
   regexes: { i: number; re: RegExp; within?: string }[];
@@ -375,6 +378,7 @@ export interface Facet<T> {
 
 export interface Facets {
   categories: Facet<string>[];
+  siteCategories: Facet<string>[]; // the site's own categories, before custom ones take lots out
   conditions: Facet<number>[];
   locations: Facet<string>[];
 }
@@ -393,6 +397,7 @@ export function computeFacets(lots: Iterable<Lot>, now: number, customCategories
   const open = Array.from(lots).filter((l) => l.endsAt > now);
   return {
     categories: tally(open.map((l) => categoryOf(l, customCategories))).sort((a, b) => a.label.localeCompare(b.label)),
+    siteCategories: tally(open.map((l) => l.category)),
     conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
     locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).sort((a, b) => b.count - a.count),
   };

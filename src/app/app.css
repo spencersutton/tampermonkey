@@ -125,6 +125,12 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .check { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
 .check input { margin: 0; accent-color: var(--primary); }
 .check .count { margin-left: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.check-parent { display: flex; align-items: center; gap: 2px; }
+.check-parent .check { flex: 1; min-width: 0; }
+.check-expand { padding: 2px; color: var(--muted); }
+.check-expand svg { transition: transform 0.15s; }
+.check-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
+.check-subs { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 4px 24px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
 .switch-row input {
   appearance: none; flex: none; width: 34px; height: 20px; border-radius: 10px; margin: 0; position: relative;
