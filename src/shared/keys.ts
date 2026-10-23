@@ -13,8 +13,7 @@ export const KEYS = {
   view: 'tlxView', // persisted catalog view state (sort, filters)
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
-  customCategories: 'tlxCustomCategories', // CustomCategory[] – title regexes that move lots into a category of their own
-  sortTypes: 'tlxSortTypes', // string[] – title regexes for kinds of item; the words matched lead the title when sorting
+  customCategories: 'tlxCustomCategories', // CustomCategory[] – item types or title regexes that move lots into a category of their own
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
 } as const;
 
@@ -29,7 +28,6 @@ export const SYNCED_KEYS = [
   KEYS.pickup,
   KEYS.savedSearches,
   KEYS.customCategories,
-  KEYS.sortTypes,
 ] as const;
 
 export interface HiddenLot {
@@ -39,13 +37,15 @@ export interface HiddenLot {
 }
 
 /**
- * A category of my own: lots whose title matches `pattern` (same rules as the
- * regex filters) go in it instead of their site category. With `within` (a
- * site category value), only lots in that site category are taken.
+ * A category of my own: lots whose item type is one of `types`, or whose
+ * title matches `pattern` (same rules as the regex filters), go in it instead
+ * of their site category. With `within` (a site category value), only lots in
+ * that site category are taken.
  */
 export interface CustomCategory {
   name: string;
-  pattern: string;
+  types?: string[];
+  pattern?: string;
   within?: string;
 }
 
@@ -70,8 +70,6 @@ export const DEFAULTS = {
   [KEYS.savedSearches]: [] as SavedSearch[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
-  // "1/3 HP Continuous Feed Garbage Disposal" sorts as "Garbage Disposal Continuous Feed 1/3 HP".
-  [KEYS.sortTypes]: ['garbage disposals?'] as string[],
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
 };
 

@@ -11,13 +11,15 @@
 
 Account fields (your standing, watchlist) come from the server's own site
 login (session.py). A pull made while logged out keeps the account fields
-from the previous pull rather than wiping them.
+from the previous pull rather than wiping them. Each lot keeps the item type
+already known for its title (itemtypes.py labels the rest after the pull).
 """
 
 from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -52,6 +54,7 @@ class Catalog:
         self._last_active = 0.0  # epoch ms of the last poll from a tab in use
         self._requested = False
         self._wake = threading.Event()
+        self.after_pull: Callable[[], None] = lambda: None  # e.g. label the new titles
 
     # -- what clients tell us ---------------------------------------------------
     def heartbeat(self, active: bool) -> None:
@@ -161,8 +164,14 @@ class Catalog:
                     if i not in pulled and (lot.get("endsAt") or 0) > now:
                         pulled[i] = lot
 
+            types = self.store.item_types(lot["title"] for lot in pulled.values())
+            for lot in pulled.values():
+                if lot["title"] in types:
+                    lot["itemType"] = types[lot["title"]]
+
             seq = self.store.replace_all(pulled.values(), fetchedAt=now_ms(), count=count, authed=token is not None)
             log.info("pull done: %d lots in %.1fs (seq %d)", len(pulled), (now_ms() - started) / 1000, seq)
+            self.after_pull()
         except Exception as e:
             self.error = f"Catalog refresh failed: {e}"
             log.warning(self.error)

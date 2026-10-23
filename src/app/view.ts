@@ -16,7 +16,6 @@ export interface Row {
   total: number;
   retailPct: number | null;
   matched: string | null; // regex filter that matched the title
-  sortType: string | null; // item type that led the title, set only while sorting by title
   hidden: boolean;
   others: Row[]; // identical listings folded into this card (cheapest first)
 }
@@ -27,8 +26,8 @@ type Compare = (a: Row, b: Row) => number;
 export const SORTS = {
   'ending-soonest': { label: 'Ending soonest', compare: () => 0 },
   'newly-listed': { label: 'Newly listed', compare: (a, b) => b.lot.id - a.lot.id },
-  'title-asc': { label: 'Title A–Z', compare: (a, b) => collator.compare(titleKey(a.lot.title), titleKey(b.lot.title)) },
-  'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot.title), titleKey(a.lot.title)) },
+  'title-asc': { label: 'Title A–Z', compare: (a, b) => collator.compare(titleKey(a.lot), titleKey(b.lot)) },
+  'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot), titleKey(a.lot)) },
   'total-asc': { label: 'Total cost: low to high', compare: (a, b) => a.total - b.total },
   'total-desc': { label: 'Total cost: high to low', compare: (a, b) => b.total - a.total },
   'retail-pct-asc': { label: 'Best deal (% of retail)', compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) },
@@ -146,45 +145,22 @@ export interface Exclusions {
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
   customCategories: CustomCategory[];
-  sortTypes: string[];
 }
 
-/** Memoized sortKey() results by title. */
+/** Memoized sortKey() results by item type and title. */
 const sortKeys = new Map<string, string>();
-// Debugging: `tlxSortKeys.get(title)` in the dev console shows what a title sorts on.
+// Debugging: `tlxSortKeys` in the dev console shows what each title sorts on.
 (globalThis as any).tlxSortKeys = sortKeys;
 
-/** Compiled item-type regexes for the most recent list. */
-let sortTypeCache: { types: string[]; compiled: (RegExp | null)[] } = { types: [], compiled: [] };
-
-/** Sort titles with these item types from now on, recompiling (and forgetting cached keys) only when the list changes. */
-function applySortTypes(types: string[]) {
-  if (sortTypeCache.types !== types) {
-    sortTypeCache = { types, compiled: types.map(compileFilter) };
-    sortKeys.clear();
-    titleTypes.clear();
-  }
-}
-
-/** Index of the item type each title sorts under (-1 for none), filled in with sortKeys. */
-const titleTypes = new Map<string, number>();
-
-/** sortKey() for a title, cached. */
-function titleKey(title: string) {
-  let key = sortKeys.get(title);
+/** sortKey() for a lot, cached. */
+function titleKey(lot: Lot) {
+  const id = `${lot.itemType ?? ''}\u0000${lot.title}`;
+  let key = sortKeys.get(id);
   if (key === undefined) {
-    let type = -1;
-    key = sortKey(title, sortTypeCache.compiled, (i) => (type = i));
-    sortKeys.set(title, key);
-    titleTypes.set(title, type);
+    key = sortKey(lot.title, lot.itemType);
+    sortKeys.set(id, key);
   }
   return key;
-}
-
-/** The item type a title sorts under, if any. */
-function titleType(title: string): string | undefined {
-  titleKey(title);
-  return sortTypeCache.types[titleTypes.get(title)!];
 }
 
 /** `fn`, recomputed only when its argument changes (by identity), e.g. to compile a settings list once. */
@@ -202,18 +178,49 @@ const CUSTOM_PREFIX = 'custom:';
 /** Filter value of a custom category. */
 export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
 
-/** Compiled custom categories. */
-const compiledCategories = memoLast((cats: CustomCategory[]) =>
-  cats.map((c) => ({ category: { value: customCategoryValue(c.name), label: c.name }, re: compileFilter(c.pattern), within: c.within })),
-);
+export interface CompiledCategories {
+  byType: Map<string, number>; // `${within}\0${type}` -> index of the first category listing that type ('' within = any)
+  regexes: { i: number; re: RegExp; within?: string }[];
+}
+
+/** Custom categories ready for categoryIndex(). */
+export function compileCategories(cats: CustomCategory[]): CompiledCategories {
+  const byType = new Map<string, number>();
+  const regexes: CompiledCategories['regexes'] = [];
+  for (const [i, c] of cats.entries()) {
+    for (const t of c.types ?? []) {
+      const key = `${c.within ?? ''}\u0000${t}`;
+      if (!byType.has(key)) {
+        byType.set(key, i);
+      }
+    }
+    const re = c.pattern?.trim() ? compileFilter(c.pattern.trim()) : null;
+    if (re) {
+      regexes.push({ i, re, within: c.within });
+    }
+  }
+  return { byType, regexes };
+}
 
 /**
- * The lot's category: the first custom category whose regex matches the
- * title (and whose `within`, if set, is the lot's site category), else the
- * site's. A lot in a custom category is in that one only.
+ * Index of the lot's custom category, or -1 for none. A category listing the
+ * lot's item type wins (one limited to the lot's site category before one
+ * that isn't); otherwise the first whose regex matches the title. A category
+ * with `within` only takes lots in that site category.
  */
+export function categoryIndex(lot: Lot, { byType, regexes }: CompiledCategories): number {
+  const t = lot.itemType;
+  const site = lot.category?.value ?? '';
+  const typed = t != null ? (byType.get(`${site}\u0000${t}`) ?? byType.get(`\u0000${t}`)) : undefined;
+  return typed ?? regexes.find(({ re, within }) => (!within || within === site) && re.test(lot.title))?.i ?? -1;
+}
+
+const compiledCategories = memoLast(compileCategories);
+
+/** The lot's category: its custom category (see categoryIndex) if any, else the site's. */
 export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
-  return compiledCategories(cats).find(({ re, within }) => (!within || within === lot.category?.value) && re?.test(lot.title))?.category ?? lot.category;
+  const c = cats[categoryIndex(lot, compiledCategories(cats))];
+  return c ? { value: customCategoryValue(c.name), label: c.name } : lot.category;
 }
 
 /** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */
@@ -229,7 +236,6 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     retailPct: lot.estimatedRetailPrice ? lot.currentPrice / lot.estimatedRetailPrice : null,
     matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
     hidden: !!ex.hidden[lot.id],
-    sortType: null,
     others: [],
   };
 }
@@ -240,7 +246,6 @@ export interface ViewResult {
   removed: number; // open lots dropped by hide / remove-filtered
   filteredOut: number; // open lots dropped by the view's own filters
   matchCounts: Map<string, number>; // open lots each regex filter matches
-  typeCounts: Map<string, number>; // open lots each item type sorts
   combined: number; // listings folded into another card as duplicates
   groups: Map<number, Row[]>; // lot id -> every listing in its group (cheapest first)
 }
@@ -250,9 +255,6 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const matches = makeMatcher(view, now);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const compiled = compiledFilters(ex.words);
-  applySortTypes(ex.sortTypes);
-  const typeCounts = new Map(ex.sortTypes.map((t) => [t, 0]));
-  const byTitle = view.sort === 'title-asc' || view.sort === 'title-desc';
 
   const rows: Row[] = [];
   let open = 0;
@@ -268,14 +270,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
         matchCounts.set(word, matchCounts.get(word)! + 1);
       }
     }
-    const type = titleType(lot.title);
-    if (type !== undefined) {
-      typeCounts.set(type, typeCounts.get(type)! + 1);
-    }
     const row = makeRow(lot, pickup, ex);
-    if (byTitle) {
-      row.sortType = type ?? null;
-    }
     // My lots views show every lot of mine, hidden or regex-filtered included.
     if (!view.mine && ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))) {
       removed++;
@@ -288,7 +283,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const { cards, groups } = combineDuplicates(rows);
   const compare: Compare = SORTS[view.sort].compare;
   cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
-  return { rows: cards, open, removed, filteredOut, matchCounts, typeCounts, combined: rows.length - cards.length, groups };
+  return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
 }
 
 /**

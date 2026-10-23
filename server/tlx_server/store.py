@@ -1,5 +1,6 @@
 """SQLite storage: the catalog (one row per lot), catalog meta, synced settings,
-the site login cookies, and sessions of this app's own password login.
+the site login cookies, sessions of this app's own password login, and the
+item type of each lot title (itemtypes.py).
 
 Every full pull that changes anything gets a new sequence number, and each lot
 row records the sequence of its last change, so a client that has seen
@@ -24,6 +25,8 @@ CREATE INDEX IF NOT EXISTS lots_seq ON lots (seq);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS item_types (title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
 """
 
 
@@ -123,6 +126,76 @@ class Store:
             lots = [d for (d,) in self._db.execute("SELECT data FROM lots WHERE seq > ?", (since,))]
             ids = [i for (i,) in self._db.execute("SELECT id FROM lots")]
             return CatalogChanges(seq=seq, lots=lots, ids=ids)
+
+    # -- item types -----------------------------------------------------------
+    def item_types(self, titles: Iterable[str]) -> dict[str, str]:
+        """The stored item type of each of these titles that has one."""
+        with self._lock:
+            known = dict(self._db.execute("SELECT title, type FROM item_types"))
+        return {t: known[t] for t in titles if t in known}
+
+    def untyped_lots(self) -> dict[str, dict[str, Any] | None]:
+        """Titles of stored lots without an `itemType`, with each one's site category."""
+        with self._lock:
+            lots = [json.loads(d) for (d,) in self._db.execute("SELECT data FROM lots")]
+        return {lot["title"]: lot.get("category") for lot in lots if not lot.get("itemType")}
+
+    def common_types(self, category: str | None, limit: int) -> list[str]:
+        """The item types given most often to titles in a site category."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT type FROM item_types WHERE category IS ? GROUP BY type ORDER BY count(*) DESC, type LIMIT ?", (category, limit)
+            )
+            return [t for (t,) in rows]
+
+    def save_item_types(self, types: dict[str, tuple[str, str | None]]) -> None:
+        """Store {title: (type, site category)} and set `itemType` on the lots with those titles (a new sequence if any changed)."""
+        if not types:
+            return
+        with self._lock:
+            now = time.time()
+            seq = int(self._get("seq", 0)) + 1
+            changed = []
+            for i, d in self._db.execute("SELECT id, data FROM lots"):
+                lot = json.loads(d)
+                t = types.get(lot["title"])
+                if t and lot.get("itemType") != t[0]:
+                    changed.append((seq, dumps({**lot, "itemType": t[0]}), i))
+            self._db.execute("BEGIN")
+            try:
+                self._db.executemany(
+                    "INSERT OR REPLACE INTO item_types (title, type, category, at) VALUES (?, ?, ?, ?)",
+                    [(title, t, cat, now) for title, (t, cat) in types.items()],
+                )
+                if changed:
+                    self._db.executemany("UPDATE lots SET seq = ?, data = ? WHERE id = ?", changed)
+                    self._set("seq", seq)
+                self._db.execute("COMMIT")
+            except BaseException:
+                self._db.execute("ROLLBACK")
+                raise
+
+    def reset_item_types(self) -> int:
+        """Forget every stored item type and take `itemType` off every lot (a new sequence). Returns how many titles had one."""
+        with self._lock:
+            seq = int(self._get("seq", 0)) + 1
+            changed = []
+            for i, d in self._db.execute("SELECT id, data FROM lots"):
+                lot = json.loads(d)
+                if lot.pop("itemType", None) is not None:
+                    changed.append((seq, dumps(lot), i))
+            self._db.execute("BEGIN")
+            try:
+                (n,) = self._db.execute("SELECT count(*) FROM item_types").fetchone()
+                self._db.execute("DELETE FROM item_types")
+                if changed:
+                    self._db.executemany("UPDATE lots SET seq = ?, data = ? WHERE id = ?", changed)
+                    self._set("seq", seq)
+                self._db.execute("COMMIT")
+            except BaseException:
+                self._db.execute("ROLLBACK")
+                raise
+            return n
 
     # -- settings -------------------------------------------------------------
     def settings(self, since: int = 0) -> tuple[int, dict[str, Any]]:

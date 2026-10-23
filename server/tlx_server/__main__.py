@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 
 from .catalog import Catalog
+from .itemtypes import DEFAULT_MODEL, DEFAULT_URL, Labeller
 from .server import Api, serve
 from .session import SiteSession
 from .store import Store
@@ -48,6 +49,17 @@ def main() -> None:
         default=0,
         help="also pull this often when no one has the app open (default 0 = only while it's in use)",
     )
+    p.add_argument(
+        "--llm-key",
+        default=os.environ.get("TLX_LLM_KEY"),
+        help="API key for naming each lot's item type (or set TLX_LLM_KEY); without one, lots get no item types",
+    )
+    p.add_argument(
+        "--llm-url", default=os.environ.get("TLX_LLM_URL", DEFAULT_URL), help=f"OpenAI-compatible API base URL (default {DEFAULT_URL})"
+    )
+    p.add_argument(
+        "--llm-model", default=os.environ.get("TLX_LLM_MODEL", DEFAULT_MODEL), help=f"model for item types (default {DEFAULT_MODEL})"
+    )
     p.add_argument("--tls-cert", type=Path, help="serve HTTPS with this certificate (PEM)")
     p.add_argument("--tls-key", type=Path, help="private key for --tls-cert")
     p.add_argument("--allow-host", action="append", default=[], metavar="NAME", help="extra Host name to accept when there's no password")
@@ -63,6 +75,10 @@ def main() -> None:
     session = SiteSession(store)
     catalog = Catalog(store, session, args.background_minutes)
     threading.Thread(target=catalog.run_forever, name="puller", daemon=True).start()
+    if args.llm_key:
+        labeller = Labeller(store, args.llm_key, args.llm_url, args.llm_model)
+        catalog.after_pull = labeller.wake
+        threading.Thread(target=labeller.run_forever, name="item-types", daemon=True).start()
     api = Api(store, catalog, session, args.password, set(args.allow_host), tls=bool(args.tls_cert))
     try:
         serve(api, args.host, args.port, args.tls_cert, args.tls_key)

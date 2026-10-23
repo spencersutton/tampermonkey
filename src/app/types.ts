@@ -32,6 +32,7 @@ export interface Lot {
   hasBid: boolean;
   images: LotImage[];
   firstSeenAt?: number; // when a full pull first saw this lot (0 = already there on the first pull)
+  itemType?: string; // what the item is ("pressure washer"), named by the server's LLM; missing until it has been
 }
 
 export interface BidHistoryEntry {

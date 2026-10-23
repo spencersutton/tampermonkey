@@ -88,10 +88,11 @@ interface Props {
   onOpen: (lot: Lot) => void;
   onToggleHide: (lot: Lot) => void;
   onBid: (req: BidRequest) => void;
+  onAddType: (lot: Lot) => void;
 }
 
 /** One lot in the grid: image, title, price, total, time left and actions. */
-export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid }: Props) {
+export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid, onAddType }: Props) {
   const { lot, matched, hidden } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
   const dim = !!matched || hidden;
@@ -130,10 +131,11 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           <LocationText row={row} />
           {lot.condition && <span>{lot.condition.label}</span>}
         </div>
-        {row.sortType && (
-          <div class="sort-type" title={`Sorted under item type: ${row.sortType}`}>
-            Type <code>{row.sortType}</code>
-          </div>
+        {lot.itemType && (
+          <button type="button" class="item-type" title="Make a category of this item type" onClick={() => onAddType(lot)}>
+            <span>{lot.itemType}</span>
+            <Icon name="add" size={14} />
+          </button>
         )}
         <div class="card-price">
           <span class="price">{dollars(lot.currentPrice)}</span>

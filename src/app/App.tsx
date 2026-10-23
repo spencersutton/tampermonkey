@@ -15,6 +15,7 @@ import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
+import { TypeCategory } from './TypeCategory';
 import { ago, countdown, DAY, fmtCount, shortTime, useNow } from './util';
 import {
   activeFilterCount,
@@ -107,7 +108,6 @@ export function App() {
   const [showHidden] = useSetting(KEYS.showHidden);
   const [pickupOverride] = useSetting(KEYS.pickup);
   const [customCategories] = useSetting(KEYS.customCategories);
-  const [sortTypes] = useSetting(KEYS.sortTypes);
   const [titleLines] = useSetting(KEYS.titleLines);
   const authed = useAuthed();
   const accountPickup = useAccountPickup(catalog.lots, authed);
@@ -119,6 +119,7 @@ export function App() {
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
+  const [typeLot, setTypeLot] = useState<Lot | null>(null); // lot whose item type is being made a category
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
   const grid = useRef<HTMLDivElement>(null);
@@ -159,8 +160,8 @@ export function App() {
   }, [view.search]);
 
   const exclusions = useMemo(
-    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories, sortTypes }),
-    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories, sortTypes],
+    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories }),
+    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories],
   );
   const result = useMemo(
     () => computeView(catalog.lots.values(), view, pickup, exclusions, now30),
@@ -319,7 +320,6 @@ export function App() {
             authed={authed}
             onOpenHidden={openHidden}
             onEditCategories={() => setEditingCategories(true)}
-            typeCounts={result.typeCounts}
             saved={savedProps}
           />
         </aside>
@@ -369,6 +369,7 @@ export function App() {
                 onOpen={openLot}
                 onToggleHide={toggleHide}
                 onBid={setBidReq}
+                onAddType={setTypeLot}
               />
             ))}
           </div>
@@ -392,6 +393,13 @@ export function App() {
         <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
       )}
       {editingCategories && <CategoryEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
+      {typeLot && (
+        <TypeCategory
+          lot={typeLot}
+          lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()}
+          onClose={() => setTypeLot(null)}
+        />
+      )}
       <Toasts />
     </div>
   );

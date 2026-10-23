@@ -40,30 +40,12 @@ const SORT_LEAD = new RegExp(
 const SORT_SEP = /^[x×]\s*(?=\d)/i;
 
 /**
- * Title rearranged for sorting. The item-type regex (compiled with
- * compileFilter) with the longest match pulls the words it matched to the
- * front, so "1/3 HP Continuous Feed Garbage Disposal" sorts as "Garbage
- * Disposal Continuous Feed 1/3 HP". Longest wins so the list's order doesn't
- * matter: "mini fridge" beats "fridge"; a tie goes to the match earlier in the
- * title. Then leading specs move to the end and leading punctuation is
- * dropped. `onType` is called with the index of the type used.
+ * Title rearranged for sorting: the item type (if known) leads, so "1/3 HP
+ * Continuous Feed Garbage Disposal" sorts with other garbage disposals, then
+ * leading specs move to the end and leading punctuation is dropped.
  */
-export function sortKey(title: string, types: (RegExp | null)[] = [], onType?: (i: number) => void): string {
+export function sortKey(title: string, type = ''): string {
   let rest = title.trim();
-  let type = '';
-  let best: { i: number; m: RegExpMatchArray } | null = null;
-  for (const [i, re] of types.entries()) {
-    const m = re && rest.match(re);
-    if (m?.[0].trim() && (!best || m[0].length > best.m[0].length || (m[0].length === best.m[0].length && m.index! < best.m.index!))) {
-      best = { i, m };
-    }
-  }
-  if (best) {
-    const { i, m } = best;
-    type = m[0].trim();
-    rest = `${rest.slice(0, m.index)} ${rest.slice(m.index! + m[0].length)}`.replace(/\s+/g, ' ').replace(/^[\s,;:/–—-]+/, '').trim();
-    onType?.(i);
-  }
   const moved: string[] = [];
   for (let i = 0; i < 12; i++) {
     const m = rest.match(SORT_LEAD) || (moved.length ? rest.match(SORT_SEP) : null);
