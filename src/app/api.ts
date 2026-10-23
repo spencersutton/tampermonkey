@@ -1,7 +1,7 @@
 // Thin client for the site's JSON API. Requests carry the same bearer token
 // the site's own client sends (see auth.ts), so lots include account fields
 // like your standing and watchlist state.
-import { authedFetch, isAuthenticated, LOGIN_PLACE } from '@auth';
+import { authedFetch, isAuthenticated, LOGIN_PLACE } from './auth-web';
 import type { BidHistoryEntry, Lot, LotDetail, LotImage, Standing } from './types';
 
 /** Prefix for the site's API (proxied on the same origin, by the site itself or by the tlx server). */
@@ -22,7 +22,7 @@ export class ApiError extends Error {
   }
 }
 
-export { authToken, isAuthenticated } from '@auth';
+export { authToken, isAuthenticated } from './auth-web';
 
 /** GET a JSON endpoint with query params, using the login token when there is one. */
 async function get<T>(path: string, params: Record<string, string | number> = {}, signal?: AbortSignal): Promise<T> {

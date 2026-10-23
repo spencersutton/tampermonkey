@@ -11,13 +11,7 @@
     "skipLibCheck": true,
     "allowJs": true,
     "checkJs": false,
-    "types": ["vite/client"],
-    // Modules swapped per build (see vite.config.ts); type-checked against the userscript's.
-    "paths": {
-      "@source": ["./src/app/source-local.tsx"],
-      "@auth": ["./src/app/auth-site.tsx"],
-      "@storage": ["./src/app/storage-gm.ts"]
-    }
+    "types": ["vite/client"]
   },
   "include": ["src", "vite.config.ts"]
 }

@@ -4,7 +4,7 @@
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 import { useSyncExternalStore } from 'preact/compat';
 import { fetchWsToken, isAuthenticated, normalizeStanding } from './api';
-import { onAuthChange } from '@auth';
+import { onAuthChange } from './auth-web';
 import { getLot, loadDetail, updateLot } from './catalog';
 import type { Lot } from './types';
 import { emitter } from './util';

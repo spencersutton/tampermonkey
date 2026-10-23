@@ -1,3 +1,3 @@
-"""Catalog server for the server build of the Triangle Liquidators /tlx userscript."""
+"""Catalog server for the Triangle Liquidators catalog web app."""
 
 __version__ = "1.0.0"

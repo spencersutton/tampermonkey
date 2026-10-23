@@ -1,5 +1,4 @@
-// Login state for the web app (the userscript's is auth-site.tsx; both are
-// imported as '@auth').
+// Login state for the web app.
 //
 // Two logins are involved, both held by the tlx server:
 // - the app's own password, which unlocks the server (a session cookie);

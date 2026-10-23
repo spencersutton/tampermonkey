@@ -1,16 +1,11 @@
-// The catalog: every live lot, held in memory for the view. Where full pulls
-// come from depends on the build (imported as '@source'):
-// - source-local.tsx: this browser pulls the site's API itself and caches the
-//   result in IndexedDB.
-// - source-server.tsx: the tlx server (server/) pulls and stores it, and the
-//   page fetches what changed.
-// Either way, between pulls prices for lots on screen stay current over the
+// The catalog: every live lot, held in memory for the view. The tlx server
+// (server/) pulls and stores it, and the page fetches what changed (see
+// source-web.tsx). Between pulls prices for lots on screen stay current over the
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
 import { useSyncExternalStore } from 'preact/compat';
 import type { JSX } from 'preact';
 import { fetchLotDetail } from './api';
-import { EMPTY_META, type CatalogMeta } from './db';
 import type { Lot, LotDetail } from './types';
 import { emitter, MINUTE } from './util';
 
@@ -19,13 +14,20 @@ const DETAIL_TTL = 2 * MINUTE;
 /** Auto-refresh only if the page was used this recently. */
 export const ACTIVE_WINDOW = 10 * MINUTE;
 
+export interface CatalogMeta {
+  fetchedAt: number | null; // when the last complete pull finished
+  pullStartedAt: number | null; // when the last pull (successful or not) started – rate limit anchor
+  count: number; // lot count the API reported in the last complete pull
+  authed: boolean; // whether that pull carried account data
+}
+
 export interface SyncProgress {
   done: number;
   total: number | null;
 }
 
 export interface CatalogState {
-  loaded: boolean; // first read (IndexedDB or server) finished
+  loaded: boolean; // first read from the server finished
   lots: Map<number, Lot>;
   meta: CatalogMeta;
   progress: SyncProgress | null; // a pull running
@@ -35,7 +37,7 @@ export interface CatalogState {
 
 export type PullResult = 'done' | 'started' | 'not-due' | 'busy' | 'error';
 
-/** Where full pulls come from; '@source' exports one of these as `source`. */
+/** Where full pulls come from; source-web.tsx exports one of these as `source`. */
 export interface CatalogSource {
   /** Load what's cached and start keeping it fresh. */
   start(): Promise<void>;
@@ -51,7 +53,7 @@ export interface CatalogSource {
 export const state: CatalogState = {
   loaded: false,
   lots: new Map(),
-  meta: EMPTY_META,
+  meta: { fetchedAt: null, pullStartedAt: null, count: 0, authed: false },
   progress: null,
   error: null,
   rev: 0,
@@ -93,7 +95,7 @@ export function keepNewer(pulled: Map<number, Lot>): Map<number, Lot> {
 // Incremental updates (websocket, lot detail)
 // ---------------------------------------------------------------------------
 /** Called with every lot changed by updateLot (the local source saves it). */
-let onUpdate: (lot: Lot) => void = () => {};
+let onUpdate: (lot: Lot) => void = () => { };
 export const setUpdateHook = (fn: (lot: Lot) => void) => void (onUpdate = fn);
 
 /** Apply a partial update if it is newer than what we have (by `version`). */

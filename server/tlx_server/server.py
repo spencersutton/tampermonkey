@@ -1,7 +1,7 @@
 """HTTP side: serves the /tlx web app and everything it talks to.
 
-The app is the same Preact UI as the userscript, built for the browser
-(`npm run build` puts it in static/), so it runs on a phone with no extension.
+The app is a Preact UI built for the browser (`npm run build` puts it in
+static/), so it runs on a phone too.
 It can't talk to the site directly: the site's API sends no CORS headers and
 its websocket only accepts its own Origin. So this server stands in for the
 site:

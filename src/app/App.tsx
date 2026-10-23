@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { fetchPickupLocation } from './api';
-import { LOGIN_PLACE, LoginLink, useAuthed } from '@auth';
-import { source } from '@source';
+import { LOGIN_PLACE, LoginLink, useAuthed } from './auth-web';
+import { source } from './source-web';
 import { getLot, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './gm';
 import { navFromUrl, useHistory } from './history';

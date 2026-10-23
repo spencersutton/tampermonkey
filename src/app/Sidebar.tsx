@@ -2,7 +2,7 @@ import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
-import { source } from '@source';
+import { source } from './source-web';
 import { useSetting } from './gm';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';

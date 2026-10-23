@@ -1,7 +1,6 @@
-// Reactive access to settings, synced across tabs. Where they're stored depends
-// on the build ('@storage'): GM storage in the userscript, localStorage in the
-// web app (which also keeps the SYNCED_KEYS on the server; see source-web.tsx).
-import { getValue, onRemoteChange, setValue } from '@storage';
+// Reactive access to settings, synced across tabs. They're stored in
+// localStorage, and the SYNCED_KEYS also on the server (see source-web.tsx).
+import { getValue, onRemoteChange, setValue } from './storage-web';
 import { useSyncExternalStore } from 'preact/compat';
 import { useCallback } from 'preact/hooks';
 import { DEFAULTS } from '../shared/keys';
@@ -9,7 +8,7 @@ import { DEFAULTS } from '../shared/keys';
 export type Key = keyof typeof DEFAULTS;
 type Value<K extends Key> = (typeof DEFAULTS)[K];
 
-/** In-memory copy of each setting, so reads don't hit GM storage every render. */
+/** In-memory copy of each setting, so reads don't hit localStorage every render. */
 const cache = new Map<Key, unknown>();
 /** Dispatches an event named after a setting's key whenever it changes, here or in another tab. */
 const changes = new EventTarget();

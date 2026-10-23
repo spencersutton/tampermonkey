@@ -1,10 +1,10 @@
-"""Full catalog pulls, with the same load rules the userscript follows on its own.
+"""Full catalog pulls, with load rules that keep requests to the site down.
 
 - A full pull happens at most once per interval (the synced `tlxSyncMinutes`
   setting, never under MIN_SYNC_MINUTES), measured from the start of the last
   pull, successful or not, so errors don't cause retries either.
 - By default it only pulls while some /tlx tab is visible and has been used in
-  the last ACTIVE_WINDOW (the userscript says so on each poll). With
+  the last ACTIVE_WINDOW (the app says so on each poll). With
   `background_minutes` set, it also pulls that often with no one watching, so
   saved searches keep counting new lots while the browser is closed.
 - Pages are fetched one at a time, by a single puller thread.

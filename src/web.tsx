@@ -1,6 +1,6 @@
-// Entry point of the web app (the tlx server serves it; see server/). Same UI
-// as the userscript, behind the server's password prompt, with the site login
-// form available from anywhere.
+// Entry point of the web app (the tlx server serves it; see server/): the
+// catalog UI behind the server's password prompt, with the site login form
+// available from anywhere.
 import { render } from 'preact';
 import { useEffect } from 'preact/hooks';
 import './app/app.css';

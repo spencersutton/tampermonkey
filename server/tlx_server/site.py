@@ -1,7 +1,7 @@
 """Client for triangleliquidators.com's JSON API (the same endpoints /tlx uses).
 
 `normalize_lot` mirrors `normalizeLot` in src/app/api.ts, so the server hands
-the userscript lots in exactly the shape it already works with.
+the app lots in exactly the shape it already works with.
 """
 
 from __future__ import annotations

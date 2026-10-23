@@ -2,7 +2,7 @@ import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { LOGIN_PLACE, LoginLink, useAuthed } from '@auth';
+import { LOGIN_PLACE, LoginLink, useAuthed } from './auth-web';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';

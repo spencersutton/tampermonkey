@@ -1,7 +1,7 @@
 // Placing bids from /tlx. Every bid goes through BidConfirm first; this
 // module sends it and folds the result back into the catalog, the same way
 // the site's own bid buttons update their state.
-import { LOGIN_PLACE } from '@auth';
+import { LOGIN_PLACE } from './auth-web';
 import { BidError, isAuthenticated, placeBid, type BidType } from './api';
 import { getLot, invalidateDetail, updateLot } from './catalog';
 import { toast } from './toast';

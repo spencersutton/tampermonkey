@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { LOGIN_PLACE, LoginLink, useAuthed } from '@auth';
+import { LOGIN_PLACE, LoginLink, useAuthed } from './auth-web';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';

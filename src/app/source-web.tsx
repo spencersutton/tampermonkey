@@ -8,8 +8,7 @@
 // some tab is, unless run with --background-minutes). Its pulls use its own
 // login to the site, so they include your standing and watchlist.
 import { AccountSettings, authReady, onAuthChange, refreshSession } from './auth-web';
-import { changed, inUse, keepNewer, state, trackActivity, type CatalogSource, type PullResult } from './catalog';
-import type { CatalogMeta } from './db';
+import { changed, inUse, keepNewer, state, trackActivity, type CatalogMeta, type CatalogSource, type PullResult } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './gm';
 import { DEFAULTS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot } from './types';
