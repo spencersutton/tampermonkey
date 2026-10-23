@@ -120,7 +120,14 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
 
       <label class="field">
         <span>My lots</span>
-        <select value={view.mine} onChange={(e) => setView({ mine: e.currentTarget.value as ViewState['mine'] })}>
+        {/* Picking one of my lots clears the other filters so none of them hide it. */}
+        <select
+          value={view.mine}
+          onChange={(e) => {
+            const mine = e.currentTarget.value as ViewState['mine'];
+            setView(mine ? { ...DEFAULT_VIEW, sort: view.sort, mine } : { mine });
+          }}
+        >
           {Object.entries(MINE).map(([k, { label }]) => (
             <option value={k} disabled={!!k && !authed}>
               {label}
