@@ -50,9 +50,12 @@ For each numbered title, reply with the same number and its item type: the plain
 
 Rules:
 - Lowercase, singular, usually 1 to 3 words: "pressure washer", "area rug", "garbage disposal", "ceiling fan", "mini fridge", "toilet seat".
-- Leave out brand, model, size, capacity, voltage, color, finish, material, style, quantity and pack count. Keep a qualifier only when it makes a different kind of item ("mini fridge" is not a "refrigerator", "hammer drill" is not a "drill").
-- For parts and accessories, name the part, not what it fits, adding what it's for only when the part's name alone is vague: "surface cleaner", "drill bit set", "vacuum filter", "faucet cartridge".
-- For kits, combos and bundles, name the main item, or the kind of kit when there is none ("power tool combo kit").
+- Leave out brand, model, size, capacity, voltage, power source (cordless, electric, battery, gas), color, finish, material, style, quantity and pack count ("wall cabinet", not "plywood cabinet"; "lawn mower", not "electric lawn mower"). Keep a qualifier only when it makes a different kind of item ("mini fridge" is not a "refrigerator", "hammer drill" is not a "drill driver").
+- Use the usual store name, not slang or a variant: "string trimmer", not "weed wacker"; "battery", not "battery pack".
+- For parts and accessories, name the part, not what it fits, adding what it's for only when the part's name alone is vague: "surface cleaner", "drill bit set", "vacuum filter", "faucet cartridge", "band saw blade", "diamond blade".
+- A power tool sold with batteries, a charger or a bag is still that tool: "Drill/Driver Kit with 2 Batteries" is a "drill driver". Batteries sold with a charger ("Battery and Charger Starter Kit") are a "battery". Two or more different power tools sold together are a "power tool combo kit".
+- A set of bits, blades or hand tools is named for what's in it: "Drill & Drive Set (42-Pieces)" is a "drill bit set"; also "socket set", "screwdriver set".
+- No slashes: "drill driver", not "drill/driver".
 - Reuse a type from "Types already in use" whenever the item is that kind of thing; make up a new type only for a different kind of item.
 
 Reply with one line per title, like "3: area rug", and nothing else."""
@@ -173,6 +176,7 @@ def main() -> None:
     sub = p.add_subparsers(dest="cmd", required=True)
     try_ = sub.add_parser("try", help="label a random sample of stored titles and print them; saves nothing")
     try_.add_argument("-n", type=int, default=BATCH * 2, help=f"titles to sample (default {BATCH * 2})")
+    try_.add_argument("-c", "--category", help="sample only this site category (its value, e.g. tools or Building_Hardware)")
     sub.add_parser("reset", help="forget every stored item type")
     args = p.parse_args()
 
@@ -190,18 +194,25 @@ def main() -> None:
         sys.exit("set TLX_LLM_KEY")
     lab = Labeller(store, key, os.environ.get("TLX_LLM_URL", DEFAULT_URL), os.environ.get("TLX_LLM_MODEL", DEFAULT_MODEL))
     lots = list({lot["title"]: lot for lot in store.all_lots().values()}.values())
+    if args.category:
+        lots = [lot for lot in lots if (lot.get("category") or {}).get("value") == args.category]
     by_category: dict[str | None, list[dict[str, Any]]] = defaultdict(list)
-    for lot in random.sample(lots, min(args.n, len(lots))):
+    for lot in random.Random(0).sample(lots, min(args.n, len(lots))):  # the same sample each time, to compare prompts
         by_category[(lot.get("category") or {}).get("value")].append(lot)
     for value, group in by_category.items():
         label = (group[0].get("category") or {}).get("label") or "Other"
         titles = sorted((lot["title"] for lot in group), key=str.lower)
         print(f"\n## {label}")
+        seen: dict[str, int] = {}  # types given so far in this run, standing in for the ones a real run saves
         for start in range(0, len(titles), BATCH):
             batch = titles[start : start + BATCH]
-            types = lab.ask(label, batch, store.common_types(value, VOCAB))
+            vocab = [*store.common_types(value, VOCAB), *sorted(seen, key=lambda t: -seen[t])][:VOCAB]
+            types = lab.ask(label, batch, vocab)
             for i, title in enumerate(batch, 1):
-                print(f"{types.get(i, '(none)'):<28} {title}")
+                t = types.get(i)
+                if t:
+                    seen[t] = seen.get(t, 0) + 1
+                print(f"{t or '(none)':<28} {title}")
 
 
 if __name__ == "__main__":
