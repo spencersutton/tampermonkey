@@ -48,6 +48,7 @@ class CatalogChanges:
 
 class Store:
     def __init__(self, path: Path) -> None:
+        self.path = path
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
