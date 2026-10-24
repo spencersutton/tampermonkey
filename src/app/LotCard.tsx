@@ -6,9 +6,9 @@ import { LoginLink, useAuthed } from './auth';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { Icon } from './icons';
-import { openHandler, plural, shortTime, timeLabel, useNow } from './util';
+import { openHandler, plural, shortDate, shortTime, timeLabel, useNow } from './util';
 import type { Row } from './view';
-import type { Lot } from './types';
+import type { Lot, PastClose } from './types';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
 export function TimeLeft({ endsAt }: { endsAt: number }) {
@@ -154,6 +154,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           )}
           <span>{plural(lot.bidCount, 'bid')}</span>
         </div>
+        {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
         <div class="card-foot">
           <TimeLeft endsAt={lot.endsAt} />
           <CardBidButton row={row} onOpen={() => onOpen(lot)} onBid={onBid} />
@@ -163,12 +164,55 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
   );
 });
 
-/** "+N" badge for identical listings folded into this card; opens the cheapest's popup, which lists them all. */
+/** "+N" badge for listings of the same item folded into this card; opens the cheapest's popup, which lists them all. */
 function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
   const list = row.others.map((r) => `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(r.lot.endsAt)}`).join('\n');
   return (
-    <button type="button" class="pill pill-dupes" title={`${plural(row.others.length, 'more identical listing')}:\n${list}`} onClick={() => onOpen(row.lot)}>
+    <button type="button" class="pill pill-dupes" title={`${plural(row.others.length, 'more listing')} of this item:\n${list}`} onClick={() => onOpen(row.lot)}>
       +{row.others.length} more
+    </button>
+  );
+}
+
+/** Median of a list of prices. */
+const median = (xs: number[]) => {
+  const s = xs.toSorted((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/**
+ * What a lot's past closes say it usually goes for: the median of the recent
+ * ones that sold, counting only those in the same condition when there are any.
+ */
+export function pastPrice(lot: Lot): { median: number; count: number; sameCondition: boolean } | null {
+  const sold = lot.pastCloses?.recent.filter((c) => c.sold) ?? [];
+  const same = sold.filter((c) => c.condition === (lot.condition?.label ?? null));
+  const use = same.length ? same : sold;
+  return use.length ? { median: median(use.map((c) => c.price)), count: use.length, sameCondition: same.length > 0 } : null;
+}
+
+/** One past close as a line of text. */
+export const pastCloseText = (c: PastClose) =>
+  `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${shortDate(c.endsAt)}`;
+
+/** "Sold before for $12 (median of 4)", with the recent closes on hover; opens the popup, which lists them all. */
+function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void }) {
+  const { n, recent } = lot.pastCloses!;
+  const p = pastPrice(lot);
+  const more = n > recent.length ? `\n…and ${n - recent.length} more` : '';
+  const title = `${plural(n, 'earlier lot')} with this name closed:\n${recent.map(pastCloseText).join('\n')}${more}`;
+  return (
+    <button type="button" class="card-past" title={title} onClick={onOpen}>
+      {p ? (
+        <>
+          Sold before for <b>{dollars(p.median)}</b>
+          {p.count > 1 && ` (median of ${p.count})`}
+          {!p.sameCondition && ' in another condition'}
+        </>
+      ) : (
+        `No sale the last ${recent.length === 1 ? 'time' : `${recent.length} times`}`
+      )}
     </button>
   );
 }

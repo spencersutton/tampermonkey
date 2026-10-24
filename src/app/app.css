@@ -257,6 +257,12 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .total { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
 .total b { color: var(--text); font-weight: 600; }
 .card-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+.card-past {
+  display: block; width: 100%; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px;
+  text-align: left; cursor: pointer;
+}
+.card-past b { color: var(--text); font-weight: 600; }
+.card-past:hover { text-decoration: underline; }
 .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 6px; }
 .time { font-weight: 600; font-variant-numeric: tabular-nums; }
 .time.soon { color: var(--bad); }
@@ -306,6 +312,12 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .dupes button:hover { background: var(--hover); }
 .dupes button.on { background: var(--primary-soft); font-weight: 700; }
 .dupes .small { flex: 1; }
+.dupe-title { display: block; font-weight: 400; }
+.past { list-style: none; margin: 0 0 14px; padding: 0; max-height: 260px; overflow-y: auto; font-size: 13px; }
+.past li { display: flex; align-items: baseline; gap: 10px; padding: 5px 6px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.past .price { font-size: 13px; min-width: 56px; }
+.past .past-what { flex: 1; min-width: 0; }
+.past .past-what a { color: inherit; }
 
 /* Custom category editor */
 .cat-editor { max-width: 960px; display: flex; flex-direction: column; overflow: hidden; }

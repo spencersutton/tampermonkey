@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
+import { nameMatchPct } from '../shared/names';
 import { fetchPickupLocation } from './api';
 import { LoginLink, useAuthed } from './auth';
 import { nextPullAt, pullCatalog, settingsSynced } from './source';
@@ -153,6 +154,7 @@ export function App() {
   const [pickupOverride] = useSetting(KEYS.pickup);
   const [customCategories] = useSetting(KEYS.customCategories);
   const [titleLines] = useSetting(KEYS.titleLines);
+  const [nameMatch] = useSetting(KEYS.nameMatch);
   const authed = useAuthed();
   const accountPickup = useAccountPickup(catalog.lots, authed);
   const pickup = pickupOverride || accountPickup || 'Raleigh';
@@ -206,8 +208,8 @@ export function App() {
   }, [view.search]);
 
   const exclusions = useMemo(
-    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories }),
-    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories],
+    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories, nameMatch: nameMatchPct(nameMatch) }),
+    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories, nameMatch],
   );
   const result = useMemo(
     () => computeView(catalog.lots.values(), view, pickup, exclusions, now30),

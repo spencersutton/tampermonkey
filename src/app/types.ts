@@ -33,6 +33,27 @@ export interface Lot {
   images: LotImage[];
   firstSeenAt?: number; // when a full pull first saw this lot (0 = already there on the first pull)
   itemType?: string; // what the item is ("pressure washer"), named by the server's LLM; missing until it has been
+  pastCloses?: { n: number; recent: PastClose[] }; // closed lots with the same or a similar name (most recent first); missing if none
+}
+
+/** An earlier lot that closed, as the server records them (server/tlx_server/history.py). */
+export interface PastClose {
+  price: number;
+  endsAt: number;
+  condition: string | null; // label, e.g. "Like New"
+  sold: boolean; // had a winning bid
+  final: boolean; // the site's final price; else the last price seen before it closed
+}
+
+/** A past close in full, as GET /api/history lists them. */
+export interface PastCloseDetail extends PastClose {
+  id: number;
+  title: string;
+  auctionPeriod: string;
+  bidCount: number;
+  location: string | null;
+  category: string | null;
+  retail: number | null;
 }
 
 export interface BidHistoryEntry {

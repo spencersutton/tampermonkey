@@ -1,6 +1,7 @@
 """SQLite storage: the catalog (one row per lot), catalog meta, synced settings,
-the site login cookies, sessions of this app's own password login, and the
-item type of each lot title (itemtypes.py).
+the site login cookies, sessions of this app's own password login, the
+item type of each lot title (itemtypes.py), and every lot that has left the
+catalog, with its final price (history.py).
 
 Every full pull that changes anything gets a new sequence number, and each lot
 row records the sequence of its last change, so a client that has seen
@@ -14,7 +15,7 @@ import json
 import sqlite3
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,35 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, 
 CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS item_types (title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL);
 CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
+CREATE TABLE IF NOT EXISTS closed_lots (
+  id INTEGER PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at INTEGER, price REAL, bid_count INTEGER,
+  sold INTEGER NOT NULL, final INTEGER NOT NULL, condition TEXT, location TEXT, category TEXT, retail REAL
+);
+CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at);
 """
+
+# closed_lots.final: the price is the site's final one (1), the last one a pull saw
+# and the site no longer has the lot (-1), or the last one seen, to be asked for (0).
+CLOSED_COLUMNS = "id, title, auction_period, ends_at, price, bid_count, sold, final, condition, location, category, retail"
+
+
+def closed_row(lot: dict[str, Any], final: int) -> tuple[Any, ...]:
+    """A lot as a closed_lots row (CLOSED_COLUMNS order). Until the final price is known, a lot with bids counts as sold."""
+    sold = lot.get("status") == "sold" if final == 1 else (lot.get("bidCount") or 0) > 0
+    return (
+        lot["id"],
+        lot.get("title") or "",
+        lot.get("auctionPeriod"),
+        lot.get("endsAt"),
+        lot.get("currentPrice"),
+        lot.get("bidCount"),
+        int(sold),
+        final,
+        (lot.get("condition") or {}).get("label"),
+        (lot.get("location") or {}).get("name"),
+        (lot.get("category") or {}).get("value"),
+        lot.get("estimatedRetailPrice"),
+    )
 
 
 def dumps(v: Any) -> str:
@@ -95,14 +124,20 @@ class Store:
         with self._lock:
             return {i: json.loads(d) for i, d in self._db.execute("SELECT id, data FROM lots")}
 
+    def lot(self, lot_id: int) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._db.execute("SELECT data FROM lots WHERE id = ?", (lot_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
     def replace_all(self, lots: Iterable[dict[str, Any]], **meta: Any) -> int:
-        """Store a full pull: changed rows get the next sequence, missing ones are dropped. Returns the sequence."""
+        """Store a full pull: changed rows get the next sequence, missing ones move to closed_lots. Returns the sequence."""
         with self._lock:
             old = dict(self._db.execute("SELECT id, data FROM lots"))
             seq = int(self._get("seq", 0))
             fresh = {lot["id"]: dumps(lot) for lot in lots}
             changed = [(i, d) for i, d in fresh.items() if old.get(i) != d]
             gone = [(i,) for i in old.keys() - fresh.keys()]
+            back = [(i,) for i in fresh.keys() - old.keys()]  # usually new, but may have been taken for closed
             self._db.execute("BEGIN")
             try:
                 if changed or gone:
@@ -110,6 +145,13 @@ class Store:
                     self._db.executemany("INSERT OR REPLACE INTO lots (id, seq, data) VALUES (?, ?, ?)", [(i, seq, d) for i, d in changed])
                     self._db.executemany("DELETE FROM lots WHERE id = ?", gone)
                     self._set("seq", seq)
+                if gone or back:
+                    self._db.executemany("DELETE FROM closed_lots WHERE id = ?", back)
+                    self._db.executemany(
+                        f"INSERT OR REPLACE INTO closed_lots ({CLOSED_COLUMNS}) VALUES ({', '.join('?' * 12)})",
+                        [closed_row(json.loads(old[i]), 0) for (i,) in gone],
+                    )
+                    self._set("closedRev", int(self._get("closedRev", 0)) + 1)
                 self._set("catalog", {**asdict(CatalogMeta()), **self._get("catalog", {}), **meta})
                 self._db.execute("COMMIT")
             except BaseException:
@@ -126,6 +168,75 @@ class Store:
             lots = [d for (d,) in self._db.execute("SELECT data FROM lots WHERE seq > ?", (since,))]
             ids = [i for (i,) in self._db.execute("SELECT id FROM lots")]
             return CatalogChanges(seq=seq, lots=lots, ids=ids)
+
+    def update_lots(self, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> int:
+        """Replace each stored lot with fn(lot), giving the changed ones a new sequence. Returns how many changed."""
+        with self._lock:
+            seq = int(self._get("seq", 0)) + 1
+            changed = []
+            for i, d in self._db.execute("SELECT id, data FROM lots").fetchall():
+                new = dumps(fn(json.loads(d)))
+                if new != d:
+                    changed.append((seq, new, i))
+            if changed:
+                self._db.execute("BEGIN")
+                self._db.executemany("UPDATE lots SET seq = ?, data = ? WHERE id = ?", changed)
+                self._set("seq", seq)
+                self._db.execute("COMMIT")
+            return len(changed)
+
+    # -- closed lots ----------------------------------------------------------
+    def closed_rev(self) -> int:
+        """Goes up whenever closed_lots changes."""
+        with self._lock:
+            return int(self._get("closedRev", 0))
+
+    def closed_lots(self) -> list[dict[str, Any]]:
+        """Every closed lot, in the shape the app gets them (see PastClose in src/app/types.ts)."""
+        with self._lock:
+            rows = self._db.execute(f"SELECT {CLOSED_COLUMNS} FROM closed_lots").fetchall()
+        return [
+            {
+                "id": i,
+                "title": title,
+                "auctionPeriod": period,
+                "endsAt": ends,
+                "price": price,
+                "bidCount": bids,
+                "sold": bool(sold),
+                "final": final == 1,
+                "condition": cond,
+                "location": loc,
+                "category": cat,
+                "retail": retail,
+            }
+            for i, title, period, ends, price, bids, sold, final, cond, loc, cat, retail in rows
+        ]
+
+    def pending_closes(self, now: float) -> list[dict[str, Any]]:
+        """Closed lots (ended before `now`, epoch ms) whose final price hasn't been asked for yet, oldest first."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT id, auction_period FROM closed_lots WHERE final = 0 AND ends_at <= ? ORDER BY ends_at", (now,)
+            ).fetchall()
+        return [{"id": i, "auctionPeriod": p} for i, p in rows]
+
+    def finish_close(self, lot_id: int, lot: dict[str, Any] | None) -> None:
+        """Record a closed lot's final state from the site, or with None, that the site no longer has it."""
+        with self._lock:
+            if lot:
+                self._db.execute(
+                    f"INSERT OR REPLACE INTO closed_lots ({CLOSED_COLUMNS}) VALUES ({', '.join('?' * 12)})", closed_row(lot, 1)
+                )
+            else:
+                self._db.execute("UPDATE closed_lots SET final = -1 WHERE id = ?", (lot_id,))
+            self._set("closedRev", int(self._get("closedRev", 0)) + 1)
+
+    def drop_close(self, lot_id: int) -> None:
+        """Forget a lot taken for closed that is still open."""
+        with self._lock:
+            self._db.execute("DELETE FROM closed_lots WHERE id = ?", (lot_id,))
+            self._set("closedRev", int(self._get("closedRev", 0)) + 1)
 
     # -- item types -----------------------------------------------------------
     def item_types(self, titles: Iterable[str]) -> dict[str, str]:

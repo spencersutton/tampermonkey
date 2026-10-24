@@ -1,6 +1,7 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, compileFilter, firstMatch } from '../shared/filters';
 import { totalCost } from '../shared/cost';
+import { groupNames } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
 import type { CustomCategory, HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
@@ -17,7 +18,7 @@ export interface Row {
   retailPct: number | null;
   matched: string | null; // regex filter that matched the title
   hidden: boolean;
-  others: Row[]; // identical listings folded into this card (cheapest first)
+  others: Row[]; // listings of the same item folded into this card (cheapest first)
 }
 
 type Compare = (a: Row, b: Row) => number;
@@ -147,6 +148,7 @@ export interface Exclusions {
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
   customCategories: CustomCategory[];
+  nameMatch: number; // how alike titles must be to combine listings (% of words in common; see shared/names.ts)
 }
 
 /** Memoized sortKey() results by item type and title. */
@@ -262,6 +264,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
   const compiled = compiledFilters(ex.words);
 
   const rows: Row[] = [];
+  const titles = new Set<string>();
   let open = 0;
   let removed = 0;
   let filteredOut = 0;
@@ -270,6 +273,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       continue;
     }
     open++;
+    titles.add(lot.title);
     for (const { word, re } of compiled) {
       if (re?.test(lot.title)) {
         matchCounts.set(word, matchCounts.get(word)! + 1);
@@ -285,7 +289,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       rows.push(row);
     }
   }
-  const { cards, groups } = combineDuplicates(rows);
+  const { cards, groups } = combineDuplicates(rows, nameGroups(titles, ex.nameMatch));
   const compare: Compare = SORTS[view.sort].compare;
   cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
   return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
@@ -299,18 +303,29 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
 const byCost = (a: Row, b: Row) =>
   +a.pickupOnly - +b.pickupOnly || a.total - b.total || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id;
 
+/** groupNames() of the open lots' titles, kept until they or the setting change. */
+let nameCache: { pct: number; groups: Map<string, string> } | null = null;
+function nameGroups(titles: Set<string>, pct: number): Map<string, string> {
+  const c = nameCache;
+  if (!c || c.pct !== pct || c.groups.size !== titles.size || !titles.values().every((t) => c.groups.has(t))) {
+    nameCache = { pct, groups: groupNames(titles, pct) };
+  }
+  return nameCache!.groups;
+}
+
 /**
- * Fold listings with the same title and condition, at any location, into one
- * card showing the cheapest by total cost (ties: ending soonest). Lots you've
- * bid on, hidden lots and regex-filtered lots keep their own card.
+ * Fold listings with the same condition and the same or nearly the same title
+ * (by the name-matching setting), at any location, into one card showing the
+ * cheapest by total cost (ties: ending soonest). Lots you've bid on, hidden
+ * lots and regex-filtered lots keep their own card.
  */
-function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row[]> } {
+function combineDuplicates(rows: Row[], names: Map<string, string>): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
   const buckets = Map.groupBy(
     rows.filter((row) => !ownCard(row)),
-    ({ lot }) => `${lot.title.trim().toLowerCase()}\u0000${lot.condition?.value ?? ''}`,
+    ({ lot }) => `${names.get(lot.title) ?? lot.title}\u0000${lot.condition?.value ?? ''}`,
   );
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {

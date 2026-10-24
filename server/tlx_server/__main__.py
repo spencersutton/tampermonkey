@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 
 from .catalog import Catalog
+from .history import History
 from .itemtypes import DEFAULT_MODEL, DEFAULT_URL, Labeller
 from .server import Api, serve
 from .session import SiteSession
@@ -73,8 +74,11 @@ def main() -> None:
         sys.exit("tlx-server: --tls-cert and --tls-key go together.")
     store = Store(args.db)
     session = SiteSession(store)
-    catalog = Catalog(store, session, args.background_minutes)
+    history = History(store)
+    catalog = Catalog(store, session, history, args.background_minutes)
     threading.Thread(target=catalog.run_forever, name="puller", daemon=True).start()
+    threading.Thread(target=history.run_forever, name="closer", daemon=True).start()
+    history.wake()  # finish what the last run left
     if args.llm_key:
         labeller = Labeller(store, args.llm_key, args.llm_url, args.llm_model)
         catalog.after_pull = labeller.wake

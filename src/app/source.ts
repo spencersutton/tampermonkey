@@ -11,7 +11,7 @@ import { authReady, onAuthChange, refreshSession } from './auth';
 import { changed, inUse, state, trackActivity, type CatalogMeta } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, SYNCED_KEYS } from '../shared/keys';
-import type { Lot } from './types';
+import type { Lot, PastCloseDetail } from './types';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
@@ -173,6 +173,9 @@ export async function pullCatalog() {
 
 /** Epoch ms when the next full pull is allowed. */
 export const nextPullAt = () => nextAt;
+
+/** Every closed lot whose name matches this open lot's, most recent first. */
+export const fetchPastCloses = (id: number) => call<{ closes: PastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes);
 
 // ---------------------------------------------------------------------------
 // Settings

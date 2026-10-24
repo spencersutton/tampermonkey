@@ -20,6 +20,7 @@ site:
     POST /api/pull              start a full pull if one is allowed
     GET  /api/settings?since=N  settings changed after revision N
     PUT  /api/settings/<key>    {"value": ...}; last write wins
+    GET  /api/history?id=N      closed lots whose name matches lot N's, most recent first
     GET  /api/health
   /lost            a plain table of every lot you bid on and lost (not part of the app)
   POST /sql        read-only SQL on the database, in libSQL's HTTP format, for
@@ -61,6 +62,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
+from .history import HISTORY_LIMIT, NAME_MATCH_KEY
 from .session import SiteSession
 from .site import SITE, TIMEOUT, USER_AGENT, ApiError, fetch_lost, now_ms
 from .store import Store, dumps
@@ -271,6 +273,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             elif route == ("GET", "/api/settings"):
                 rev, values = api.store.settings(self._since(query))
                 self._json(HTTPStatus.OK, {"rev": rev, "values": values})
+            elif route == ("GET", "/api/history"):
+                lot = api.store.lot(int(query["id"][0]))
+                if not lot:
+                    raise ValueError("No such open lot")
+                self._json(HTTPStatus.OK, {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]})
             elif method == "PUT" and path.startswith("/api/settings/"):
                 self._put_setting(path.removeprefix("/api/settings/"))
             else:
@@ -313,6 +320,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if "value" not in body:
                 raise ValueError('Expected {"value": ...}')
             self._json(HTTPStatus.OK, {"rev": api.store.put_setting(key, body["value"])})
+            if key == NAME_MATCH_KEY:
+                api.catalog.history.wake()  # match names again
 
         # -- the site's API ---------------------------------------------------
         def _proxy(self, method: str) -> None:

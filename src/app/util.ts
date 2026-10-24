@@ -49,6 +49,9 @@ export function countdown(ms: number) {
 /** Weekday and time, e.g. "Tue 3:45 PM". */
 export const shortTime = (ts: number) => new Date(ts).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
+/** "Oct 22": a date in the past. */
+export const shortDate = (ts: number) => new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+
 /** Format a count with thousands separators. */
 export const fmtCount = (n: number) => n.toLocaleString('en-US');
 

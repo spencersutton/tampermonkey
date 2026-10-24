@@ -2,6 +2,7 @@ import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
+import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
 import { AccountSettings } from './auth';
 import { useSetting } from './settings';
 import { Icon } from './icons';
@@ -525,11 +526,16 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
   );
 }
 
-/** Pickup location, full-refresh interval, title lines and the account. */
+/** Choices for how alike two titles must be to count as the same item. */
+const NAME_MATCH_CHOICES = [100, 95, 90, 85, 80, 75, 70, 60];
+
+/** Pickup location, full-refresh interval, title lines, name matching and the account. */
 function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
   const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
   const [override, setOverride] = useSetting(KEYS.pickup);
   const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
+  const [nameMatch, setNameMatch] = useSetting(KEYS.nameMatch);
+  const pct = nameMatchPct(nameMatch);
   return (
     <section class="panel">
       <Collapsible id="settings" title={<h2>Settings</h2>}>
@@ -551,6 +557,17 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
           min={0}
           step={1}
         />
+        <label class="field" title="Used to combine duplicate listings into one card and to find what the same item closed at before. A number only one title has (size, pack count, Qty) never matches.">
+          <span>Same item when titles share</span>
+          <select value={pct} onChange={(e) => setNameMatch(Number(e.currentTarget.value))}>
+            {[...new Set([...NAME_MATCH_CHOICES, pct])].sort((a, b) => b - a).map((n) => (
+              <option value={n}>
+                {n === 100 ? 'All words (any case, punctuation, order)' : `${n}% of words`}
+                {n === DEFAULT_NAME_MATCH ? ' – default' : ''}
+              </option>
+            ))}
+          </select>
+        </label>
         <label class="field">
           <span>Pickup location (for transfer fees)</span>
           <select value={override ?? ''} onChange={(e) => setOverride(e.currentTarget.value || null)}>

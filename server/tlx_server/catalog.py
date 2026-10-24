@@ -12,7 +12,9 @@
 Account fields (your standing, watchlist) come from the server's own site
 login (session.py). A pull made while logged out keeps the account fields
 from the previous pull rather than wiping them. Each lot keeps the item type
-already known for its title (itemtypes.py labels the rest after the pull).
+already known for its title (itemtypes.py labels the rest after the pull) and
+gets the past closes matching its name (history.py, which then asks the site
+for the final prices of the lots that just left the catalog).
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .history import History
 from .session import SiteSession
 from .site import LIST_PAGE_SIZE, ApiError, fetch_lot_page, now_ms
 from .store import CatalogMeta, Store
@@ -45,9 +48,10 @@ class Progress:
 
 
 class Catalog:
-    def __init__(self, store: Store, session: SiteSession, background_minutes: float = 0) -> None:
+    def __init__(self, store: Store, session: SiteSession, history: History, background_minutes: float = 0) -> None:
         self.store = store
         self.session = session
+        self.history = history
         self.background_ms = background_minutes * MINUTE_MS
         self.progress: Progress | None = None
         self.error: str | None = None
@@ -168,9 +172,11 @@ class Catalog:
             for lot in pulled.values():
                 if lot["title"] in types:
                     lot["itemType"] = types[lot["title"]]
+            self.history.annotate(pulled.values())
 
             seq = self.store.replace_all(pulled.values(), fetchedAt=now_ms(), count=count, authed=token is not None)
             log.info("pull done: %d lots in %.1fs (seq %d)", len(pulled), (now_ms() - started) / 1000, seq)
+            self.history.wake()
             self.after_pull()
         except Exception as e:
             self.error = f"Catalog refresh failed: {e}"

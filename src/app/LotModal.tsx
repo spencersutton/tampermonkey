@@ -6,9 +6,10 @@ import { LoginLink, useAuthed } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
 import { cachedDetail, loadDetail } from './catalog';
 import { Icon } from './icons';
-import { LocationText, StandingBadge, TimeLeft, WatchButton } from './LotCard';
-import { fmtCount, parseNum, plural, shortTime, useDialog, useNow } from './util';
-import type { Lot, LotDetail } from './types';
+import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
+import { fetchPastCloses } from './source';
+import { fmtCount, parseNum, plural, shortDate, shortTime, useDialog, useNow } from './util';
+import type { Lot, LotDetail, PastCloseDetail } from './types';
 import type { Row } from './view';
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
   onClose: () => void;
   onToggleHide: () => void;
   onBid: (req: BidRequest) => void;
-  group?: Row[]; // identical listings, cheapest total first
+  group?: Row[]; // listings of the same item, cheapest total first
   onOpenLot?: (lot: Lot) => void;
 }
 
@@ -140,7 +141,8 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
               </button>
             </div>
 
-            {group && group.length > 1 && onOpenLot && <SameListings group={group} current={lot.id} onOpen={onOpenLot} />}
+            {group && group.length > 1 && onOpenLot && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
+            {lot.pastCloses && <PastCloses lot={lot} />}
 
             {error && <p class="error">Couldn’t load lot details: {error}</p>}
             {!detail && !error && <p class="muted">Loading details…</p>}
@@ -201,19 +203,20 @@ function BrandModel({ brand, model }: { brand: string | null; model: string | nu
   );
 }
 
-/** List of identical listings in this lot's group; click one to switch to it. */
-function SameListings({ group, current, onOpen }: { group: Row[]; current: number; onOpen: (lot: Lot) => void }) {
+/** List of the listings in this lot's group (titles shown where they differ); click one to switch to it. */
+function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; onOpen: (lot: Lot) => void }) {
   return (
     <div>
-      <h3>{fmtCount(group.length)} identical listings</h3>
+      <h3>{fmtCount(group.length)} listings of this item</h3>
       <ol class="dupes">
         {group.map((r) => (
           <li>
-            <button type="button" class={r.lot.id === current ? 'on' : ''} aria-current={r.lot.id === current ? 'true' : undefined} onClick={() => onOpen(r.lot)}>
+            <button type="button" class={r.lot.id === current.id ? 'on' : ''} aria-current={r.lot.id === current.id ? 'true' : undefined} onClick={() => onOpen(r.lot)}>
               <span class="price" title={costBreakdown(r.lot.currentPrice, r.transferFee)}>
                 {dollars(r.lot.currentPrice)} <span class="muted small">≈ {money(r.total)}</span>
               </span>
               <span class="muted small">
+                {r.lot.title !== current.title && <span class="dupe-title">{r.lot.title}</span>}
                 <LocationText row={r} /> · {plural(r.lot.bidCount, 'bid')}
               </span>
               <TimeLeft endsAt={r.lot.endsAt} />
@@ -221,6 +224,62 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: numbe
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/** What earlier lots with this name closed at, fetched in full when the popup opens. */
+function PastCloses({ lot }: { lot: Lot }) {
+  const [closes, setCloses] = useState<PastCloseDetail[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    setCloses(null);
+    setError(null);
+    fetchPastCloses(lot.id).then(
+      (c) => live && setCloses(c),
+      (e) => live && setError((e as Error).message),
+    );
+    return () => void (live = false);
+  }, [lot.id, lot.pastCloses?.n]);
+  const p = pastPrice(lot);
+  return (
+    <div>
+      <h3>
+        Closed before ({fmtCount(lot.pastCloses!.n)})
+        {p && (
+          <span class="muted small">
+            {' '}
+            · usually {dollars(p.median)}
+            {p.sameCondition && lot.condition ? ` (${lot.condition.label})` : ''}
+          </span>
+        )}
+      </h3>
+      {error && <p class="error">Couldn’t load past closes: {error}</p>}
+      {!closes && !error && <p class="muted small">Loading…</p>}
+      {closes && (
+        <ol class="past">
+          {closes.map((c) => (
+            <li>
+              <span class="price" title={c.final ? undefined : 'The last price seen before it closed; the site no longer has the lot'}>
+                {c.sold ? dollars(c.price) : 'No sale'}
+                {!c.final && '*'}
+              </span>
+              <span class="past-what muted small">
+                {c.title !== lot.title && (
+                  <a class="dupe-title" href={lotHref(c.auctionPeriod, c.id)} target="_blank" rel="noopener">
+                    {c.title}
+                  </a>
+                )}
+                {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} · {plural(c.bidCount ?? 0, 'bid')}
+              </span>
+              <a class="muted small" href={lotHref(c.auctionPeriod, c.id)} target="_blank" rel="noopener" title="Open on Triangle Liquidators">
+                {shortDate(c.endsAt)}
+              </a>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
