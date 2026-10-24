@@ -180,6 +180,9 @@ export const nextPullAt = () => nextAt;
 const synced = new Set<Key>(SYNCED_KEYS);
 /** Last settings revision applied here (0 = not synced yet). */
 let settingsRev = 0;
+let markSynced: () => void;
+/** Resolves once the first settings sync has finished (the catalog has loaded by then too). */
+export const settingsSynced = new Promise<void>((resolve) => (markSynced = resolve));
 /** Synced settings saved here that the server hasn't confirmed yet. */
 const unsent = new Map<Key, unknown>();
 
@@ -219,6 +222,9 @@ async function syncSettings() {
     }
   }
   settingsRev = r.rev;
+  if (first) {
+    markSynced();
+  }
 }
 
 /** Load what the server has and keep it fresh. */

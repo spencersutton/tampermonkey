@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { fetchPickupLocation } from './api';
 import { LoginLink, useAuthed } from './auth';
-import { nextPullAt, pullCatalog } from './source';
-import { getLot, useCatalog } from './catalog';
+import { nextPullAt, pullCatalog, settingsSynced } from './source';
+import { getLot, state as catalogState, useCatalog } from './catalog';
 import { getSetting, setSetting, useSetting } from './settings';
 import { navFromUrl, useHistory } from './history';
 import { Icon } from './icons';
@@ -16,7 +16,7 @@ import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
-import { ago, countdown, DAY, fmtCount, shortTime, useNow } from './util';
+import { ago, countdown, DAY, fmtCount, MINUTE, shortTime, useNow } from './util';
 import {
   activeFilterCount,
   computeFacets,
@@ -88,6 +88,50 @@ function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | nul
   return lots.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 }
 
+/** Coming back to the tab after it was hidden this long counts as a new visit. */
+const VISIT_GAP = 30 * MINUTE;
+/** Before any visit was recorded, lots with more than this left are taken to be new. */
+const FIRST_VISIT_NEW_LEFT = 2 * DAY;
+
+/**
+ * Lots first seen after this count as new: the start of the previous visit
+ * (a page load, or the tab coming back after VISIT_GAP hidden), shared by all
+ * devices. null until the synced settings have arrived.
+ */
+function useVisitSince(): number | null {
+  const [since, setSince] = useState<number | null>(null);
+  useEffect(() => {
+    const visit = () => {
+      const now = Date.now();
+      setSince(getSetting(KEYS.lastVisit) ?? firstVisitSince(now));
+      setSetting(KEYS.lastVisit, now);
+    };
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+      } else if (hiddenAt && Date.now() - hiddenAt >= VISIT_GAP) {
+        visit();
+      }
+    };
+    void settingsSynced.then(() => {
+      visit();
+      document.addEventListener('visibilitychange', onVisibility);
+    });
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+  return since;
+}
+
+/** With no previous visit, start just before the earliest-seen lot that still has over FIRST_VISIT_NEW_LEFT to go. */
+function firstVisitSince(now: number): number {
+  const first = catalogState.lots
+    .values()
+    .filter((l) => l.endsAt - now > FIRST_VISIT_NEW_LEFT)
+    .reduce((min, l) => Math.min(min, l.firstSeenAt ?? 0), Infinity);
+  return first === Infinity ? now : Math.max(0, first - 1);
+}
+
 /** The whole /tlx page: sidebar, toolbar, infinitely scrolling lot grid, and the lot / bid popups. */
 export function App() {
   // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
@@ -129,7 +173,9 @@ export function App() {
   const now30 = useNow(30_000);
 
   const [saved] = useSetting(KEYS.savedSearches);
-  // While a saved search is open, lots that are new since its previous visit get a badge.
+  // Lots that are new since the previous visit get a badge; while a saved
+  // search is open, since that search's previous visit instead.
+  const visitSince = useVisitSince();
   const [highlight, setHighlight] = useState<{ id: string; since: number } | null>(null);
 
   const setView = useCallback((patch: Partial<ViewState>) => {
@@ -178,7 +224,8 @@ export function App() {
   );
   const totalNew = savedStats.values().reduce((n, s) => n + s.fresh, 0);
   const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
-  const newSince = view.newSince ?? (highlight && activeSaved?.id === highlight.id ? highlight.since : null);
+  const sinceSaved = !!highlight && activeSaved?.id === highlight.id;
+  const newSince = view.newSince ?? (sinceSaved ? highlight!.since : visitSince);
   const isNew = (lot: Lot) => newSince != null && (lot.firstSeenAt ?? 0) > newSince;
 
   useEffect(() => {
@@ -266,8 +313,8 @@ export function App() {
   const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
   const nFilters = activeFilterCount(view);
   const badRegex = view.searchRegex && !!search.trim() && !searchRegexOf({ ...view, search });
-  // On a saved search's own filters, how many of the matches are new since its last visit.
-  const freshMatches = view.newSince == null && activeSaved && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
+  // How many of the matches are new since the last visit (to the open saved search, if any).
+  const freshMatches = view.newSince == null && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
 
   return (
     <div class="app">
@@ -352,7 +399,7 @@ export function App() {
             )}
             {freshMatches > 0 && (
               <span class="new-line">
-                {fmtCount(freshMatches)} new since your last look at “{activeSaved!.name}”
+                {fmtCount(freshMatches)} new since your last {sinceSaved ? `look at “${activeSaved!.name}”` : 'visit'}
                 <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
                   Show only new
                 </button>

@@ -15,6 +15,7 @@ export const KEYS = {
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – item types or title regexes that move lots into a category of their own
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
+  lastVisit: 'tlxLastVisit', // number | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
 } as const;
 
 /** Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay per browser. */
@@ -28,6 +29,7 @@ export const SYNCED_KEYS = [
   KEYS.pickup,
   KEYS.savedSearches,
   KEYS.customCategories,
+  KEYS.lastVisit,
 ] as const;
 
 export interface HiddenLot {
@@ -71,6 +73,7 @@ export const DEFAULTS = {
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
+  [KEYS.lastVisit]: null as number | null,
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
