@@ -2,6 +2,7 @@
 // that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, type CustomCategory } from '../shared/keys';
+import { collator } from '../shared/sortKey';
 import { migrateFilters } from './CategoryEditor';
 import { setSetting, useSetting } from './settings';
 import { toast } from './toast';
@@ -40,8 +41,15 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const [cats] = useSetting(KEYS.customCategories);
   // A category already listing this type, if any: the default target.
   const current = cats[categoryIndex(lot, compileCategories(cats.map((c) => ({ ...c, pattern: undefined }))))];
-  const [within, setWithin] = useState(!!site && (current ? current.within === site.value : true));
-  const defaultName = (w: boolean) => current?.name ?? (w && site ? `${site.label} - ${categoryName(type)}` : categoryName(type));
+  // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
+  const choices = useMemo(() => {
+    const near = (c: CustomCategory) => !!site && (c.within === site.value || c.name.startsWith(`${site.label} - `));
+    return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
+  }, [cats]);
+  const [mode, setMode] = useState<'new' | 'add'>(current ? 'add' : 'new');
+  const [pick, setPick] = useState(() => (current ?? choices[0])?.name ?? '');
+  const [within, setWithin] = useState(!!site);
+  const defaultName = (w: boolean) => (w && site ? `${site.label} - ${categoryName(type)}` : categoryName(type));
   const [name, setName] = useState(() => defaultName(within));
   const [nameEdited, setNameEdited] = useState(false);
   const [extra, setExtra] = useState<string[]>([]);
@@ -53,10 +61,11 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     }
   });
 
-  const scope = lots.filter((l) => !within || l.category?.value === site?.value);
-  const existing = cats.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
+  const existing = mode === 'add' ? cats.find((c) => c.name === pick) : undefined;
   const types = [type, ...extra];
-  const limit = existing ? existing.within : within ? site?.value : undefined;
+  // The site category the target takes lots from, if it's limited to one.
+  const limit = mode === 'add' ? existing?.within : within ? site?.value : undefined;
+  const scope = lots.filter((l) => !limit || l.category?.value === limit);
 
   // Other types in scope that share a word with this one, those sharing its last word ("washer") first.
   const similar = useMemo(() => {
@@ -70,7 +79,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
       .map(([t, ls]) => ({ t, count: ls.length, head: typeWords(t).at(-1) === head }))
       .sort((a, b) => +b.head - +a.head || b.count - a.count || a.t.localeCompare(b.t))
       .slice(0, SIMILAR_LIMIT);
-  }, [lots, within]);
+  }, [lots, limit]);
 
   // Categories that lose these types to this one; their lots move here.
   const losing = cats.filter((c) => c !== existing && loses(c, types, limit));
@@ -79,17 +88,29 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     const next = cats.flatMap((c) =>
       c === existing ? [{ ...c, types: [...new Set([...(c.types ?? []), ...types])] }] : losing.includes(c) ? without(c, types) : [c],
     );
-    if (!existing) {
+    if (mode === 'new') {
       next.push({ name: name.trim(), types, ...(limit && { within: limit }) });
     }
-    return { next, target: existing ? next.findIndex((c) => c.name === existing.name) : next.length - 1 };
-  }, [cats, name, types.join('\u0000'), limit]);
+    return { next, target: existing ? next.findIndex((c) => c.name === existing.name) : mode === 'new' ? next.length - 1 : -1 };
+  }, [cats, mode, pick, name, types.join('\u0000'), limit]);
   const taken = useMemo(() => {
+    if (target < 0) {
+      return [];
+    }
     const compiled = compileCategories(next);
     return lots.filter((l) => categoryIndex(l, compiled) === target);
   }, [next, target, lots]);
 
-  const error = !name.trim() ? 'Name is required' : null;
+  const error =
+    mode === 'add'
+      ? existing
+        ? null
+        : 'Pick a category'
+      : !name.trim()
+        ? 'Name is required'
+        : cats.some((c) => c.name.toLowerCase() === name.trim().toLowerCase())
+          ? 'There’s already a category with this name – use “Add to existing”'
+          : null;
   const save = () => {
     if (error) {
       return;
@@ -106,29 +127,47 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   return (
     <div class="backdrop backdrop-top" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div class="confirm type-cat" role="dialog" aria-modal="true" aria-labelledby="type-cat-title" tabIndex={-1} ref={box}>
-        <h2 id="type-cat-title">{existing ? 'Add to category' : 'New category'}</h2>
+        <h2 id="type-cat-title">Make a category of “{type}”</h2>
         <div class="confirm-body">
-          <label class="field">
-            <span>Name</span>
-            <input
-              type="text"
-              list="type-cat-names"
-              value={name}
-              onInput={(e) => {
-                setName(e.currentTarget.value);
-                setNameEdited(true);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && save()}
-            />
-            <datalist id="type-cat-names">
-              {cats.map((c) => (
-                <option value={c.name} />
-              ))}
-            </datalist>
-          </label>
-          {existing ? (
-            <p class="muted small">Adds to your existing category “{existing.name}”.</p>
+          <div class="type-cat-mode" role="radiogroup" aria-label="New or existing category">
+            <button type="button" role="radio" aria-checked={mode === 'new'} onClick={() => setMode('new')}>
+              New category
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={mode === 'add'}
+              disabled={!cats.length}
+              title={cats.length ? undefined : 'No custom categories yet'}
+              onClick={() => setMode('add')}
+            >
+              Add to existing
+            </button>
+          </div>
+          {mode === 'add' ? (
+            <label class="field">
+              <span>Category</span>
+              <select value={pick} onChange={(e) => setPick(e.currentTarget.value)}>
+                {choices.map((c) => (
+                  <option value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </label>
           ) : (
+            <label class="field">
+              <span>Name</span>
+              <input
+                type="text"
+                value={name}
+                onInput={(e) => {
+                  setName(e.currentTarget.value);
+                  setNameEdited(true);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && save()}
+              />
+            </label>
+          )}
+          {mode === 'new' &&
             site && (
               <label class="switch-row">
                 <input
@@ -143,8 +182,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
                 />
                 <span>Only within {site.label}</span>
               </label>
-            )
-          )}
+            )}
           <fieldset class="type-cat-types">
             <legend>Item types</legend>
             <label>
@@ -181,7 +219,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
             Cancel
           </button>
           <button type="button" class="btn" onClick={save} aria-disabled={error ? 'true' : undefined}>
-            {existing ? 'Add' : 'Create'}
+            {mode === 'add' ? 'Add' : 'Create'}
           </button>
         </div>
       </div>
