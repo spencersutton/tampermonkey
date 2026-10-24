@@ -30,7 +30,9 @@ export const SORTS = {
   'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot), titleKey(a.lot)) },
   'total-asc': { label: 'Total cost: low to high', compare: (a, b) => a.total - b.total },
   'total-desc': { label: 'Total cost: high to low', compare: (a, b) => b.total - a.total },
-  'retail-pct-asc': { label: 'Best deal (% of retail)', compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) },
+  'retail-pct-asc': {
+    label: 'Best deal (% of retail)', compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) || (b.lot.estimatedRetailPrice ?? 0) - (a.lot.estimatedRetailPrice ?? 0)
+  },
   'retail-desc': { label: 'Retail price: high to low', compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1) },
   'bids-most': { label: 'Most bids', compare: (a, b) => b.lot.bidCount - a.lot.bidCount },
   'bids-fewest': { label: 'Fewest bids', compare: (a, b) => a.lot.bidCount - b.lot.bidCount },
