@@ -1,9 +1,5 @@
 preview = true
-line-length = 100
-fix = true
-fix-only = true
 show-fixes = true
-unsafe-fixes = true
 
 [lint]
 isort.split-on-trailing-comma = false
@@ -12,39 +8,21 @@ extend-select = [
     "ANN",
     "B",
     "C",
+    "duplicate-bases",
     "FURB",
     "I",
-    "PLR1711",
-    "PLR6301",
+    "invalid-first-argument-name-for-class-method",
+    "invalid-first-argument-name-for-method",
+    "manual-from-import",
     "PTH",
     "PYI",
     "RET",
     "RUF",
     "SIM",
     "UP",
-    "PLR0402",
-    "PLE0241",
-    "N805",
-    "N804",
+    "useless-return",
 ]
-ignore = [
-    "ANN001",
-    "ANN002",
-    "ANN003",
-    "ANN202",
-    "ANN204",
-    "ANN206",
-    "ANN401",
-    "B008",
-    "B028",
-    "B901",
-    "B905",
-    "C901",
-    "RUF001",
-    "RUF002",
-    "RUF003",
-    "SIM108",
-]
+allowed-confusables = ["’", "–"]
 
 [format]
 skip-magic-trailing-comma = true

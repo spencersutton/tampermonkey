@@ -84,7 +84,7 @@ WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Exten
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # noqa: PLR6301
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
         return None
 
 
@@ -148,7 +148,9 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if self.command != "HEAD":
                 self.wfile.write(data)
 
-        def _json(self, status: int, obj: Any, headers: dict[str, str] | None = None) -> None:
+        def _json(
+            self, status: int, obj: Any, headers: dict[str, str] | None = None
+        ) -> None:
             self._send(status, dumps(obj), headers=headers)
 
         def _error(self, status: HTTPStatus, message: str) -> None:
@@ -203,7 +205,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if path == "/sql":
                 # Another site can't send an Authorization header without a CORS preflight, so the bearer password is enough.
                 if not api.password:
-                    self._error(HTTPStatus.FORBIDDEN, "Set --password (or TLX_PASSWORD) to use /sql")
+                    self._error(
+                        HTTPStatus.FORBIDDEN,
+                        "Set --password (or TLX_PASSWORD) to use /sql",
+                    )
                     return False
                 given = self.headers.get("Authorization", "").removeprefix("Bearer ")
                 if not hmac.compare_digest(given.encode(), api.password.encode()):
@@ -213,7 +218,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not api.password and self._host() not in api.hosts:
                 self._error(HTTPStatus.FORBIDDEN, f"Host {self._host()!r} not allowed (use --allow-host, or set a password)")
                 return False
-            public = path in ("/api/me", "/api/app-login", "/api/health") or not path.startswith(("/api/", "/backend/", "/ws", "/lost"))
+            public = path in (
+                "/api/me",
+                "/api/app-login",
+                "/api/health",
+            ) or not path.startswith(("/api/", "/backend/", "/ws", "/lost"))
             if method not in ("GET", "HEAD") and not self.headers.get("X-TLX-Client"):
                 self._error(HTTPStatus.FORBIDDEN, "Missing X-TLX-Client header")
                 return False
@@ -228,7 +237,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not self._guard(method, path):
                 return
             try:
-                if path == "/ws" and self.headers.get("Upgrade", "").lower() == "websocket":
+                if (
+                    path == "/ws"
+                    and self.headers.get("Upgrade", "").lower() == "websocket"
+                ):
                     self._relay_ws()
                 elif path.startswith("/backend/v1/") and ".." not in path.split("/"):
                     self._proxy(method)
@@ -270,7 +282,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             elif route == ("GET", "/api/catalog"):
                 self._catalog(self._since(query))
             elif route == ("POST", "/api/pull"):
-                self._json(HTTPStatus.OK, {"result": api.catalog.request_pull(), **api.status()})
+                self._json(
+                    HTTPStatus.OK,
+                    {"result": api.catalog.request_pull(), **api.status()},
+                )
             elif route == ("GET", "/api/settings"):
                 rev, values = api.store.settings(self._since(query))
                 self._json(HTTPStatus.OK, {"rev": rev, "values": values})
@@ -298,7 +313,9 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
         def _app_login(self) -> None:
             given = str(self._json_body().get("password", ""))
-            if not api.password or hmac.compare_digest(given.encode(), api.password.encode()):
+            if not api.password or hmac.compare_digest(
+                given.encode(), api.password.encode()
+            ):
                 sid = secrets.token_urlsafe(32)
                 api.store.add_session(sid)
                 self._json(HTTPStatus.OK, self._me(locked=False), headers={"Set-Cookie": self._cookie(sid, SESSION_MAX_AGE)})
@@ -318,13 +335,17 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             body = self._json_body()
             if "value" not in body:
                 raise ValueError('Expected {"value": ...}')
-            self._json(HTTPStatus.OK, {"rev": api.store.put_setting(key, body["value"])})
+            self._json(
+                HTTPStatus.OK, {"rev": api.store.put_setting(key, body["value"])}
+            )
             if key == NAME_MATCH_KEY:
                 api.catalog.history.wake()  # match names again
 
         # -- the site's API ---------------------------------------------------
         def _proxy(self, method: str) -> None:
-            body = self._body() if method in ("POST", "PUT", "PATCH", "DELETE") else None
+            body = (
+                self._body() if method in ("POST", "PUT", "PATCH", "DELETE") else None
+            )
 
             def send(token: str | None) -> tuple[int, str, bytes]:
                 headers = {h: v for h in PROXY_HEADERS if (v := self.headers.get(h))}
@@ -356,12 +377,18 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
         def _relay_ws(self) -> None:
             """Relay the site's websocket: our handshake goes upstream with the site's Origin, then bytes flow both ways."""
             origin = self.headers.get("Origin")
-            if origin and urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
+            if (
+                origin
+                and urlsplit(origin).netloc.lower()
+                != (self.headers.get("Host") or "").lower()
+            ):
                 self._error(HTTPStatus.FORBIDDEN, "Cross-origin websocket")
                 return
             try:
                 raw = socket.create_connection((WS_HOST, 443), timeout=15)
-                upstream = ssl.create_default_context().wrap_socket(raw, server_hostname=WS_HOST)
+                upstream = ssl.create_default_context().wrap_socket(
+                    raw, server_hostname=WS_HOST
+                )
                 lines = [
                     f"GET {WS_PATH} HTTP/1.1",
                     f"Host: {WS_HOST}",
@@ -379,7 +406,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                         raise OSError("bad handshake reply")
                     head += chunk
             except OSError as e:
-                self._error(HTTPStatus.BAD_GATEWAY, f"Couldn’t reach the live-updates server: {e}")
+                self._error(
+                    HTTPStatus.BAD_GATEWAY,
+                    f"Couldn’t reach the live-updates server: {e}",
+                )
                 return
             self.close_connection = True
             self.connection.sendall(head)  # the 101 (its accept key depends only on the client's key) and any first frames
@@ -484,8 +514,17 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "application/manifest+json"):
                 ctype += "; charset=utf-8"
             # Built assets have content hashes in their names; the page itself must always be fresh.
-            cache = "public, max-age=31536000, immutable" if name.startswith("assets/") else "no-cache"
-            self._send(HTTPStatus.OK, file.read_bytes(), ctype, headers={"Cache-Control": cache})
+            cache = (
+                "public, max-age=31536000, immutable"
+                if name.startswith("assets/")
+                else "no-cache"
+            )
+            self._send(
+                HTTPStatus.OK,
+                file.read_bytes(),
+                ctype,
+                headers={"Cache-Control": cache},
+            )
 
         def do_GET(self) -> None:
             self._route("GET")

@@ -47,7 +47,9 @@ def token_expiry(token: str | None) -> float | None:
     return float(exp) if isinstance(exp, (int, float)) else None
 
 
-def get(path: str, params: dict[str, str | int] | None = None, token: str | None = None) -> Any:
+def get(
+    path: str, params: dict[str, str | int] | None = None, token: str | None = None
+) -> Any:
     """GET a JSON endpoint, with the bearer token when there is one."""
     qs = f"?{urllib.parse.urlencode(params)}" if params else ""
     headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
@@ -75,7 +77,7 @@ def _epoch_ms(iso: str | None) -> int | None:
     if not iso:
         return None
     try:
-        return round(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000)
+        return round(datetime.fromisoformat(iso).timestamp() * 1000)
     except ValueError:
         return None
 
@@ -96,7 +98,9 @@ def normalize_lot(r: Raw) -> Raw:
         "auctionPeriod": r.get("auction_period"),
         "title": str(r.get("title") or ""),
         "lotNumber": str(r.get("lot_number") or ""),
-        "category": {"value": cat.get("value"), "label": cat.get("label")} if cat else None,
+        "category": {"value": cat.get("value"), "label": cat.get("label")}
+        if cat
+        else None,
         "condition": {"value": cond.get("value"), "label": cond.get("display_name")} if cond else None,
         "location": {"id": loc.get("id"), "name": loc.get("name")} if loc else None,
         "isTransferable": bool(r.get("is_transferable")),
@@ -129,7 +133,9 @@ def fetch_lot_page(page: int, token: str | None) -> LotPage:
     the oldest listings at the end.
     """
     d = get("/v1/auctions/lots/", {"page": page, "per_page": LIST_PAGE_SIZE, "order_by": "newly-listed"}, token)
-    return LotPage(count=int(d["count"]), results=[normalize_lot(r) for r in d["results"]])
+    return LotPage(
+        count=int(d["count"]), results=[normalize_lot(r) for r in d["results"]]
+    )
 
 
 def fetch_lost(token: str) -> list[Raw]:

@@ -38,7 +38,7 @@ LOGIN_ERRORS = {
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # noqa: PLR6301
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
         return None
 
 
@@ -82,7 +82,9 @@ class SiteSession:
         if form is not None:
             data = urllib.parse.urlencode(form).encode()
             headers["Content-Type"] = "application/x-www-form-urlencoded"
-        req = urllib.request.Request(f"{SITE}{path}", data=data, headers=headers, method=method)
+        req = urllib.request.Request(
+            f"{SITE}{path}", data=data, headers=headers, method=method
+        )
         try:
             res = _opener.open(req, timeout=TIMEOUT)
         except urllib.error.HTTPError as e:
@@ -102,7 +104,11 @@ class SiteSession:
 
     def status(self) -> dict[str, Any]:
         u = self.user or {}
-        return {"loggedIn": self.logged_in, "email": u.get("email"), "name": u.get("name")}
+        return {
+            "loggedIn": self.logged_in,
+            "email": u.get("email"),
+            "name": u.get("name"),
+        }
 
     def token(self) -> str | None:
         """The API bearer token, refreshed first if it's about to expire; None when logged out."""
@@ -125,7 +131,9 @@ class SiteSession:
             try:
                 status, s = self._request("GET", "/api/auth/session")
             except (urllib.error.URLError, OSError) as e:
-                log.warning("session refresh failed: %s", e)  # offline: keep the current state
+                log.warning(
+                    "session refresh failed: %s", e
+                )  # offline: keep the current state
                 return self.logged_in
             if status >= 500:
                 return self.logged_in
@@ -135,7 +143,10 @@ class SiteSession:
                 self._cookies.clear()
                 self.user = None
             elif isinstance(s.get("user"), dict):
-                self.user = {"email": s["user"].get("email"), "name": s["user"].get("name")}
+                self.user = {
+                    "email": s["user"].get("email"),
+                    "name": s["user"].get("name"),
+                }
             self._save()
             return self.logged_in
 
@@ -159,11 +170,15 @@ class SiteSession:
                 if not isinstance(csrf, dict) or not csrf.get("csrfToken"):
                     return "The site didn’t start a login (no CSRF token)."
                 form = {"email": email, "password": password, "csrfToken": csrf["csrfToken"], "callbackUrl": SITE, "json": "true"}
-                status, d = self._request("POST", "/api/auth/callback/credentials", form)
+                status, d = self._request(
+                    "POST", "/api/auth/callback/credentials", form
+                )
             except (urllib.error.URLError, OSError) as e:
                 return f"Couldn’t reach the site: {e}"
             url = d.get("url", "") if isinstance(d, dict) else ""
-            err = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query).get("error", [None])[0]
+            err = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query).get(
+                "error", [None]
+            )[0]
             if err or status >= 400:
                 self._cookies.clear()
                 self._save()
@@ -182,7 +197,11 @@ class SiteSession:
             try:
                 _, csrf = self._request("GET", "/api/auth/csrf")
                 if isinstance(csrf, dict) and csrf.get("csrfToken"):
-                    self._request("POST", "/api/auth/signout", {"csrfToken": csrf["csrfToken"], "callbackUrl": SITE, "json": "true"})
+                    self._request("POST", "/api/auth/signout", {
+                        "csrfToken": csrf["csrfToken"],
+                        "callbackUrl": SITE,
+                        "json": "true",
+                    })
             except (urllib.error.URLError, OSError):
                 pass  # forget the session locally either way
             self._cookies.clear()
