@@ -22,7 +22,6 @@ import json
 import sqlite3
 import threading
 import time
-from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass

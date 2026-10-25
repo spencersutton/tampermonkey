@@ -17,7 +17,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from http.cookies import SimpleCookie
+from http.cookies import CookieError, SimpleCookie
 from typing import Any
 
 from .site import SITE, TIMEOUT, USER_AGENT, token_expiry
@@ -38,7 +38,7 @@ LOGIN_ERRORS = {
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # noqa: PLR6301
         return None
 
 
@@ -63,7 +63,8 @@ class SiteSession:
             jar = SimpleCookie()
             try:
                 jar.load(raw)
-            except Exception:
+            except CookieError as e:
+                log.debug("ignoring malformed Set-Cookie header: %s", e)
                 continue
             for name, morsel in jar.items():
                 gone = morsel["max-age"] == "0" or not morsel.value or "1970" in (morsel["expires"] or "")

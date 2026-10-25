@@ -8,6 +8,7 @@ its own catalog pulls, synced settings and login to the site.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ipaddress
 import logging
 import os
@@ -84,10 +85,8 @@ def main() -> None:
         catalog.after_pull = labeller.wake
         threading.Thread(target=labeller.run_forever, name="item-types", daemon=True).start()
     api = Api(store, catalog, session, args.password, set(args.allow_host), tls=bool(args.tls_cert))
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         serve(api, args.host, args.port, args.tls_cert, args.tls_key)
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

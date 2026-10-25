@@ -38,6 +38,7 @@ rebinding).
 
 from __future__ import annotations
 
+import contextlib
 import gzip
 import hmac
 import html
@@ -83,7 +84,7 @@ WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Exten
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # noqa: PLR6301
         return None
 
 
@@ -162,7 +163,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
         def _json_body(self) -> dict[str, Any]:
             d = json.loads(self._body() or b"null")
             if not isinstance(d, dict):
-                raise ValueError("Expected a JSON object")
+                raise TypeError("Expected a JSON object")
             return d
 
         @staticmethod
@@ -453,7 +454,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             """Run {"statements": [sql | {"q", "params"}]} read-only and answer [{"results": ...} | {"error"}] (libSQL's format)."""
             statements = self._json_body().get("statements")
             if not isinstance(statements, list):
-                raise ValueError('Expected {"statements": [...]}')
+                raise TypeError('Expected {"statements": [...]}')
             out: list[dict[str, Any]] = []
             db = sqlite3.connect(f"{api.store.path.resolve().as_uri()}?mode=ro", uri=True, timeout=10)
             try:
@@ -505,10 +506,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
 
 def _shutdown(sock: socket.socket) -> None:
-    try:
+    with contextlib.suppress(OSError):
         sock.shutdown(socket.SHUT_RDWR)
-    except OSError:
-        pass
 
 
 def serve(api: Api, host: str, port: int, cert: Path | None = None, key: Path | None = None) -> None:
