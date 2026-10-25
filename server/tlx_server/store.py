@@ -151,8 +151,6 @@ class Store:
         self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._lock = threading.Lock()
-        if "data" in {c for (_, c, *_) in self._db.execute("PRAGMA table_info(lots)")}:
-            self._migrate_json_lots()
         self._db.executescript(SCHEMA)
         path.chmod(0o600)  # holds the site login cookies
 
@@ -161,23 +159,6 @@ class Store:
         self._db.execute("BEGIN")
         try:
             yield
-        except BaseException:
-            self._db.execute("ROLLBACK")
-            raise
-        self._db.execute("COMMIT")
-
-    def _migrate_json_lots(self) -> None:
-        """Move lots stored as one JSON `data` column each into the lot tables, keeping their sequences."""
-        self._db.executescript(f"BEGIN; ALTER TABLE lots RENAME TO lots_json; DROP INDEX lots_seq; {SCHEMA}")
-        try:
-            by_seq: dict[int, list[dict[str, Any]]] = defaultdict(list)
-            for seq, d in self._db.execute("SELECT seq, data FROM lots_json"):
-                lot = json.loads(d)
-                lot.pop("pastCloses", None)  # has no closed lot ids: the closer thread matches them again on start
-                by_seq[seq].append(lot)
-            for seq, lots in by_seq.items():
-                self._write_lots(lots, seq)
-            self._db.execute("DROP TABLE lots_json")
         except BaseException:
             self._db.execute("ROLLBACK")
             raise
