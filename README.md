@@ -65,6 +65,14 @@ npm run build     # typecheck, then build the web app
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
 ```
 
+Python is formatted with [ruff](https://docs.astral.sh/ruff/) (`pipx install ruff`). A
+pre-commit hook in `githooks/` runs `ruff format` on the Python files being committed and
+re-stages them; enable it once per clone:
+
+```bash
+git config core.hooksPath githooks
+```
+
 - `src/web.tsx` and `web/`: the web app entry, page and icons.
 - `src/app/`: the catalog view. `catalog.ts` holds the in-memory catalog, `source.ts` fetches it from the server, `auth.tsx` handles the server's login and the app password, and `settings.ts` keeps settings in `localStorage` (and syncs some to the server).
 - `server/tlx_server/`: the Python server: `site.py` API client, `session.py` site login, `catalog.py` pulls, `itemtypes.py` item types, `history.py` closed lots and past prices, `store.py` SQLite, `server.py` HTTP (app, proxy, websocket relay).
