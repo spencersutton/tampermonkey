@@ -1,19 +1,25 @@
 preview = true
 show-fixes = true
+# ruff.toml wins over [tool.ruff] in pyproject.toml, so settings must live here
+line-length = 140
+target-version = "py312"
 
 [lint]
-isort.split-on-trailing-comma = false
-
 extend-select = [
     "ANN",
     "B",
-    "C",
+    "BLE",
+    "C4",
     "duplicate-bases",
+    "FLY",
     "FURB",
     "I",
     "invalid-first-argument-name-for-class-method",
     "invalid-first-argument-name-for-method",
+    "LOG",
     "manual-from-import",
+    "PERF",
+    "PIE",
     "PTH",
     "PYI",
     "RET",
@@ -22,7 +28,13 @@ extend-select = [
     "UP",
     "useless-return",
 ]
+ignore = [
+    "any-type", # Any is the honest type for JSON values and *args passthroughs
+]
 allowed-confusables = ["’", "–"]
+
+[lint.isort]
+split-on-trailing-comma = false
 
 [format]
 skip-magic-trailing-comma = true

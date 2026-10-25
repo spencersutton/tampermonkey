@@ -135,15 +135,13 @@ class Labeller:
 
     def ask(self, category: str, titles: list[str], vocab: list[str]) -> dict[int, str]:
         """{1-based index into titles: type} from the model."""
-        user = "\n".join(
-            [
-                f"Site category: {category}",
-                f"Types already in use: {', '.join(vocab) if vocab else '(none yet)'}",
-                "",
-                "Titles:",
-                *(f"{i}: {t}" for i, t in enumerate(titles, 1)),
-            ]
-        )
+        user = "\n".join([
+            f"Site category: {category}",
+            f"Types already in use: {', '.join(vocab) if vocab else '(none yet)'}",
+            "",
+            "Titles:",
+            *(f"{i}: {t}" for i, t in enumerate(titles, 1)),
+        ])
         body = {
             "model": self.model,
             "messages": [{"role": "system", "content": PROMPT}, {"role": "user", "content": user}],

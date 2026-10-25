@@ -11,6 +11,3 @@ tlx-server = "tlx_server.__main__:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.ruff]
-line-length = 140

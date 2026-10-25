@@ -165,15 +165,11 @@ class Store:
 
     # -- meta -----------------------------------------------------------------
     def _get(self, key: str, default: Any = None) -> Any:
-        row = self._db.execute(
-            "SELECT value FROM meta WHERE key = ?", (key,)
-        ).fetchone()
+        row = self._db.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         return json.loads(row[0]) if row else default
 
     def _set(self, key: str, value: Any) -> None:
-        self._db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
-            (key, dumps(value)),
-        )
+        self._db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, dumps(value)))
 
     def get_meta(self, key: str, default: Any = None) -> Any:
         with self._lock:
@@ -198,9 +194,7 @@ class Store:
         with self._lock:
             return int(self._get("seq", 0))
 
-    def _load(
-        self, where: str = "", params: tuple[Any, ...] = ()
-    ) -> dict[int, dict[str, Any]]:
+    def _load(self, where: str = "", params: tuple[Any, ...] = ()) -> dict[int, dict[str, Any]]:
         """The lots matching `where` (on lots as l), assembled from their rows."""
         lots: dict[int, dict[str, Any]] = {}
         rows = self._db.execute(
@@ -220,9 +214,7 @@ class Store:
                 "title": title,
                 "lotNumber": number,
                 "category": None if cat is None else {"value": cat, "label": cat_label},
-                "condition": None
-                if cond is None
-                else {"value": cond, "label": cond_label},
+                "condition": None if cond is None else {"value": cond, "label": cond_label},
                 "location": None if loc is None else {"id": loc, "name": loc_name},
                 "isTransferable": bool(transferable),
                 "transferFee": fee,
@@ -257,9 +249,14 @@ class Store:
             params,
         ):
             if "pastCloses" in lots[i]:
-                lots[i]["pastCloses"]["recent"].append(
-                    {"id": closed_id, "price": price, "endsAt": ends, "condition": cond, "sold": bool(sold), "final": final == 1}
-                )
+                lots[i]["pastCloses"]["recent"].append({
+                    "id": closed_id,
+                    "price": price,
+                    "endsAt": ends,
+                    "condition": cond,
+                    "sold": bool(sold),
+                    "final": final == 1,
+                })
         return lots
 
     def _write_lots(self, lots: list[dict[str, Any]], seq: int) -> None:
@@ -294,11 +291,7 @@ class Store:
 
     def _delete_lots(self, ids: Iterable[int]) -> None:
         rows = [(i,) for i in ids]
-        for table, col in (
-            ("lot_images", "lot_id"),
-            ("lot_past_closes", "lot_id"),
-            ("lots", "id"),
-        ):
+        for table, col in (("lot_images", "lot_id"), ("lot_past_closes", "lot_id"), ("lots", "id")):
             self._db.executemany(f"DELETE FROM {table} WHERE {col} = ?", rows)
 
     def _touch_closes(self, closed_ids: Iterable[int]) -> None:
@@ -328,9 +321,7 @@ class Store:
             fresh = {lot["id"]: lot for lot in lots}
             changed = [lot for i, lot in fresh.items() if old.get(i) != lot]
             gone = old.keys() - fresh.keys()
-            back = (
-                fresh.keys() - old.keys()
-            )  # usually new, but may have been taken for closed
+            back = fresh.keys() - old.keys()  # usually new, but may have been taken for closed
             with self._tx():
                 if changed or gone:
                     seq += 1
@@ -345,19 +336,14 @@ class Store:
                         [closed_row(old[i], 0) for i in gone],
                     )
                     self._set("closedRev", int(self._get("closedRev", 0)) + 1)
-                self._set(
-                    "catalog",
-                    {**asdict(CatalogMeta()), **self._get("catalog", {}), **meta},
-                )
+                self._set("catalog", {**asdict(CatalogMeta()), **self._get("catalog", {}), **meta})
             return int(self._get("seq", 0))
 
     def changes(self, since: int) -> CatalogChanges:
         """Lots changed after sequence `since` (all of them for 0) and the current id list."""
         with self._lock:
             seq = int(self._get("seq", 0))
-            if (
-                since > seq
-            ):  # the client saw a newer (since reset) database: send everything
+            if since > seq:  # the client saw a newer (since reset) database: send everything
                 since = 0
             lots = list(self._load("WHERE l.seq > ?", (since,)).values())
             ids = [i for (i,) in self._db.execute("SELECT id FROM lots")]
@@ -383,9 +369,7 @@ class Store:
     def closed_lots(self) -> list[dict[str, Any]]:
         """Every closed lot, in the shape the app gets them (see PastClose in src/app/types.ts)."""
         with self._lock:
-            rows = self._db.execute(
-                f"SELECT {CLOSED_COLUMNS} FROM closed_lots"
-            ).fetchall()
+            rows = self._db.execute(f"SELECT {CLOSED_COLUMNS} FROM closed_lots").fetchall()
         return [
             {
                 "id": i,
@@ -421,9 +405,7 @@ class Store:
                 )
                 self._touch_closes([lot_id])
             else:
-                self._db.execute(
-                    "UPDATE closed_lots SET final = -1 WHERE id = ?", (lot_id,)
-                )
+                self._db.execute("UPDATE closed_lots SET final = -1 WHERE id = ?", (lot_id,))
             self._set("closedRev", int(self._get("closedRev", 0)) + 1)
 
     def drop_close(self, lot_id: int) -> None:
@@ -482,9 +464,7 @@ class Store:
             seq = int(self._get("seq", 0)) + 1
             (n,) = self._db.execute("SELECT count(*) FROM item_types").fetchone()
             before = self._db.total_changes
-            self._db.execute("UPDATE lots SET seq = ? WHERE title IN (SELECT title FROM item_types)",
-                (seq,),
-            )
+            self._db.execute("UPDATE lots SET seq = ? WHERE title IN (SELECT title FROM item_types)", (seq,))
             if self._db.total_changes > before:
                 self._set("seq", seq)
             self._db.execute("DELETE FROM item_types")
@@ -497,16 +477,12 @@ class Store:
             rev = int(self._get("settingsRev", 0))
             if since > rev:
                 since = 0
-            rows = self._db.execute(
-                "SELECT key, value FROM settings WHERE rev > ?", (since,)
-            )
+            rows = self._db.execute("SELECT key, value FROM settings WHERE rev > ?", (since,))
             return rev, {k: json.loads(v) for k, v in rows}
 
     def setting(self, key: str, default: Any = None) -> Any:
         with self._lock:
-            row = self._db.execute(
-                "SELECT value FROM settings WHERE key = ?", (key,)
-            ).fetchone()
+            row = self._db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
             return json.loads(row[0]) if row else default
 
     def put_setting(self, key: str, value: Any) -> int:
@@ -522,9 +498,7 @@ class Store:
     # -- app sessions -----------------------------------------------------------
     def add_session(self, sid: str) -> None:
         with self._lock:
-            self._db.execute("INSERT INTO app_sessions (id, created) VALUES (?, ?)",
-                (sid, time.time()),
-            )
+            self._db.execute("INSERT INTO app_sessions (id, created) VALUES (?, ?)", (sid, time.time()))
 
     def has_session(self, sid: str, max_age: float) -> bool:
         with self._lock:
