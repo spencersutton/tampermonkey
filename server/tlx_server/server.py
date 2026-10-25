@@ -55,7 +55,7 @@ import time
 import urllib.error
 import urllib.request
 from http import HTTPStatus
-from http.cookies import SimpleCookie
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -79,8 +79,19 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 SESSION_COOKIE = "tlx_session"
 SESSION_MAX_AGE = 90 * 24 * 3600
 # Request headers passed through to the site's API (the rest are dropped).
-PROXY_HEADERS = ("Accept", "Content-Type", "X-CSRF-Protection", "X-Bid-Surface", "X-Bid-Type")
-WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol")
+PROXY_HEADERS = (
+    "Accept",
+    "Content-Type",
+    "X-CSRF-Protection",
+    "X-Bid-Surface",
+    "X-Bid-Type",
+)
+WS_HEADERS = (
+    "Sec-WebSocket-Key",
+    "Sec-WebSocket-Version",
+    "Sec-WebSocket-Extensions",
+    "Sec-WebSocket-Protocol",
+)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -94,7 +105,15 @@ _opener = urllib.request.build_opener(_NoRedirect)
 class Api:
     """What the handler needs, shared by every request thread."""
 
-    def __init__(self, store: Store, catalog: Catalog, session: SiteSession, password: str | None, hosts: set[str], tls: bool) -> None:
+    def __init__(
+        self,
+        store: Store,
+        catalog: Catalog,
+        session: SiteSession,
+        password: str | None,
+        hosts: set[str],
+        tls: bool,
+    ) -> None:
         self.store = store
         self.catalog = catalog
         self.session = session
@@ -131,8 +150,17 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             headers: dict[str, str] | None = None,
         ) -> None:
             data = body.encode() if isinstance(body, str) else body
-            compressible = content_type.startswith(("application/json", "text/", "application/javascript", "image/svg"))
-            gz = compressible and len(data) > 1024 and "gzip" in self.headers.get("Accept-Encoding", "")
+            compressible = content_type.startswith((
+                "application/json",
+                "text/",
+                "application/javascript",
+                "image/svg",
+            ))
+            gz = (
+                compressible
+                and len(data) > 1024
+                and "gzip" in self.headers.get("Accept-Encoding", "")
+            )
             if gz:
                 data = gzip.compress(data, 5)
             self.send_response(status)
@@ -188,7 +216,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             jar = SimpleCookie()
             try:
                 jar.load(self.headers.get("Cookie") or "")
-            except Exception:
+            except CookieError:
                 return None
             m = jar.get(SESSION_COOKIE)
             return m.value if m else None
@@ -216,7 +244,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                     return False
                 return True
             if not api.password and self._host() not in api.hosts:
-                self._error(HTTPStatus.FORBIDDEN, f"Host {self._host()!r} not allowed (use --allow-host, or set a password)")
+                self._error(
+                    HTTPStatus.FORBIDDEN,
+                    f"Host {self._host()!r} not allowed (use --allow-host, or set a password)",
+                )
                 return False
             public = path in (
                 "/api/me",
@@ -269,10 +300,16 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             elif route == ("POST", "/api/app-logout"):
                 if sid := self._session_id():
                     api.store.drop_session(sid)
-                self._json(HTTPStatus.OK, self._me(locked=bool(api.password)), headers={"Set-Cookie": self._cookie("", 0)})
+                self._json(
+                    HTTPStatus.OK,
+                    self._me(locked=bool(api.password)),
+                    headers={"Set-Cookie": self._cookie("", 0)},
+                )
             elif route == ("POST", "/api/site-login"):
                 d = self._json_body()
-                error = api.session.login(str(d.get("email", "")).strip(), str(d.get("password", "")))
+                error = api.session.login(
+                    str(d.get("email", "")).strip(), str(d.get("password", ""))
+                )
                 if not error:
                     api.catalog.request_pull()  # pick up your standings and watchlist when allowed
                 self._json(HTTPStatus.OK, {"error": error, **self._me()})
@@ -293,7 +330,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 lot = api.store.lot(int(query["id"][0]))
                 if not lot:
                     raise ValueError("No such open lot")
-                self._json(HTTPStatus.OK, {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]})
+                self._json(
+                    HTTPStatus.OK,
+                    {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]},
+                )
             elif method == "PUT" and path.startswith("/api/settings/"):
                 self._put_setting(path.removeprefix("/api/settings/"))
             else:
@@ -318,7 +358,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             ):
                 sid = secrets.token_urlsafe(32)
                 api.store.add_session(sid)
-                self._json(HTTPStatus.OK, self._me(locked=False), headers={"Set-Cookie": self._cookie(sid, SESSION_MAX_AGE)})
+                self._json(
+                    HTTPStatus.OK,
+                    self._me(locked=False),
+                    headers={"Set-Cookie": self._cookie(sid, SESSION_MAX_AGE)},
+                )
             else:
                 time.sleep(1)  # slow down guessing
                 self._error(HTTPStatus.UNAUTHORIZED, "Wrong password.")
@@ -327,7 +371,16 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             api.catalog.heartbeat(self.headers.get("X-TLX-Active") == "1")
             c = api.store.changes(since)
             full = since == 0 or since > c.seq
-            self._json(HTTPStatus.OK, {"seq": c.seq, "full": full, "ids": None if full else c.ids, **api.status(), "lots": c.lots})
+            self._json(
+                HTTPStatus.OK,
+                {
+                    "seq": c.seq,
+                    "full": full,
+                    "ids": None if full else c.ids,
+                    **api.status(),
+                    "lots": c.lots,
+                },
+            )
 
         def _put_setting(self, key: str) -> None:
             if not SETTING_KEY.match(key):
@@ -352,13 +405,19 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 headers["User-Agent"] = USER_AGENT
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
-                req = urllib.request.Request(f"{SITE}{self.path}", data=body, headers=headers, method=method)
+                req = urllib.request.Request(
+                    f"{SITE}{self.path}", data=body, headers=headers, method=method
+                )
                 try:
                     res = _opener.open(req, timeout=TIMEOUT)
                 except urllib.error.HTTPError as e:
                     res = e
                 with res:
-                    return res.status, res.headers.get("Content-Type", "application/json"), res.read()
+                    return (
+                        res.status,
+                        res.headers.get("Content-Type", "application/json"),
+                        res.read(),
+                    )
 
             try:
                 token = api.session.token()
@@ -412,7 +471,9 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 )
                 return
             self.close_connection = True
-            self.connection.sendall(head)  # the 101 (its accept key depends only on the client's key) and any first frames
+            self.connection.sendall(
+                head
+            )  # the 101 (its accept key depends only on the client's key) and any first frames
             if not head.startswith(b"HTTP/1.1 101"):
                 upstream.close()
                 return
@@ -451,7 +512,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
             token = api.session.token()
             if not token:
-                self._send(HTTPStatus.OK, page("<p>The server isn’t logged in to the site.</p>"), "text/html; charset=utf-8")
+                self._send(
+                    HTTPStatus.OK,
+                    page("<p>The server isn’t logged in to the site.</p>"),
+                    "text/html; charset=utf-8",
+                )
                 return
             try:
                 try:
@@ -477,7 +542,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 for r in lots
             )
             head = '<tr><th></th><th>Title</th><th>Lot #</th><th>Location</th><th>Auction</th><th class="n">Final price</th></tr>'
-            self._send(HTTPStatus.OK, page(f"<h1>Lost lots ({len(lots)})</h1><table>{head}{rows}</table>"), "text/html; charset=utf-8")
+            self._send(
+                HTTPStatus.OK,
+                page(f"<h1>Lost lots ({len(lots)})</h1><table>{head}{rows}</table>"),
+                "text/html; charset=utf-8",
+            )
 
         # -- the app itself -------------------------------------------------
         def _sql(self) -> None:
@@ -486,20 +555,36 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not isinstance(statements, list):
                 raise TypeError('Expected {"statements": [...]}')
             out: list[dict[str, Any]] = []
-            db = sqlite3.connect(f"{api.store.path.resolve().as_uri()}?mode=ro", uri=True, timeout=10)
+            db = sqlite3.connect(
+                f"{api.store.path.resolve().as_uri()}?mode=ro", uri=True, timeout=10
+            )
             try:
                 for st in statements:
-                    q, params = (st.get("q", ""), st.get("params") or []) if isinstance(st, dict) else (st, [])
+                    q, params = (
+                        (st.get("q", ""), st.get("params") or [])
+                        if isinstance(st, dict)
+                        else (st, [])
+                    )
                     if isinstance(params, dict):
                         params = {k.lstrip(":@$"): v for k, v in params.items()}
                     try:
                         cur = db.execute(q, params)
-                        rows = [[v.hex() if isinstance(v, bytes) else v for v in row] for row in cur.fetchall()]
+                        rows = [
+                            [v.hex() if isinstance(v, bytes) else v for v in row]
+                            for row in cur.fetchall()
+                        ]
                     except sqlite3.Error as e:
                         out.append({"error": str(e)})
                         break
                     columns = [d[0] for d in cur.description or []]
-                    out.append({"results": {"columns": columns, "rows": rows, "rows_read": len(rows), "rows_written": 0}})
+                    out.append({
+                        "results": {
+                            "columns": columns,
+                            "rows": rows,
+                            "rows_read": len(rows),
+                            "rows_written": 0,
+                        }
+                    })
             finally:
                 db.close()
             self._json(HTTPStatus.OK, out)
@@ -511,7 +596,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 self._error(HTTPStatus.NOT_FOUND, "Not found")
                 return
             ctype = mimetypes.guess_type(file.name)[0] or "application/octet-stream"
-            if ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "application/manifest+json"):
+            if ctype.startswith("text/") or ctype in (
+                "application/javascript",
+                "application/json",
+                "application/manifest+json",
+            ):
                 ctype += "; charset=utf-8"
             # Built assets have content hashes in their names; the page itself must always be fresh.
             cache = (
@@ -549,7 +638,9 @@ def _shutdown(sock: socket.socket) -> None:
         sock.shutdown(socket.SHUT_RDWR)
 
 
-def serve(api: Api, host: str, port: int, cert: Path | None = None, key: Path | None = None) -> None:
+def serve(
+    api: Api, host: str, port: int, cert: Path | None = None, key: Path | None = None
+) -> None:
     mimetypes.add_type("application/manifest+json", ".webmanifest")
     mimetypes.add_type("image/svg+xml", ".svg")
     httpd = ThreadingHTTPServer((host, port), make_handler(api))
@@ -558,6 +649,13 @@ def serve(api: Api, host: str, port: int, cert: Path | None = None, key: Path | 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(cert, key)
         # Handshake in the request thread, so a stalled client can't block accept().
-        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True, do_handshake_on_connect=False)
-    log.info("serving the app on %s://%s:%d/", "https" if cert else "http", host if ":" not in host else f"[{host}]", port)
+        httpd.socket = ctx.wrap_socket(
+            httpd.socket, server_side=True, do_handshake_on_connect=False
+        )
+    log.info(
+        "serving the app on %s://%s:%d/",
+        "https" if cert else "http",
+        host if ":" not in host else f"[{host}]",
+        port,
+    )
     httpd.serve_forever()

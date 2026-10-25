@@ -48,7 +48,13 @@ class Progress:
 
 
 class Catalog:
-    def __init__(self, store: Store, session: SiteSession, history: History, background_minutes: float = 0) -> None:
+    def __init__(
+        self,
+        store: Store,
+        session: SiteSession,
+        history: History,
+        background_minutes: float = 0,
+    ) -> None:
         self.store = store
         self.session = session
         self.history = history
@@ -72,13 +78,19 @@ class Catalog:
     def interval_ms(self) -> float:
         """Minimum time between full pulls, from the synced setting."""
         m = self.store.setting(SYNC_MINUTES_KEY, DEFAULT_SYNC_MINUTES)
-        m = m if isinstance(m, (int, float)) and not isinstance(m, bool) else DEFAULT_SYNC_MINUTES
+        m = (
+            m
+            if isinstance(m, (int, float)) and not isinstance(m, bool)
+            else DEFAULT_SYNC_MINUTES
+        )
         return max(MIN_SYNC_MINUTES, m) * MINUTE_MS
 
     def next_pull_at(self, meta: CatalogMeta | None = None) -> float:
         """Epoch ms when the next full pull is allowed."""
         meta = meta or self.store.meta()
-        return 0 if meta.pullStartedAt is None else meta.pullStartedAt + self.interval_ms()
+        return (
+            0 if meta.pullStartedAt is None else meta.pullStartedAt + self.interval_ms()
+        )
 
     def due(self) -> bool:
         return now_ms() >= self.next_pull_at()
@@ -130,7 +142,9 @@ class Catalog:
             # Lots not in the previous pull are new (saved searches count them);
             # on the very first pull everything is treated as already listed.
             old = prev.get(lot["id"])
-            lot["firstSeenAt"] = (old.get("firstSeenAt") or 0) if old else (0 if first_load else started)
+            lot["firstSeenAt"] = (
+                (old.get("firstSeenAt") or 0) if old else (0 if first_load else started)
+            )
             if not authed and old:
                 lot.update({k: old.get(k) for k in ACCOUNT_FIELDS})
             return lot
@@ -147,7 +161,10 @@ class Catalog:
                     # The token was rejected: refresh it, or go on without it, and
                     # start over so every page agrees.
                     token = self.session.rejected(token)
-                    log.info("token rejected; %s", "refreshed" if token else "pulling anonymously")
+                    log.info(
+                        "token rejected; %s",
+                        "refreshed" if token else "pulling anonymously",
+                    )
                     pulled, pages, page = {}, 1, 1
                     continue
                 if page == 1:
@@ -174,11 +191,21 @@ class Catalog:
                     lot["itemType"] = types[lot["title"]]
             self.history.annotate(pulled.values())
 
-            seq = self.store.replace_all(pulled.values(), fetchedAt=now_ms(), count=count, authed=token is not None)
-            log.info("pull done: %d lots in %.1fs (seq %d)", len(pulled), (now_ms() - started) / 1000, seq)
+            seq = self.store.replace_all(
+                pulled.values(),
+                fetchedAt=now_ms(),
+                count=count,
+                authed=token is not None,
+            )
+            log.info(
+                "pull done: %d lots in %.1fs (seq %d)",
+                len(pulled),
+                (now_ms() - started) / 1000,
+                seq,
+            )
             self.history.wake()
             self.after_pull()
-        except Exception as e:
+        except ApiError as e:
             self.error = f"Catalog refresh failed: {e}"
             log.warning(self.error)
         finally:
