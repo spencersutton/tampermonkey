@@ -109,7 +109,14 @@ class NameIndex:
 
 def _close(row: dict[str, Any]) -> dict[str, Any]:
     """A closed lot as attached to an open lot's `pastCloses`."""
-    return {"price": row["price"], "endsAt": row["endsAt"], "condition": row["condition"], "sold": row["sold"], "final": row["final"]}
+    return {
+        "id": row["id"],
+        "price": row["price"],
+        "endsAt": row["endsAt"],
+        "condition": row["condition"],
+        "sold": row["sold"],
+        "final": row["final"],
+    }
 
 
 class History:

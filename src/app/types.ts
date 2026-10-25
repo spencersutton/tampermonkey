@@ -38,6 +38,7 @@ export interface Lot {
 
 /** An earlier lot that closed, as the server records them (server/tlx_server/history.py). */
 export interface PastClose {
+  id: number;
   price: number;
   endsAt: number;
   condition: string | null; // label, e.g. "Like New"
@@ -47,7 +48,6 @@ export interface PastClose {
 
 /** A past close in full, as GET /api/history lists them. */
 export interface PastCloseDetail extends PastClose {
-  id: number;
   title: string;
   auctionPeriod: string;
   bidCount: number;

@@ -309,9 +309,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             api.catalog.heartbeat(self.headers.get("X-TLX-Active") == "1")
             c = api.store.changes(since)
             full = since == 0 or since > c.seq
-            head = dumps({"seq": c.seq, "full": full, "ids": None if full else c.ids, **api.status()})
-            # Lots are stored as JSON text; splice them in rather than re-encoding ~5,000 objects.
-            self._send(HTTPStatus.OK, f'{head[:-1]},"lots":[{",".join(c.lots)}]}}')
+            self._json(HTTPStatus.OK, {"seq": c.seq, "full": full, "ids": None if full else c.ids, **api.status(), "lots": c.lots})
 
         def _put_setting(self, key: str) -> None:
             if not SETTING_KEY.match(key):
