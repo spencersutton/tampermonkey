@@ -1,7 +1,8 @@
 """SQLite storage: the catalog, catalog meta, synced settings, the site login
 cookies, sessions of this app's own password login, the item type of each lot
-title (itemtypes.py), and every lot that has left the catalog, with its final
-price (history.py).
+title (itemtypes.py), every lot that has left the catalog, with its final
+price (history.py), and the last detail fetched for each lot (description,
+brand/model, bid history), kept after the lot closes.
 
 A lot is a row of `lots` with its site category, condition and location in
 lookup tables, its images in `lot_images`, its item type joined from
@@ -59,6 +60,10 @@ CREATE TABLE IF NOT EXISTS closed_lots (
   sold INTEGER NOT NULL, final INTEGER NOT NULL, condition TEXT, location TEXT, category TEXT, retail REAL
 );
 CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at);
+CREATE TABLE IF NOT EXISTS lot_details (
+  lot_id INTEGER PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price NUMERIC, description TEXT,
+  brand TEXT, model TEXT, lot_fee NUMERIC, bid_history TEXT NOT NULL, fetched_at INTEGER NOT NULL
+);
 """
 
 # lots: is_leading and your_max_bid are null without a standing; past_close_count
@@ -430,6 +435,17 @@ class Store:
             self._db.execute("DELETE FROM closed_lots WHERE id = ?", (lot_id,))
             self._touch_closes([lot_id])
             self._set("closedRev", self._get_int("closedRev") + 1)
+
+    # -- lot details ----------------------------------------------------------
+    def save_lot_detail(self, d: dict[str, Any]) -> None:
+        """Keep a lot's detail (normalize_detail in site.py), replacing the one fetched before."""
+        with self._lock:
+            self._db.execute(
+                """INSERT OR REPLACE INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
+                  lot_fee, bid_history, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (d["id"], d.get("auctionPeriod"), d.get("title") or "", d.get("status"), d.get("currentPrice"), d.get("description"),
+                 d.get("brand"), d.get("model"), d.get("lotFee"), dumps(d.get("bidHistory") or []), round(time.time() * 1000)),
+            )  # fmt: skip
 
     # -- item types -----------------------------------------------------------
     def item_types(self, titles: Iterable[str]) -> dict[str, str]:

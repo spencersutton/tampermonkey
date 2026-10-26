@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable
 from typing import Any
 
-from .site import ApiError, get, normalize_lot
+from .site import ApiError, get, normalize_detail, normalize_lot
 from .store import Store
 
 log = logging.getLogger(__name__)
@@ -209,6 +209,7 @@ class History:
                 log.warning("final prices stopped after %d of %d: %s", done, len(pending), e)
                 return
             lot = normalize_lot(raw)
+            self.store.save_lot_detail(normalize_detail(raw))
             if lot["status"] == "live" and (lot["endsAt"] or 0) > time.time() * 1000:
                 self.store.drop_close(row["id"])  # back in the catalog: the next pull has it
             elif lot["status"] in ("sold", "unsold"):

@@ -121,6 +121,21 @@ def normalize_lot(r: Raw) -> Raw:
     }
 
 
+def normalize_detail(r: Raw) -> Raw:
+    """A raw API lot detail as a LotDetail (mirrors fetchLotDetail in src/app/api.ts)."""
+    return {
+        **normalize_lot(r),
+        "description": str(r.get("description") or ""),
+        "brand": r.get("brand") or None,
+        "model": r.get("model") or None,
+        "lotFee": r.get("lot_fee"),
+        "bidHistory": [
+            {"bidderLabel": b.get("bidder_label"), "amount": b.get("amount"), "isYou": bool(b.get("is_you"))}
+            for b in r.get("bid_history") or []
+        ],
+    }
+
+
 @dataclass
 class LotPage:
     count: int

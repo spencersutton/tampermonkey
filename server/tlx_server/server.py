@@ -65,7 +65,7 @@ from . import __version__
 from .catalog import Catalog
 from .history import HISTORY_LIMIT, NAME_MATCH_KEY
 from .session import SiteSession
-from .site import SITE, TIMEOUT, USER_AGENT, ApiError, fetch_lost, now_ms
+from .site import SITE, TIMEOUT, USER_AGENT, ApiError, fetch_lost, normalize_detail, now_ms
 from .store import Store, dumps
 
 log = logging.getLogger(__name__)
@@ -79,6 +79,7 @@ LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 SESSION_COOKIE = "tlx_session"
 SESSION_MAX_AGE = 90 * 24 * 3600
 # Request headers passed through to the site's API (the rest are dropped).
+LOT_DETAIL_PATH = re.compile(r"/backend/v1/auctions/lots/[^/]+/\d+/")  # a lot detail the proxy keeps (store.lot_details)
 PROXY_HEADERS = ("Accept", "Content-Type", "X-CSRF-Protection", "X-Bid-Surface", "X-Bid-Type")
 WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol")
 
@@ -352,6 +353,11 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 self._error(HTTPStatus.BAD_GATEWAY, f"Couldn’t reach the site: {e}")
                 return
             self._send(status, data, ctype)
+            if method == "GET" and status == HTTPStatus.OK and LOT_DETAIL_PATH.fullmatch(urlsplit(self.path).path):
+                try:
+                    api.store.save_lot_detail(normalize_detail(json.loads(data)))
+                except (ValueError, KeyError, TypeError, AttributeError, sqlite3.Error):
+                    log.warning("couldn't keep the detail of %s", self.path, exc_info=True)
 
         def _relay_ws(self) -> None:
             """Relay the site's websocket: our handshake goes upstream with the site's Origin, then bytes flow both ways."""
