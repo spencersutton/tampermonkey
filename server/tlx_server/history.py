@@ -64,7 +64,7 @@ def names_match(a: frozenset[str], b: frozenset[str], min_pct: float) -> bool:
     return len(a & b) * 100 >= min_pct * len(a | b)
 
 
-def name_match_pct(value: Any) -> float:
+def name_match_pct(value: object) -> float:
     """The `tlxNameMatch` setting as a percentage, defaulted and clamped."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return DEFAULT_NAME_MATCH

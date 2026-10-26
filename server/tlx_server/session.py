@@ -17,6 +17,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from email.message import Message
+from http import HTTPStatus
 from http.cookies import CookieError, SimpleCookie
 from typing import Any
 
@@ -38,7 +40,7 @@ LOGIN_ERRORS = {
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
 
 
@@ -49,8 +51,11 @@ class SiteSession:
     def __init__(self, store: Store) -> None:
         self.store = store
         self._lock = threading.RLock()
-        self._cookies: dict[str, str] = store.get_meta(COOKIES_KEY, {})
-        self.user: dict[str, Any] | None = store.get_meta(USER_KEY, None)
+        cookies, user = store.get_meta(COOKIES_KEY), store.get_meta(USER_KEY)
+        self._cookies: dict[str, str] = (
+            {k: v for k, v in cookies.items() if isinstance(k, str) and isinstance(v, str)} if isinstance(cookies, dict) else {}
+        )
+        self.user: dict[str, Any] | None = user if isinstance(user, dict) else None
         self._last_refresh = 0.0
 
     # -- cookies --------------------------------------------------------------
@@ -58,7 +63,7 @@ class SiteSession:
         self.store.set_meta(COOKIES_KEY, self._cookies)
         self.store.set_meta(USER_KEY, self.user)
 
-    def _take_cookies(self, headers: Any) -> None:
+    def _take_cookies(self, headers: Message) -> None:
         for raw in headers.get_all("Set-Cookie") or []:
             jar = SimpleCookie()
             try:
@@ -73,7 +78,7 @@ class SiteSession:
                 else:
                     self._cookies[name] = morsel.value
 
-    def _request(self, method: str, path: str, form: dict[str, str] | None = None) -> tuple[int, Any]:
+    def _request(self, method: str, path: str, form: dict[str, str] | None = None) -> tuple[int, object]:
         """Call one of the site's next-auth endpoints with our cookies; returns (status, parsed JSON or None)."""
         headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
         if self._cookies:
@@ -89,11 +94,11 @@ class SiteSession:
             res = e  # redirects (with redirects off) and errors still carry cookies and a body
         with res:
             self._take_cookies(res.headers)
-            body = res.read()
+            status, body = res.status or HTTPStatus.BAD_GATEWAY, res.read()
             try:
-                return res.status, json.loads(body) if body else None
+                return status, json.loads(body) if body else None
             except ValueError:
-                return res.status, None
+                return status, None
 
     # -- state ----------------------------------------------------------------
     @property

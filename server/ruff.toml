@@ -28,9 +28,6 @@ extend-select = [
     "UP",
     "useless-return",
 ]
-ignore = [
-    "any-type", # Any is the honest type for JSON values and *args passthroughs
-]
 allowed-confusables = ["’", "–"]
 
 [lint.isort]

@@ -1,7 +1,9 @@
 #!/bin/sh
-# Runs `ruff format` on the Python files in this commit and re-stages them.
+# Runs `ruff format` on the Python files in this commit and re-stages them,
+# then type-checks the server with ty (pinned: bump TY_VERSION deliberately).
 # Enable once per clone with: git config core.hooksPath githooks
 
+TY_VERSION=0.0.92
 RUFF=$(command -v ruff || true)
 if [ -z "$RUFF" ]; then
     echo "pre-commit: ruff not found on PATH; skipping formatting. Install it with: pipx install ruff" >&2
@@ -19,3 +21,12 @@ if [ $status -ne 0 ]; then
 fi
 
 echo "$files" | xargs git add --
+
+if ! command -v uvx >/dev/null; then
+    echo "pre-commit: uvx not found on PATH; skipping ty. Install uv: https://docs.astral.sh/uv/" >&2
+    exit 0
+fi
+if ! uvx "ty@$TY_VERSION" check --project server --output-format concise; then
+    echo "pre-commit: ty found type errors (commit with --no-verify to skip)" >&2
+    exit 1
+fi

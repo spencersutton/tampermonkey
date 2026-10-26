@@ -24,9 +24,9 @@ import threading
 import time
 from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS categories (value TEXT PRIMARY KEY, label TEXT);
@@ -124,7 +124,7 @@ def closed_row(lot: dict[str, Any], final: int) -> tuple[Any, ...]:
     )
 
 
-def dumps(v: Any) -> str:
+def dumps(v: object) -> str:
     return json.dumps(v, separators=(",", ":"), ensure_ascii=False)
 
 
@@ -134,6 +134,18 @@ class CatalogMeta:
     pullStartedAt: float | None = None  # when the last pull (successful or not) started – rate limit anchor
     count: int = 0  # lot count the API reported in the last complete pull
     authed: bool = False  # whether that pull carried account data
+
+    @classmethod
+    def from_json(cls, v: object) -> Self:
+        d = v if isinstance(v, dict) else {}
+
+        def num(key: str) -> float | None:
+            x = d.get(key)
+            return x if isinstance(x, (int, float)) and not isinstance(x, bool) else None
+
+        return cls(
+            fetchedAt=num("fetchedAt"), pullStartedAt=num("pullStartedAt"), count=int(num("count") or 0), authed=d.get("authed") is True
+        )
 
 
 @dataclass
@@ -164,35 +176,39 @@ class Store:
         self._db.execute("COMMIT")
 
     # -- meta -----------------------------------------------------------------
-    def _get(self, key: str, default: Any = None) -> Any:
+    def _get(self, key: str, default: object = None) -> object:
         row = self._db.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         return json.loads(row[0]) if row else default
 
-    def _set(self, key: str, value: Any) -> None:
+    def _get_int(self, key: str) -> int:
+        v = self._get(key)
+        return int(v) if isinstance(v, (int, float)) else 0
+
+    def _set(self, key: str, value: object) -> None:
         self._db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, dumps(value)))
 
-    def get_meta(self, key: str, default: Any = None) -> Any:
+    def get_meta(self, key: str, default: object = None) -> object:
         with self._lock:
             return self._get(key, default)
 
-    def set_meta(self, key: str, value: Any) -> None:
+    def set_meta(self, key: str, value: object) -> None:
         with self._lock:
             self._set(key, value)
 
     def meta(self) -> CatalogMeta:
         with self._lock:
-            return CatalogMeta(**{**asdict(CatalogMeta()), **self._get("catalog", {})})
+            return CatalogMeta.from_json(self._get("catalog"))
 
-    def write_meta(self, **patch: Any) -> CatalogMeta:
+    def write_meta(self, **patch: object) -> CatalogMeta:
         with self._lock:
-            merged = {**asdict(CatalogMeta()), **self._get("catalog", {}), **patch}
-            self._set("catalog", merged)
-            return CatalogMeta(**merged)
+            meta = replace(CatalogMeta.from_json(self._get("catalog")), **patch)
+            self._set("catalog", asdict(meta))
+            return meta
 
     # -- catalog --------------------------------------------------------------
     def seq(self) -> int:
         with self._lock:
-            return int(self._get("seq", 0))
+            return self._get_int("seq")
 
     def _load(self, where: str = "", params: tuple[Any, ...] = ()) -> dict[int, dict[str, Any]]:
         """The lots matching `where` (on lots as l), assembled from their rows."""
@@ -296,7 +312,7 @@ class Store:
 
     def _touch_closes(self, closed_ids: Iterable[int]) -> None:
         """Give the lots listing any of these closed lots among their past closes a new sequence (what they show changed)."""
-        seq = int(self._get("seq", 0)) + 1
+        seq = self._get_int("seq") + 1
         before = self._db.total_changes
         self._db.executemany(
             "UPDATE lots SET seq = ? WHERE id IN (SELECT lot_id FROM lot_past_closes WHERE closed_id = ?)", [(seq, i) for i in closed_ids]
@@ -313,11 +329,11 @@ class Store:
         with self._lock:
             return self._load("WHERE l.id = ?", (lot_id,)).get(lot_id)
 
-    def replace_all(self, lots: Iterable[dict[str, Any]], **meta: Any) -> int:
+    def replace_all(self, lots: Iterable[dict[str, Any]], **meta: object) -> int:
         """Store a full pull: changed lots get the next sequence, missing ones move to closed_lots. Returns the sequence."""
         with self._lock:
             old = self._load()
-            seq = int(self._get("seq", 0))
+            seq = self._get_int("seq")
             fresh = {lot["id"]: lot for lot in lots}
             changed = [lot for i, lot in fresh.items() if old.get(i) != lot]
             gone = old.keys() - fresh.keys()
@@ -335,14 +351,14 @@ class Store:
                         f"INSERT OR REPLACE INTO closed_lots ({CLOSED_COLUMNS}) VALUES ({', '.join('?' * 12)})",
                         [closed_row(old[i], 0) for i in gone],
                     )
-                    self._set("closedRev", int(self._get("closedRev", 0)) + 1)
-                self._set("catalog", {**asdict(CatalogMeta()), **self._get("catalog", {}), **meta})
-            return int(self._get("seq", 0))
+                    self._set("closedRev", self._get_int("closedRev") + 1)
+                self._set("catalog", asdict(replace(CatalogMeta.from_json(self._get("catalog")), **meta)))
+            return self._get_int("seq")
 
     def changes(self, since: int) -> CatalogChanges:
         """Lots changed after sequence `since` (all of them for 0) and the current id list."""
         with self._lock:
-            seq = int(self._get("seq", 0))
+            seq = self._get_int("seq")
             if since > seq:  # the client saw a newer (since reset) database: send everything
                 since = 0
             lots = list(self._load("WHERE l.seq > ?", (since,)).values())
@@ -352,7 +368,7 @@ class Store:
     def update_lots(self, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> int:
         """Replace each stored lot with fn(lot), giving the changed ones a new sequence. Returns how many changed."""
         with self._lock:
-            seq = int(self._get("seq", 0)) + 1
+            seq = self._get_int("seq") + 1
             changed = [new for lot in self._load().values() if (new := fn(copy.deepcopy(lot))) != lot]
             if changed:
                 with self._tx():
@@ -364,7 +380,7 @@ class Store:
     def closed_rev(self) -> int:
         """Goes up whenever closed_lots changes."""
         with self._lock:
-            return int(self._get("closedRev", 0))
+            return self._get_int("closedRev")
 
     def closed_lots(self) -> list[dict[str, Any]]:
         """Every closed lot, in the shape the app gets them (see PastClose in src/app/types.ts)."""
@@ -406,14 +422,14 @@ class Store:
                 self._touch_closes([lot_id])
             else:
                 self._db.execute("UPDATE closed_lots SET final = -1 WHERE id = ?", (lot_id,))
-            self._set("closedRev", int(self._get("closedRev", 0)) + 1)
+            self._set("closedRev", self._get_int("closedRev") + 1)
 
     def drop_close(self, lot_id: int) -> None:
         """Forget a lot taken for closed that is still open."""
         with self._lock, self._tx():
             self._db.execute("DELETE FROM closed_lots WHERE id = ?", (lot_id,))
             self._touch_closes([lot_id])
-            self._set("closedRev", int(self._get("closedRev", 0)) + 1)
+            self._set("closedRev", self._get_int("closedRev") + 1)
 
     # -- item types -----------------------------------------------------------
     def item_types(self, titles: Iterable[str]) -> dict[str, str]:
@@ -444,7 +460,7 @@ class Store:
         if not types:
             return
         with self._lock, self._tx():
-            seq = int(self._get("seq", 0)) + 1
+            seq = self._get_int("seq") + 1
             before = self._db.total_changes
             self._db.executemany(
                 "UPDATE lots SET seq = ? WHERE title = ? AND NOT EXISTS (SELECT 1 FROM item_types WHERE title = ? AND type = ?)",
@@ -461,7 +477,7 @@ class Store:
     def reset_item_types(self) -> int:
         """Forget every stored item type, giving the lots that had one a new sequence. Returns how many titles had one."""
         with self._lock, self._tx():
-            seq = int(self._get("seq", 0)) + 1
+            seq = self._get_int("seq") + 1
             (n,) = self._db.execute("SELECT count(*) FROM item_types").fetchone()
             before = self._db.total_changes
             self._db.execute("UPDATE lots SET seq = ? WHERE title IN (SELECT title FROM item_types)", (seq,))
@@ -474,21 +490,21 @@ class Store:
     def settings(self, since: int = 0) -> tuple[int, dict[str, Any]]:
         """The settings revision and every setting changed after `since`."""
         with self._lock:
-            rev = int(self._get("settingsRev", 0))
+            rev = self._get_int("settingsRev")
             if since > rev:
                 since = 0
             rows = self._db.execute("SELECT key, value FROM settings WHERE rev > ?", (since,))
             return rev, {k: json.loads(v) for k, v in rows}
 
-    def setting(self, key: str, default: Any = None) -> Any:
+    def setting(self, key: str, default: object = None) -> object:
         with self._lock:
             row = self._db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
             return json.loads(row[0]) if row else default
 
-    def put_setting(self, key: str, value: Any) -> int:
+    def put_setting(self, key: str, value: object) -> int:
         """Save a setting (last write wins) and return the new settings revision."""
         with self._lock:
-            rev = int(self._get("settingsRev", 0)) + 1
+            rev = self._get_int("settingsRev") + 1
             self._db.execute("BEGIN")
             self._db.execute("INSERT OR REPLACE INTO settings (key, value, rev) VALUES (?, ?, ?)", (key, dumps(value), rev))
             self._set("settingsRev", rev)

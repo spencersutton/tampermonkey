@@ -28,9 +28,9 @@ KEEP_BACKUPS = 10
 
 def stored(store: Store, key: str) -> tuple[list[str], int]:
     """The stored list and the settings revision it was last written at (0 if never)."""
-    words = store.setting(key, [])
+    words = store.setting(key)
     row = store._db.execute("SELECT rev FROM settings WHERE key = ?", (key,)).fetchone()
-    return list(words), row[0] if row else 0
+    return [w for w in words if isinstance(w, str)] if isinstance(words, list) else [], row[0] if row else 0
 
 
 def read_new() -> list[str]:

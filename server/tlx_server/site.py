@@ -15,6 +15,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
+from http import HTTPStatus
 from typing import Any
 
 SITE = "https://triangleliquidators.com"
@@ -47,8 +48,8 @@ def token_expiry(token: str | None) -> float | None:
     return float(exp) if isinstance(exp, (int, float)) else None
 
 
-def get(path: str, params: dict[str, str | int] | None = None, token: str | None = None) -> Any:
-    """GET a JSON endpoint, with the bearer token when there is one."""
+def get(path: str, params: dict[str, str | int] | None = None, token: str | None = None) -> Raw:
+    """GET a JSON object endpoint, with the bearer token when there is one."""
     qs = f"?{urllib.parse.urlencode(params)}" if params else ""
     headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
     if token:
@@ -56,14 +57,19 @@ def get(path: str, params: dict[str, str | int] | None = None, token: str | None
     req = urllib.request.Request(f"{BASE}{path}{qs}", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-            return json.loads(res.read())
+            d = json.loads(res.read())
     except urllib.error.HTTPError as e:
         raise ApiError(f"{e.code} {e.reason or 'error'} for {path}", e.code) from e
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise ApiError(f"Network error for {path}: {e}", 0) from e
+    except ValueError as e:
+        raise ApiError(f"Invalid JSON for {path}", HTTPStatus.BAD_GATEWAY) from e
+    if not isinstance(d, dict):
+        raise ApiError(f"Expected a JSON object for {path}", HTTPStatus.BAD_GATEWAY)
+    return d
 
 
-def _num(v: Any, fallback: Any = 0) -> Any:
+def _num(v: object, fallback: float = 0) -> float:
     """The value if it is a finite number, else the fallback."""
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
         return fallback
@@ -80,7 +86,7 @@ def _epoch_ms(iso: str | None) -> int | None:
         return None
 
 
-def normalize_standing(s: Any) -> Raw | None:
+def normalize_standing(s: object) -> Raw | None:
     """The API's `your_standing` object as a Standing."""
     if not isinstance(s, dict):
         return None

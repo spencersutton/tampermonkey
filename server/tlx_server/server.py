@@ -84,7 +84,7 @@ WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Exten
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+    def redirect_request(self, *args: object, **kwargs: object) -> None:
         return None
 
 
@@ -119,7 +119,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
         server_version = f"tlx-server/{__version__}"
         protocol_version = "HTTP/1.1"
 
-        def log_message(self, format: str, *args: Any) -> None:
+        def log_message(self, format: str, *args: object) -> None:
             log.debug("%s %s", self.address_string(), format % args)
 
         # -- plumbing -------------------------------------------------------
@@ -148,13 +148,13 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if self.command != "HEAD":
                 self.wfile.write(data)
 
-        def _json(self, status: int, obj: Any, headers: dict[str, str] | None = None) -> None:
+        def _json(self, status: int, obj: object, headers: dict[str, str] | None = None) -> None:
             self._send(status, dumps(obj), headers=headers)
 
         def _error(self, status: HTTPStatus, message: str) -> None:
             self._json(status, {"error": message})
 
-        def _body(self) -> Any:
+        def _body(self) -> bytes:
             n = int(self.headers.get("Content-Length") or 0)
             if n > MAX_BODY:
                 raise ValueError("Request body too large")
@@ -337,7 +337,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 except urllib.error.HTTPError as e:
                     res = e
                 with res:
-                    return (res.status, res.headers.get("Content-Type", "application/json"), res.read())
+                    return (res.status or HTTPStatus.BAD_GATEWAY, res.headers.get("Content-Type", "application/json"), res.read())
 
             try:
                 token = api.session.token()
