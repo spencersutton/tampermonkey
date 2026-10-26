@@ -131,7 +131,6 @@ h3 { font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
 .check-expand svg { transition: transform 0.15s; }
 .check-expand[aria-expanded='true'] svg { transform: rotate(180deg); }
 .check-subs { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 4px 24px; }
-.check-subs-clear { align-self: flex-start; font-size: 12.5px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
 .switch-row input {
   appearance: none; flex: none; width: 34px; height: 20px; border-radius: 10px; margin: 0; position: relative;

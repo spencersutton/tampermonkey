@@ -112,8 +112,8 @@ function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[
 
 /**
  * Category checkboxes; a site category with subcategories expands to list
- * them. Checking it checks them all and unchecking it unchecks them all;
- * "Uncheck subcategories" leaves just the lots still in the site category.
+ * them, headed by "Other" for its lots in no subcategory. Checking the site
+ * category checks them all and unchecking it unchecks them all.
  */
 function CategoryList({ facets, selected, onChange }: { facets: Facets; selected: string[]; onChange: (next: string[]) => void }) {
   const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
@@ -124,22 +124,23 @@ function CategoryList({ facets, selected, onChange }: { facets: Facets; selected
         if (!subs.length) {
           return <CheckRow facet={facet} checked={selected.includes(facet.value)} onChange={() => toggle(facet.value)} />;
         }
-        const values = [facet.value, ...subs.map((s) => s.value)];
-        // Ticked while the site category itself is selected; a dash when only some subcategories are.
-        const on = selected.includes(facet.value);
+        // Selecting the site category's own value keeps the lots left in it, so that's its "Other" row.
+        const rows = [{ ...facet, label: 'Other' }, ...subs];
+        const values = rows.map((r) => r.value);
+        const all = values.every((v) => selected.includes(v));
         const some = values.some((v) => selected.includes(v));
         // Subcategory lists start closed; `collapsed[id] === false` means opened.
         const id = `cat:${facet.value}`;
         const open = collapsed?.[id] === false;
-        const total = facet.count + subs.reduce((n, s) => n + s.count, 0);
+        const total = rows.reduce((n, r) => n + r.count, 0);
         return (
           <div class="check-group">
             <div class="check-parent">
               <CheckRow
                 facet={{ ...facet, count: total }}
-                checked={on}
-                indeterminate={some && !on}
-                onChange={() => onChange(on ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
+                checked={all}
+                indeterminate={some && !all}
+                onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
               />
               <button
                 type="button"
@@ -153,19 +154,9 @@ function CategoryList({ facets, selected, onChange }: { facets: Facets; selected
             </div>
             {open && (
               <div class="check-subs">
-                {subs.map((s) => (
-                  <CheckRow facet={s} checked={selected.includes(s.value)} onChange={() => toggle(s.value)} />
+                {rows.map((r) => (
+                  <CheckRow facet={r} checked={selected.includes(r.value)} onChange={() => toggle(r.value)} />
                 ))}
-                {subs.some((s) => selected.includes(s.value)) && (
-                  <button
-                    type="button"
-                    class="btn-text check-subs-clear"
-                    title={`Uncheck every ${facet.label} subcategory, keeping ${facet.label} itself as it is`}
-                    onClick={() => onChange(selected.filter((v) => !subs.some((s) => s.value === v)))}
-                  >
-                    Uncheck subcategories
-                  </button>
-                )}
               </div>
             )}
           </div>
