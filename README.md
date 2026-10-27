@@ -28,6 +28,12 @@ A separate, faster catalog for [triangleliquidators.com](https://triangleliquida
 
 The app is served by a small server you run yourself (`server/`, Python 3.12+, standard library only). It works in any browser, phones included; "Add to Home Screen" gives it an app icon.
 
+Build the web app once first (and again after pulling changes to `src/` or `web/`); it needs Node:
+
+```bash
+npm install && npm run build
+```
+
 ```bash
 cd server
 python3 -m tlx_server                                             # this computer only: http://127.0.0.1:8765
@@ -56,8 +62,8 @@ The app can't call the site directly, because the site's API doesn't allow other
 
 ### Development
 
-Source is in `src/` (TypeScript + Preact, bundled with Vite). The build is committed in
-`server/tlx_server/static/`, so the server runs without Node.
+Source is in `src/` (TypeScript + Preact, bundled with Vite). The build goes to
+`server/tlx_server/static/`, which git ignores.
 
 ```bash
 npm install

@@ -519,6 +519,8 @@ def _shutdown(sock: socket.socket) -> None:
 def serve(api: Api, host: str, port: int, cert: Path | None = None, key: Path | None = None) -> None:
     mimetypes.add_type("application/manifest+json", ".webmanifest")
     mimetypes.add_type("image/svg+xml", ".svg")
+    if not (STATIC_DIR / "index.html").is_file():
+        log.warning("the web app isn't built (%s is missing): run `npm install && npm run build` in the repo root", STATIC_DIR)
     httpd = ThreadingHTTPServer((host, port), make_handler(api))
     httpd.daemon_threads = True
     if cert:
