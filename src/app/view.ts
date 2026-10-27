@@ -240,7 +240,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     transferFee,
     pickupOnly: elsewhere && !lot.isTransferable,
     total: totalCost(lot.currentPrice, transferFee),
-    retailPct: lot.estimatedRetailPrice ? lot.currentPrice / lot.estimatedRetailPrice : null,
+    retailPct: lot.estimatedRetailPrice ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100 : null,
     matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
     hidden: !!ex.hidden[lot.id],
     others: [],
