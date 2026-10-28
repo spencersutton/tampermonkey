@@ -1,5 +1,5 @@
 // Estimated total cost = (bid + buyer's premium + lot fee [+ transfer fee]) × (1 + sales tax)
-export const FEES = {
+const FEES = {
   premium: 0.15, // 15% buyer's premium
   lotFee: 1, // $1 per lot
   transferFee: 5, // $5 for Anderson / Transferable lots
