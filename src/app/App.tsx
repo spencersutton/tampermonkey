@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { computed } from '@preact/signals';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { nameMatchPct } from '../shared/names';
 import { fetchPickupLocation, type ClosedSection } from './api';
-import { LoginLink, useAuthed } from './auth';
+import { isAuthenticated, LoginLink } from './auth';
 import { nextPullAt, pullCatalog, settingsSynced } from './source';
-import { getLot, state as catalogState, useCatalog } from './catalog';
+import { error, getLot, loaded, lots, meta, progress, rev } from './catalog';
 import { getSetting, setSetting, useSetting } from './settings';
-import { navFromUrl, useHistory } from './history';
+import { useHistory, type NavState } from './history';
 import { Icon } from './icons';
-import { watchLots, useLiveState, type LiveState } from './live';
+import { liveState, watchLots, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
 import { CategoryEditor } from './CategoryEditor';
 import { ClosedLots } from './ClosedLots';
@@ -18,7 +19,7 @@ import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
-import { ago, countdown, DAY, fmtCount, MINUTE, shortTime, useNow } from './util';
+import { ago, clock, countdown, DAY, fmtCount, MINUTE, shortTime } from './util';
 import {
   activeFilterCount,
   computeFacets,
@@ -72,10 +73,45 @@ function useOnScreenLots(grid: { current: HTMLElement | null }, key: string): nu
   return ids;
 }
 
-/** Name of the account's pickup location, fetched at most once a day while logged in. */
-function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | null {
-  const [acct] = useSetting(KEYS.accountPickup);
+/** Name of the account's pickup location (fetched by App at most once a day while logged in). */
+const accountPickupName = computed(() => {
+  const acct = getSetting(KEYS.accountPickup);
+  if (acct?.name || acct?.id == null) {
+    return acct?.name ?? null;
+  }
+  // The account may only give the location's id; find its name among the lots.
+  return lots.value.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
+});
+const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
+
+const storedView = computed(() => normalizeView(getSetting(KEYS.view)));
+const exclusionRules = computed(() => ({
+  words: getSetting(KEYS.words),
+  filterOn: getSetting(KEYS.filterOn),
+  removeFiltered: getSetting(KEYS.removeFiltered),
+  hidden: getSetting(KEYS.hidden),
+  showHidden: getSetting(KEYS.showHidden),
+  customCategories: getSetting(KEYS.customCategories),
+  nameMatch: nameMatchPct(getSetting(KEYS.nameMatch)),
+}));
+
+// Closed lots drop out on a 30 s clock; countdowns tick on their own.
+/** The grid: lots through the view's filters and sort, recomputed on every lot update. */
+const gridView = computed(() => {
+  void rev.value;
+  return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000));
+});
+/** Filter options and their counts; these don't follow live price updates. */
+const filterFacets = computed(() => computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)));
+const searchStats = computed(() => {
+  void rev.value;
+  return savedSearchStats(lots.value.values(), getSetting(KEYS.savedSearches), pickupName.value, exclusionRules.value, clock(30_000));
+});
+
+/** Fetch the account's pickup location at most once a day while logged in. */
+function useAccountPickupFetch(authed: boolean) {
   useEffect(() => {
+    const acct = getSetting(KEYS.accountPickup);
     if (authed && !(acct && Date.now() - acct.at < DAY)) {
       fetchPickupLocation().then(
         (p) => setSetting(KEYS.accountPickup, { id: p?.id ?? null, name: p?.name ?? null, at: Date.now() }),
@@ -83,11 +119,6 @@ function useAccountPickup(lots: Map<number, Lot>, authed: boolean): string | nul
       );
     }
   }, [authed]);
-  if (acct?.name || acct?.id == null) {
-    return acct?.name ?? null;
-  }
-  // The account may only give the location's id; find its name among the lots.
-  return lots.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 }
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
@@ -127,7 +158,7 @@ function useVisitSince(): number | null {
 
 /** With no previous visit, start just before the earliest-seen lot that still has over FIRST_VISIT_NEW_LEFT to go. */
 function firstVisitSince(now: number): number {
-  const first = catalogState.lots
+  const first = lots.value
     .values()
     .filter((l) => l.endsAt - now > FIRST_VISIT_NEW_LEFT)
     .reduce((min, l) => Math.min(min, l.firstSeenAt ?? 0), Infinity);
@@ -135,31 +166,18 @@ function firstVisitSince(now: number): number {
 }
 
 /** The whole /tlx page: sidebar, toolbar, infinitely scrolling lot grid, and the lot / bid popups. */
-export function App() {
-  // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
-  const [fromUrl] = useState(() => {
-    const nav = navFromUrl();
-    // A link to just the Won / Lost page (/tlx?closed=won) keeps the current view.
-    if (nav && new URLSearchParams(location.search).keys().some((k) => k !== 'closed')) {
-      setSetting(KEYS.view, nav.view);
-    }
-    return nav;
-  });
-  const catalog = useCatalog();
-  const [storedView, setStoredView] = useSetting(KEYS.view);
-  const view = useMemo(() => normalizeView(storedView), [storedView]);
-  const [words] = useSetting(KEYS.words);
-  const [filterOn] = useSetting(KEYS.filterOn);
-  const [removeFiltered] = useSetting(KEYS.removeFiltered);
-  const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
-  const [showHidden] = useSetting(KEYS.showHidden);
-  const [pickupOverride] = useSetting(KEYS.pickup);
-  const [customCategories] = useSetting(KEYS.customCategories);
+export function App({ fromUrl }: { fromUrl: NavState | null }) {
+  const authed = isAuthenticated();
+  useAccountPickupFetch(authed);
   const [titleLines] = useSetting(KEYS.titleLines);
-  const [nameMatch] = useSetting(KEYS.nameMatch);
-  const authed = useAuthed();
-  const accountPickup = useAccountPickup(catalog.lots, authed);
-  const pickup = pickupOverride || accountPickup || 'Raleigh';
+  const [saved] = useSetting(KEYS.savedSearches);
+  const view = storedView.value;
+  const pickup = pickupName.value;
+  const exclusions = exclusionRules.value;
+  const result = gridView.value;
+  const facets = filterFacets.value;
+  const savedStats = searchStats.value;
+  const accountPickup = accountPickupName.value;
 
   // How many PAGE_SIZE batches of lots the grid shows; grows as the end of it scrolls into view.
   const [page, setPage] = useState(fromUrl?.page ?? 1);
@@ -174,17 +192,15 @@ export function App() {
   const grid = useRef<HTMLDivElement>(null);
   const gridEnd = useRef<HTMLDivElement>(null);
 
-  // Closed lots drop out on this cadence; countdowns tick on their own.
-  const now30 = useNow(30_000);
+  const now30 = clock(30_000);
 
-  const [saved] = useSetting(KEYS.savedSearches);
   // Lots that are new since the previous visit get a badge; while a saved
   // search is open, since that search's previous visit instead.
   const visitSince = useVisitSince();
   const [highlight, setHighlight] = useState<{ id: string; since: number } | null>(null);
 
   const setView = useCallback((patch: Partial<ViewState>) => {
-    setStoredView({ ...normalizeView(getSetting(KEYS.view)), ...patch });
+    setSetting(KEYS.view, { ...normalizeView(getSetting(KEYS.view)), ...patch });
     setPage(1);
     setClosed(null); // changing the filters goes back to the grid
   }, []);
@@ -211,23 +227,6 @@ export function App() {
     }
   }, [view.search]);
 
-  const exclusions = useMemo(
-    () => ({ words, filterOn, removeFiltered, hidden: hiddenLots, showHidden, customCategories, nameMatch: nameMatchPct(nameMatch) }),
-    [words, filterOn, removeFiltered, hiddenLots, showHidden, customCategories, nameMatch],
-  );
-  const result = useMemo(
-    () => computeView(catalog.lots.values(), view, pickup, exclusions, now30),
-    [catalog.rev, view, pickup, exclusions, now30],
-  );
-  const facets = useMemo(
-    () => computeFacets(catalog.lots.values(), now30, customCategories),
-    [catalog.lots, catalog.meta.fetchedAt, catalog.loaded, now30, customCategories],
-  );
-
-  const savedStats = useMemo(
-    () => savedSearchStats(catalog.lots.values(), saved, pickup, exclusions, now30),
-    [catalog.rev, saved, pickup, exclusions, now30],
-  );
   const totalNew = savedStats.values().reduce((n, s) => n + s.fresh, 0);
   const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
   const sinceSaved = !!highlight && activeSaved?.id === highlight.id;
@@ -251,7 +250,7 @@ export function App() {
       updateSaved((l) => (l.some((x) => sameFilters(view, x.view)) ? l : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }]));
     },
     onOpen: (s: SavedSearch, newOnly: boolean) => {
-      setStoredView({ ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
+      setSetting(KEYS.view, { ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
       setSearch(s.view.search);
       setPage(1);
       setClosed(null);
@@ -287,15 +286,15 @@ export function App() {
   const watchIds = [...onScreen, ...(openId && !onScreen.includes(openId) ? [openId] : [])];
   const watchKey = watchIds.join(',');
   useEffect(() => {
-    if (catalog.loaded) {
+    if (loaded.value) {
       const t = setTimeout(() => void watchLots(watchIds).catch(() => {}), 300);
       return () => clearTimeout(t);
     }
-  }, [watchKey, catalog.loaded]);
+  }, [watchKey, loaded.value]);
 
   const toggleHide = useCallback((lot: Lot) => {
     const { [lot.id]: wasHidden, ...rest } = getSetting(KEYS.hidden);
-    setHiddenLots(wasHidden ? rest : { ...rest, [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() } });
+    setSetting(KEYS.hidden, wasHidden ? rest : { ...rest, [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() } });
   }, []);
   const openLot = useCallback((lot: Lot) => setOpenId(lot.id), []);
   const openHidden = useCallback((id: number) => {
@@ -316,7 +315,7 @@ export function App() {
   const closeLot = useHistory(
     { view, page, openId, closed },
     (nav) => {
-      setStoredView(normalizeView(nav.view));
+      setSetting(KEYS.view, normalizeView(nav.view));
       setPage(nav.page);
       setOpenId(nav.openId);
       setClosed(nav.closed);
@@ -324,8 +323,8 @@ export function App() {
     () => setOpenId(null),
   );
 
-  const openLotObj = openId != null ? catalog.lots.get(openId) : undefined;
-  const bidLot = bidReq ? catalog.lots.get(bidReq.lotId) : undefined;
+  const openLotObj = openId != null ? getLot(openId) : undefined;
+  const bidLot = bidReq ? getLot(bidReq.lotId) : undefined;
   const nFilters = activeFilterCount(view);
   const badRegex = view.searchRegex && !!search.trim() && !searchRegexOf({ ...view, search });
   // How many of the matches are new since the last visit (to the open saved search, if any).
@@ -402,7 +401,7 @@ export function App() {
               <span>
                 {result.rows.length
                   ? `${fmtCount(result.rows.length)} ${result.rows.length === 1 ? 'lot' : 'lots'}`
-                  : catalog.loaded && !catalog.progress
+                  : loaded.value && !progress.value
                     ? 'No lots match'
                     : ''}
                 {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
@@ -460,11 +459,11 @@ export function App() {
       {bidReq && bidLot && (
         <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
       )}
-      {editingCategories && <CategoryEditor lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
+      {editingCategories && <CategoryEditor lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
       {typeLot && (
         <TypeCategory
           lot={typeLot}
-          lots={catalog.lots.values().filter((l) => l.endsAt > now30).toArray()}
+          lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()}
           onClose={() => setTypeLot(null)}
         />
       )}
@@ -477,23 +476,23 @@ const LIVE_LABELS: Record<LiveState, string> = { connected: 'Live', connecting: 
 
 /** Catalog freshness, pull progress, live connection state and the manual refresh button. */
 function StatusBar() {
-  const catalog = useCatalog();
-  const live = useLiveState();
-  const now = useNow(1000);
-  const { meta, progress, error, loaded } = catalog;
+  const live = liveState.value;
+  const now = clock(1000);
+  const pull = progress.value;
+  const { fetchedAt } = meta.value;
   const wait = nextPullAt() - now;
   const due = wait <= 0;
 
   let text = 'No cached catalog yet';
-  if (!loaded) {
+  if (!loaded.value) {
     text = 'Loading catalog…';
-  } else if (progress) {
-    text = progress.total ? `Refreshing catalog… ${fmtCount(progress.done)} of ${fmtCount(progress.total)}` : 'Refreshing catalog…';
-  } else if (meta.fetchedAt) {
-    text = `${fmtCount(catalog.lots.size)} lots · refreshed ${ago(meta.fetchedAt, now)}`;
+  } else if (pull) {
+    text = pull.total ? `Refreshing catalog… ${fmtCount(pull.done)} of ${fmtCount(pull.total)}` : 'Refreshing catalog…';
+  } else if (fetchedAt) {
+    text = `${fmtCount(lots.value.size)} lots · refreshed ${ago(fetchedAt, now)}`;
   }
 
-  const pct = progress?.total ? Math.round((progress.done / progress.total) * 100) : 0;
+  const pct = pull?.total ? Math.round((pull.done / pull.total) * 100) : 0;
   return (
     <div class="statusbar">
       <span>{text}</span>
@@ -503,18 +502,18 @@ function StatusBar() {
       <button
         type="button"
         class="btn-text"
-        disabled={!loaded || !!progress || !due}
+        disabled={!loaded.value || !!pull || !due}
         onClick={() => void pullCatalog()}
         title={due ? 'Pull the full catalog now' : 'Full refreshes are rate-limited; change the interval in Settings'}
       >
-        <Icon name="refresh" size={16} /> {progress ? 'Refreshing' : due ? 'Refresh' : `Refresh in ${countdown(wait)}`}
+        <Icon name="refresh" size={16} /> {pull ? 'Refreshing' : due ? 'Refresh' : `Refresh in ${countdown(wait)}`}
       </button>
-      {progress && (
+      {pull && (
         <span class="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <span style={{ width: `${pct}%` }} />
         </span>
       )}
-      {error && <span class="error">{error}</span>}
+      {error.value && <span class="error">{error.value}</span>}
     </div>
   );
 }

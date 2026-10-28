@@ -6,9 +6,10 @@
 //   server keeps the site's session cookies and adds the API token to every
 //   /backend request, so this page never sees a token at all.
 import type { ComponentChildren } from 'preact';
-import { useSyncExternalStore } from 'preact/compat';
-import { useRef, useState } from 'preact/hooks';
-import { emitter, MINUTE, useDialog } from './util';
+import { computed, effect, signal, untracked } from '@preact/signals';
+import { useState } from 'preact/hooks';
+import { Dialog } from './Dialog';
+import { MINUTE } from './util';
 
 const CHECK_EVERY = 5 * MINUTE;
 const FOCUS_MIN_GAP = MINUTE;
@@ -20,29 +21,24 @@ export interface Me {
 }
 
 /** The server's last answer to /api/me (null until the first one). */
-let me: Me | null = null;
+export const me = signal<Me | null>(null);
 /** Whether the login form is open. */
-let loginOpen = false;
+const loginOpen = signal(false);
+const authed = computed(() => !!me.value?.site?.loggedIn);
 
-const { subscribe, emit } = emitter();
+/** Whether the server is logged in to the site. */
+export const isAuthenticated = () => authed.value;
 
-/** Login state changes; `fn` runs only when the site login flips (what live.ts and the catalog care about). */
+/** `fn` runs whenever the site login flips (what live.ts and the catalog care about). */
 export function onAuthChange(fn: () => void): () => void {
-  let last = isAuthenticated();
-  return subscribe(() => {
-    if (isAuthenticated() !== last) {
-      last = isAuthenticated();
-      fn();
+  let last = authed.peek();
+  return effect(() => {
+    if (authed.value !== last) {
+      last = authed.value;
+      untracked(fn);
     }
   });
 }
-
-/** Whether the server is logged in to the site. */
-export const isAuthenticated = () => !!me?.site?.loggedIn;
-/** Re-renders when the site login changes. */
-export const useAuthed = () => useSyncExternalStore(subscribe, isAuthenticated);
-/** Re-renders on any login change; null until the server first answers. */
-export const useMe = () => useSyncExternalStore(subscribe, () => me);
 
 /** A link-styled button that opens the login form. */
 export function LoginLink({ class: cls = 'link-button', title, children }: { class?: string; title?: string; children: ComponentChildren }) {
@@ -53,12 +49,7 @@ export function LoginLink({ class: cls = 'link-button', title, children }: { cla
   );
 }
 
-function setLoginOpen(open: boolean) {
-  loginOpen = open;
-  emit();
-}
-
-const useLoginOpen = () => useSyncExternalStore(subscribe, () => loginOpen);
+const setLoginOpen = (open: boolean) => void (loginOpen.value = open);
 
 /** Call one of the server's /api endpoints and take the login state from its reply. */
 async function callMe(path: string, body?: unknown): Promise<Me & { error?: string | null }> {
@@ -71,8 +62,7 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
   });
   const data = await res.json().catch(() => ({ error: `Server replied ${res.status}` }));
   if (data?.app) {
-    me = data;
-    emit();
+    me.value = data;
   }
   if (!res.ok) {
     throw new Error(data?.error || `Server replied ${res.status}`);
@@ -198,28 +188,14 @@ export function AppLock() {
 
 /** The Triangle Liquidators login form, opened by any LoginLink. */
 export function LoginDialog() {
-  const open = useLoginOpen();
-  return open ? <LoginForm /> : null;
+  return loginOpen.value ? <LoginForm /> : null;
 }
 
 function LoginForm() {
-  const [email, setEmail] = useState(me?.site?.email ?? '');
+  const [email, setEmail] = useState(me.peek()?.site?.email ?? '');
   const [password, setPassword] = useState('');
-  const first = useRef<HTMLInputElement>(null);
-  // Capture phase, so Escape closes only this form and not a lot popup beneath it.
-  useDialog(
-    first,
-    (e) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        e.preventDefault();
-        setLoginOpen(false);
-      }
-    },
-    true,
-  );
   return (
-    <div class="backdrop backdrop-top" onMouseDown={(e) => e.target === e.currentTarget && setLoginOpen(false)}>
+    <Dialog onClose={() => setLoginOpen(false)} aria-labelledby="login-title">
       <FormCard
         title="Log in to Triangle Liquidators"
         intro="The tlx server signs in for you and stays logged in. Your password goes to the site once and isn’t stored."
@@ -236,7 +212,7 @@ function LoginForm() {
           <>
             <label class="field">
               <span>Email</span>
-              <input ref={first} type="email" autocomplete="username" required value={email} onInput={(e) => setEmail(e.currentTarget.value)} />
+              <input autofocus type="email" autocomplete="username" required value={email} onInput={(e) => setEmail(e.currentTarget.value)} />
             </label>
             <label class="field">
               <span>Password</span>
@@ -245,13 +221,13 @@ function LoginForm() {
           </>
         }
       />
-    </div>
+    </Dialog>
   );
 }
 
 /** Account rows for the Settings panel: who the server is logged in as, and log out / lock. */
 export function AccountSettings() {
-  const state = useMe();
+  const state = me.value;
   const site = state?.site;
   const [busy, setBusy] = useState(false);
   const act = (fn: () => Promise<unknown>) => async () => {

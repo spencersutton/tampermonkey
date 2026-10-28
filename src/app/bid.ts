@@ -52,8 +52,8 @@ export function bidBlocker(row: Row, now = Date.now()): string | null {
 // Lots with a bid in flight (one at a time per lot, across all bid buttons).
 const pending = observableSet<number>();
 
-/** Preact hook: whether a bid on this lot is in flight. */
-export const useBidPending = (lotId: number) => pending.useHas(lotId);
+/** Whether a bid on this lot is in flight. */
+export const bidPending = (lotId: number) => pending.has(lotId);
 
 /** Send a confirmed bid. Resolves true if the site accepted it (winning or not). */
 export async function submitBid({ lotId, amount, type }: BidRequest): Promise<boolean> {

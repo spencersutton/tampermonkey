@@ -8,7 +8,8 @@
 // some tab is, unless run with --background-minutes). Its pulls use its own
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
-import { changed, inUse, state, trackActivity, type CatalogMeta } from './catalog';
+import { batch } from '@preact/signals';
+import { error, inUse, loaded, lots, meta, progress, trackActivity, type CatalogMeta } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot, PastCloseDetail } from './types';
@@ -78,36 +79,28 @@ let serverError: string | null = null;
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
   nextAt = s.nextPullAt - skew;
-  state.meta = s.meta;
-  state.progress = s.progress;
-  state.error = s.error;
+  meta.value = s.meta;
+  progress.value = s.progress;
+  error.value = s.error;
 }
 
 /** Merge a catalog reply into memory. */
 function applyCatalog(r: CatalogReply) {
-  const before = { seq, fetchedAt: state.meta.fetchedAt, progress: JSON.stringify(state.progress), error: state.error, loaded: state.loaded };
-  applyStatus(r);
-  if (r.full || r.lots.length || (r.ids && r.ids.length !== state.lots.size)) {
-    // A new Map, so views keyed on the catalog's identity recompute.
-    const next = new Map(r.full ? [] : state.lots);
-    if (r.ids) {
-      const keep = new Set(r.ids);
-      next.forEach((_, id) => keep.has(id) || next.delete(id));
+  batch(() => {
+    applyStatus(r);
+    const cur = lots.peek();
+    if (r.full || r.lots.length || (r.ids && r.ids.length !== cur.size)) {
+      const next = new Map(r.full ? [] : cur);
+      if (r.ids) {
+        const keep = new Set(r.ids);
+        next.forEach((_, id) => keep.has(id) || next.delete(id));
+      }
+      r.lots.forEach((l) => next.set(l.id, l));
+      lots.value = keepNewer(next, r.lots);
     }
-    r.lots.forEach((l) => next.set(l.id, l));
-    state.lots = keepNewer(next, r.lots);
-  }
-  seq = r.seq;
-  state.loaded = true;
-  if (
-    !before.loaded ||
-    before.seq !== seq ||
-    before.fetchedAt !== state.meta.fetchedAt ||
-    before.progress !== JSON.stringify(state.progress) ||
-    before.error !== state.error
-  ) {
-    changed();
-  }
+    seq = r.seq;
+    loaded.value = true;
+  });
 }
 
 /**
@@ -115,9 +108,9 @@ function applyCatalog(r: CatalogReply) {
  * `version`) than the lots it sent, so those win, keeping the pull's
  * first-seen time.
  */
-function keepNewer(next: Map<number, Lot>, lots: Lot[]): Map<number, Lot> {
-  for (const fresh of lots) {
-    const mine = state.lots.get(fresh.id);
+function keepNewer(next: Map<number, Lot>, pulled: Lot[]): Map<number, Lot> {
+  for (const fresh of pulled) {
+    const mine = lots.peek().get(fresh.id);
     if (mine && mine.version > fresh.version) {
       next.set(fresh.id, { ...mine, firstSeenAt: fresh.firstSeenAt });
     }
@@ -130,9 +123,10 @@ function setServerError(err: unknown) {
   const message = (err as Error).message || String(err);
   if (message !== serverError) {
     serverError = message;
-    state.error = message;
-    state.loaded = true;
-    changed();
+    batch(() => {
+      error.value = message;
+      loaded.value = true;
+    });
   }
 }
 
@@ -153,7 +147,7 @@ function poll(): Promise<void> {
       setServerError(err);
     } finally {
       polling = null;
-      const wait = state.progress ? POLL_PULLING : document.visibilityState === 'visible' ? POLL_VISIBLE : POLL_HIDDEN;
+      const wait = progress.peek() ? POLL_PULLING : document.visibilityState === 'visible' ? POLL_VISIBLE : POLL_HIDDEN;
       pollTimer = window.setTimeout(() => void poll(), wait);
     }
   })());
@@ -163,7 +157,6 @@ function poll(): Promise<void> {
 export async function pullCatalog() {
   try {
     applyStatus(await call<Status>('POST', '/api/pull'));
-    changed();
     // Poll soon so the progress bar shows up.
     window.setTimeout(() => void poll(), 500);
   } catch (err) {

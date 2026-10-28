@@ -7,15 +7,15 @@ import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { KEYS, lotHref } from '../shared/keys';
 import { nameMatchPct, namesMatch, nameTokens } from '../shared/names';
 import { CDN, fetchClosed, type ClosedSection } from './api';
-import { LoginLink, useAuthed } from './auth';
-import { loadDetail, useCatalog } from './catalog';
+import { isAuthenticated, LoginLink } from './auth';
+import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
 import { LocationText, TimeLeft } from './LotCard';
 import { LotModal } from './LotModal';
 import { useSetting } from './settings';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { fmtCount, MINUTE, plural, shortDate, useNow } from './util';
+import { clock, fmtCount, MINUTE, plural, shortDate } from './util';
 import type { Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */
@@ -68,24 +68,23 @@ interface Props {
 }
 
 export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide, rowOf }: Props) {
-  const authed = useAuthed();
+  const authed = isAuthenticated();
   const data = useClosed(section, authed);
-  const catalog = useCatalog();
   const [nameMatch] = useSetting(KEYS.nameMatch);
   const [filter, setFilter] = useState('');
   const [opening, setOpening] = useState<number | null>(null);
   const [modalLot, setModalLot] = useState<Lot | null>(null);
-  const now = useNow(30_000);
+  const now = clock(30_000);
 
   // Open lots by their title words, to find the ones listed again.
   const open = useMemo(
     () =>
-      catalog.lots
+      catalogLots.value
         .values()
         .filter((l) => l.endsAt > now)
         .map((l) => ({ lot: l, words: nameTokens(l.title) }))
         .toArray(),
-    [catalog.rev, now],
+    [catalogLots.value, rev.value, now],
   );
   const pct = nameMatchPct(nameMatch);
   const relisted = useMemo(() => {
@@ -112,7 +111,7 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
   const total = lots.reduce((n, c) => n + totalCost(c.finalPrice), 0);
 
   const openClosed = (c: ClosedLot) => {
-    const inCatalog = catalog.lots.get(c.lotId);
+    const inCatalog = getLot(c.lotId);
     if (inCatalog) {
       onOpenLot(inCatalog);
       return;

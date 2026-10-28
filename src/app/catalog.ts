@@ -3,10 +3,10 @@
 // source.ts). Between pulls prices for lots on screen stay current over the
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
-import { useSyncExternalStore } from 'preact/compat';
+import { signal } from '@preact/signals';
 import { fetchLotDetail } from './api';
 import type { Lot, LotDetail } from './types';
-import { emitter, MINUTE } from './util';
+import { MINUTE } from './util';
 
 /** How long a fetched lot detail is reused. */
 const DETAIL_TTL = 2 * MINUTE;
@@ -25,53 +25,37 @@ export interface SyncProgress {
   total: number | null;
 }
 
-export interface CatalogState {
-  loaded: boolean; // first read from the server finished
-  lots: Map<number, Lot>;
-  meta: CatalogMeta;
-  progress: SyncProgress | null; // a pull running
-  error: string | null;
-  rev: number; // bumps on every change
+/** First read from the server finished. */
+export const loaded = signal(false);
+/**
+ * Every live lot, by id. A catalog reply that changes any lots replaces the
+ * Map; websocket and lot detail updates change it in place and bump `rev`.
+ */
+export const lots = signal(new Map<number, Lot>());
+/** Bumps on every in-place lot update; read it (or getLot) to follow live prices. */
+export const rev = signal(0);
+export const meta = signal<CatalogMeta>({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false });
+/** A pull running. */
+export const progress = signal<SyncProgress | null>(null);
+export const error = signal<string | null>(null);
+
+/** Look up a lot by id, following its live updates. */
+export function getLot(id: number): Lot | undefined {
+  void rev.value;
+  return lots.value.get(id);
 }
-
-/** The single shared catalog state; components read it through useCatalog(). */
-export const state: CatalogState = {
-  loaded: false,
-  lots: new Map(),
-  meta: { fetchedAt: null, pullStartedAt: null, count: 0, authed: false },
-  progress: null,
-  error: null,
-  rev: 0,
-};
-
-const { subscribe, emit } = emitter();
-
-/** Bump the revision and re-render subscribers. */
-export function changed() {
-  state.rev++;
-  emit();
-}
-
-/** Preact hook: the catalog state, re-rendering on every change. */
-export function useCatalog(): CatalogState {
-  useSyncExternalStore(subscribe, () => state.rev);
-  return state;
-}
-
-/** Look up a cached lot by id. */
-export const getLot = (id: number) => state.lots.get(id);
 
 // ---------------------------------------------------------------------------
 // Incremental updates (websocket, lot detail)
 // ---------------------------------------------------------------------------
 /** Apply a partial update if it is newer than what we have (by `version`). */
 export function updateLot(id: number, patch: Partial<Lot>, opts: { force?: boolean } = {}) {
-  const cur = state.lots.get(id);
+  const cur = lots.peek().get(id);
   if (!cur || (!opts.force && patch.version != null && patch.version <= cur.version)) {
     return;
   }
-  state.lots.set(id, { ...cur, ...patch });
-  changed();
+  lots.peek().set(id, { ...cur, ...patch });
+  rev.value = rev.peek() + 1;
 }
 
 /** Lot detail cache (or the in-flight request), by lot id. */
@@ -90,7 +74,7 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
     (d) => {
       details.set(lot.id, { at: Date.now(), data: d });
       const { description, brand, model, lotFee, bidHistory, similar, ...base } = d;
-      const cur = state.lots.get(lot.id);
+      const cur = lots.peek().get(lot.id);
       // Detail responses are authoritative for account fields even at equal versions.
       if (cur && base.version >= cur.version) {
         updateLot(lot.id, base, { force: true });

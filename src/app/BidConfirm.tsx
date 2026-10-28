@@ -1,11 +1,11 @@
 // Confirmation step for every bid: amount, estimated total cost if won, and a
 // warning when the lot isn't at your pickup location.
-import { useRef, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
-import { bidBlocker, minMaxBid, quickBidAmount, submitBid, useBidPending, type BidRequest } from './bid';
-import { useAuthed } from './auth';
+import { bidBlocker, minMaxBid, quickBidAmount, submitBid, bidPending, type BidRequest } from './bid';
 import { TimeLeft } from './LotCard';
-import { plural, useDialog, useNow } from './util';
+import { Dialog } from './Dialog';
+import { clock, plural } from './util';
 import type { Row } from './view';
 
 interface Props {
@@ -19,23 +19,8 @@ interface Props {
 export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const { lot } = row;
   const [amount, setAmount] = useState(req.amount);
-  const pending = useBidPending(lot.id);
-  useAuthed();
-  const now = useNow(1000);
-  const okBtn = useRef<HTMLButtonElement>(null);
-
-  // Capture phase, so Escape closes only this dialog and not the lot popup beneath it.
-  useDialog(
-    okBtn,
-    (e) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        e.preventDefault();
-        onClose();
-      }
-    },
-    true,
-  );
+  const pending = bidPending(lot.id);
+  const now = clock(1000);
 
   const isMax = req.type === 'max_bid';
   const blocker = bidBlocker(row, now);
@@ -53,8 +38,8 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   };
 
   return (
-    <div class="backdrop backdrop-top" onMouseDown={(e) => e.target === e.currentTarget && !pending && onClose()}>
-      <div class="confirm" role="alertdialog" aria-modal="true" aria-labelledby="bid-confirm-title" aria-describedby="bid-confirm-body">
+    <Dialog onClose={() => !pending && onClose()} role="alertdialog" aria-labelledby="bid-confirm-title" aria-describedby="bid-confirm-body">
+      <div class="confirm">
         <h2 id="bid-confirm-title">{isMax ? 'Confirm max bid' : 'Confirm bid'}</h2>
         <div id="bid-confirm-body" class="confirm-body">
           <p class="confirm-lot">{lot.title}</p>
@@ -106,11 +91,11 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
           <button type="button" class="btn btn-outline" onClick={onClose} disabled={pending}>
             Cancel
           </button>
-          <button type="button" class="btn" ref={okBtn} onClick={confirm} aria-disabled={disabled ? 'true' : undefined}>
+          <button type="button" class="btn" autofocus onClick={confirm} aria-disabled={disabled ? 'true' : undefined}>
             {pending ? 'Placing bid…' : `Place ${dollars(amount)} bid`}
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

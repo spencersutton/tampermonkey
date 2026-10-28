@@ -1,13 +1,12 @@
 // Live updates over the site's own Centrifugo websocket. Like the site, we
 // subscribe only to the lots currently on screen (`lot:{id}`); when logged in,
 // the server also pushes this account's outbid/winning events.
+import { signal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
-import { useSyncExternalStore } from 'preact/compat';
 import { fetchWsToken, normalizeStanding } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, updateLot } from './catalog';
 import type { Lot } from './types';
-import { emitter } from './util';
 
 /**
  * The tlx server's relay to the site's Centrifugo websocket, which only
@@ -18,19 +17,11 @@ const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.ho
 export type LiveState = 'off' | 'connecting' | 'connected' | 'disconnected';
 
 /** Current connection state, shown in the status bar. */
-let liveState: LiveState = 'off';
-const state = emitter();
+export const liveState = signal<LiveState>('off');
 /** Active `lot:{id}` channel subscriptions, by lot id. */
 const subs = new Map<number, Subscription>();
 
-/** Update the connection state and notify subscribers. */
-function setState(s: LiveState) {
-  liveState = s;
-  state.emit();
-}
-
-/** Preact hook: the current websocket connection state. */
-export const useLiveState = () => useSyncExternalStore(state.subscribe, () => liveState);
+const setState = (s: LiveState) => void (liveState.value = s);
 
 /** The websocket client, created on first use (null after a login change). */
 let connecting: Promise<Centrifuge> | null = null;

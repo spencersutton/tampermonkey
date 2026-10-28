@@ -2,18 +2,18 @@ import { memo } from 'preact/compat';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { LoginLink, useAuthed } from './auth';
-import { canWatch, toggleWatch, useWatchPending } from './watch';
-import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
-import { useConditions } from './conditions';
+import { isAuthenticated, LoginLink } from './auth';
+import { canWatch, toggleWatch, watchPending } from './watch';
+import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending, type BidRequest } from './bid';
+import { siteConditions } from './conditions';
 import { Icon } from './icons';
-import { openHandler, plural, shortDate, shortTime, timeLabel, useNow } from './util';
+import { clock, openHandler, plural, shortDate, shortTime, timeLabel } from './util';
 import type { Row } from './view';
 import type { Lot, PastClose } from './types';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
 export function TimeLeft({ endsAt }: { endsAt: number }) {
-  const now = useNow(1000);
+  const now = clock(1000);
   const { text, soon } = timeLabel(endsAt, now);
   return (
     <span class={`time ${soon ? 'soon' : ''}`} title={new Date(endsAt).toLocaleString()}>
@@ -44,8 +44,7 @@ export function LocationText({ row }: { row: Row }) {
 
 /** Watchlist toggle on the card image; a plain marker once you've bid (the site doesn't allow toggling then). */
 function WatchStar({ lot }: { lot: Lot }) {
-  useAuthed();
-  const pending = useWatchPending(lot.id);
+  const pending = watchPending(lot.id);
   if (!canWatch(lot)) {
     return lot.isWatchlisted ? (
       <span class="pill pill-watch" title="On your watchlist">
@@ -71,8 +70,7 @@ function WatchStar({ lot }: { lot: Lot }) {
 
 /** Watchlist toggle for the lot popup; hidden when the lot can't be watched. */
 export function WatchButton({ lot }: { lot: Lot }) {
-  useAuthed();
-  const pending = useWatchPending(lot.id);
+  const pending = watchPending(lot.id);
   if (!canWatch(lot)) {
     return null;
   }
@@ -99,7 +97,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
   const dim = !!matched || hidden;
   const img = lot.images[0];
   const open = openHandler(() => onOpen(lot));
-  const conditions = useConditions();
+  const conditions = siteConditions();
   return (
     <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id}>
       <div class="card-media">
@@ -222,8 +220,8 @@ function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void
 /** The card's bid button: next-increment bid, raise max, or a disabled/login state. */
 function CardBidButton({ row, onOpen, onBid }: { row: Row; onOpen: () => void; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
-  const pending = useBidPending(lot.id);
-  const authed = useAuthed();
+  const pending = bidPending(lot.id);
+  const authed = isAuthenticated();
   const blocker = bidBlocker(row);
   if (blocker && !authed && !row.hidden && !row.matched) {
     return (

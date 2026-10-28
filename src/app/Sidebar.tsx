@@ -5,7 +5,7 @@ import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, site
 import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
 import type { ClosedSection } from './api';
 import { AccountSettings } from './auth';
-import { useConditions } from './conditions';
+import { siteConditions } from './conditions';
 import { useSetting } from './settings';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';
@@ -216,7 +216,7 @@ function PriceField(props: { label: string; value: number | null; onChange: (v: 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
 function FiltersSection({ view, setView, facets, pickup, authed, onEditCategories, onOpenClosed, closed }: Props) {
   const n = activeFilterCount(view);
-  const conditions = useConditions();
+  const conditions = siteConditions();
   const [custom] = useSetting(KEYS.customCategories);
   const customCount = custom.length;
   return (

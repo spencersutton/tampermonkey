@@ -6,7 +6,8 @@ import { KEYS, type CustomCategory } from '../shared/keys';
 import { getSetting, setSetting } from './settings';
 import { Icon } from './icons';
 import type { Lot } from './types';
-import { fmtCount, plural, useDialog } from './util';
+import { Dialog } from './Dialog';
+import { fmtCount, plural } from './util';
 import { categoryIndex, compileCategories, customCategoryValue, normalizeView } from './view';
 
 /** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
@@ -92,7 +93,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const [selected, setSelected] = useState<number | null>(null);
   const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
-  const dialog = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLOListElement>(null);
 
   const dirty = JSON.stringify(drafts.map(clean)) !== JSON.stringify(initial);
@@ -104,16 +104,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       onClose();
     }
   };
-  useDialog(dialog, (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      close();
-    }
-  });
-  useEffect(() => {
-    document.body.classList.add('modal-open');
-    return () => document.body.classList.remove('modal-open');
-  }, []);
   // Focus the name box of a row just added.
   useEffect(() => {
     if (focusKey != null) {
@@ -230,8 +220,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const selLots = sel ? assignment.taken.get(sel.key)! : [];
 
   return (
-    <div class="backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div class="modal cat-editor" role="dialog" aria-modal="true" aria-labelledby="cat-editor-title" tabIndex={-1} ref={dialog}>
+    <Dialog onClose={close} aria-labelledby="cat-editor-title">
+      <div class="modal cat-editor" tabIndex={-1}>
         <div class="cat-head">
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
@@ -419,7 +409,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 

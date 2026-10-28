@@ -1,7 +1,6 @@
 // Reactive access to settings, synced across tabs. They're stored in
 // localStorage (as JSON), and the SYNCED_KEYS also on the server (see source.ts).
-import { useSyncExternalStore } from 'preact/compat';
-import { useCallback } from 'preact/hooks';
+import { signal, type Signal } from '@preact/signals';
 import { DEFAULTS } from '../shared/keys';
 
 export type Key = keyof typeof DEFAULTS;
@@ -26,53 +25,46 @@ function store(key: Key, value: unknown) {
   }
 }
 
-/** In-memory copy of each setting, so reads don't hit localStorage every render. */
-const cache = new Map<Key, unknown>();
-/** Dispatches an event named after a setting's key whenever it changes, here or in another tab. */
-const changes = new EventTarget();
+/** Each setting as a signal, loaded from localStorage on first use. */
+const signals = new Map<Key, Signal<unknown>>();
+
+function setting(key: Key): Signal<unknown> {
+  let s = signals.get(key);
+  if (!s) {
+    s = signal(load(key));
+    signals.set(key, s);
+  }
+  return s;
+}
 
 // Another tab saved a setting.
 window.addEventListener('storage', (e) => {
   const key = e.key?.startsWith(PREFIX) && (e.key.slice(PREFIX.length) as Key);
-  if (key && cache.has(key)) {
-    cache.set(key, e.newValue == null ? DEFAULTS[key] : JSON.parse(e.newValue));
-    changes.dispatchEvent(new Event(key));
+  if (key && signals.has(key)) {
+    signals.get(key)!.value = e.newValue == null ? DEFAULTS[key] : JSON.parse(e.newValue);
   }
 });
 
-/** Read a setting (or its default). */
+/** Read a setting (or its default). Read in a component or computed, it re-runs them when the setting changes in any tab. */
 export function getSetting<K extends Key>(key: K): Value<K> {
-  if (!cache.has(key)) {
-    cache.set(key, load(key));
-  }
-  return cache.get(key) as Value<K>;
+  return setting(key).value as Value<K>;
 }
 
 /** Called with every setting saved here (source.ts sends synced ones to the server). */
 let onSave: (key: Key, value: unknown) => void = () => {};
 export const setSaveHook = (fn: (key: Key, value: unknown) => void) => void (onSave = fn);
 
-/** Store a setting and notify everything in this tab that depends on it, without calling the save hook (for values from the server). */
+/** Store a setting without calling the save hook (for values from the server). */
 export function applySetting<K extends Key>(key: K, value: Value<K>) {
-  cache.set(key, value);
+  setting(key).value = value;
   store(key, value);
-  changes.dispatchEvent(new Event(key));
 }
 
-/** Save a setting and notify everything in this tab that depends on it. */
+/** Save a setting. */
 export function setSetting<K extends Key>(key: K, value: Value<K>) {
   applySetting(key, value);
   onSave(key, value);
 }
 
-/** Preact hook: [value, setter] for a setting, re-rendering when it changes in any tab. */
-export function useSetting<K extends Key>(key: K): [Value<K>, (v: Value<K>) => void] {
-  const subscribe = useCallback(
-    (fn: () => void) => {
-      changes.addEventListener(key, fn);
-      return () => changes.removeEventListener(key, fn);
-    },
-    [key],
-  );
-  return [useSyncExternalStore(subscribe, () => getSetting(key)), (v) => setSetting(key, v)];
-}
+/** [value, setter] for a setting, for components. */
+export const useSetting = <K extends Key>(key: K): [Value<K>, (v: Value<K>) => void] => [getSetting(key), (v) => setSetting(key, v)];

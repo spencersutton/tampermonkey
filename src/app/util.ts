@@ -1,6 +1,4 @@
-import type { RefObject } from 'preact';
-import { useSyncExternalStore } from 'preact/compat';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { signal, type Signal } from '@preact/signals';
 
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
@@ -64,82 +62,38 @@ export function parseNum(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Change listeners for a module-level store, shaped for useSyncExternalStore. */
-export function emitter() {
-  const listeners = new Set<() => void>();
-  return {
-    subscribe(fn: () => void) {
-      listeners.add(fn);
-      return () => void listeners.delete(fn);
-    },
-    emit: () => listeners.forEach((fn) => fn()),
-  };
-}
-
-/** A set of ids (e.g. lots with a request in flight) that components can watch. */
+/** A set of ids (e.g. lots with a request in flight); reading it in a component re-renders that component when it changes. */
 export function observableSet<T>() {
-  const items = new Set<T>();
-  const { subscribe, emit } = emitter();
+  const items = signal<ReadonlySet<T>>(new Set());
   return {
-    has: (v: T) => items.has(v),
-    add(v: T) {
-      items.add(v);
-      emit();
-    },
+    has: (v: T) => items.value.has(v),
+    add: (v: T) => void (items.value = new Set(items.value).add(v)),
     delete(v: T) {
-      items.delete(v);
-      emit();
+      const next = new Set(items.value);
+      next.delete(v);
+      items.value = next;
     },
-    /** Preact hook: whether `v` is in the set, re-rendering when that changes. */
-    useHas: (v: T) => useSyncExternalStore(subscribe, () => items.has(v)),
   };
 }
 
-/** Shared interval timers for useNow(), one per interval, with the setters subscribed to each. */
-const clocks = new Map<number, { listeners: Set<(now: number) => void>; timer: number }>();
+/** One clock signal per interval; its timer runs only while something reads it. */
+const clocks = new Map<number, Signal<number>>();
 
-function startClock(every: number) {
-  const listeners = new Set<(now: number) => void>();
-  const clock = { listeners, timer: window.setInterval(() => listeners.forEach((f) => f(Date.now())), every) };
-  clocks.set(every, clock);
-  return clock;
-}
-
-/** Current time, re-rendering every `every` ms (one shared timer per interval). */
-export function useNow(every = 1000): number {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const clock = clocks.get(every) ?? startClock(every);
-    clock.listeners.add(setNow);
-    return () => {
-      clock.listeners.delete(setNow);
-      if (!clock.listeners.size) {
-        clearInterval(clock.timer);
-        clocks.delete(every);
-      }
-    };
-  }, [every]);
-  return now;
-}
-
-/**
- * While a dialog is mounted: focus `ref`, send document keydowns to `onKey`,
- * and give focus back to whatever had it when the dialog closes. With
- * `capture`, keys reach this dialog before any dialog beneath it.
- */
-export function useDialog(ref: RefObject<HTMLElement>, onKey: (e: KeyboardEvent) => void, capture = false) {
-  const latest = useRef(onKey);
-  latest.current = onKey;
-  useEffect(() => {
-    const listener = (e: KeyboardEvent) => latest.current(e);
-    const prevFocus = document.activeElement as HTMLElement | null;
-    document.addEventListener('keydown', listener, capture);
-    ref.current?.focus();
-    return () => {
-      document.removeEventListener('keydown', listener, capture);
-      prevFocus?.focus?.();
-    };
-  }, []);
+/** Current time, updated every `every` ms; read in a component or computed, it re-runs them on each tick. */
+export function clock(every = 1000): number {
+  let s = clocks.get(every);
+  if (!s) {
+    let timer = 0;
+    s = signal(Date.now(), {
+      watched() {
+        this.value = Date.now();
+        timer = window.setInterval(() => (this.value = Date.now()), every);
+      },
+      unwatched: () => clearInterval(timer),
+    });
+    clocks.set(every, s);
+  }
+  return s.value;
 }
 
 /** Click handler for a link: a plain click runs `open` in-app; modified/middle clicks follow the real link. */

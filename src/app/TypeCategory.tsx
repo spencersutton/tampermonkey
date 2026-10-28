@@ -1,13 +1,14 @@
 // Dialog behind the item type button on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { migrateFilters } from './CategoryEditor';
 import { setSetting, useSetting } from './settings';
 import { toast } from './toast';
 import type { Lot } from './types';
-import { fmtCount, plural, useDialog } from './util';
+import { Dialog } from './Dialog';
+import { fmtCount, plural } from './util';
 import { categoryIndex, compileCategories } from './view';
 
 /** Matching titles listed in the preview. */
@@ -53,13 +54,6 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const [name, setName] = useState(() => defaultName(within));
   const [nameEdited, setNameEdited] = useState(false);
   const [extra, setExtra] = useState<string[]>([]);
-  const box = useRef<HTMLDivElement>(null);
-  useDialog(box, (e) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
-    }
-  });
 
   const existing = mode === 'add' ? cats.find((c) => c.name === pick) : undefined;
   const types = [type, ...extra];
@@ -125,8 +119,8 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   };
 
   return (
-    <div class="backdrop backdrop-top" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div class="confirm type-cat" role="dialog" aria-modal="true" aria-labelledby="type-cat-title" tabIndex={-1} ref={box}>
+    <Dialog onClose={onClose} aria-labelledby="type-cat-title">
+      <div class="confirm type-cat" tabIndex={-1}>
         <h2 id="type-cat-title">Make a category of “{type}”</h2>
         <div class="confirm-body">
           <div class="type-cat-mode" role="radiogroup" aria-label="New or existing category">
@@ -223,6 +217,6 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
           </button>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

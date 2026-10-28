@@ -13,8 +13,8 @@ export const canWatch = (lot: Lot) => isAuthenticated() && !hasBidOn(lot);
 /** Lots with a watchlist request in flight. */
 const pending = observableSet<number>();
 
-/** Preact hook: whether a watchlist toggle for this lot is in flight. */
-export const useWatchPending = (lotId: number) => pending.useHas(lotId);
+/** Whether a watchlist toggle for this lot is in flight. */
+export const watchPending = (lotId: number) => pending.has(lotId);
 
 /** Add the lot to, or remove it from, the watchlist; shows a toast if it fails. */
 export async function toggleWatch(lotId: number) {

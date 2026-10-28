@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
-import { LoginLink, useAuthed } from './auth';
-import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
+import { isAuthenticated, LoginLink } from './auth';
+import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending, type BidRequest } from './bid';
 import { cachedDetail, getLot, loadDetail } from './catalog';
-import { useConditions } from './conditions';
+import { Dialog } from './Dialog';
+import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
-import { fmtCount, openHandler, parseNum, plural, shortDate, shortTime, useDialog, useNow } from './util';
+import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
 import type { Row } from './view';
 
@@ -29,7 +30,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
   const [error, setError] = useState<string | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
   const dialog = useRef<HTMLDivElement>(null);
-  const conditions = useConditions();
+  const conditions = siteConditions();
 
   useEffect(() => {
     const ac = new AbortController();
@@ -47,26 +48,20 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
   /** Move through the images by `delta`, wrapping around. */
   const step = (delta: number) => setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
 
-  useDialog(dialog, (e) => {
+  const onKeyDown = (e: KeyboardEvent) => {
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-    if (e.key === 'Escape') {
-      onClose();
-    } else if (!typing && e.key === 'ArrowLeft') {
+    if (!typing && e.key === 'ArrowLeft') {
       step(-1);
     } else if (!typing && e.key === 'ArrowRight') {
       step(1);
     }
-  });
+  };
   // Switching to another listing or similar lot starts at the top.
   useEffect(() => dialog.current?.scrollTo(0, 0), [lot.id]);
-  useEffect(() => {
-    document.body.classList.add('modal-open');
-    return () => document.body.classList.remove('modal-open');
-  }, []);
 
   return (
-    <div class="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lot-title" tabIndex={-1} ref={dialog}>
+    <Dialog onClose={onClose} onKeyDown={onKeyDown} aria-labelledby="lot-title">
+      <div class="modal" tabIndex={-1} ref={dialog}>
         <button type="button" class="icon-btn modal-close" aria-label="Close" onClick={onClose}>
           <Icon name="close" size={22} />
         </button>
@@ -172,7 +167,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
           </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -239,7 +234,7 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; 
  * here; any other opens on the site.
  */
 function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen?: (lot: Lot) => void }) {
-  const now = useNow(30_000);
+  const now = clock(30_000);
   const open = lots.map((l) => getLot(l.id) ?? l).filter((l) => l.id !== current.id && l.endsAt > now);
   if (!open.length) {
     return null;
@@ -334,9 +329,9 @@ function PastCloses({ lot }: { lot: Lot }) {
 /** Bid controls in the popup: next-increment bid and a custom max bid. */
 function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }) {
   const { lot } = row;
-  const now = useNow(1000);
-  const pending = useBidPending(lot.id);
-  const authed = useAuthed();
+  const now = clock(1000);
+  const pending = bidPending(lot.id);
+  const authed = isAuthenticated();
   const [value, setValue] = useState('');
   useEffect(() => setValue(''), [lot.id, lot.yourStanding?.yourMaxBid]);
 
