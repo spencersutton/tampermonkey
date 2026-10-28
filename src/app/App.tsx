@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { nameMatchPct } from '../shared/names';
-import { fetchPickupLocation } from './api';
+import { fetchPickupLocation, type ClosedSection } from './api';
 import { LoginLink, useAuthed } from './auth';
 import { nextPullAt, pullCatalog, settingsSynced } from './source';
 import { getLot, state as catalogState, useCatalog } from './catalog';
@@ -11,6 +11,7 @@ import { Icon } from './icons';
 import { watchLots, useLiveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
 import { CategoryEditor } from './CategoryEditor';
+import { ClosedLots } from './ClosedLots';
 import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
@@ -138,7 +139,8 @@ export function App() {
   // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
   const [fromUrl] = useState(() => {
     const nav = navFromUrl();
-    if (nav) {
+    // A link to just the Won / Lost page (/tlx?closed=won) keeps the current view.
+    if (nav && new URLSearchParams(location.search).keys().some((k) => k !== 'closed')) {
       setSetting(KEYS.view, nav.view);
     }
     return nav;
@@ -162,6 +164,7 @@ export function App() {
   // How many PAGE_SIZE batches of lots the grid shows; grows as the end of it scrolls into view.
   const [page, setPage] = useState(fromUrl?.page ?? 1);
   const [openId, setOpenId] = useState<number | null>(fromUrl?.openId ?? null);
+  const [closed, setClosed] = useState<ClosedSection | null>(fromUrl?.closed ?? null); // the Won / Lost page, in place of the grid
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
@@ -183,6 +186,7 @@ export function App() {
   const setView = useCallback((patch: Partial<ViewState>) => {
     setStoredView({ ...normalizeView(getSetting(KEYS.view)), ...patch });
     setPage(1);
+    setClosed(null); // changing the filters goes back to the grid
   }, []);
 
   // Debounce the search box into the view. `pushed` remembers what the box
@@ -250,6 +254,7 @@ export function App() {
       setStoredView({ ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
       setSearch(s.view.search);
       setPage(1);
+      setClosed(null);
       setHighlight({ id: s.id, since: s.lastViewedAt });
       updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
       setSidebarOpen(false);
@@ -301,12 +306,20 @@ export function App() {
     }
   }, []);
 
+  const openClosed = useCallback((section: ClosedSection | null) => {
+    setClosed(section);
+    setSidebarOpen(false);
+    window.scrollTo(0, 0);
+  }, []);
+  const rowOf = useCallback((lot: Lot) => makeRow(lot, pickup, exclusions), [pickup, exclusions]);
+
   const closeLot = useHistory(
-    { view, page, openId },
+    { view, page, openId, closed },
     (nav) => {
       setStoredView(normalizeView(nav.view));
       setPage(nav.page);
       setOpenId(nav.openId);
+      setClosed(nav.closed);
     },
     () => setOpenId(null),
   );
@@ -369,6 +382,8 @@ export function App() {
             authed={authed}
             onOpenHidden={openHidden}
             onEditCategories={() => setEditingCategories(true)}
+            onOpenClosed={openClosed}
+            closed={closed}
             saved={savedProps}
           />
         </aside>
@@ -380,57 +395,61 @@ export function App() {
               Not logged in: your bids, standings and watchlist aren’t shown. <LoginLink>Log in</LoginLink> to see them and bid.
             </p>
           )}
-          <div class="results-line" ref={gridTop}>
-            <span>
-              {result.rows.length
-                ? `${fmtCount(result.rows.length)} ${result.rows.length === 1 ? 'lot' : 'lots'}`
-                : catalog.loaded && !catalog.progress
-                  ? 'No lots match'
-                  : ''}
-              {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
-              {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
-              {result.combined > 0 && <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>}
-            </span>
-            {view.newSince != null && (
-              <span class="new-line">
-                Only lots listed since {shortTime(view.newSince)}
-                <button type="button" class="btn-text" onClick={() => setView({ newSince: null })}>
-                  Show all
-                </button>
+          {closed && <ClosedLots section={closed} onSection={openClosed} onBack={() => openClosed(null)} onOpenLot={openLot} onToggleHide={toggleHide} rowOf={rowOf} />}
+          {/* Kept mounted under the Won / Lost page so its scroll observers keep working. */}
+          <div hidden={!!closed}>
+            <div class="results-line" ref={gridTop}>
+              <span>
+                {result.rows.length
+                  ? `${fmtCount(result.rows.length)} ${result.rows.length === 1 ? 'lot' : 'lots'}`
+                  : catalog.loaded && !catalog.progress
+                    ? 'No lots match'
+                    : ''}
+                {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
+                {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
+                {result.combined > 0 && <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>}
               </span>
-            )}
-            {freshMatches > 0 && (
-              <span class="new-line">
-                {fmtCount(freshMatches)} new since your last {sinceSaved ? `look at “${activeSaved!.name}”` : 'visit'}
-                <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
-                  Show only new
-                </button>
-              </span>
-            )}
-          </div>
+              {view.newSince != null && (
+                <span class="new-line">
+                  Only lots listed since {shortTime(view.newSince)}
+                  <button type="button" class="btn-text" onClick={() => setView({ newSince: null })}>
+                    Show all
+                  </button>
+                </span>
+              )}
+              {freshMatches > 0 && (
+                <span class="new-line">
+                  {fmtCount(freshMatches)} new since your last {sinceSaved ? `look at “${activeSaved!.name}”` : 'visit'}
+                  <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
+                    Show only new
+                  </button>
+                </span>
+              )}
+            </div>
 
-          <div class={`grid ${titleLines ? '' : 'full-titles'}`} ref={grid} style={titleLines ? { '--title-lines': titleLines } : undefined}>
-            {shownRows.map((row) => (
-              <LotCard
-                key={row.lot.id}
-                row={row}
-                isNew={isNew(row.lot)}
-                onOpen={openLot}
-                onToggleHide={toggleHide}
-                onBid={setBidReq}
-                onAddType={setTypeLot}
-              />
-            ))}
-          </div>
+            <div class={`grid ${titleLines ? '' : 'full-titles'}`} ref={grid} style={titleLines ? { '--title-lines': titleLines } : undefined}>
+              {shownRows.map((row) => (
+                <LotCard
+                  key={row.lot.id}
+                  row={row}
+                  isNew={isNew(row.lot)}
+                  onOpen={openLot}
+                  onToggleHide={toggleHide}
+                  onBid={setBidReq}
+                  onAddType={setTypeLot}
+                />
+              ))}
+            </div>
 
-          <div ref={gridEnd} />
-          {curPage < pages && <p class="grid-more muted">Loading more lots…</p>}
+            <div ref={gridEnd} />
+            {curPage < pages && <p class="grid-more muted">Loading more lots…</p>}
+          </div>
         </main>
       </div>
 
       {openLotObj && (
         <LotModal
-          row={makeRow(openLotObj, pickup, exclusions)}
+          row={rowOf(openLotObj)}
           onClose={closeLot}
           onToggleHide={() => toggleHide(openLotObj)}
           onBid={setBidReq}

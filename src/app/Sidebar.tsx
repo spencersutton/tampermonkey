@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
 import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
+import type { ClosedSection } from './api';
 import { AccountSettings } from './auth';
+import { useConditions } from './conditions';
 import { useSetting } from './settings';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum } from './util';
@@ -31,6 +33,8 @@ interface Props {
   authed: boolean;
   onOpenHidden: (id: number) => void;
   onEditCategories: () => void;
+  onOpenClosed: (section: ClosedSection) => void;
+  closed: ClosedSection | null;
   saved: SavedSearchesProps;
 }
 
@@ -62,12 +66,13 @@ function Collapsible({ id, title, children }: { id: string; title: ComponentChil
 }
 
 /** A checkbox per facet value with its lot count; checking none means no filter. */
-function CheckList<T>({ facets, selected, onChange }: { facets: Facet<T>[]; selected: T[]; onChange: (next: T[]) => void }) {
+function CheckList<T>(props: { facets: Facet<T>[]; selected: T[]; onChange: (next: T[]) => void; titleOf?: (v: T) => string | undefined }) {
+  const { facets, selected, onChange, titleOf } = props;
   const toggle = (v: T) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
   return (
     <>
       {facets.map((f) => (
-        <label class="check">
+        <label class="check" title={titleOf?.(f.value)}>
           <input type="checkbox" checked={selected.includes(f.value)} onChange={() => toggle(f.value)} />
           <span>{f.label}</span>
           <span class="count">{fmtCount(f.count)}</span>
@@ -209,8 +214,9 @@ function PriceField(props: { label: string; value: number | null; onChange: (v: 
 }
 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
-function FiltersSection({ view, setView, facets, pickup, authed, onEditCategories }: Props) {
+function FiltersSection({ view, setView, facets, pickup, authed, onEditCategories, onOpenClosed, closed }: Props) {
   const n = activeFilterCount(view);
+  const conditions = useConditions();
   const [custom] = useSetting(KEYS.customCategories);
   const customCount = custom.length;
   return (
@@ -241,6 +247,14 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
           ))}
         </select>
       </label>
+      <div class="closed-links">
+        <span class="muted">Closed:</span>
+        {(['won', 'lost'] as const).map((s) => (
+          <button type="button" class={`btn-text ${closed === s ? 'on' : ''}`} aria-pressed={closed === s} disabled={!authed} onClick={() => onOpenClosed(s)}>
+            {s === 'won' ? 'Won' : 'Lost'}
+          </button>
+        ))}
+      </div>
 
       <label class="field">
         <span>Ending</span>
@@ -267,7 +281,25 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
       </Collapsible>
 
       <Collapsible id="f-condition" title="Condition">
-        <CheckList facets={facets.conditions} selected={view.conditions} onChange={(conditions) => setView({ conditions })} />
+        <CheckList
+          facets={facets.conditions}
+          selected={view.conditions}
+          onChange={(conditions) => setView({ conditions })}
+          titleOf={(v) => conditions.get(v)?.description}
+        />
+        {conditions.size > 0 && (
+          <details class="about-conditions">
+            <summary>About conditions</summary>
+            <dl>
+              {[...conditions.values()].map((c) => (
+                <div>
+                  <dt>{c.label}</dt>
+                  <dd>{c.description}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
       </Collapsible>
 
       <Collapsible id="f-price" title="Price">

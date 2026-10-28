@@ -89,7 +89,7 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
   const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
     (d) => {
       details.set(lot.id, { at: Date.now(), data: d });
-      const { description, brand, model, lotFee, bidHistory, ...base } = d;
+      const { description, brand, model, lotFee, bidHistory, similar, ...base } = d;
       const cur = state.lots.get(lot.id);
       // Detail responses are authoritative for account fields even at equal versions.
       if (cur && base.version >= cur.version) {

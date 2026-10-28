@@ -4,11 +4,12 @@ import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { LoginLink, useAuthed } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, useBidPending, type BidRequest } from './bid';
-import { cachedDetail, loadDetail } from './catalog';
+import { cachedDetail, getLot, loadDetail } from './catalog';
+import { useConditions } from './conditions';
 import { Icon } from './icons';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
-import { fmtCount, parseNum, plural, shortDate, shortTime, useDialog, useNow } from './util';
+import { fmtCount, openHandler, parseNum, plural, shortDate, shortTime, useDialog, useNow } from './util';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
 import type { Row } from './view';
 
@@ -28,6 +29,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
   const [error, setError] = useState<string | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
   const dialog = useRef<HTMLDivElement>(null);
+  const conditions = useConditions();
 
   useEffect(() => {
     const ac = new AbortController();
@@ -55,6 +57,8 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
       step(1);
     }
   });
+  // Switching to another listing or similar lot starts at the top.
+  useEffect(() => dialog.current?.scrollTo(0, 0), [lot.id]);
   useEffect(() => {
     document.body.classList.add('modal-open');
     return () => document.body.classList.remove('modal-open');
@@ -97,7 +101,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
             {detail && <BrandModel brand={detail.brand} model={detail.model} />}
             <div class="card-meta">
               <LocationText row={row} />
-              {lot.condition && <span>{lot.condition.label}</span>}
+              {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
               {row.category && <span>{row.category.label}</span>}
               <span>Lot #{lot.lotNumber}</span>
             </div>
@@ -162,6 +166,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
                     </ol>
                   </div>
                 )}
+                {detail.similar.length > 0 && <Similar lots={detail.similar} current={lot} onOpen={onOpenLot} />}
               </>
             )}
           </div>
@@ -223,6 +228,48 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; 
             </button>
           </li>
         ))}
+      </ol>
+    </div>
+  );
+}
+
+/**
+ * The site's "Similar Auctions" for this lot that are still open, with the
+ * catalog's copy where it has one (fresher price). A lot in the catalog opens
+ * here; any other opens on the site.
+ */
+function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen?: (lot: Lot) => void }) {
+  const now = useNow(30_000);
+  const open = lots.map((l) => getLot(l.id) ?? l).filter((l) => l.id !== current.id && l.endsAt > now);
+  if (!open.length) {
+    return null;
+  }
+  return (
+    <div>
+      <h3>Similar auctions</h3>
+      <ol class="similar">
+        {open.map((l) => {
+          const img = l.images[0];
+          const inCatalog = !!getLot(l.id) && onOpen;
+          return (
+            <li>
+              <a
+                href={lotHref(l.auctionPeriod, l.id)}
+                target="_blank"
+                rel="noopener"
+                title={l.title}
+                onClick={inCatalog ? openHandler(() => onOpen(getLot(l.id)!)) : undefined}
+              >
+                <span class="similar-img">{img ? <img src={`${CDN}/${img.thumb}`} alt="" loading="lazy" /> : <span class="noimg" />}</span>
+                <span class="similar-title">{l.title}</span>
+                <span class="similar-meta">
+                  <span class="price">{dollars(l.currentPrice)}</span>
+                  <TimeLeft endsAt={l.endsAt} />
+                </span>
+              </a>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );

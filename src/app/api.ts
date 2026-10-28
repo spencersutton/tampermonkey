@@ -2,7 +2,7 @@
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
 import { authedFetch, isAuthenticated } from './auth';
-import type { Lot, LotDetail, Standing } from './types';
+import type { ClosedLot, Lot, LotDetail, Standing } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
@@ -65,7 +65,7 @@ export function normalizeLot(r: Raw): Lot {
   };
 }
 
-/** Fetch one lot's full detail: description, brand/model and bid history. */
+/** Fetch one lot's full detail: description, brand/model, bid history and the site's similar lots. */
 export async function fetchLotDetail(auctionPeriod: string, id: number, signal?: AbortSignal): Promise<LotDetail> {
   const r = await get<Raw>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
   return {
@@ -75,7 +75,59 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
     model: r.model || null,
     lotFee: r.lot_fee ?? null,
     bidHistory: (r.bid_history ?? []).map((b: Raw) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: !!b.is_you })),
+    similar: (r.similar ?? []).map(normalizeLot),
   };
+}
+
+/** Closed lots you won or lost, as the site's control panel lists them. */
+export type ClosedSection = 'won' | 'lost';
+
+/** Fetch every closed lot in a section, most recent first, calling `onPage` with the list so far as pages arrive. */
+export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedLot[], count: number) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
+  const out: ClosedLot[] = [];
+  const seen = new Set<string>();
+  for (let page = 1; ; page++) {
+    const d = await get<{ count: number; results: Raw[] }>(`/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`, signal);
+    for (const r of d.results) {
+      const lot = normalizeClosed(r);
+      // Pages can shift while we walk them; the site dedupes the same way.
+      if (!seen.has(`${lot.auctionPeriod}:${lot.lotId}`)) {
+        seen.add(`${lot.auctionPeriod}:${lot.lotId}`);
+        out.push(lot);
+      }
+    }
+    onPage([...out], d.count);
+    if (!d.results.length || out.length >= d.count) {
+      return out;
+    }
+  }
+}
+
+function normalizeClosed(r: Raw): ClosedLot {
+  const ends = Date.parse(r.ends_at ?? r.closed_at ?? r.ended_at ?? '');
+  return {
+    lotId: Number(r.lot_id ?? r.id),
+    auctionPeriod: String(r.auction_period ?? ''),
+    title: String(r.title ?? ''),
+    lotNumber: String(r.lot_number ?? ''),
+    locationName: r.location_name ?? r.location?.name ?? null,
+    finalPrice: Number(r.final_price ?? 0),
+    heroImage: r.hero_image ?? null,
+    endsAt: Number.isFinite(ends) ? ends : null,
+  };
+}
+
+/** A condition as the site explains it ("Like New": "Appears open-box or lightly used; …"). */
+export interface ConditionInfo {
+  value: number;
+  label: string;
+  description: string;
+}
+
+/** The site's condition descriptions (public; the same for everyone). */
+export async function fetchConditions(): Promise<ConditionInfo[]> {
+  const d = await get<Raw>('/v1/auctions/filter-config/');
+  return (d.conditions ?? []).map((c: Raw) => ({ value: c.value, label: String(c.label ?? ''), description: String(c.description ?? '') }));
 }
 
 export interface PickupLocation {

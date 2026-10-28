@@ -5,6 +5,7 @@ import { CDN } from './api';
 import { LoginLink, useAuthed } from './auth';
 import { canWatch, toggleWatch, useWatchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, useBidPending, type BidRequest } from './bid';
+import { useConditions } from './conditions';
 import { Icon } from './icons';
 import { openHandler, plural, shortDate, shortTime, timeLabel, useNow } from './util';
 import type { Row } from './view';
@@ -98,6 +99,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
   const dim = !!matched || hidden;
   const img = lot.images[0];
   const open = openHandler(() => onOpen(lot));
+  const conditions = useConditions();
   return (
     <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id}>
       <div class="card-media">
@@ -129,7 +131,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
         </a>
         <div class="card-meta">
           <LocationText row={row} />
-          {lot.condition && <span>{lot.condition.label}</span>}
+          {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
         </div>
         {lot.itemType && (
           <button type="button" class="item-type" title="Make a category of this item type" onClick={() => onAddType(lot)}>

@@ -4,6 +4,7 @@
 // written into the URL (/tlx?search=foo&sort=price-low&page=2&lot=123) so a
 // view can be bookmarked or shared; only values that differ from the defaults appear.
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import type { ClosedSection } from './api';
 import { DEFAULT_VIEW, normalizeView, type ViewState } from './view';
 
 /** What a history entry restores. */
@@ -11,6 +12,7 @@ export interface NavState {
   view: ViewState;
   page: number;
   openId: number | null;
+  closed: ClosedSection | null; // the Won / Lost page shown instead of the grid
 }
 
 /**
@@ -30,7 +32,7 @@ const NUMBERS = ['priceMin', 'priceMax', 'totalMax', 'retailMin'] as const;
 const LIST_PARAM = { categories: 'category', conditions: 'condition', locations: 'location' } as const;
 
 /** The URL (path and query) that shows `nav`. */
-export function navToUrl({ view, page, openId }: NavState): string {
+export function navToUrl({ view, page, openId, closed }: NavState): string {
   const q = new URLSearchParams();
   const put = (k: string, v: string | number | null | undefined, def?: unknown) => v != null && v !== '' && v !== def && q.append(k, String(v));
   put('search', view.search.trim());
@@ -47,6 +49,7 @@ export function navToUrl({ view, page, openId }: NavState): string {
   put('mine', view.mine);
   put('page', page, 1);
   put('lot', openId);
+  put('closed', closed);
   const qs = q.toString();
   return location.pathname + (qs ? `?${qs}` : '');
 }
@@ -74,12 +77,19 @@ export function navFromUrl(search = location.search): NavState | null {
     mine: q.get('mine') ?? undefined,
   });
   const page = num('page');
-  return { view, page: page && page >= 1 ? Math.floor(page) : 1, openId: num('lot') };
+  const closed = q.get('closed');
+  return {
+    view,
+    page: page && page >= 1 ? Math.floor(page) : 1,
+    openId: num('lot'),
+    closed: closed === 'won' || closed === 'lost' ? closed : null,
+  };
 }
 
 const isEntry = (s: unknown): s is Entry => !!s && typeof s === 'object' && (s as Entry).tlx === true;
-const navKey = (n: NavState) => JSON.stringify([n.view, n.page, n.openId]);
-const sameView = (a: ViewState, b: ViewState) => JSON.stringify(a) === JSON.stringify(b);
+const navKey = (n: NavState) => JSON.stringify([n.view, n.page, n.openId, n.closed]);
+/** Same view on the same page (the grid, or one of the closed-lot pages). */
+const sameView = (a: NavState, b: NavState) => a.closed === b.closed && JSON.stringify(a.view) === JSON.stringify(b.view);
 
 /** Push a new entry for `nav`, or replace the current one when the change doesn't deserve its own. */
 function record(nav: NavState) {
@@ -89,19 +99,23 @@ function record(nav: NavState) {
     history.replaceState(entry, '', navToUrl(nav));
     return;
   }
-  if (sameView(prev.view, nav.view) && prev.openId === nav.openId) {
+  if (sameView(prev, nav) && prev.openId === nav.openId) {
     // More lots scrolled into the grid: still the same entry.
     history.replaceState({ ...entry, kind: prev.kind, scrollY: prev.scrollY }, '', navToUrl(nav));
     return;
   }
-  if (sameView(prev.view, nav.view) && prev.page === nav.page && nav.openId != null) {
+  if (sameView(prev, nav) && prev.page === nav.page && nav.openId != null) {
     if (prev.openId != null) {
       // Moving between listings inside the popup: one entry for the whole visit.
       history.replaceState({ ...entry, kind: prev.kind, scrollY: prev.scrollY }, '', navToUrl(nav));
       return;
     }
     entry.kind = 'lot';
-  } else if (prev.openId === nav.openId && prev.view.search !== nav.view.search && sameView({ ...prev.view, search: '' }, { ...nav.view, search: '' })) {
+  } else if (
+    prev.openId === nav.openId &&
+    prev.view.search !== nav.view.search &&
+    sameView({ ...prev, view: { ...prev.view, search: '' } }, { ...nav, view: { ...nav.view, search: '' } })
+  ) {
     entry.kind = 'search';
     if (prev.kind === 'search') {
       history.replaceState({ ...entry, scrollY: prev.scrollY }, '', navToUrl(nav));

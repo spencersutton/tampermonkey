@@ -68,4 +68,17 @@ export interface LotDetail extends Lot {
   model: string | null;
   lotFee: number | null;
   bidHistory: BidHistoryEntry[];
+  similar: Lot[]; // the site's "Similar Auctions" for this lot
+}
+
+/** A lot you won or lost, from the site's control panel (Closed Auctions). */
+export interface ClosedLot {
+  lotId: number;
+  auctionPeriod: string;
+  title: string;
+  lotNumber: string;
+  locationName: string | null;
+  finalPrice: number;
+  heroImage: string | null; // path on the CDN
+  endsAt: number | null; // when it closed, if the API says
 }
