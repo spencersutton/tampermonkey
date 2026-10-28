@@ -1,5 +1,6 @@
-// Reactive access to settings, synced across tabs. They're stored in
-// localStorage (as JSON), and the SYNCED_KEYS also on the server (see source.ts).
+// Reactive access to settings. They're stored in localStorage (as JSON), and
+// the SYNCED_KEYS also on the server (see source.ts). Each tab reads them once,
+// so changes made in other tabs or devices show up after a refresh.
 import { signal, type Signal } from '@preact/signals';
 import { DEFAULTS } from '../shared/keys';
 
@@ -37,15 +38,7 @@ function setting(key: Key): Signal<unknown> {
   return s;
 }
 
-// Another tab saved a setting.
-window.addEventListener('storage', (e) => {
-  const key = e.key?.startsWith(PREFIX) && (e.key.slice(PREFIX.length) as Key);
-  if (key && signals.has(key)) {
-    signals.get(key)!.value = e.newValue == null ? DEFAULTS[key] : JSON.parse(e.newValue);
-  }
-});
-
-/** Read a setting (or its default). Read in a component or computed, it re-runs them when the setting changes in any tab. */
+/** Read a setting (or its default). Read in a component or computed, it re-runs them when the setting changes in this tab. */
 export function getSetting<K extends Key>(key: K): Value<K> {
   return setting(key).value as Value<K>;
 }

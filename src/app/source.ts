@@ -174,8 +174,8 @@ export const fetchPastCloses = (id: number) => call<{ closes: PastCloseDetail[] 
 // Settings
 // ---------------------------------------------------------------------------
 const synced = new Set<Key>(SYNCED_KEYS);
-/** Last settings revision applied here (0 = not synced yet). */
-let settingsRev = 0;
+/** Whether the server's settings have been loaded into this tab. */
+let settingsLoaded = false;
 let markSynced: () => void;
 /** Resolves once the first settings sync has finished (the catalog has loaded by then too). */
 export const settingsSynced = new Promise<void>((resolve) => (markSynced = resolve));
@@ -196,31 +196,29 @@ async function sendSetting(key: Key, value: unknown) {
 }
 
 /**
- * Pull settings changed on the server since last time. The first sync takes
- * the server's values, and sends up any setting it doesn't have yet but this
- * browser does.
+ * Retry unsent settings, and on the first sync take the server's values and
+ * send up any setting it doesn't have yet but this browser does. Later polls
+ * don't pull, so changes from other tabs and devices wait for a refresh.
  */
 async function syncSettings() {
   await Promise.all([...unsent].map(([k, v]) => sendSetting(k, v)));
-  const first = settingsRev === 0;
-  const r = await call<{ rev: number; values: Record<string, unknown> }>('GET', `/api/settings?since=${settingsRev}`);
+  if (settingsLoaded) {
+    return;
+  }
+  const r = await call<{ rev: number; values: Record<string, unknown> }>('GET', '/api/settings?since=0');
   for (const [key, value] of Object.entries(r.values)) {
     if (synced.has(key as Key) && !unsent.has(key as Key) && JSON.stringify(value) !== JSON.stringify(getSetting(key as Key))) {
       applySetting(key as Key, value as never);
     }
   }
-  if (first) {
-    for (const key of synced) {
-      const mine = getSetting(key);
-      if (!(key in r.values) && JSON.stringify(mine) !== JSON.stringify(DEFAULTS[key])) {
-        void sendSetting(key, mine);
-      }
+  for (const key of synced) {
+    const mine = getSetting(key);
+    if (!(key in r.values) && JSON.stringify(mine) !== JSON.stringify(DEFAULTS[key])) {
+      void sendSetting(key, mine);
     }
   }
-  settingsRev = r.rev;
-  if (first) {
-    markSynced();
-  }
+  settingsLoaded = true;
+  markSynced();
 }
 
 /** Load what the server has and keep it fresh. */
