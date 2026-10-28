@@ -1,5 +1,5 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
-import { buildRegexes, compileFilter, firstMatch } from '../shared/filters';
+import { buildRegexes, compileFilter } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { groupNames } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
@@ -173,8 +173,23 @@ function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {
   return (arg) => (last?.arg === arg ? last : (last = { arg, result: fn(arg) })).result;
 }
 
-/** Compiled regexes for the filter words. */
-const compiledFilters = memoLast(buildRegexes);
+/**
+ * The filter words whose regex matches a title (in filter order), cached by
+ * title until the filter words change, so view changes don't re-run every
+ * regex on every lot.
+ */
+const titleMatcher = memoLast((words: string[]) => {
+  const compiled = buildRegexes(words);
+  const byTitle = new Map<string, string[]>();
+  return (title: string) => {
+    let matched = byTitle.get(title);
+    if (matched === undefined) {
+      matched = compiled.filter(({ re }) => re?.test(title)).map(({ word }) => word);
+      byTitle.set(title, matched);
+    }
+    return matched;
+  };
+});
 
 /** Prefix that keeps custom category values apart from the site's. */
 const CUSTOM_PREFIX = 'custom:';
@@ -241,7 +256,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     pickupOnly: elsewhere && !lot.isTransferable,
     total: totalCost(lot.currentPrice, transferFee),
     retailPct: lot.estimatedRetailPrice ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100 : null,
-    matched: ex.filterOn ? firstMatch(compiledFilters(ex.words), lot.title) : null,
+    matched: ex.filterOn ? (titleMatcher(ex.words)(lot.title)[0] ?? null) : null,
     hidden: !!ex.hidden[lot.id],
     others: [],
   };
@@ -261,7 +276,7 @@ export interface ViewResult {
 export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: number): ViewResult {
   const matches = makeMatcher(view, now);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
-  const compiled = compiledFilters(ex.words);
+  const titleMatches = titleMatcher(ex.words);
 
   const rows: Row[] = [];
   const titles = new Set<string>();
@@ -274,10 +289,8 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
     }
     open++;
     titles.add(lot.title);
-    for (const { word, re } of compiled) {
-      if (re?.test(lot.title)) {
-        matchCounts.set(word, matchCounts.get(word)! + 1);
-      }
+    for (const word of titleMatches(lot.title)) {
+      matchCounts.set(word, matchCounts.get(word)! + 1);
     }
     const row = makeRow(lot, pickup, ex);
     // My lots views show every lot of mine, hidden or regex-filtered included.

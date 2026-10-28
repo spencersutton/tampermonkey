@@ -21,8 +21,3 @@ interface CompiledFilter {
 export function buildRegexes(words: string[]): CompiledFilter[] {
   return words.filter((w) => w.trim()).map((w) => ({ word: w, re: compileFilter(w) }));
 }
-
-/** The first filter word whose regex matches the title, or null if none do. */
-export function firstMatch(filters: CompiledFilter[], title: string): string | null {
-  return filters.find(({ re }) => re?.test(title))?.word ?? null;
-}
