@@ -22,7 +22,6 @@ site:
     PUT  /api/settings/<key>    {"value": ...}; last write wins
     GET  /api/history?id=N      closed lots whose name matches lot N's, most recent first
     GET  /api/health
-  /lost            redirects to the app's Lost page (/tlx?closed=lost)
   POST /sql        read-only SQL on the database, in libSQL's HTTP format, for
                    DBeaver's LibSQL driver (needs `Authorization: Bearer <password>`)
 
@@ -234,8 +233,6 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                     self._proxy(method)
                 elif path.startswith("/api/"):
                     self._api(method, path, parse_qs(url.query))
-                elif path == "/lost" and method in ("GET", "HEAD"):
-                    self._send(HTTPStatus.FOUND, b"", "text/plain", headers={"Location": "/tlx?closed=lost"})
                 elif path == "/sql" and method == "POST":
                     self._sql()
                 elif method in ("GET", "HEAD"):
