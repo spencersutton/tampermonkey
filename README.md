@@ -60,8 +60,6 @@ The app can't call the site directly, because the site's API doesn't allow other
 - **Encryption.** On your home Wi‑Fi the connection is plain HTTP. For HTTPS, either pass `--tls-cert`/`--tls-key`, or put it behind something like `tailscale serve`, which also reaches it away from home. The server honors `X-Forwarded-Proto: https` from such a proxy.
 - **Data.** The SQLite file (default `~/.local/share/tlx-server/tlx.db`, mode 600) holds the catalog, closed lots, item types, settings and the site session. Each lot is a row of `lots`, with its category, condition and location in lookup tables, its images in `lot_images` and its recent past closes in `lot_past_closes` (pointing at `closed_lots`); its item type comes from `item_types` by title. The last detail the server fetched for each lot (when you open it in the app, or when it asks for a closed lot's final price) is kept in `lot_details`: description, brand, model, lot fee and bid history (JSON), with `fetched_at`; it stays after the lot closes. A database from before this layout is converted on start.
 
-**Browsing the database from another computer (DBeaver).** With a password set, the server answers read-only SQL at `/sql` in libSQL's HTTP format, so DBeaver's built-in LibSQL driver can connect: *New Database Connection* → *LibSQL*, URL `http://<computer's address>:8765/sql` (`https://` with TLS), and the app password as the token (or password). Writes are refused: change settings through the app, which keeps every device in sync.
-
 ### Development
 
 Source is in `src/` (TypeScript + Preact, bundled with Vite). The build goes to

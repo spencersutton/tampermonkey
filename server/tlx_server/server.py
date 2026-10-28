@@ -22,8 +22,6 @@ site:
     PUT  /api/settings/<key>    {"value": ...}; last write wins
     GET  /api/history?id=N      closed lots whose name matches lot N's, most recent first
     GET  /api/health
-  POST /sql        read-only SQL on the database, in libSQL's HTTP format, for
-                   DBeaver's LibSQL driver (needs `Authorization: Bearer <password>`)
 
 Because the server is logged in to your account (and can bid), every request
 except the app's static files needs this app's own password (a session
@@ -199,16 +197,6 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
         def _guard(self, method: str, path: str) -> bool:
             """Host, CSRF and password checks; sends the error and returns False if one fails."""
-            if path == "/sql":
-                # Another site can't send an Authorization header without a CORS preflight, so the bearer password is enough.
-                if not api.password:
-                    self._error(HTTPStatus.FORBIDDEN, "Set --password (or TLX_PASSWORD) to use /sql")
-                    return False
-                given = self.headers.get("Authorization", "").removeprefix("Bearer ")
-                if not hmac.compare_digest(given.encode(), api.password.encode()):
-                    self._error(HTTPStatus.UNAUTHORIZED, "Wrong password.")
-                    return False
-                return True
             if not api.password and self._host() not in api.hosts:
                 self._error(HTTPStatus.FORBIDDEN, f"Host {self._host()!r} not allowed (use --allow-host, or set a password)")
                 return False
@@ -233,8 +221,6 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                     self._proxy(method)
                 elif path.startswith("/api/"):
                     self._api(method, path, parse_qs(url.query))
-                elif path == "/sql" and method == "POST":
-                    self._sql()
                 elif method in ("GET", "HEAD"):
                     self._static(path)
                 else:
@@ -410,29 +396,6 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 upstream.close()
 
         # -- the app itself -------------------------------------------------
-        def _sql(self) -> None:
-            """Run {"statements": [sql | {"q", "params"}]} read-only and answer [{"results": ...} | {"error"}] (libSQL's format)."""
-            statements = self._json_body().get("statements")
-            if not isinstance(statements, list):
-                raise TypeError('Expected {"statements": [...]}')
-            out: list[dict[str, Any]] = []
-            db = sqlite3.connect(f"{api.store.path.resolve().as_uri()}?mode=ro", uri=True, timeout=10)
-            try:
-                for st in statements:
-                    q, params = (st.get("q", ""), st.get("params") or []) if isinstance(st, dict) else (st, [])
-                    if isinstance(params, dict):
-                        params = {k.lstrip(":@$"): v for k, v in params.items()}
-                    try:
-                        cur = db.execute(q, params)
-                        rows = [[v.hex() if isinstance(v, bytes) else v for v in row] for row in cur.fetchall()]
-                    except sqlite3.Error as e:
-                        out.append({"error": str(e)})
-                        break
-                    columns = [d[0] for d in cur.description or []]
-                    out.append({"results": {"columns": columns, "rows": rows, "rows_read": len(rows), "rows_written": 0}})
-            finally:
-                db.close()
-            self._json(HTTPStatus.OK, out)
 
         def _static(self, path: str) -> None:
             name = "index.html" if path in ("/", "/tlx", "/tlx/") else path.lstrip("/")
