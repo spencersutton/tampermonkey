@@ -1,7 +1,9 @@
 /** Read the server's closed-lot pages without waiting for the entire response. */
+export type ClosedCounts = Partial<Record<'won' | 'lost', number>>;
+
 export async function readClosedStream<T>(
   response: Response,
-  onPage: (lots: T[], count: number) => void,
+  onPage: (lots: T[], count: number, counts: ClosedCounts) => void,
   onUnauthorized: () => void,
 ): Promise<T[]> {
   if (!response.body) {
@@ -24,7 +26,7 @@ export async function readClosedStream<T>(
       while ((end = pending.indexOf('\n')) !== -1) {
         const line = pending.slice(0, end);
         pending = pending.slice(end + 1);
-        const record: { lots: T[]; count: number; done: boolean } | { error: string; status: number } = JSON.parse(line);
+        const record: { lots: T[]; count: number; done: boolean; counts: ClosedCounts } | { error: string; status: number } = JSON.parse(line);
         if ('error' in record) {
           if (record.status === 401) {
             onUnauthorized();
@@ -32,7 +34,7 @@ export async function readClosedStream<T>(
           throw new Error(record.error);
         }
         out.push(...record.lots);
-        onPage([...out], record.count);
+        onPage([...out], record.count, record.counts);
         complete = record.done;
       }
       if (done) {

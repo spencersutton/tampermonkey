@@ -7,19 +7,17 @@ import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { KEYS, lotHref } from '../shared/keys';
 import { nameMatchPct, namesMatch, nameTokens } from '../shared/names';
 import { CDN, fetchClosed, type ClosedSection } from './api';
-import { isAuthenticated, LoginLink, me, onAuthChange } from './auth';
+import { isAuthenticated, LoginLink, me } from './auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
+import type { ClosedCounts } from './closedStream';
 import { Icon } from './icons';
 import { LocationText, TimeLeft } from './LotCard';
 import { LotModal } from './LotModal';
 import { useSetting } from './settings';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, fmtCount, MINUTE, plural, shortDate } from './util';
+import { clock, fmtCount, plural, shortDate } from './util';
 import type { Row } from './view';
-
-/** A fetched section is shown again without refetching for this long. */
-const FRESH = 2 * MINUTE;
 
 const TITLES: Record<ClosedSection, string> = { won: 'Won', lost: 'Lost' };
 
@@ -27,43 +25,30 @@ interface Loaded {
   lots: ClosedLot[];
   count: number; // what the site reports, while pages are still arriving
   done: boolean;
-  at: number;
   error?: string;
 }
 
-/** Last fetch of each section, kept while the app is open. */
-const cache = new Map<string, Loaded>();
-let authRevision = 0;
-onAuthChange(() => {
-  cache.clear();
-  authRevision++;
-});
-
-const cacheKey = (section: ClosedSection, account: string | null) => `${authRevision}:${account ?? ''}:${section}`;
-
-function useClosed(section: ClosedSection, authed: boolean, account: string | null): Loaded | null {
-  const key = cacheKey(section, account);
-  const [state, setState] = useState<{ key: string; data: Loaded | null }>(() => ({ key, data: cache.get(key) ?? null }));
+function useClosed(section: ClosedSection, authed: boolean): { data: Loaded | null; counts: ClosedCounts } {
+  const [state, setState] = useState<{ section: ClosedSection; data: Loaded | null; counts: ClosedCounts }>({
+    section, data: null, counts: {},
+  });
   useEffect(() => {
-    setState({ key, data: cache.get(key) ?? null });
-    const hit = cache.get(key);
-    if (!authed || (hit && !hit.error && Date.now() - hit.at < FRESH)) {
+    setState({ section, data: null, counts: {} });
+    if (!authed) {
       return;
     }
     const ac = new AbortController();
-    const put = (d: Loaded) => {
+    fetchClosed(section, (lots, count, counts) => {
       if (!ac.signal.aborted) {
-        cache.set(key, d);
-        setState({ key, data: d });
+        setState({ section, data: { lots, count, done: false }, counts });
       }
-    };
-    fetchClosed(section, (lots, count) => put({ lots, count, done: false, at: Date.now() }), ac.signal).then(
-      (lots) => put({ lots, count: lots.length, done: true, at: Date.now() }),
-      (e) => !ac.signal.aborted && put({ lots: hit?.lots ?? [], count: 0, done: true, at: 0, error: (e as Error).message || String(e) }),
+    }, ac.signal).then(
+      (lots) => !ac.signal.aborted && setState((s) => ({ section, data: { lots, count: lots.length, done: true }, counts: { ...s.counts, [section]: lots.length } })),
+      (e) => !ac.signal.aborted && setState({ section, data: { lots: [], count: 0, done: true, error: (e as Error).message || String(e) }, counts: {} }),
     );
     return () => ac.abort();
-  }, [section, authed, key]);
-  return state.key === key ? state.data : null;
+  }, [section, authed]);
+  return state.section === section && authed ? state : { data: null, counts: {} };
 }
 
 interface Props {
@@ -75,10 +60,14 @@ interface Props {
   rowOf: (lot: Lot) => Row;
 }
 
-export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide, rowOf }: Props) {
+export function ClosedLots(props: Props) {
   const authed = isAuthenticated();
   const account = me.value?.site?.email ?? null;
-  const data = useClosed(section, authed, account);
+  return <ClosedLotsContent key={`${authed}:${account ?? ''}`} {...props} authed={authed} />;
+}
+
+function ClosedLotsContent({ section, onSection, onBack, onOpenLot, onToggleHide, rowOf, authed }: Props & { authed: boolean }) {
+  const { data, counts } = useClosed(section, authed);
   const [nameMatch] = useSetting(KEYS.nameMatch);
   const [filter, setFilter] = useState('');
   const [opening, setOpening] = useState<number | null>(null);
@@ -148,11 +137,11 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
       </div>
       <div class="tabs" role="tablist">
         {(['won', 'lost'] as const).map((s) => {
-          const d = s === section ? data : cache.get(cacheKey(s, account));
+          const count = counts[s];
           return (
             <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => onSection(s)}>
               {TITLES[s]}
-              {d?.done && !d.error && <span class="muted"> ({fmtCount(d.lots.length)})</span>}
+              {count != null && <span class="muted"> ({fmtCount(count)})</span>}
             </button>
           );
         })}

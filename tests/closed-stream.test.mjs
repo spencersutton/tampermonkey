@@ -8,14 +8,14 @@ test('displays pages as chunks arrive, including split UTF-8 characters', async 
   let controller;
   const stream = new ReadableStream({ start(c) { controller = c; } });
   const pages = [];
-  const result = readClosedStream(new Response(stream), (lots, count) => pages.push({ lots, count }), () => assert.fail('unexpected 401'));
-  const first = encode.encode('{"lots":[{"title":"café"}],"count":2,"done":false}\n');
+  const result = readClosedStream(new Response(stream), (lots, count, counts) => pages.push({ lots, count, counts }), () => assert.fail('unexpected 401'));
+  const first = encode.encode('{"lots":[{"title":"café"}],"count":2,"done":false,"counts":{"lost":3}}\n');
   const accent = first.indexOf(0xc3);
   controller.enqueue(first.slice(0, accent + 1));
   controller.enqueue(first.slice(accent + 1));
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(pages, [{ lots: [{ title: 'café' }], count: 2 }]);
-  controller.enqueue(encode.encode('{"lots":[{"title":"second"}],"count":2,"done":true}\n'));
+  assert.deepEqual(pages, [{ lots: [{ title: 'café' }], count: 2, counts: { lost: 3 } }]);
+  controller.enqueue(encode.encode('{"lots":[{"title":"second"}],"count":2,"done":true,"counts":{"won":2,"lost":3}}\n'));
   controller.close();
   assert.deepEqual(await result, [{ title: 'café' }, { title: 'second' }]);
   assert.equal(pages.length, 2);

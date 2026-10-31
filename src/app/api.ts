@@ -2,7 +2,7 @@
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
 import { authedFetch, isAuthenticated, refreshSession } from './auth';
-import { readClosedStream } from './closedStream';
+import { readClosedStream, type ClosedCounts } from './closedStream';
 import type { ClosedLot, Lot, LotDetail, Standing } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
@@ -84,7 +84,7 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
 export type ClosedSection = 'won' | 'lost';
 
 /** Fetch the server's normalized closed lots as its upstream pages arrive. */
-export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedLot[], count: number) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
+export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedLot[], count: number, counts: ClosedCounts) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
   const res = await authedFetch(`/api/closed?section=${section}`, { headers: { Accept: 'application/x-ndjson' }, signal });
   if (!res.ok) {
     const data: { error?: string } = await res.json();

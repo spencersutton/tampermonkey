@@ -60,7 +60,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
-from .closed import closed_pages
+from .closed import ClosedCache
 from .history import HISTORY_LIMIT, NAME_MATCH_KEY
 from .session import SiteSession
 from .site import SITE, TIMEOUT, USER_AGENT, ApiError, normalize_detail, now_ms
@@ -97,6 +97,7 @@ class Api:
         self.store = store
         self.catalog = catalog
         self.session = session
+        self.closed = ClosedCache(session)
         self.password = password
         self.hosts = LOCAL_HOSTS | {h.lower().strip("[]") for h in hosts}
         self.tls = tls
@@ -245,12 +246,20 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 self._json(HTTPStatus.OK, self._me(locked=bool(api.password)), headers={"Set-Cookie": self._cookie("", 0)})
             elif route == ("POST", "/api/site-login"):
                 d = self._json_body()
-                error = api.session.login(str(d.get("email", "")).strip(), str(d.get("password", "")))
+                api.closed.invalidate()
+                try:
+                    error = api.session.login(str(d.get("email", "")).strip(), str(d.get("password", "")))
+                finally:
+                    api.closed.invalidate()
                 if not error:
                     api.catalog.request_pull()  # pick up your standings and watchlist when allowed
                 self._json(HTTPStatus.OK, {"error": error, **self._me()})
             elif route == ("POST", "/api/site-logout"):
-                api.session.logout()
+                api.closed.invalidate()
+                try:
+                    api.session.logout()
+                finally:
+                    api.closed.invalidate()
                 self._json(HTTPStatus.OK, self._me())
             elif route == ("GET", "/api/catalog"):
                 self._catalog(self._since(query))
@@ -300,7 +309,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             self._json(HTTPStatus.OK, {"seq": c.seq, "full": full, "ids": None if full else c.ids, **api.status(), "lots": c.lots})
 
         def _closed(self, section: str) -> None:
-            pages = closed_pages(section, api.session)
+            pages = api.closed.pages(section)
             try:
                 first = next(pages)
             except ApiError as exc:
@@ -316,7 +325,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
 
             def write(record: dict[str, Any]) -> None:
-                data = (dumps(record) + "\n").encode()
+                data = (dumps({**record, "counts": api.closed.counts()} if "lots" in record else record) + "\n").encode()
                 self.wfile.write(f"{len(data):X}\r\n".encode() + data + b"\r\n")
                 self.wfile.flush()
 

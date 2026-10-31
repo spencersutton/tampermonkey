@@ -2,13 +2,114 @@
 
 from __future__ import annotations
 
+import logging
 import math
-from collections.abc import Iterator
+import threading
+import time
+from collections.abc import Generator, Iterator
+from dataclasses import dataclass, field
 from http import HTTPStatus
 from typing import Any
 
 from .session import SiteSession
 from .site import LIST_PAGE_SIZE, ApiError, _epoch_ms, get
+
+log = logging.getLogger(__name__)
+CACHE_SECONDS = 120
+
+
+@dataclass
+class _Fetch:
+    identity: str | None
+    generation: int
+    pages: list[dict[str, Any]] = field(default_factory=list)
+    completed_at: float | None = None
+    error: ApiError | None = None
+
+
+class ClosedCache:
+    """Share in-flight and completed account-specific fetches between clients."""
+
+    def __init__(self, session: SiteSession) -> None:
+        self.session = session
+        self._changed = threading.Condition()
+        self._generation = 0
+        self._fetches: dict[str, _Fetch] = {}
+
+    def invalidate(self) -> None:
+        with self._changed:
+            self._generation += 1
+            self._fetches.clear()
+            self._changed.notify_all()
+
+    def counts(self) -> dict[str, int]:
+        with self._changed:
+            identity = self.session.status().get("email")
+            return {
+                section: sum(len(page["lots"]) for page in fetch.pages)
+                for section, fetch in self._fetches.items()
+                if self.session.logged_in
+                and fetch.identity == identity
+                and fetch.completed_at is not None
+                and time.monotonic() - fetch.completed_at < CACHE_SECONDS
+            }
+
+    def pages(self, section: str) -> Generator[dict[str, Any], None, None]:
+        if section not in ("won", "lost"):
+            raise ValueError("Expected section=won or section=lost")
+        if not self.session.token():
+            raise ApiError("Log in to see your closed lots.", HTTPStatus.UNAUTHORIZED)
+        identity = self.session.status().get("email")
+        with self._changed:
+            fetch = self._fetches.get(section)
+            if (
+                fetch is None
+                or fetch.identity != identity
+                or fetch.error is not None
+                or (fetch.completed_at is not None and time.monotonic() - fetch.completed_at >= CACHE_SECONDS)
+            ):
+                fetch = _Fetch(identity, self._generation)
+                self._fetches[section] = fetch
+                threading.Thread(target=self._load, args=(section, fetch), daemon=True).start()
+
+        index = 0
+        while True:
+            with self._changed:
+                while True:
+                    if fetch.generation != self._generation or not self.session.logged_in or self.session.status().get("email") != identity:
+                        raise ApiError("Site login changed while loading closed lots.", HTTPStatus.UNAUTHORIZED)
+                    if index < len(fetch.pages):
+                        page = fetch.pages[index]
+                        index += 1
+                        break
+                    if fetch.error is not None:
+                        raise fetch.error
+                    if fetch.completed_at is not None:
+                        return
+                    self._changed.wait()
+            yield page
+
+    def _load(self, section: str, fetch: _Fetch) -> None:
+        try:
+            for page in closed_pages(section, self.session):
+                with self._changed:
+                    if fetch.generation != self._generation:
+                        return
+                    fetch.pages.append(page)
+                    if page["done"]:
+                        fetch.completed_at = time.monotonic()
+                    self._changed.notify_all()
+            if fetch.completed_at is None:
+                raise ApiError("The closed-lot response ended unexpectedly.", HTTPStatus.BAD_GATEWAY)
+        except ApiError as exc:
+            with self._changed:
+                fetch.error = exc
+                self._changed.notify_all()
+        except Exception:
+            log.exception("closed-lot fetch failed")
+            with self._changed:
+                fetch.error = ApiError("Couldn’t load closed lots from the site.", HTTPStatus.BAD_GATEWAY)
+                self._changed.notify_all()
 
 
 def normalize_closed(row: dict[str, Any]) -> dict[str, Any]:

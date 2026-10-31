@@ -8,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from tlx_server.catalog import Catalog
-from tlx_server.closed import closed_pages, normalize_closed
+from tlx_server.closed import ClosedCache, closed_pages, normalize_closed
 from tlx_server.server import Api, make_handler
 from tlx_server.session import SiteSession
 from tlx_server.site import ApiError
@@ -105,6 +105,107 @@ class ClosedTests(unittest.TestCase):
             list(closed_pages("won", Session()))
 
 
+class ClosedCacheTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.session = Session()
+        self.cache = ClosedCache(self.session)
+
+    def test_completed_results_are_shared_and_expire(self) -> None:
+        with (
+            patch("tlx_server.closed.get", side_effect=[{"count": 1, "results": [row(1)]}, {"count": 1, "results": [row(2)]}]) as get,
+            patch("tlx_server.closed.time.monotonic", return_value=1000) as clock,
+        ):
+            first = list(self.cache.pages("won"))
+            self.assertEqual(list(self.cache.pages("won")), first)
+            self.assertEqual(self.cache.counts(), {"won": 1})
+            self.assertEqual(get.call_count, 1)
+            clock.return_value = 1120
+            self.assertEqual(self.cache.counts(), {})
+            refreshed = list(self.cache.pages("won"))
+            self.assertEqual(refreshed[0]["lots"][0]["lotId"], 2)
+            self.assertEqual(get.call_count, 2)
+
+    def test_fetch_continues_after_client_leaves_and_is_shared(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+
+        def fetch(_path: str, params: dict[str, int], _token: str) -> dict[str, Any]:
+            if params["page"] == 1:
+                return {"count": 2, "results": [row(1)]}
+            started.set()
+            if not release.wait(3):
+                raise ApiError("timed out", 0)
+            return {"count": 2, "results": [row(2)]}
+
+        with patch("tlx_server.closed.get", side_effect=fetch) as get:
+            try:
+                first = self.cache.pages("won")
+                self.assertEqual(next(first)["lots"][0]["lotId"], 1)
+                self.assertTrue(started.wait(2))
+                first.close()
+                second = self.cache.pages("won")
+                self.assertEqual(next(second)["lots"][0]["lotId"], 1)
+                self.assertEqual(self.cache.counts(), {})
+                release.set()
+                self.assertEqual(next(second)["lots"][0]["lotId"], 2)
+                with self.assertRaises(StopIteration):
+                    next(second)
+                self.assertEqual(get.call_count, 2)
+            finally:
+                release.set()
+
+    def test_failed_partial_results_are_not_reused(self) -> None:
+        responses = [{"count": 2, "results": [row(1)]}, ApiError("site unavailable", 503), {"count": 1, "results": [row(2)]}]
+        with patch("tlx_server.closed.get", side_effect=responses) as get:
+            pages = self.cache.pages("lost")
+            self.assertEqual(next(pages)["lots"][0]["lotId"], 1)
+            with self.assertRaisesRegex(ApiError, "site unavailable"):
+                next(pages)
+            self.assertEqual(self.cache.counts(), {})
+            retry = list(self.cache.pages("lost"))
+            self.assertEqual(retry[0]["lots"][0]["lotId"], 2)
+            self.assertEqual(get.call_count, 3)
+
+    def test_invalidation_and_account_change_prevent_reuse(self) -> None:
+        responses = [{"count": 1, "results": [row(1)]}, {"count": 1, "results": [row(2)]}, {"count": 1, "results": [row(3)]}]
+        with patch("tlx_server.closed.get", side_effect=responses) as get:
+            list(self.cache.pages("won"))
+            self.cache.invalidate()
+            self.assertEqual(self.cache.counts(), {})
+            same_account = list(self.cache.pages("won"))
+            self.assertEqual(same_account[0]["lots"][0]["lotId"], 2)
+            self.session.email = "two@example.test"
+            self.assertEqual(self.cache.counts(), {})
+            new_account = list(self.cache.pages("won"))
+            self.assertEqual(new_account[0]["lots"][0]["lotId"], 3)
+            self.assertEqual(get.call_count, 3)
+
+    def test_invalidating_an_inflight_fetch_stops_consumers(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+
+        def fetch(_path: str, params: dict[str, int], _token: str) -> dict[str, Any]:
+            if params["page"] == 1:
+                return {"count": 2, "results": [row(1)]}
+            started.set()
+            if not release.wait(3):
+                raise ApiError("timed out", 0)
+            return {"count": 2, "results": [row(2)]}
+
+        with patch("tlx_server.closed.get", side_effect=fetch):
+            try:
+                pages = self.cache.pages("won")
+                next(pages)
+                self.assertTrue(started.wait(2))
+                self.cache.invalidate()
+                with self.assertRaisesRegex(ApiError, "login changed"):
+                    next(pages)
+                release.set()
+                self.assertEqual(self.cache.counts(), {})
+            finally:
+                release.set()
+
+
 class ClosedHttpTests(unittest.TestCase):
     def setUp(self) -> None:
         self.session = Session()
@@ -175,6 +276,46 @@ class ClosedHttpTests(unittest.TestCase):
         response = self.request("/api/closed?section=other")
         self.assertEqual(response.status, HTTPStatus.BAD_REQUEST)
         response.read()
+
+    def test_clients_share_cached_results_and_tab_counts(self) -> None:
+        responses = [{"count": 1, "results": [row(1)]}, {"count": 1, "results": [row(2)]}]
+        with patch("tlx_server.closed.get", side_effect=responses) as get:
+            won = [json.loads(line) for line in self.request().read().splitlines()]
+            lost = [json.loads(line) for line in self.request("/api/closed?section=lost").read().splitlines()]
+            other = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=3)
+            try:
+                other.request("GET", "/api/closed?section=won")
+                cached = [json.loads(line) for line in other.getresponse().read().splitlines()]
+            finally:
+                other.close()
+        self.assertEqual(won[0]["lots"][0]["lotId"], 1)
+        self.assertEqual(lost[0]["lots"][0]["lotId"], 2)
+        self.assertEqual(cached[0]["lots"][0]["lotId"], 1)
+        self.assertEqual(cached[0]["counts"], {"won": 1, "lost": 1})
+        self.assertEqual(get.call_count, 2)
+
+    def test_login_and_logout_routes_invalidate_shared_cache(self) -> None:
+        with (
+            patch("tlx_server.closed.get", return_value={"count": 1, "results": [row(1)]}) as get,
+            patch.object(self.session, "login", return_value=None),
+            patch.object(self.session, "logout"),
+        ):
+            self.request().read()
+            self.assertEqual(self.api.closed.counts(), {"won": 1})
+            self.conn.request(
+                "POST", "/api/site-login", body=json.dumps({"email": "one@example.test", "password": "test"}), headers={"X-TLX-Client": "1"}
+            )
+            response = self.conn.getresponse()
+            self.assertEqual(response.status, 200)
+            response.read()
+            self.assertEqual(self.api.closed.counts(), {})
+            self.request().read()
+            self.assertEqual(get.call_count, 2)
+            self.conn.request("POST", "/api/site-logout", body=b"", headers={"X-TLX-Client": "1"})
+            response = self.conn.getresponse()
+            self.assertEqual(response.status, 200)
+            response.read()
+            self.assertEqual(self.api.closed.counts(), {})
 
 
 if __name__ == "__main__":
