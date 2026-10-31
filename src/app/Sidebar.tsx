@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
 import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
-import type { ClosedSection } from './api';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
 import { useSetting } from './settings';
@@ -33,8 +32,8 @@ interface Props {
   authed: boolean;
   onOpenHidden: (id: number) => void;
   onEditCategories: () => void;
-  onOpenClosed: (section: ClosedSection) => void;
-  closed: ClosedSection | null;
+  onOpenClosed: (section: 'won' | 'lost') => void;
+  closed: 'won' | 'lost' | null;
   saved: SavedSearchesProps;
 }
 
@@ -251,7 +250,7 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
         <span class="muted">Closed:</span>
         {(['won', 'lost'] as const).map((s) => (
           <button type="button" class={`btn-text ${closed === s ? 'on' : ''}`} aria-pressed={closed === s} disabled={!authed} onClick={() => onOpenClosed(s)}>
-            {s === 'won' ? 'Won' : 'Lost'}
+            {s[0].toUpperCase() + s.slice(1)}
           </button>
         ))}
       </div>

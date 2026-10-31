@@ -4,7 +4,6 @@
 // written into the URL (/tlx?search=foo&sort=price-low&page=2&lot=123) so a
 // view can be bookmarked or shared; only values that differ from the defaults appear.
 import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
-import type { ClosedSection } from './api';
 import { DEFAULT_VIEW, normalizeView, type ViewState } from './view';
 
 /** What a history entry restores. */
@@ -12,7 +11,7 @@ export interface NavState {
   view: ViewState;
   page: number;
   openId: number | null;
-  closed: ClosedSection | null; // the Won / Lost page shown instead of the grid
+  closed: 'won' | 'lost' | null; // the Won / Lost page shown instead of the grid
 }
 
 /**

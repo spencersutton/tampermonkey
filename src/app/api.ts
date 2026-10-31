@@ -80,11 +80,8 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
   };
 }
 
-/** Closed lots you won or lost, as the site's control panel lists them. */
-export type ClosedSection = 'won' | 'lost';
-
-/** Fetch the server's normalized closed lots as its upstream pages arrive. */
-export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedLot[], count: number, counts: ClosedCounts) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
+  /** Fetch the server's normalized closed lots as its upstream pages arrive. */
+export async function fetchClosed(section: 'won' | 'lost', onPage: (lots: ClosedLot[], count: number, counts: ClosedCounts) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
   const res = await authedFetch(`/api/closed?section=${section}`, { headers: { Accept: 'application/x-ndjson' }, signal });
   if (!res.ok) {
     const data: { error?: string } = await res.json();

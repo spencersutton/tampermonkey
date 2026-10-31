@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { KEYS, lotHref } from '../shared/keys';
 import { nameMatchPct, namesMatch, nameTokens } from '../shared/names';
-import { CDN, fetchClosed, type ClosedSection } from './api';
+import { CDN, fetchClosed } from './api';
 import { isAuthenticated, LoginLink, me } from './auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
 import type { ClosedCounts } from './closedStream';
@@ -19,7 +19,6 @@ import type { ClosedLot, Lot } from './types';
 import { clock, fmtCount, plural, shortDate } from './util';
 import type { Row } from './view';
 
-const TITLES: Record<ClosedSection, string> = { won: 'Won', lost: 'Lost' };
 
 interface Loaded {
   lots: ClosedLot[];
@@ -28,8 +27,8 @@ interface Loaded {
   error?: string;
 }
 
-function useClosed(section: ClosedSection, authed: boolean): { data: Loaded | null; counts: ClosedCounts } {
-  const [state, setState] = useState<{ section: ClosedSection; data: Loaded | null; counts: ClosedCounts }>({
+function useClosed(section: 'won' | 'lost', authed: boolean): { data: Loaded | null; counts: ClosedCounts } {
+  const [state, setState] = useState<{ section: 'won' | 'lost'; data: Loaded | null; counts: ClosedCounts }>({
     section, data: null, counts: {},
   });
   useEffect(() => {
@@ -52,8 +51,8 @@ function useClosed(section: ClosedSection, authed: boolean): { data: Loaded | nu
 }
 
 interface Props {
-  section: ClosedSection;
-  onSection: (s: ClosedSection) => void;
+  section: 'won' | 'lost';
+  onSection: (s: 'won' | 'lost') => void;
   onBack: () => void;
   onOpenLot: (lot: Lot) => void; // a lot in the catalog
   onToggleHide: (lot: Lot) => void;
@@ -138,7 +137,7 @@ function ClosedLotsContent({ section, onSection, onBack, onOpenLot, onToggleHide
       <div class="tabs" role="tablist">
         {(['won', 'lost'] as const).map((s) => (
           <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => onSection(s)}>
-            {TITLES[s]}
+            {s[0].toUpperCase() + s.slice(1)}
             {counts[s] != null && <span class="muted"> ({fmtCount(counts[s])})</span>}
           </button>
         ))}
@@ -151,7 +150,7 @@ function ClosedLotsContent({ section, onSection, onBack, onOpenLot, onToggleHide
       ) : (
         <>
           <div class="closed-tools">
-            <input type="search" placeholder={`Filter ${TITLES[section].toLowerCase()} lots`} aria-label="Filter lots" value={filter} onInput={(e) => setFilter(e.currentTarget.value)} />
+            <input type="search" placeholder={`Filter ${section === 'won' ? 'won' : 'lost'} lots`} aria-label="Filter lots" value={filter} onInput={(e) => setFilter(e.currentTarget.value)} />
             {data && !data.error && (
               <span class="muted small">
                 {data.done ? plural(lots.length, 'lot') : `Loading… ${fmtCount(data.lots.length)} of ${fmtCount(data.count)}`}
@@ -165,7 +164,7 @@ function ClosedLotsContent({ section, onSection, onBack, onOpenLot, onToggleHide
               </span>
             )}
           </div>
-          {data?.error && <p class="error">Couldn’t load your {TITLES[section].toLowerCase()} lots: {data.error}</p>}
+          {data?.error && <p class="error">Couldn’t load your {section === 'won' ? 'won' : 'lost'} lots: {data.error}</p>}
           {!data && <p class="muted">Loading…</p>}
           {data?.done && !data.error && !data.lots.length && <p class="muted">{section === 'won' ? 'No won lots.' : 'No lost lots in the last 14 days.'}</p>}
           <ol class="closed-list">
