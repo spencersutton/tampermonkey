@@ -136,15 +136,12 @@ function ClosedLotsContent({ section, onSection, onBack, onOpenLot, onToggleHide
         <h1>Closed auctions</h1>
       </div>
       <div class="tabs" role="tablist">
-        {(['won', 'lost'] as const).map((s) => {
-          const count = counts[s];
-          return (
-            <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => onSection(s)}>
-              {TITLES[s]}
-              {count != null && <span class="muted"> ({fmtCount(count)})</span>}
-            </button>
-          );
-        })}
+        {(['won', 'lost'] as const).map((s) => (
+          <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => onSection(s)}>
+            {TITLES[s]}
+            {counts[s] != null && <span class="muted"> ({fmtCount(counts[s])})</span>}
+          </button>
+        ))}
       </div>
 
       {!authed ? (
@@ -192,7 +189,7 @@ function ClosedLotsContent({ section, onSection, onBack, onOpenLot, onToggleHide
           row={rowOf(modalLot)}
           onClose={() => setModalLot(null)}
           onToggleHide={() => onToggleHide(modalLot)}
-          onBid={() => {}}
+          onBid={() => { }}
           onOpenLot={(l) => {
             setModalLot(null);
             onOpenLot(l);
