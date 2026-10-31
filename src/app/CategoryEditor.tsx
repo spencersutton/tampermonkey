@@ -1,5 +1,5 @@
-// Full-size editor for custom categories, one line each until opened: add, rename, reorder (drag or
-// arrows), edit the item types and regex, and preview which open lots each one takes.
+// Full-size editor for custom categories, one line each until opened: add, rename, reorder with
+// arrows, edit the item types and regex, and preview which open lots each one takes.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { KEYS, type CustomCategory } from '../shared/keys';
@@ -91,7 +91,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const [initial, setInitial] = useState(() => getSetting(KEYS.customCategories));
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
   const [selected, setSelected] = useState<number | null>(null);
-  const [drag, setDrag] = useState<{ from: number; over: number } | null>(null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
   const list = useRef<HTMLOListElement>(null);
 
@@ -227,7 +226,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
               Lots of a listed item type, or whose title matches the regex (case-insensitive, whole words), move into the category. Item types win, then the
-              first regex from the top – drag to reorder. Click a category to edit it.
+              first regex from the top – use the arrows to reorder. Click a category to edit it.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -244,7 +243,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                 const err = errors.get(d.key);
                 const count = assignment.taken.get(d.key)!.length;
                 const shadowed = assignment.shadowed.get(d.key)!;
-                const isDragOver = drag && drag.over === i && drag.from !== i;
                 const open = d.key === selected;
                 const label = d.name.trim() || 'New category';
                 return (
@@ -255,43 +253,11 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       'cat-row',
                       err && 'has-error',
                       open && 'selected',
-                      drag?.from === i && 'dragging',
-                      isDragOver && (drag.from < i ? 'drop-after' : 'drop-before'),
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    onDragOver={(e) => {
-                      if (drag) {
-                        e.preventDefault();
-                        setDrag((cur) => (cur && cur.over !== i ? { ...cur, over: i } : cur));
-                      }
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (drag) {
-                        move(drag.from, i);
-                      }
-                      setDrag(null);
-                    }}
                   >
                     <div class="cat-line">
-                      <span
-                        class="cat-handle"
-                        draggable
-                        title="Drag to reorder"
-                        onDragStart={(e) => {
-                          const row = (e.currentTarget as HTMLElement).closest('li');
-                          e.dataTransfer!.effectAllowed = 'move';
-                          e.dataTransfer!.setData('text/plain', d.name);
-                          if (row) {
-                            e.dataTransfer!.setDragImage(row, 16, 16);
-                          }
-                          setDrag({ from: i, over: i });
-                        }}
-                        onDragEnd={() => setDrag(null)}
-                      >
-                        <Icon name="dragIndicator" size={18} />
-                      </span>
                       <button
                         type="button"
                         class="cat-summary"

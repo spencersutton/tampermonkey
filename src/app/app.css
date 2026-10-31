@@ -1457,35 +1457,11 @@ h3 {
   border-color: var(--bad);
 }
 
-.cat-row.dragging {
-  opacity: 0.45;
-}
-
-.cat-row.drop-before {
-  box-shadow: 0 -3px 0 var(--primary);
-}
-
-.cat-row.drop-after {
-  box-shadow: 0 3px 0 var(--primary);
-}
-
 .cat-line {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 0 4px;
-}
-
-.cat-handle {
-  display: inline-flex;
-  color: var(--muted);
-  cursor: grab;
-  padding: 2px;
-  border-radius: 4px;
-}
-
-.cat-handle:active {
-  cursor: grabbing;
 }
 
 .cat-summary {
