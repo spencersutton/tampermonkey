@@ -1,7 +1,8 @@
 // Thin client for the site's JSON API, proxied by the tlx server, which adds
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
-import { authedFetch, isAuthenticated } from './auth';
+import { authedFetch, isAuthenticated, refreshSession } from './auth';
+import { readClosedStream } from './closedStream';
 import type { ClosedLot, Lot, LotDetail, Standing } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
@@ -82,39 +83,14 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
 /** Closed lots you won or lost, as the site's control panel lists them. */
 export type ClosedSection = 'won' | 'lost';
 
-/** Fetch every closed lot in a section, most recent first, calling `onPage` with the list so far as pages arrive. */
+/** Fetch the server's normalized closed lots as its upstream pages arrive. */
 export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedLot[], count: number) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
-  const out: ClosedLot[] = [];
-  const seen = new Set<string>();
-  for (let page = 1; ; page++) {
-    const d = await get<{ count: number; results: Raw[] }>(`/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`, signal);
-    for (const r of d.results) {
-      const lot = normalizeClosed(r);
-      // Pages can shift while we walk them; the site dedupes the same way.
-      if (!seen.has(`${lot.auctionPeriod}:${lot.lotId}`)) {
-        seen.add(`${lot.auctionPeriod}:${lot.lotId}`);
-        out.push(lot);
-      }
-    }
-    onPage([...out], d.count);
-    if (!d.results.length || out.length >= d.count) {
-      return out;
-    }
+  const res = await authedFetch(`/api/closed?section=${section}`, { headers: { Accept: 'application/x-ndjson' }, signal });
+  if (!res.ok) {
+    const data: { error?: string } = await res.json();
+    throw new Error(data.error || `Server replied ${res.status}`);
   }
-}
-
-function normalizeClosed(r: Raw): ClosedLot {
-  const ends = Date.parse(r.ends_at ?? r.closed_at ?? r.ended_at ?? '');
-  return {
-    lotId: Number(r.lot_id ?? r.id),
-    auctionPeriod: String(r.auction_period ?? ''),
-    title: String(r.title ?? ''),
-    lotNumber: String(r.lot_number ?? ''),
-    locationName: r.location_name ?? r.location?.name ?? null,
-    finalPrice: Number(r.final_price ?? 0),
-    heroImage: r.hero_image ?? null,
-    endsAt: Number.isFinite(ends) ? ends : null,
-  };
+  return readClosedStream(res, onPage, () => void refreshSession());
 }
 
 /** A condition as the site explains it ("Like New": "Appears open-box or lightly used; …"). */

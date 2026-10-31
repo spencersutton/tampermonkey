@@ -21,6 +21,7 @@ site:
     GET  /api/settings?since=N  settings changed after revision N
     PUT  /api/settings/<key>    {"value": ...}; last write wins
     GET  /api/history?id=N      closed lots whose name matches lot N's, most recent first
+    GET  /api/closed?section=won|lost  streamed account closed lots
     GET  /api/health
 
 Because the server is logged in to your account (and can bid), every request
@@ -59,9 +60,10 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
+from .closed import closed_pages
 from .history import HISTORY_LIMIT, NAME_MATCH_KEY
 from .session import SiteSession
-from .site import SITE, TIMEOUT, USER_AGENT, normalize_detail, now_ms
+from .site import SITE, TIMEOUT, USER_AGENT, ApiError, normalize_detail, now_ms
 from .store import Store, dumps
 
 log = logging.getLogger(__name__)
@@ -262,6 +264,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 if not lot:
                     raise ValueError("No such open lot")
                 self._json(HTTPStatus.OK, {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]})
+            elif route == ("GET", "/api/closed"):
+                self._closed(query.get("section", [""])[0])
             elif method == "PUT" and path.startswith("/api/settings/"):
                 self._put_setting(path.removeprefix("/api/settings/"))
             else:
@@ -294,6 +298,39 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             c = api.store.changes(since)
             full = since == 0 or since > c.seq
             self._json(HTTPStatus.OK, {"seq": c.seq, "full": full, "ids": None if full else c.ids, **api.status(), "lots": c.lots})
+
+        def _closed(self, section: str) -> None:
+            pages = closed_pages(section, api.session)
+            try:
+                first = next(pages)
+            except ApiError as exc:
+                self._error(HTTPStatus.UNAUTHORIZED if exc.status == 401 else HTTPStatus.BAD_GATEWAY, str(exc))
+                return
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.end_headers()
+
+            def write(record: dict[str, Any]) -> None:
+                data = (dumps(record) + "\n").encode()
+                self.wfile.write(f"{len(data):X}\r\n".encode() + data + b"\r\n")
+                self.wfile.flush()
+
+            try:
+                write(first)
+                try:
+                    for record in pages:
+                        write(record)
+                except ApiError as exc:
+                    write({"error": str(exc), "status": exc.status})
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                log.debug("closed-lot request cancelled")
 
         def _put_setting(self, key: str) -> None:
             if not SETTING_KEY.match(key):
