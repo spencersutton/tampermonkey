@@ -2,7 +2,7 @@ import { computed } from '@preact/signals';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { nameMatchPct } from '../shared/names';
-import { fetchPickupLocation, type ClosedSection } from './api';
+import { fetchPickupLocation} from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { nextPullAt, pullCatalog, settingsSynced } from './source';
 import { error, getLot, loaded, lots, meta, progress, rev } from './catalog';
@@ -115,7 +115,7 @@ function useAccountPickupFetch(authed: boolean) {
     if (authed && !(acct && Date.now() - acct.at < DAY)) {
       fetchPickupLocation().then(
         (p) => setSetting(KEYS.accountPickup, { id: p?.id ?? null, name: p?.name ?? null, at: Date.now() }),
-        () => {},
+        () => { },
       );
     }
   }, [authed]);
@@ -182,7 +182,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
   // How many PAGE_SIZE batches of lots the grid shows; grows as the end of it scrolls into view.
   const [page, setPage] = useState(fromUrl?.page ?? 1);
   const [openId, setOpenId] = useState<number | null>(fromUrl?.openId ?? null);
-  const [closed, setClosed] = useState<ClosedSection | null>(fromUrl?.closed ?? null); // the Won / Lost page, in place of the grid
+  const [closed, setClosed] = useState<'won' | 'lost' | null>(fromUrl?.closed ?? null); // the Won / Lost page, in place of the grid
   const [bidReq, setBidReq] = useState<BidRequest | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
@@ -287,7 +287,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
   const watchKey = watchIds.join(',');
   useEffect(() => {
     if (loaded.value) {
-      const t = setTimeout(() => void watchLots(watchIds).catch(() => {}), 300);
+      const t = setTimeout(() => void watchLots(watchIds).catch(() => { }), 300);
       return () => clearTimeout(t);
     }
   }, [watchKey, loaded.value]);
@@ -305,7 +305,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
     }
   }, []);
 
-  const openClosed = useCallback((section: ClosedSection | null) => {
+  const openClosed = useCallback((section: 'won' | 'lost' | null) => {
     setClosed(section);
     setSidebarOpen(false);
     window.scrollTo(0, 0);
