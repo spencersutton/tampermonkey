@@ -132,6 +132,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
         <div class="card-meta">
           <LocationText row={row} />
           {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
+          {row.category && <span>{row.category.label}</span>}
         </div>
         <ItemTypeActions lot={lot} onAddType={onAddType} onEditType={onEditType} />
         <div class="card-price">
