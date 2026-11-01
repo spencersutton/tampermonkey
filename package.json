@@ -13,7 +13,6 @@
     "vite": "^8.3.4"
   },
   "dependencies": {
-    "@mantine/core": "^9.7.4",
     "@preact/signals": "^2.11.4",
     "centrifuge": "^5.7.4",
     "preact": "^10.29.8"
