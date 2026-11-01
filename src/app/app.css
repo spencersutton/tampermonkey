@@ -1642,7 +1642,7 @@ h3 {
 .cat-preview {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   max-height: min(260px, 30vh);
   padding: 12px 24px;
