@@ -63,9 +63,9 @@ function rowError(d: Draft, drafts: Draft[]): string | null {
   return null;
 }
 
-/** Dialog for managing custom categories. Changes apply only on Apply or Save. */
+/** Dialog for managing custom categories. Changes apply only on Save. */
 export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => void }) {
-  const [initial, setInitial] = useState(() => getSetting(KEYS.customCategories));
+  const [initial] = useState(() => getSetting(KEYS.customCategories));
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
   const [selected, setSelected] = useState<number | null>(null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
@@ -160,10 +160,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       setSelected(null);
     }
   };
-  /** Store the drafts; returns false if any row is invalid. */
-  const apply = () => {
+  const save = () => {
     if (!valid) {
-      return false;
+      return;
     }
     const renames = new Map<string, string | null>(initial.map((c) => [c.name, null]));
     for (const d of drafts) {
@@ -171,17 +170,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
         renames.set(d.from, d.name.trim());
       }
     }
-    const saved = drafts.map(clean);
-    saveCustomCategories(saved, renames);
-    // Later renames are relative to what's now saved.
-    setInitial(saved);
-    setDrafts((ds) => ds.map((d) => ({ ...d, from: d.name.trim() })));
-    return true;
-  };
-  const save = () => {
-    if (apply()) {
-      onClose();
-    }
+    saveCustomCategories(drafts.map(clean), renames);
+    onClose();
   };
 
   const sel = drafts.find((d) => d.key === selected);
@@ -335,9 +325,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           {!valid && <span class="error small">Fix the highlighted rows to save.</span>}
           <button type="button" class="btn btn-outline" onClick={close}>
             Cancel
-          </button>
-          <button type="button" class="btn btn-outline" onClick={() => dirty && apply()} aria-disabled={valid && dirty ? undefined : 'true'}>
-            Apply
           </button>
           <button type="button" class="btn" onClick={save} aria-disabled={valid ? undefined : 'true'}>
             Save
