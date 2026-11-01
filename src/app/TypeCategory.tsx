@@ -1,10 +1,10 @@
 // Dialog behind the item type button on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { saveCustomCategories } from './categories';
-import { useSetting } from './settings';
+import { setSetting, useSetting } from './settings';
 import { toast } from './toast';
 import type { Lot } from './types';
 import { Dialog } from './Dialog';
@@ -59,6 +59,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const type = lot.itemType!;
   const site = lot.category;
   const [cats] = useSetting(KEYS.customCategories);
+  const [lastCategory] = useSetting(KEYS.lastCategory);
   // The lot's custom category is the default parent, including regex matches.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
@@ -66,8 +67,14 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     const near = (c: CustomCategory) => !!site && (c.within === site.value || c.name.startsWith(`${site.label} - `));
     return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   }, [cats]);
+  const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>('new');
-  const [pick, setPick] = useState(() => (current ?? choices[0])?.name ?? '');
+  const [pick, setPick] = useState(() => preferred?.name ?? '');
+  useEffect(() => {
+    if (!cats.some((c) => c.name === pick)) {
+      setPick(preferred?.name ?? '');
+    }
+  }, [cats, pick, preferred]);
   const [within, setWithin] = useState(current ? !!current.within : !!site);
   const defaultName = (w: boolean) => {
     const parent = current?.name ?? (w ? site?.label : undefined);
@@ -136,6 +143,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
       return;
     }
     saveCustomCategories(next);
+    setSetting(KEYS.lastCategory, next[target].name);
     toast('good', `${existing ? 'Updated' : 'Created'} “${next[target].name}” · ${plural(taken.length, 'open lot')}`);
     onClose();
   };

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
-import { getSetting } from './settings';
+import { getSetting, setSetting } from './settings';
 import { Icon } from './icons';
 import type { Lot } from './types';
 import { Dialog } from './Dialog';
@@ -176,6 +176,10 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       }
     }
     saveCustomCategories(drafts.map(clean), renames);
+    const created = drafts.findLast((d) => d.from == null);
+    if (created) {
+      setSetting(KEYS.lastCategory, created.name.trim());
+    }
     onClose();
   };
 

@@ -21,6 +21,11 @@ export function saveCustomCategories(categories: CustomCategory[], renames: Read
     return;
   }
 
+  const lastCategory = getSetting(KEYS.lastCategory);
+  if (lastCategory != null && changes.has(lastCategory)) {
+    setSetting(KEYS.lastCategory, changes.get(lastCategory) ?? null);
+  }
+
   const byValue = new Map([...changes].map(([from, to]) => [customCategoryValue(from), to == null ? null : customCategoryValue(to)]));
   const fix = (cats: string[]) =>
     cats.flatMap((v) => {
