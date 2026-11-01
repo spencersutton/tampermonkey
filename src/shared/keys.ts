@@ -12,6 +12,7 @@ export const KEYS = {
   syncMinutes: 'tlxSyncMinutes', // number – minimum minutes between full catalog pulls
   pickup: 'tlxPickup', // string | null – pickup location name; null = from account, else Raleigh
   view: 'tlxView', // persisted catalog view state (sort, filters)
+  defaultFilters: 'tlxDefaultFilters', // default category and condition filters
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – item types or title regexes that move lots into a category of their own
@@ -30,6 +31,7 @@ export const SYNCED_KEYS = [
   KEYS.syncMinutes, // the server's own pull interval
   KEYS.pickup,
   KEYS.savedSearches,
+  KEYS.defaultFilters,
   KEYS.customCategories,
   KEYS.lastVisit,
   KEYS.nameMatch, // the server matches past closes with it too
@@ -54,6 +56,11 @@ export interface CustomCategory {
   within?: string;
 }
 
+export interface DefaultFilters {
+  categories: string[];
+  conditions: number[];
+}
+
 // Full catalog pulls default to every 5 minutes and are never allowed more often than every minute.
 export const DEFAULT_SYNC_MINUTES = 5;
 export const MIN_SYNC_MINUTES = 1;
@@ -72,6 +79,7 @@ export const DEFAULTS = {
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.pickup]: null as string | null,
   [KEYS.view]: null as unknown,
+  [KEYS.defaultFilters]: { categories: [], conditions: [] } as DefaultFilters,
   [KEYS.savedSearches]: [] as SavedSearch[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],

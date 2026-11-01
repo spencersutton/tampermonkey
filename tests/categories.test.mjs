@@ -19,6 +19,7 @@ function setup(categories, selected) {
   storage.clear();
   applySetting(KEYS.customCategories, categories);
   applySetting(KEYS.view, { ...DEFAULT_VIEW, categories: selected, search: 'drill' });
+  applySetting(KEYS.defaultFilters, { categories: [], conditions: [] });
   applySetting(KEYS.savedSearches, [
     { id: 'one', name: 'Search', view: { ...DEFAULT_VIEW, categories: selected }, lastViewedAt: 123 },
     { id: 'old', name: 'Old search', view: { search: 'old' }, lastViewedAt: 456 },
@@ -77,4 +78,24 @@ test('a later rename uses the categories saved by the previous apply', () => {
   saveCustomCategories([{ name: 'C' }], new Map([['B', 'C']]));
   assert.deepEqual(getSetting(KEYS.view).categories, ['custom:C']);
   assert.deepEqual(getSetting(KEYS.savedSearches)[0].view.categories, ['custom:C']);
+});
+
+test('renames and deletions update synced default categories without changing conditions', () => {
+  const saves = setup([{ name: 'Drills' }, { name: 'Saws' }], ['custom:Drills']);
+  applySetting(KEYS.defaultFilters, { categories: ['custom:Drills', 'custom:Saws', 'tools'], conditions: [2] });
+  saveCustomCategories([{ name: 'Power Drills' }], new Map([['Drills', 'Power Drills']]));
+
+  assert.deepEqual(getSetting(KEYS.defaultFilters), { categories: ['custom:Power Drills', 'tools'], conditions: [2] });
+  assert.ok(saves.some(([key]) => key === KEYS.defaultFilters));
+  assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.defaultFilters}`)), getSetting(KEYS.defaultFilters));
+});
+
+test('category edits do not create a saved view in a new browser', () => {
+  setup([{ name: 'Drills' }], []);
+  applySetting(KEYS.view, null);
+  applySetting(KEYS.defaultFilters, { categories: ['custom:Drills'], conditions: [2] });
+  saveCustomCategories([{ name: 'Power Drills' }], new Map([['Drills', 'Power Drills']]));
+
+  assert.equal(getSetting(KEYS.view), null);
+  assert.deepEqual(getSetting(KEYS.defaultFilters), { categories: ['custom:Power Drills'], conditions: [2] });
 });

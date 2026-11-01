@@ -24,6 +24,7 @@ import {
   activeFilterCount,
   computeFacets,
   computeView,
+  initialView,
   makeRow,
   normalizeView,
   sameFilters,
@@ -84,7 +85,7 @@ const accountPickupName = computed(() => {
 });
 const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
 
-const storedView = computed(() => normalizeView(getSetting(KEYS.view)));
+const storedView = computed(() => initialView(getSetting(KEYS.view), getSetting(KEYS.defaultFilters)));
 const exclusionRules = computed(() => ({
   words: getSetting(KEYS.words),
   filterOn: getSetting(KEYS.filterOn),
@@ -200,7 +201,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
   const [highlight, setHighlight] = useState<{ id: string; since: number } | null>(null);
 
   const setView = useCallback((patch: Partial<ViewState>) => {
-    setSetting(KEYS.view, { ...normalizeView(getSetting(KEYS.view)), ...patch });
+    setSetting(KEYS.view, { ...storedView.value, ...patch });
     setPage(1);
     setClosed(null); // changing the filters goes back to the grid
   }, []);

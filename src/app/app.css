@@ -370,6 +370,11 @@ h3 {
   gap: 4px;
 }
 
+.default-filters-btn {
+  align-self: flex-start;
+  text-align: left;
+}
+
 .field {
   display: flex;
   flex-direction: column;

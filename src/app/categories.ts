@@ -30,8 +30,16 @@ export function saveCustomCategories(categories: CustomCategory[], renames: Read
       }
       return next === null ? [] : [next];
     });
-  const view = normalizeView(getSetting(KEYS.view));
-  setSetting(KEYS.view, { ...view, categories: fix(view.categories) });
+  const stored = getSetting(KEYS.view);
+  if (stored != null) {
+    const view = normalizeView(stored);
+    setSetting(KEYS.view, { ...view, categories: fix(view.categories) });
+  }
+  const defaults = getSetting(KEYS.defaultFilters);
+  const defaultCategories = fix(defaults.categories);
+  if (JSON.stringify(defaultCategories) !== JSON.stringify(defaults.categories)) {
+    setSetting(KEYS.defaultFilters, { ...defaults, categories: defaultCategories });
+  }
   const searches = getSetting(KEYS.savedSearches);
   setSetting(
     KEYS.savedSearches,

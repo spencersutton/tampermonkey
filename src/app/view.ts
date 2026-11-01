@@ -3,7 +3,7 @@ import { buildRegexes, compileFilter } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { groupNames } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
-import type { CustomCategory, HiddenLot } from '../shared/keys';
+import type { CustomCategory, DefaultFilters, HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR } from './util';
@@ -123,6 +123,22 @@ export function normalizeView(v: unknown): ViewState {
     ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
     mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine,
   };
+}
+
+/** Reset all filters to the saved defaults while preserving the current sort. */
+export function defaultFilterView(defaults: DefaultFilters, sort: SortId = DEFAULT_VIEW.sort): ViewState {
+  return { ...DEFAULT_VIEW, sort, categories: [...defaults.categories], conditions: [...defaults.conditions] };
+}
+
+/** Use saved defaults only when the browser has no view of its own. */
+export function initialView(stored: unknown, defaults: DefaultFilters): ViewState {
+  return stored == null ? defaultFilterView(defaults) : normalizeView(stored);
+}
+
+/** Compare category and condition selections without depending on their order. */
+export function sameDefaultFilters(view: Pick<ViewState, 'categories' | 'conditions'>, defaults: DefaultFilters): boolean {
+  const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every((v) => b.includes(v));
+  return same(view.categories, defaults.categories) && same(view.conditions, defaults.conditions);
 }
 
 /** How many filters the view has turned on (shown on the "Clear" button). */

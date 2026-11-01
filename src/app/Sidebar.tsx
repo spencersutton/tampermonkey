@@ -12,10 +12,13 @@ import { fmtCount, openHandler, parseNum, plural } from './util';
 import { collator } from '../shared/sortKey';
 import {
   activeFilterCount,
+  defaultFilterView,
   DEFAULT_VIEW,
   ENDING,
   isCustomCategory,
   MINE,
+  sameDefaultFilters,
+  sameFilters,
   type Facet,
   type Facets,
   type SavedSearch,
@@ -220,6 +223,10 @@ function PriceField(props: { label: string; value: number | null; onChange: (v: 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
 function FiltersSection({ view, setView, facets, pickup, authed, onEditCategories, onOpenClosed, closed }: Props) {
   const n = activeFilterCount(view);
+  const [defaults, setDefaults] = useSetting(KEYS.defaultFilters);
+  const reset = defaultFilterView(defaults, view.sort);
+  const canClear =
+    view.newSince != null || !sameDefaultFilters(view, defaults) || !sameFilters({ ...view, categories: reset.categories, conditions: reset.conditions }, reset);
   const conditions = siteConditions();
   const [custom] = useSetting(KEYS.customCategories);
   const customCount = custom.length;
@@ -227,9 +234,9 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
     <section class="panel">
       <div class="panel-head">
         <h2>Filters</h2>
-        {n > 0 && (
-          <button type="button" class="btn-text" onClick={() => setView({ ...DEFAULT_VIEW, sort: view.sort })}>
-            Clear ({n})
+        {canClear && (
+          <button type="button" class="btn-text" onClick={() => setView(reset)}>
+            Clear{n > 0 ? ` (${n})` : ''}
           </button>
         )}
       </div>
@@ -305,6 +312,16 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
           </details>
         )}
       </Collapsible>
+
+      <button
+        type="button"
+        class="btn-text default-filters-btn"
+        disabled={sameDefaultFilters(view, defaults)}
+        onClick={() => setDefaults({ categories: [...view.categories], conditions: [...view.conditions] })}
+        title="Save the current category and condition selections as defaults"
+      >
+        Save category &amp; condition defaults
+      </button>
 
       <Collapsible id="f-price" title="Price">
         <div class="field-row">
