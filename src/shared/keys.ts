@@ -45,15 +45,21 @@ export interface HiddenLot {
 
 /**
  * A category of my own: lots whose item type is one of `types`, or whose
- * title matches `pattern` (same rules as the regex filters), go in it instead
+ * title matches a pattern (same rules as the regex filters), go in it instead
  * of their site category. With `within` (a site category value), only lots in
  * that site category are taken.
  */
 export interface CustomCategory {
   name: string;
   types?: string[];
-  pattern?: string;
+  pattern?: string; // legacy single title regex
+  patterns?: string[];
   within?: string;
+}
+
+/** Include the legacy single regex until the category is saved in the editor. */
+export function categoryPatterns(category: CustomCategory): string[] {
+  return [...(category.pattern?.trim() ? [category.pattern.trim()] : []), ...(category.patterns ?? [])];
 }
 
 export interface DefaultFilters {

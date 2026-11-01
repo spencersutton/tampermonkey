@@ -1,7 +1,7 @@
 // Dialog behind the item type button on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useState } from 'preact/hooks';
-import { KEYS, type CustomCategory } from '../shared/keys';
+import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { saveCustomCategories } from './categories';
 import { useSetting } from './settings';
@@ -50,9 +50,9 @@ const typeWords = (t: string) => t.split(/[\s/-]+/).filter((w) => w.length > 2 &
 const loses = (c: CustomCategory, types: string[], within: string | undefined) => (c.within ?? '') === (within ?? '') && !!c.types?.some((t) => types.includes(t));
 
 /** `c` without `types`, or nothing if it's left with nothing to match. */
-function without(c: CustomCategory, types: string[]): CustomCategory[] {
+export function without(c: CustomCategory, types: string[]): CustomCategory[] {
   const rest = c.types!.filter((t) => !types.includes(t));
-  return rest.length || c.pattern?.trim() ? [{ ...c, types: rest }] : [];
+  return rest.length || categoryPatterns(c).length ? [{ ...c, types: rest }] : [];
 }
 
 export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; onClose: () => void }) {
@@ -60,7 +60,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const site = lot.category;
   const [cats] = useSetting(KEYS.customCategories);
   // A category already listing this type, if any: the default target.
-  const current = cats[categoryIndex(lot, compileCategories(cats.map((c) => ({ ...c, pattern: undefined }))))];
+  const current = cats[categoryIndex(lot, compileCategories(cats.map((c) => ({ ...c, pattern: undefined, patterns: undefined }))))];
   // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
   const choices = useMemo(() => {
     const near = (c: CustomCategory) => !!site && (c.within === site.value || c.name.startsWith(`${site.label} - `));

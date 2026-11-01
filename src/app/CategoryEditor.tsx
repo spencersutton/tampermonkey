@@ -1,8 +1,8 @@
 // Full-size editor for custom categories, one line each until opened: add, rename, reorder with
-// arrows, edit the item types and regex, and preview which open lots each one takes.
+// arrows, edit item types and title regexes, and preview which open lots each one takes.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
-import { KEYS, type CustomCategory } from '../shared/keys';
+import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
 import { getSetting } from './settings';
 import { Icon } from './icons';
@@ -17,36 +17,38 @@ interface Draft {
   from: string | null;
   name: string;
   types: string[];
-  pattern: string;
+  patterns: string[];
+  pendingPattern: string;
   within: string; // site category value, '' for any
 }
 
 const PREVIEW_LIMIT = 50;
 
 let nextKey = 0;
-const toDraft = (c: CustomCategory): Draft => ({
+export const toDraft = (c: CustomCategory): Draft => ({
   key: nextKey++,
   from: c.name,
   name: c.name,
   types: c.types ?? [],
-  pattern: c.pattern ?? '',
+  patterns: categoryPatterns(c),
+  pendingPattern: '',
   within: c.within ?? '',
 });
 
 /** The category a draft saves as. */
-const clean = (d: Draft): CustomCategory => {
-  return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.pattern.trim() && { pattern: d.pattern.trim() }), ...(d.within && { within: d.within }) };
+export const clean = (d: Draft): CustomCategory => {
+  return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.patterns.length && { patterns: d.patterns }), ...(d.within && { within: d.within }) };
 };
 
 /** One-line description of a row: where it takes lots from and what it matches. */
 function summary(d: Draft, sites: { value: string; label: string }[]): string {
   const where = d.within ? (sites.find((c) => c.value === d.within)?.label ?? d.within) : 'Any category';
-  const what = [d.types.length && plural(d.types.length, 'type'), d.pattern.trim() && 'regex'].filter(Boolean);
+  const what = [d.types.length && plural(d.types.length, 'type'), d.patterns.length && `${fmtCount(d.patterns.length)} ${d.patterns.length === 1 ? 'regex' : 'regexes'}`].filter(Boolean);
   return [where, ...what].join(' · ');
 }
 
 /** What's wrong with a row, if anything. */
-function rowError(d: Draft, drafts: Draft[]): string | null {
+export function rowError(d: Draft, drafts: Draft[]): string | null {
   const name = d.name.trim();
   if (!name) {
     return 'Name is required';
@@ -54,10 +56,13 @@ function rowError(d: Draft, drafts: Draft[]): string | null {
   if (drafts.some((o) => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
     return 'Another category has this name';
   }
-  if (!d.pattern.trim() && !d.types.length) {
+  if (d.pendingPattern.trim()) {
+    return compileFilter(d.pendingPattern.trim()) ? 'Add or clear the pending regex' : 'Invalid regex';
+  }
+  if (!d.patterns.length && !d.types.length) {
     return 'Add item types or a regex';
   }
-  if (d.pattern.trim() && !compileFilter(d.pattern.trim())) {
+  if (d.patterns.some((pattern) => !pattern.trim() || !compileFilter(pattern.trim()))) {
     return 'Invalid regex';
   }
   return null;
@@ -67,11 +72,12 @@ function rowError(d: Draft, drafts: Draft[]): string | null {
 export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => void }) {
   const [initial] = useState(() => getSetting(KEYS.customCategories));
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
+  const [baseline] = useState(() => JSON.stringify(drafts.map(clean)));
   const [selected, setSelected] = useState<number | null>(null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
   const list = useRef<HTMLOListElement>(null);
 
-  const dirty = JSON.stringify(drafts.map(clean)) !== JSON.stringify(initial);
+  const dirty = drafts.some((d) => d.pendingPattern.trim()) || JSON.stringify(drafts.map(clean)) !== baseline;
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
   const valid = [...errors.values()].every((e) => !e);
 
@@ -117,21 +123,20 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       if (owner >= 0) {
         taken.get(drafts[owner].key)!.push(lot);
       }
-      for (const { i, re, within } of compiled.regexes) {
-        if (i !== owner && (!within || within === lot.category?.value) && re.test(lot.title)) {
-          shadowed.set(drafts[i].key, shadowed.get(drafts[i].key)! + 1);
-        }
+      const shadowedRows = new Set(compiled.regexes.filter(({ i, re, within }) => i !== owner && (!within || within === lot.category?.value) && re.test(lot.title)).map(({ i }) => i));
+      for (const i of shadowedRows) {
+        shadowed.set(drafts[i].key, shadowed.get(drafts[i].key)! + 1);
       }
     }
     return { taken, shadowed };
-  }, [drafts.map((d) => `${d.within}\u0001${d.types.join(',')}\u0001${d.pattern}`).join('\u0000'), lots]);
+  }, [drafts, lots]);
 
   // Open lots of each item type, per site category ('' = all of them), for the type chips and suggestions.
   const typeCounts = useMemo(() => {
     const by = new Map<string, Map<string, number>>([['', new Map()]]);
     for (const l of lots) {
       if (l.itemType) {
-        for (const scope of ['', l.category?.value ?? '']) {
+        for (const scope of new Set(['', l.category?.value ?? ''])) {
           const m = by.get(scope) ?? by.set(scope, new Map()).get(scope)!;
           m.set(l.itemType, (m.get(l.itemType) ?? 0) + 1);
         }
@@ -149,7 +154,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       return next;
     });
   const add = () => {
-    const d: Draft = { key: nextKey++, from: null, name: '', types: [], pattern: '', within: '' };
+    const d: Draft = { key: nextKey++, from: null, name: '', types: [], patterns: [], pendingPattern: '', within: '' };
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
     setFocusKey(d.key);
@@ -184,7 +189,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
-              Lots of a listed item type, or whose title matches the regex (case-insensitive, whole words), move into the category. Item types win, then the
+              Lots of a listed item type, or whose title matches a regex (case-insensitive, whole words), move into the category. Item types win, then the
               first regex from the top – use the arrows to reorder. Click a category to edit it.
             </p>
           </div>
@@ -226,7 +231,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       >
                         <span class="cat-title">{label}</span>
                         <span class={err ? 'error small' : 'muted small'}>{err ?? summary(d, siteCategories)}</span>
-                        <span class="cat-count" title={shadowed ? `Its regex also matches ${plural(shadowed, 'lot')} another category took` : undefined}>
+                        <span class="cat-count" title={shadowed ? `Its regexes also match ${plural(shadowed, 'lot')} another category took` : undefined}>
                           {plural(count, 'lot')}
                           {shadowed > 0 && <span class="muted"> +{fmtCount(shadowed)}</span>}
                         </span>
@@ -248,17 +253,15 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                             ))}
                           </select>
                         </label>
-                        <TypeChips types={d.types} counts={countsFor(d.within)} listId={`cat-types-${d.within}`} onChange={(types) => update(d.key, { types })} />
-                        <label class="field cat-pattern">
-                          <span>Title regex</span>
-                          <textarea
-                            rows={Math.min(6, Math.max(1, Math.ceil(d.pattern.length / 70)))}
-                            spellcheck={false}
-                            value={d.pattern}
-                            placeholder="e.g. pressure washers?|power washers?"
-                            onInput={(e) => update(d.key, { pattern: e.currentTarget.value.replace(/\n/g, '') })}
-                          />
-                        </label>
+                        <TypeChips
+                          types={d.types}
+                          patterns={d.patterns}
+                          pendingPattern={d.pendingPattern}
+                          counts={countsFor(d.within)}
+                          lots={lots.filter((lot) => !d.within || lot.category?.value === d.within)}
+                          listId={`cat-types-${d.within}`}
+                          onChange={(patch) => update(d.key, patch)}
+                        />
                         <div class="cat-actions">
                           <button type="button" class="icon-btn" aria-label={`Move ${label} up`} title="Move up" disabled={i === 0} onClick={() => move(i, i - 1)}>
                             <Icon name="arrowUp" size={16} />
@@ -340,26 +343,55 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
  * scope have that type (flagged when none do), plus a box that suggests the
  * types lots really have. Enter, a comma or leaving the box adds what's typed.
  */
-function TypeChips({ types, counts, listId, onChange }: { types: string[]; counts: Map<string, number>; listId: string; onChange: (types: string[]) => void }) {
+function TypeChips({ types, patterns, pendingPattern, counts, lots, listId, onChange }: {
+  types: string[];
+  patterns: string[];
+  pendingPattern: string;
+  counts: Map<string, number>;
+  lots: Lot[];
+  listId: string;
+  onChange: (patch: Partial<Draft>) => void;
+}) {
   const [text, setText] = useState('');
   /** Add the comma-separated types in `raw`. */
   const add = (raw: string) => {
     const fresh = raw.split(',').map((t) => t.trim().toLowerCase().replace(/\s+/g, ' ')).filter((t) => t && !types.includes(t));
     if (fresh.length) {
-      onChange([...new Set([...types, ...fresh])]);
+      onChange({ types: [...new Set([...types, ...fresh])] });
     }
     setText('');
   };
+  const addPattern = () => {
+    const pattern = pendingPattern.trim();
+    if (pattern && compileFilter(pattern)) {
+      onChange({ patterns: [...new Set([...patterns, pattern])], pendingPattern: '' });
+    }
+  };
   return (
     <div class="field cat-types">
-      <span>Item types (exact names, as on the lot cards)</span>
+      <span>Item types and title regexes</span>
       <div class="type-chips">
         {types.map((t) => {
           const n = counts.get(t) ?? 0;
           return (
             <span class={`type-chip ${n ? '' : 'type-chip-none'}`} title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}>
               {t} <span class="count">{n ? fmtCount(n) : 'none'}</span>
-              <button type="button" class="filter-remove" aria-label={`Remove ${t}`} onClick={() => onChange(types.filter((x) => x !== t))}>
+              <button type="button" class="filter-remove" aria-label={`Remove ${t}`} onClick={() => onChange({ types: types.filter((x) => x !== t) })}>
+                <Icon name="cancel" size={14} />
+              </button>
+            </span>
+          );
+        })}
+        {patterns.map((pattern, index) => {
+          const re = compileFilter(pattern);
+          const n = re ? lots.filter((lot) => re.test(lot.title)).length : 0;
+          return (
+            <span class={`type-chip ${n ? '' : 'type-chip-none'}`} title={re ? `${plural(n, 'open lot')} matches this title regex` : 'Invalid regex'}>
+              <button type="button" class="type-chip-edit" disabled={!!pendingPattern.trim()} title="Edit title regex" onClick={() => onChange({ patterns: patterns.filter((_, i) => i !== index), pendingPattern: pattern })}>
+                regex: {pattern}
+              </button>
+              <span class="count">{re ? (n ? fmtCount(n) : 'none') : 'invalid'}</span>
+              <button type="button" class="filter-remove" aria-label={`Remove regex ${pattern}`} onClick={() => onChange({ patterns: patterns.filter((_, i) => i !== index) })}>
                 <Icon name="cancel" size={14} />
               </button>
             </span>
@@ -386,12 +418,30 @@ function TypeChips({ types, counts, listId, onChange }: { types: string[]; count
               e.preventDefault();
               add(text);
             } else if (e.key === 'Backspace' && !text && types.length) {
-              onChange(types.slice(0, -1));
+              onChange({ types: types.slice(0, -1) });
             }
           }}
           onBlur={() => add(text)}
         />
       </div>
+      <div class="type-regex-input">
+        <input
+          type="text"
+          value={pendingPattern}
+          aria-label="Add title regex"
+          placeholder="Title regex, e.g. pressure washers?"
+          spellcheck={false}
+          onInput={(e) => onChange({ pendingPattern: e.currentTarget.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addPattern();
+            }
+          }}
+        />
+        <button type="button" class="btn btn-outline btn-small" onClick={addPattern}>Add regex</button>
+      </div>
+      {!!pendingPattern.trim() && !compileFilter(pendingPattern.trim()) && <span class="error small">Invalid regex</span>}
     </div>
   );
 }

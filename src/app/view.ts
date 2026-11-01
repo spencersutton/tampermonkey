@@ -3,7 +3,7 @@ import { buildRegexes, compileFilter } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { groupNames } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
-import type { CustomCategory, DefaultFilters, HiddenLot } from '../shared/keys';
+import { categoryPatterns, type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR } from './util';
@@ -232,9 +232,11 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
         byType.set(key, i);
       }
     }
-    const re = c.pattern?.trim() ? compileFilter(c.pattern.trim()) : null;
-    if (re) {
-      regexes.push({ i, re, within: c.within });
+    for (const pattern of categoryPatterns(c)) {
+      const re = pattern.trim() ? compileFilter(pattern.trim()) : null;
+      if (re) {
+        regexes.push({ i, re, within: c.within });
+      }
     }
   }
   return { byType, regexes };

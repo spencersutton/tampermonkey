@@ -1547,7 +1547,7 @@ h3 {
   grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
   gap: 8px 12px;
   padding: 4px 12px 10px 30px;
-  grid-template-areas: 'name within' 'types types' 'pattern pattern' 'actions actions';
+  grid-template-areas: 'name within' 'types types' 'actions actions';
 }
 
 .cat-name {
@@ -1556,10 +1556,6 @@ h3 {
 
 .cat-within {
   grid-area: within;
-}
-
-.cat-pattern {
-  grid-area: pattern;
 }
 
 .cat-types {
@@ -1622,20 +1618,23 @@ h3 {
   color: var(--bad);
 }
 
-.cat-pattern textarea {
-  width: 100%;
-  resize: vertical;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  color: var(--text);
-  font: 13px/19px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+.type-chip-edit {
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  cursor: pointer;
 }
 
-.cat-pattern textarea:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: -1px;
+.type-regex-input {
+  display: flex;
+  gap: 6px;
+}
+
+.type-regex-input input {
+  min-width: 0;
+  flex: 1;
 }
 
 .cat-actions {
@@ -2276,7 +2275,7 @@ h3 {
 
   .cat-fields {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'name' 'within' 'types' 'pattern' 'actions';
+    grid-template-areas: 'name' 'within' 'types' 'actions';
     padding-left: 12px;
   }
 
