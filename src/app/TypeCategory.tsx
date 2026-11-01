@@ -49,27 +49,30 @@ const typeWords = (t: string) => t.split(/[\s/-]+/).filter((w) => w.length > 2 &
 /** Whether `c` lists any of `types` and is limited the same way (`within`), so saving takes those types from it. */
 const loses = (c: CustomCategory, types: string[], within: string | undefined) => (c.within ?? '') === (within ?? '') && !!c.types?.some((t) => types.includes(t));
 
-/** `c` without `types`, or nothing if it's left with nothing to match. */
-export function without(c: CustomCategory, types: string[]): CustomCategory[] {
+/** `c` without `types`, retaining empty parents of child categories. */
+export function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
   const rest = c.types!.filter((t) => !types.includes(t));
-  return rest.length || categoryPatterns(c).length ? [{ ...c, types: rest }] : [];
+  return rest.length || categoryPatterns(c).length || names.some((name) => name.startsWith(`${c.name} - `)) ? [{ ...c, types: rest }] : [];
 }
 
 export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; onClose: () => void }) {
   const type = lot.itemType!;
   const site = lot.category;
   const [cats] = useSetting(KEYS.customCategories);
-  // A category already listing this type, if any: the default target.
-  const current = cats[categoryIndex(lot, compileCategories(cats.map((c) => ({ ...c, pattern: undefined, patterns: undefined }))))];
+  // The lot's custom category is the default parent, including regex matches.
+  const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
   const choices = useMemo(() => {
     const near = (c: CustomCategory) => !!site && (c.within === site.value || c.name.startsWith(`${site.label} - `));
     return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   }, [cats]);
-  const [mode, setMode] = useState<'new' | 'add'>(current ? 'add' : 'new');
+  const [mode, setMode] = useState<'new' | 'add'>('new');
   const [pick, setPick] = useState(() => (current ?? choices[0])?.name ?? '');
-  const [within, setWithin] = useState(!!site);
-  const defaultName = (w: boolean) => (w && site ? `${site.label} - ${categoryName(type)}` : categoryName(type));
+  const [within, setWithin] = useState(current ? !!current.within : !!site);
+  const defaultName = (w: boolean) => {
+    const parent = current?.name ?? (w ? site?.label : undefined);
+    return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
+  };
   const [name, setName] = useState(() => defaultName(within));
   const [nameEdited, setNameEdited] = useState(false);
   const [extra, setExtra] = useState<string[]>([]);
@@ -77,7 +80,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const existing = mode === 'add' ? cats.find((c) => c.name === pick) : undefined;
   const types = [type, ...extra];
   // The site category the target takes lots from, if it's limited to one.
-  const limit = mode === 'add' ? existing?.within : (within && site ? site.value : undefined);
+  const limit = mode === 'add' ? existing?.within : (within ? (current?.within ?? site?.value) : undefined);
   const scope = lots.filter((l) => !limit || l.category?.value === limit);
 
   // Other types in scope that share a word with this one, those sharing its last word ("washer") first.
@@ -98,11 +101,15 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const losing = cats.filter((c) => c !== existing && loses(c, types, limit));
   // The categories after saving, and the open lots the target would then take.
   const { next, target } = useMemo(() => {
+    const names = [
+      ...cats.filter((c) => !losing.includes(c) || c.types?.some((t) => !types.includes(t)) || categoryPatterns(c).length).map((c) => c.name),
+      ...(mode === 'new' ? [name.trim()] : []),
+    ];
     const next = cats.flatMap((c) => {
       if (c === existing) {
         return [{ ...c, types: [...new Set([...(c.types ?? []), ...types])] }];
       }
-      return losing.includes(c) ? without(c, types) : [c];
+      return losing.includes(c) ? without(c, types, names) : [c];
     });
     if (mode === 'new') {
       next.push({ name: name.trim(), types, ...(limit && { within: limit }) });
@@ -177,7 +184,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
             </label>
           )}
           {mode === 'new' &&
-            site && (
+            (site || current?.within) && (
               <label class="switch-row">
                 <input
                   type="checkbox"
@@ -189,7 +196,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
                     }
                   }}
                 />
-                <span>Only within {site.label}</span>
+                <span>Only within {site?.label ?? current?.within}</span>
               </label>
             )}
           <fieldset class="type-cat-types">

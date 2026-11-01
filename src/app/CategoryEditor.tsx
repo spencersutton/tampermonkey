@@ -59,7 +59,7 @@ export function rowError(d: Draft, drafts: Draft[]): string | null {
   if (d.pendingPattern.trim()) {
     return compileFilter(d.pendingPattern.trim()) ? 'Add or clear the pending regex' : 'Invalid regex';
   }
-  if (!d.patterns.length && !d.types.length) {
+  if (!d.patterns.length && !d.types.length && !drafts.some((o) => o !== d && o.name.trim().startsWith(`${name} - `))) {
     return 'Add item types or a regex';
   }
   if (d.patterns.some((pattern) => !pattern.trim() || !compileFilter(pattern.trim()))) {
