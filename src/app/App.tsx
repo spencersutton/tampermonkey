@@ -19,7 +19,7 @@ import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
-import { ago, clock, countdown, DAY, fmtCount, MINUTE, shortTime } from './util';
+import { ago, clock, countdown, DAY, fmtCount, MINUTE, plural, shortTime } from './util';
 import {
   activeFilterCount,
   computeFacets,
@@ -399,11 +399,8 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
           <div hidden={!!closed}>
             <div class="results-line" ref={gridTop}>
               <span>
-                {result.rows.length
-                  ? `${fmtCount(result.rows.length)} ${result.rows.length === 1 ? 'lot' : 'lots'}`
-                  : loaded.value && !progress.value
-                    ? 'No lots match'
-                    : ''}
+                {result.rows.length > 0 && plural(result.rows.length, 'lot')}
+                {result.rows.length === 0 && loaded.value && !progress.value && 'No lots match'}
                 {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
                 {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
                 {result.combined > 0 && <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>}
@@ -493,6 +490,12 @@ function StatusBar() {
   }
 
   const pct = pull?.total ? Math.round((pull.done / pull.total) * 100) : 0;
+  let refreshLabel = `Refresh in ${countdown(wait)}`;
+  if (pull) {
+    refreshLabel = 'Refreshing';
+  } else if (due) {
+    refreshLabel = 'Refresh';
+  }
   return (
     <div class="statusbar">
       <span>{text}</span>
@@ -506,7 +509,7 @@ function StatusBar() {
         onClick={() => void pullCatalog()}
         title={due ? 'Pull the full catalog now' : 'Full refreshes are rate-limited; change the interval in Settings'}
       >
-        <Icon name="refresh" size={16} /> {pull ? 'Refreshing' : due ? 'Refresh' : `Refresh in ${countdown(wait)}`}
+        <Icon name="refresh" size={16} /> {refreshLabel}
       </button>
       {pull && (
         <span class="progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>

@@ -147,7 +147,10 @@ function poll(): Promise<void> {
       setServerError(err);
     } finally {
       polling = null;
-      const wait = progress.peek() ? POLL_PULLING : document.visibilityState === 'visible' ? POLL_VISIBLE : POLL_HIDDEN;
+      let wait = document.visibilityState === 'visible' ? POLL_VISIBLE : POLL_HIDDEN;
+      if (progress.peek()) {
+        wait = POLL_PULLING;
+      }
       pollTimer = window.setTimeout(() => void poll(), wait);
     }
   })());

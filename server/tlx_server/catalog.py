@@ -130,7 +130,12 @@ class Catalog:
             # Lots not in the previous pull are new (saved searches count them);
             # on the very first pull everything is treated as already listed.
             old = prev.get(lot["id"])
-            lot["firstSeenAt"] = (old.get("firstSeenAt") or 0) if old else (0 if first_load else started)
+            if old:
+                lot["firstSeenAt"] = old.get("firstSeenAt") or 0
+            elif first_load:
+                lot["firstSeenAt"] = 0
+            else:
+                lot["firstSeenAt"] = started
             if not authed and old:
                 lot.update({k: old.get(k) for k in ACCOUNT_FIELDS})
             return lot

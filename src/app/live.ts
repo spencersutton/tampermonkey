@@ -79,7 +79,7 @@ function onUserPublication(d: any) {
     return;
   }
   const yourMaxBid = lot.yourStanding?.yourMaxBid ?? null;
-  const fallback = d.type === 'outbid' ? { isLeading: false, yourMaxBid } : d.type === 'winning' ? { isLeading: true, yourMaxBid } : null;
+  const fallback = d.type === 'outbid' || d.type === 'winning' ? { isLeading: d.type === 'winning', yourMaxBid } : null;
   const standing = normalizeStanding(d.relationship) ?? fallback;
   if (standing) {
     updateLot(lotId, { yourStanding: standing, hasBid: true }, { force: true });

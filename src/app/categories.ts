@@ -25,7 +25,10 @@ export function saveCustomCategories(categories: CustomCategory[], renames: Read
   const fix = (cats: string[]) =>
     cats.flatMap((v) => {
       const next = byValue.get(v);
-      return next === undefined ? [v] : next === null ? [] : [next];
+      if (next === undefined) {
+        return [v];
+      }
+      return next === null ? [] : [next];
     });
   const view = normalizeView(getSetting(KEYS.view));
   setSetting(KEYS.view, { ...view, categories: fix(view.categories) });
