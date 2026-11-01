@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { KEYS, type CustomCategory } from '../shared/keys';
-import { getSetting, setSetting } from './settings';
+import { saveCustomCategories } from './categories';
+import { getSetting } from './settings';
 import { Icon } from './icons';
 import type { Lot } from './types';
 import { Dialog } from './Dialog';
 import { fmtCount, plural } from './util';
-import { categoryIndex, compileCategories, customCategoryValue, normalizeView } from './view';
+import { categoryIndex, compileCategories } from './view';
 
 /** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
 interface Draft {
@@ -61,29 +62,6 @@ function rowError(d: Draft, drafts: Draft[]): string | null {
     return 'Invalid regex';
   }
   return null;
-}
-
-/**
- * Point category filters at renamed categories and drop deleted ones, in the
- * current view and in every saved search.
- */
-export function migrateFilters(renames: Map<string, string | null>) {
-  const fix = (cats: string[]) =>
-    cats.flatMap((v) => {
-      const old = [...renames.keys()].find((n) => customCategoryValue(n) === v);
-      if (old === undefined) {
-        return [v];
-      }
-      const next = renames.get(old);
-      return next == null ? [] : [customCategoryValue(next)];
-    });
-  const view = normalizeView(getSetting(KEYS.view));
-  setSetting(KEYS.view, { ...view, categories: fix(view.categories) });
-  const searches = getSetting(KEYS.savedSearches);
-  setSetting(
-    KEYS.savedSearches,
-    searches.map((s) => ({ ...s, view: { ...s.view, categories: fix(s.view.categories ?? []) } })),
-  );
 }
 
 /** Dialog for managing custom categories. Changes apply only on Apply or Save. */
@@ -194,16 +172,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
         renames.set(d.from, d.name.trim());
       }
     }
-    for (const [from, to] of renames) {
-      if (from === to) {
-        renames.delete(from);
-      }
-    }
     const saved = drafts.map(clean);
-    setSetting(KEYS.customCategories, saved);
-    if (renames.size) {
-      migrateFilters(renames);
-    }
+    saveCustomCategories(saved, renames);
     // Later renames are relative to what's now saved.
     setInitial(saved);
     setDrafts((ds) => ds.map((d) => ({ ...d, from: d.name.trim() })));

@@ -3,8 +3,8 @@
 import { useMemo, useState } from 'preact/hooks';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
-import { migrateFilters } from './CategoryEditor';
-import { setSetting, useSetting } from './settings';
+import { saveCustomCategories } from './categories';
+import { useSetting } from './settings';
 import { toast } from './toast';
 import type { Lot } from './types';
 import { Dialog } from './Dialog';
@@ -109,11 +109,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     if (error) {
       return;
     }
-    setSetting(KEYS.customCategories, next);
-    const dropped = cats.filter((c) => !next.some((n) => n.name === c.name)).map((c) => c.name);
-    if (dropped.length) {
-      migrateFilters(new Map(dropped.map((n) => [n, null])));
-    }
+    saveCustomCategories(next);
     toast('good', `${existing ? 'Updated' : 'Created'} “${next[target].name}” · ${plural(taken.length, 'open lot')}`);
     onClose();
   };

@@ -36,6 +36,8 @@ Build the web app once first (and again after pulling changes to `src/` or `web/
 npm install && npm run build
 ```
 
+Run `npm test` for the web app's regression tests.
+
 ```bash
 cd server
 python3 -m tlx_server                                             # this computer only: http://127.0.0.1:8765
