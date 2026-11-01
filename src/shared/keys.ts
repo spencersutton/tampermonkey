@@ -47,7 +47,8 @@ export interface HiddenLot {
  * A category of my own: lots whose item type is one of `types`, or whose
  * title matches a pattern (same rules as the regex filters), go in it instead
  * of their site category. With `within` (a site category value), only lots in
- * that site category are taken.
+ * that site category are taken. A category without matches can head a group
+ * of child categories.
  */
 export interface CustomCategory {
   name: string;
