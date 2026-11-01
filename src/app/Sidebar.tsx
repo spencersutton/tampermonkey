@@ -8,7 +8,7 @@ import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
 import { useSetting } from './settings';
 import { Icon } from './icons';
-import { fmtCount, openHandler, parseNum } from './util';
+import { fmtCount, openHandler, parseNum, plural } from './util';
 import { collator } from '../shared/sortKey';
 import {
   activeFilterCount,
@@ -141,20 +141,24 @@ function CategoryList({ facets, selected, onChange }: { facets: Facets; selected
         return (
           <div class="check-group">
             <div class="check-parent">
-              <CheckRow
-                facet={{ ...facet, count: total }}
-                checked={all}
-                indeterminate={some && !all}
-                onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
-              />
+              <label class="check">
+                <input
+                  type="checkbox"
+                  checked={all}
+                  indeterminate={some && !all}
+                  onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
+                />
+                <span>{facet.label}</span>
+              </label>
               <button
                 type="button"
-                class="icon-btn check-expand"
+                class="check-expand"
                 aria-expanded={open}
-                aria-label={`${open ? 'Hide' : 'Show'} ${facet.label} subcategories`}
+                aria-label={`${open ? 'Hide' : 'Show'} ${facet.label} subcategories (${plural(total, 'lot')})`}
                 onClick={() => setCollapsed({ ...collapsed, [id]: open })}
               >
                 <Icon name="expandMore" size={18} />
+                <span class="count">{fmtCount(total)}</span>
               </button>
             </div>
             {open && (
