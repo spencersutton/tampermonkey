@@ -43,6 +43,7 @@ BATCH = 40  # titles per request
 VOCAB = 100  # types already in use sent with each request
 RETRY_SECONDS = 15 * 60  # how often to try again after a failure, with no pull to wake it
 TIMEOUT = 60
+MAX_TYPE_LENGTH = 60
 
 PROMPT = """You name the kind of item in lot titles from a liquidation auction (customer returns and overstock from home improvement and big-box stores).
 
@@ -68,7 +69,7 @@ class LabelError(Exception):
 def clean_type(text: str) -> str:
     """A reply's type, tidied: lowercase, no quotes or trailing punctuation, single spaces."""
     t = re.sub(r"\s+", " ", text.strip().strip("\"'`*").lower())
-    return t.rstrip(".,;:").strip()[:60]
+    return t.rstrip(".,;:").strip()[:MAX_TYPE_LENGTH]
 
 
 def parse_reply(reply: str, n: int) -> dict[int, str]:

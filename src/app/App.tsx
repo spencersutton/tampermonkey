@@ -19,6 +19,7 @@ import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
+import { ItemTypeEditor } from './ItemType';
 import { ago, clock, countdown, DAY, fmtCount, MINUTE, plural, shortTime } from './util';
 import {
   activeFilterCount,
@@ -188,6 +189,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCategories, setEditingCategories] = useState(false);
   const [typeLot, setTypeLot] = useState<Lot | null>(null); // lot whose item type is being made a category
+  const [editingTypeLot, setEditingTypeLot] = useState<Lot | null>(null);
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
   const grid = useRef<HTMLDivElement>(null);
@@ -434,6 +436,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
                   onToggleHide={toggleHide}
                   onBid={setBidReq}
                   onAddType={setTypeLot}
+                  onEditType={setEditingTypeLot}
                 />
               ))}
             </div>
@@ -450,6 +453,8 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
           onClose={closeLot}
           onToggleHide={() => toggleHide(openLotObj)}
           onBid={setBidReq}
+          onAddType={setTypeLot}
+          onEditType={setEditingTypeLot}
           group={result.groups.get(openLotObj.id)}
           onOpenLot={openLot}
         />
@@ -465,6 +470,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
           onClose={() => setTypeLot(null)}
         />
       )}
+      {editingTypeLot && <ItemTypeEditor key={editingTypeLot.id} lot={getLot(editingTypeLot.id) ?? editingTypeLot} onClose={() => setEditingTypeLot(null)} />}
       <Toasts />
     </div>
   );

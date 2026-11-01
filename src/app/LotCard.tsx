@@ -7,6 +7,7 @@ import { canWatch, toggleWatch, watchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending, type BidRequest } from './bid';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
+import { ItemTypeActions } from './ItemType';
 import { clock, openHandler, plural, shortDate, shortTime, timeLabel } from './util';
 import type { Row } from './view';
 import type { Lot, PastClose } from './types';
@@ -88,10 +89,11 @@ interface Props {
   onToggleHide: (lot: Lot) => void;
   onBid: (req: BidRequest) => void;
   onAddType: (lot: Lot) => void;
+  onEditType: (lot: Lot) => void;
 }
 
 /** One lot in the grid: image, title, price, total, time left and actions. */
-export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid, onAddType }: Props) {
+export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid, onAddType, onEditType }: Props) {
   const { lot, matched, hidden } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
   const dim = !!matched || hidden;
@@ -131,12 +133,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           <LocationText row={row} />
           {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
         </div>
-        {lot.itemType && (
-          <button type="button" class="item-type" title="Make a category of this item type" onClick={() => onAddType(lot)}>
-            <span>{lot.itemType}</span>
-            <Icon name="add" size={14} />
-          </button>
-        )}
+        <ItemTypeActions lot={lot} onAddType={onAddType} onEditType={onEditType} />
         <div class="card-price">
           <span class="price">{dollars(lot.currentPrice)}</span>
           <span class="total" title={costBreakdown(lot.currentPrice, row.transferFee)}>

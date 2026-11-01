@@ -20,6 +20,7 @@ site:
     POST /api/pull              start a full pull if one is allowed
     GET  /api/settings?since=N  settings changed after revision N
     PUT  /api/settings/<key>    {"value": ...}; last write wins
+    PUT  /api/item-type         {"lotId", "itemType"}; correct every listing with this exact title
     GET  /api/history?id=N      closed lots whose name matches lot N's, most recent first
     GET  /api/health
 
@@ -60,6 +61,7 @@ from urllib.parse import parse_qs, urlsplit
 from . import __version__
 from .catalog import Catalog
 from .history import HISTORY_LIMIT, NAME_MATCH_KEY
+from .itemtypes import MAX_TYPE_LENGTH, clean_type
 from .session import SiteSession
 from .site import SITE, TIMEOUT, USER_AGENT, normalize_detail, now_ms
 from .store import Store, dumps
@@ -264,6 +266,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 self._json(HTTPStatus.OK, {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]})
             elif method == "PUT" and path.startswith("/api/settings/"):
                 self._put_setting(path.removeprefix("/api/settings/"))
+            elif route == ("PUT", "/api/item-type"):
+                self._put_item_type()
             else:
                 self._error(HTTPStatus.NOT_FOUND, "Not found")
 
@@ -304,6 +308,29 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             self._json(HTTPStatus.OK, {"rev": api.store.put_setting(key, body["value"])})
             if key == NAME_MATCH_KEY:
                 api.catalog.history.wake()  # match names again
+
+        def _put_item_type(self) -> None:
+            try:
+                body = self._json_body()
+            except TypeError as e:
+                raise ValueError(str(e)) from e
+            lot_id = body.get("lotId")
+            if not isinstance(lot_id, int) or isinstance(lot_id, bool) or not 0 < lot_id <= 2**53 - 1:
+                raise ValueError("Expected a positive integer lotId")
+            text = body.get("itemType")
+            if (
+                not isinstance(text, str)
+                or len(text) > MAX_TYPE_LENGTH
+                or any(not c.isprintable() and not c.isspace() for c in text)
+                or not (item_type := clean_type(text))
+            ):
+                raise ValueError(f"Item type must be 1 to {MAX_TYPE_LENGTH} characters")
+            lot = api.store.lot(lot_id)
+            if not lot:
+                self._error(HTTPStatus.NOT_FOUND, "No such catalog lot")
+                return
+            api.store.save_item_types({lot["title"]: (item_type, (lot.get("category") or {}).get("value"))}, manual=True)
+            self._json(HTTPStatus.OK, {"title": lot["title"], "itemType": item_type, "seq": api.store.seq()})
 
         # -- the site's API ---------------------------------------------------
         def _proxy(self, method: str) -> None:

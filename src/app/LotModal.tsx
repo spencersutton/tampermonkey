@@ -8,6 +8,7 @@ import { cachedDetail, getLot, loadDetail } from './catalog';
 import { Dialog } from './Dialog';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
+import { ItemTypeActions } from './ItemType';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
 import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
@@ -19,12 +20,14 @@ interface Props {
   onClose: () => void;
   onToggleHide: () => void;
   onBid: (req: BidRequest) => void;
+  onAddType?: (lot: Lot) => void;
+  onEditType?: (lot: Lot) => void;
   group?: Row[]; // listings of the same item, cheapest total first
   onOpenLot?: (lot: Lot) => void;
 }
 
 /** Popup with full lot details, images, bid history and bidding. */
-export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }: Props) {
+export function LotModal({ row, onClose, onToggleHide, onBid, onAddType, onEditType, group, onOpenLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +103,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, group, onOpenLot }
               {row.category && <span>{row.category.label}</span>}
               <span>Lot #{lot.lotNumber}</span>
             </div>
+            {onAddType && <ItemTypeActions lot={lot} onAddType={onAddType} onEditType={getLot(lot.id) ? onEditType : undefined} />}
             <div class="modal-price">
               <div>
                 <div class="price big">{dollars(lot.currentPrice)}</div>

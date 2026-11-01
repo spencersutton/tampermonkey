@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import { after, afterEach, test } from 'node:test';
+import { createServer } from 'vite';
+
+globalThis.localStorage = { getItem: () => null, setItem: () => {} };
+const originalFetch = globalThis.fetch;
+const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+after(() => vite.close());
+afterEach(() => { globalThis.fetch = originalFetch; applyCatalog(reply(1000, [])); });
+const { lots, updateTitleItemType } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/source.ts');
+const { categoryOf, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
+
+const lot = (id, title, itemType, fields = {}) => ({
+  id, title, itemType, version: 1, currentPrice: 10, firstSeenAt: 5, endsAt: 2000,
+  category: { value: 'tools', label: 'Tools' }, condition: null, location: null, ...fields,
+});
+const reply = (seq, rows, fields = {}) => ({
+  seq, full: true, ids: null, lots: rows, now: Date.now(), nextPullAt: Date.now(),
+  meta: { fetchedAt: 0, pullStartedAt: 0, count: rows.length, authed: false },
+  progress: null, error: null, ...fields,
+});
+
+test('title corrections replace the catalog Map and update category matching and counts immediately', () => {
+  lots.value = new Map([lot(1, 'Drill', 'battery'), lot(2, 'Drill', 'battery'), lot(3, 'Saw', 'saw'), lot(4, 'DRILL', 'battery')].map((l) => [l.id, l]));
+  const previous = lots.peek();
+  updateTitleItemType('Drill', 'drill driver');
+  assert.notEqual(lots.peek(), previous);
+  assert.deepEqual([...lots.peek().values()].map((l) => l.itemType), ['drill driver', 'drill driver', 'saw', 'battery']);
+  assert.equal(previous.get(1).itemType, 'battery');
+  const cats = [{ name: 'Tools - Drills', types: ['drill driver'] }];
+  assert.equal(categoryOf(lots.peek().get(1), cats).value, 'custom:Tools - Drills');
+  assert.equal(computeFacets(lots.peek().values(), 1000, cats).categories.find((f) => f.value === 'custom:Tools - Drills').count, 2);
+});
+
+test('server type corrections win over a newer websocket price version, including explicit type resets', () => {
+  lots.value = new Map([[1, lot(1, 'Drill', 'battery', { version: 9, currentPrice: 42 })]]);
+  applyCatalog(reply(2, [lot(1, 'Drill', 'drill driver', { firstSeenAt: 7 })]));
+  assert.equal(lots.peek().get(1).currentPrice, 42);
+  assert.equal(lots.peek().get(1).version, 9);
+  assert.equal(lots.peek().get(1).firstSeenAt, 7);
+  assert.equal(lots.peek().get(1).itemType, 'drill driver');
+  applyCatalog(reply(3, [lot(1, 'Drill', undefined)]));
+  assert.equal(lots.peek().get(1).itemType, undefined);
+});
+
+test('saving uses the guarded endpoint and applies the canonical server response to all exact titles', async () => {
+  lots.value = new Map([lot(1, 'Drill', 'battery'), lot(2, 'Drill', 'battery')].map((l) => [l.id, l]));
+  globalThis.fetch = async (path, init) => {
+    assert.equal(path, '/api/item-type');
+    assert.equal(init.method, 'PUT');
+    assert.equal(init.credentials, 'same-origin');
+    assert.equal(init.headers['X-TLX-Client'], '1');
+    assert.equal(init.headers['Content-Type'], 'application/json');
+    assert.deepEqual(JSON.parse(init.body), { lotId: 1, itemType: 'Drill Driver' });
+    return Response.json({ title: 'Drill', itemType: 'drill driver', seq: 5 });
+  };
+  assert.equal(await setItemType(1, 'Drill Driver'), 'drill driver');
+  assert.equal(lots.peek().get(2).itemType, 'drill driver');
+  applyCatalog(reply(4, [lot(1, 'Drill', 'battery'), lot(2, 'Drill', 'battery')]));
+  assert.equal(lots.peek().get(1).itemType, 'drill driver');
+  applyCatalog(reply(5, [lot(1, 'Drill', 'drill driver'), lot(2, 'Drill', 'drill driver')]));
+  applyCatalog(reply(6, [lot(1, 'Drill', 'hammer drill'), lot(2, 'Drill', 'hammer drill')]));
+  assert.equal(lots.peek().get(1).itemType, 'hammer drill');
+});
+
+test('failed saves surface the API error or connection failure and leave item types unchanged', async () => {
+  lots.value = new Map([[1, lot(1, 'Drill', 'battery')]]);
+  globalThis.fetch = async () => Response.json({ error: 'No such catalog lot' }, { status: 404 });
+  await assert.rejects(setItemType(1, 'drill'), /No such catalog lot/);
+  assert.equal(lots.peek().get(1).itemType, 'battery');
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await assert.rejects(setItemType(1, 'drill'), /Can’t reach the tlx server/);
+  assert.equal(lots.peek().get(1).itemType, 'battery');
+});

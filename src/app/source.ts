@@ -9,7 +9,7 @@
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
 import { batch } from '@preact/signals';
-import { error, inUse, loaded, lots, meta, progress, trackActivity, type CatalogMeta } from './catalog';
+import { error, inUse, loaded, lots, meta, progress, trackActivity, updateTitleItemType, type CatalogMeta } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot, PastCloseDetail } from './types';
@@ -74,6 +74,8 @@ let seq = 0;
 let nextAt = 0;
 /** Why the last request to the server failed, if it did. */
 let serverError: string | null = null;
+/** Local corrections not yet included in a catalog poll; protect them from an older in-flight reply. */
+const typeEdits = new Map<string, { itemType: string; seq: number }>();
 
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
@@ -85,7 +87,7 @@ function applyStatus(s: Status) {
 }
 
 /** Merge a catalog reply into memory. */
-function applyCatalog(r: CatalogReply) {
+export function applyCatalog(r: CatalogReply) {
   batch(() => {
     applyStatus(r);
     const cur = lots.peek();
@@ -96,7 +98,22 @@ function applyCatalog(r: CatalogReply) {
         next.forEach((_, id) => keep.has(id) || next.delete(id));
       }
       r.lots.forEach((l) => next.set(l.id, l));
-      lots.value = keepNewer(next, r.lots);
+      const merged = keepNewer(next, r.lots);
+      for (const [title, edit] of typeEdits) {
+        if (r.seq < edit.seq) {
+          for (const [id, lot] of merged) {
+            if (lot.title === title) {
+              merged.set(id, { ...lot, itemType: edit.itemType });
+            }
+          }
+        }
+      }
+      lots.value = merged;
+    }
+    for (const [title, edit] of typeEdits) {
+      if (r.seq >= edit.seq) {
+        typeEdits.delete(title);
+      }
     }
     seq = r.seq;
     loaded.value = true;
@@ -106,13 +123,13 @@ function applyCatalog(r: CatalogReply) {
 /**
  * Websocket updates that arrived since the server's pull may be newer (by
  * `version`) than the lots it sent, so those win, keeping the pull's
- * first-seen time.
+ * first-seen time and authoritative item type.
  */
 function keepNewer(next: Map<number, Lot>, pulled: Lot[]): Map<number, Lot> {
   for (const fresh of pulled) {
     const mine = lots.peek().get(fresh.id);
     if (mine && mine.version > fresh.version) {
-      next.set(fresh.id, { ...mine, firstSeenAt: fresh.firstSeenAt });
+      next.set(fresh.id, { ...mine, firstSeenAt: fresh.firstSeenAt, itemType: fresh.itemType });
     }
   }
   return next;
@@ -172,6 +189,14 @@ export const nextPullAt = () => nextAt;
 
 /** Every closed lot whose name matches this open lot's, most recent first. */
 export const fetchPastCloses = (id: number) => call<{ closes: PastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes);
+
+/** Persist a title-based correction and update cards, sorting and category matching immediately. */
+export async function setItemType(lotId: number, itemType: string): Promise<string> {
+  const reply = await call<{ title: string; itemType: string; seq: number }>('PUT', '/api/item-type', { lotId, itemType });
+  typeEdits.set(reply.title, { itemType: reply.itemType, seq: reply.seq });
+  updateTitleItemType(reply.title, reply.itemType);
+  return reply.itemType;
+}
 
 // ---------------------------------------------------------------------------
 // Settings

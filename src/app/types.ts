@@ -32,7 +32,7 @@ export interface Lot {
   hasBid: boolean;
   images: LotImage[];
   firstSeenAt?: number; // when a full pull first saw this lot (0 = already there on the first pull)
-  itemType?: string; // what the item is ("pressure washer"), named by the server's LLM; missing until it has been
+  itemType?: string; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] }; // closed lots with the same or a similar name (most recent first); missing if none
 }
 

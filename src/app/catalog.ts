@@ -58,6 +58,17 @@ export function updateLot(id: number, patch: Partial<Lot>, opts: { force?: boole
   rev.value = rev.peek() + 1;
 }
 
+/** Apply a saved item type to every catalog listing with this exact title. */
+export function updateTitleItemType(title: string, itemType: string) {
+  const next = new Map(lots.peek());
+  for (const [id, lot] of next) {
+    if (lot.title === title) {
+      next.set(id, { ...lot, itemType });
+    }
+  }
+  lots.value = next;
+}
+
 /** Lot detail cache (or the in-flight request), by lot id. */
 const details = new Map<number, { at: number; data?: LotDetail; promise?: Promise<LotDetail> }>();
 

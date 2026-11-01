@@ -53,7 +53,9 @@ CREATE INDEX IF NOT EXISTS lot_past_closes_closed ON lot_past_closes (closed_id)
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
-CREATE TABLE IF NOT EXISTS item_types (title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS item_types (
+  title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
 CREATE TABLE IF NOT EXISTS closed_lots (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at INTEGER, price REAL, bid_count INTEGER,
@@ -168,6 +170,8 @@ class Store:
         self._db.execute("PRAGMA journal_mode=WAL")
         self._lock = threading.Lock()
         self._db.executescript(SCHEMA)
+        if "manual" not in {row[1] for row in self._db.execute("PRAGMA table_info(item_types)")}:
+            self._db.execute("ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0")
         path.chmod(0o600)  # holds the site login cookies
 
     @contextmanager
@@ -471,11 +475,16 @@ class Store:
             )
             return [t for (t,) in rows]
 
-    def save_item_types(self, types: dict[str, tuple[str, str | None]]) -> None:
-        """Store {title: (type, site category)}, giving the lots whose item type that changes a new sequence."""
+    def save_item_types(self, types: dict[str, tuple[str, str | None]], *, manual: bool = False) -> None:
+        """Store title-based types and touch changed lots; automatic labels never replace manual corrections."""
         if not types:
             return
         with self._lock, self._tx():
+            if not manual:
+                corrected = {title for (title,) in self._db.execute("SELECT title FROM item_types WHERE manual = 1")}
+                types = {title: value for title, value in types.items() if title not in corrected}
+            if not types:
+                return
             seq = self._get_int("seq") + 1
             before = self._db.total_changes
             self._db.executemany(
@@ -486,8 +495,8 @@ class Store:
                 self._set("seq", seq)
             now = time.time()
             self._db.executemany(
-                "INSERT OR REPLACE INTO item_types (title, type, category, at) VALUES (?, ?, ?, ?)",
-                [(title, t, cat, now) for title, (t, cat) in types.items()],
+                "INSERT OR REPLACE INTO item_types (title, type, category, at, manual) VALUES (?, ?, ?, ?, ?)",
+                [(title, t, cat, now, int(manual)) for title, (t, cat) in types.items()],
             )
 
     def reset_item_types(self) -> int:
