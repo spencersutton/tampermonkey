@@ -86,105 +86,139 @@ function CheckList<T>(props: { facets: Facet<T>[]; selected: T[]; onChange: (nex
 }
 
 /** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
-interface CategoryGroup {
+export interface CategoryGroup {
   facet: Facet<string>;
-  subs: Facet<string>[]; // labelled with just the part after "<it> - ", A–Z
+  subs: CategoryGroup[];
 }
 
 /** Separator between a site category's name and a subcategory's in custom category names. */
 const SUB = ' - ';
 
-/** Nest custom categories under the site category their name starts with (the longest such name), e.g. "Plumbing & Bath - Ice Maker Hoses". */
-function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
-  const parents = siteCategories.toSorted((a, b) => b.label.length - a.label.length);
-  const subs = new Map<string, Facet<string>[]>();
-  const top: Facet<string>[] = [];
+/** Nest custom categories under the longest matching site or custom category name. */
+export function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
+  const all = new Map([...siteCategories.map((f) => ({ ...f, count: 0 })), ...categories].map((f) => [f.value, f]));
+  const parents = [...all.values()].sort((a, b) => b.label.length - a.label.length);
+  const groups = new Map([...all].map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]));
+  const top: CategoryGroup[] = [];
   for (const f of categories) {
     const p = isCustomCategory(f.value) ? parents.find((s) => f.label.startsWith(s.label + SUB)) : undefined;
+    const group = groups.get(f.value)!;
     if (p) {
-      subs.set(p.value, [...(subs.get(p.value) ?? []), { ...f, label: f.label.slice(p.label.length + SUB.length) }]);
+      group.facet = { ...f, label: f.label.slice(p.label.length + SUB.length) };
+      groups.get(p.value)!.subs.push(group);
     } else {
-      top.push(f);
+      top.push(group);
     }
   }
   // A site category whose lots all moved into subcategories still heads them.
   for (const p of siteCategories) {
-    if (subs.has(p.value) && !top.some((f) => f.value === p.value)) {
-      top.push({ ...p, count: 0 });
+    const group = groups.get(p.value)!;
+    if (group.subs.length && !top.includes(group)) {
+      top.push(group);
     }
   }
-  return top
-    .sort((a, b) => collator.compare(a.label, b.label))
-    .map((facet) => ({ facet, subs: (subs.get(facet.value) ?? []).sort((a, b) => collator.compare(a.label, b.label)) }));
+  const sort = (rows: CategoryGroup[]): CategoryGroup[] =>
+    rows.sort((a, b) => collator.compare(a.facet.label, b.facet.label)).map((g) => ({ ...g, subs: sort(g.subs) }));
+  return sort(top);
 }
 
-/**
- * Category checkboxes; a site category with subcategories expands to list
- * them, headed by "Other" for its lots in no subcategory. Checking the site
- * category checks them all and unchecking it unchecks them all.
- */
+const groupFacets = (g: CategoryGroup): Facet<string>[] => [g.facet, ...g.subs.flatMap(groupFacets)];
+
+/** Category checkboxes, with expandable site and custom category parents. */
 function CategoryList({ facets, selected, onChange }: { facets: Facets; selected: string[]; onChange: (next: string[]) => void }) {
   const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
-  const toggle = (v: string) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
   return (
     <>
-      {groupCategories(facets).map(({ facet, subs }) => {
-        if (!subs.length) {
-          return <CheckRow facet={facet} checked={selected.includes(facet.value)} onChange={() => toggle(facet.value)} />;
-        }
-        // Selecting the site category's own value keeps the lots left in it, so that's its "Other" row.
-        const rows = [{ ...facet, label: 'Other' }, ...subs];
-        const values = rows.map((r) => r.value);
-        const all = values.every((v) => selected.includes(v));
-        const some = values.some((v) => selected.includes(v));
-        // Subcategory lists start closed; `collapsed[id] === false` means opened.
-        const id = `cat:${facet.value}`;
-        const open = collapsed?.[id] === false;
-        const total = rows.reduce((n, r) => n + r.count, 0);
-        return (
-          <div class="check-group">
-            <div class="check-parent">
-              <label class="check">
-                <input
-                  type="checkbox"
-                  checked={all}
-                  indeterminate={some && !all}
-                  onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
-                />
-                <span>{facet.label}</span>
-              </label>
-              <button
-                type="button"
-                class="check-expand"
-                aria-expanded={open}
-                aria-label={`${open ? 'Hide' : 'Show'} ${facet.label} subcategories (${plural(total, 'lot')})`}
-                onClick={() => setCollapsed({ ...collapsed, [id]: open })}
-              >
-                <Icon name="expandMore" size={18} />
-                <span class="count">{fmtCount(total)}</span>
-              </button>
-            </div>
-            {open && (
-              <div class="check-subs">
-                {rows.map((r) => (
-                  <CheckRow facet={r} checked={selected.includes(r.value)} onChange={() => toggle(r.value)} />
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {groupCategories(facets).map((group) => (
+        <CategoryGroupRow key={group.facet.value} group={group} selected={selected} onChange={onChange} collapsed={collapsed ?? {}} setCollapsed={setCollapsed} />
+      ))}
     </>
   );
 }
 
-function CheckRow({ facet, checked, indeterminate, onChange }: { facet: Facet<string>; checked: boolean; indeterminate?: boolean; onChange: () => void }) {
+export function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }: {
+  group: CategoryGroup;
+  selected: string[];
+  onChange: (next: string[]) => void;
+  collapsed: Record<string, boolean>;
+  setCollapsed: (next: Record<string, boolean>) => void;
+}) {
+  const { facet, subs } = group;
+  const toggle = () => onChange(selected.includes(facet.value) ? selected.filter((v) => v !== facet.value) : [...selected, facet.value]);
+  if (!subs.length) {
+    return <CheckRow facet={facet} checked={selected.includes(facet.value)} onChange={toggle} onOnly={() => onChange([facet.value])} />;
+  }
+  const rows = groupFacets(group);
+  const values = rows.map((r) => r.value);
+  const all = values.every((v) => selected.includes(v));
+  const some = values.some((v) => selected.includes(v));
+  // Subcategory lists start closed; `collapsed[id] === false` means opened.
+  const id = `cat:${facet.value}`;
+  const open = collapsed[id] === false;
+  const total = rows.reduce((n, r) => n + r.count, 0);
   return (
-    <label class="check">
-      <input type="checkbox" checked={checked} indeterminate={indeterminate} onChange={onChange} />
-      <span>{facet.label}</span>
-      <span class="count">{fmtCount(facet.count)}</span>
-    </label>
+    <div class="check-group">
+      <div class="check-parent">
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={all}
+            indeterminate={some && !all}
+            onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
+          />
+          <span>{facet.label}</span>
+        </label>
+        <button
+          type="button"
+          class="check-expand"
+          aria-expanded={open}
+          aria-label={`${open ? 'Hide' : 'Show'} ${facet.label} subcategories (${plural(total, 'lot')})`}
+          onClick={() => setCollapsed({ ...collapsed, [id]: open })}
+        >
+          <Icon name="expandMore" size={18} />
+          <span class="count">{fmtCount(total)}</span>
+        </button>
+        <button type="button" class="btn-text check-only" aria-label={`Show only ${facet.label} and its subcategories`} onClick={() => onChange(values)}>
+          Only
+        </button>
+      </div>
+      {open && (
+        <div class="check-subs">
+          <CheckRow
+            facet={{ ...facet, label: 'Other' }}
+            checked={selected.includes(facet.value)}
+            onChange={toggle}
+            onOnly={() => onChange([facet.value])}
+            onlyLabel={`Show only lots directly in ${facet.label}`}
+          />
+          {subs.map((sub) => (
+            <CategoryGroupRow key={sub.facet.value} group={sub} selected={selected} onChange={onChange} collapsed={collapsed} setCollapsed={setCollapsed} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckRow({ facet, checked, indeterminate, onChange, onOnly, onlyLabel }: {
+  facet: Facet<string>;
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  onOnly: () => void;
+  onlyLabel?: string;
+}) {
+  return (
+    <div class="check-category">
+      <label class="check">
+        <input type="checkbox" checked={checked} indeterminate={indeterminate} onChange={onChange} />
+        <span>{facet.label}</span>
+        <span class="count">{fmtCount(facet.count)}</span>
+      </label>
+      <button type="button" class="btn-text check-only" aria-label={onlyLabel ?? `Show only ${facet.label}`} onClick={onOnly}>
+        Only
+      </button>
+    </div>
   );
 }
 

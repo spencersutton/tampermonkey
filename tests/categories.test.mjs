@@ -13,9 +13,10 @@ after(() => vite.close());
 const { saveCustomCategories } = await vite.ssrLoadModule('/src/app/categories.ts');
 const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { DEFAULT_VIEW, categoryIndex, compileCategories } = await vite.ssrLoadModule('/src/app/view.ts');
+const { DEFAULT_VIEW, categoryIndex, compileCategories, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
 const { clean, rowError, toDraft } = await vite.ssrLoadModule('/src/app/CategoryEditor.tsx');
 const { without } = await vite.ssrLoadModule('/src/app/TypeCategory.tsx');
+const { groupCategories, CategoryGroupRow } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
 
 function setup(categories, selected) {
   storage.clear();
@@ -130,4 +131,199 @@ test('legacy patterns migrate on edit, validate independently, and remain when t
   assert.equal(rowError({ ...draft, types: [], patterns: [] }, []), 'Add item types or a regex');
   assert.deepEqual(without(clean(draft), ['drill']), [{ name: 'Tools', types: [], patterns: ['saw', 'drill{2,3}'] }]);
   assert.deepEqual(without({ name: 'Old', types: ['drill'], pattern: 'saw' }, ['drill']), [{ name: 'Old', types: [], pattern: 'saw' }]);
+});
+
+const facet = (label, count = 0, value = `custom:${label}`) => ({ value, label, count });
+const facetsFor = (categories, siteCategories = []) => ({ categories, siteCategories, conditions: [], locations: [] });
+
+test('third-tier categories nest under the longest existing name and sort each tier A-Z', () => {
+  const groups = groupCategories(facetsFor([
+    facet('Tools - Drills - Cordless', 3),
+    facet('Tools - Saws', 2),
+    facet('Tools - Drills', 1),
+    facet('Tools - Drills - Corded', 4),
+    facet('Tools & Hardware - Bits', 5),
+  ], [facet('Tools', 10, 'tools'), facet('Tools & Hardware', 5, 'hardware')]));
+  assert.deepEqual(groups, [
+    {
+      facet: facet('Tools', 0, 'tools'),
+      subs: [
+        {
+          facet: facet('Drills', 1, 'custom:Tools - Drills'),
+          subs: [
+            { facet: facet('Corded', 4, 'custom:Tools - Drills - Corded'), subs: [] },
+            { facet: facet('Cordless', 3, 'custom:Tools - Drills - Cordless'), subs: [] },
+          ],
+        },
+        { facet: facet('Saws', 2, 'custom:Tools - Saws'), subs: [] },
+      ],
+    },
+    { facet: facet('Tools & Hardware', 0, 'hardware'), subs: [{ facet: facet('Bits', 5, 'custom:Tools & Hardware - Bits'), subs: [] }] },
+  ]);
+});
+
+test('custom roots can head children, while a missing parent keeps the remaining name intact', () => {
+  const groups = groupCategories(facetsFor([
+    facet('Favorites - Workshop', 1),
+    facet('Favorites', 2),
+    facet('Tools - Drills - Cordless', 3),
+    facet('Tools - Drill Bits', 4),
+    facet('Tools - DrillsExtra', 5),
+  ], [facet('Tools', 12, 'tools')]));
+  assert.equal(groups[0].facet.label, 'Favorites');
+  assert.equal(groups[0].subs[0].facet.label, 'Workshop');
+  assert.deepEqual(groups[1].subs.map((g) => g.facet.label), ['Drill Bits', 'Drills - Cordless', 'DrillsExtra']);
+});
+
+test('facets retain empty custom ancestors but not unrelated empty categories or closed lots', () => {
+  const cats = [
+    { name: 'Tools - Drills', types: ['drill'] },
+    { name: 'Tools - Drills - Cordless', types: ['cordless drill'] },
+    { name: 'Unused', types: ['saw'] },
+    { name: 'Tools - Drills - Corded', types: ['corded drill'] },
+  ];
+  const lot = (itemType, endsAt = 2) => ({ itemType, endsAt, category: { value: 'tools', label: 'Tools' }, condition: null, location: null });
+  const facets = computeFacets([lot('cordless drill'), lot('corded drill', 0)], 1, cats);
+  assert.deepEqual(facets.categories, [facet('Tools - Drills'), facet('Tools - Drills - Cordless', 1)]);
+  const groups = groupCategories(facets);
+  assert.equal(groups[0].facet.count, 0);
+  assert.equal(groups[0].subs[0].facet.label, 'Drills');
+  assert.equal(groups[0].subs[0].subs[0].facet.label, 'Cordless');
+});
+
+function rowNodes(node) {
+  if (node == null || typeof node !== 'object') return [];
+  if (Array.isArray(node)) return node.flatMap(rowNodes);
+  if (node.type === CategoryGroupRow || node.type?.name === 'CheckRow') return rowNodes(node.type(node.props));
+  return [node, ...rowNodes(node.props?.children)];
+}
+
+test('parent rows count and toggle all descendants without touching unrelated selections', () => {
+  const [group] = groupCategories(facetsFor([
+    facet('Tools', 2, 'tools'),
+    facet('Tools - Drills', 1),
+    facet('Tools - Drills - Cordless', 3),
+    facet('Tools - Saws', 4),
+  ], [facet('Tools', 10, 'tools')]));
+  let selected = ['garden', 'custom:Tools - Drills - Cordless'];
+  const props = { group, selected, collapsed: {}, setCollapsed: () => {}, onChange: (next) => { selected = next; } };
+  const nodes = rowNodes(CategoryGroupRow(props));
+  const checkbox = nodes.find((n) => n.type === 'input');
+  assert.equal(checkbox.props.checked, false);
+  assert.equal(checkbox.props.indeterminate, true);
+  const button = nodes.find((n) => n.type === 'button');
+  assert.equal(button.props['aria-label'], 'Show Tools subcategories (10 lots)');
+  checkbox.props.onChange();
+  assert.deepEqual(new Set(selected), new Set(['garden', 'tools', 'custom:Tools - Drills', 'custom:Tools - Drills - Cordless', 'custom:Tools - Saws']));
+  const checked = rowNodes(CategoryGroupRow({ ...props, selected })).find((n) => n.type === 'input');
+  assert.equal(checked.props.checked, true);
+  assert.equal(checked.props.indeterminate, false);
+  checked.props.onChange();
+  assert.deepEqual(selected, ['garden']);
+
+  const drillNodes = rowNodes(CategoryGroupRow({ ...props, group: group.subs[0], selected }));
+  assert.equal(drillNodes.find((n) => n.type === 'button').props['aria-label'], 'Show Drills subcategories (4 lots)');
+  drillNodes.find((n) => n.type === 'input').props.onChange();
+  assert.deepEqual(selected, ['garden', 'custom:Tools - Drills', 'custom:Tools - Drills - Cordless']);
+});
+
+test('each tier expands independently and Other toggles only the parent own value', () => {
+  const [group] = groupCategories(facetsFor([
+    facet('Tools', 2, 'tools'),
+    facet('Tools - Drills', 1),
+    facet('Tools - Drills - Cordless', 3),
+  ], [facet('Tools', 6, 'tools')]));
+  let collapsed = {};
+  let selected = ['custom:Tools - Drills - Cordless'];
+  const render = () => rowNodes(CategoryGroupRow({
+    group, collapsed, selected,
+    setCollapsed: (next) => { collapsed = next; },
+    onChange: (next) => { selected = next; },
+  }));
+  assert.equal(render().filter((n) => n.props?.class === 'check-expand').length, 1);
+  render().find((n) => n.props?.class === 'check-expand').props.onClick();
+  assert.deepEqual(collapsed, { 'cat:tools': false });
+  const buttons = render().filter((n) => n.props?.class === 'check-expand');
+  assert.equal(buttons.length, 2);
+  assert.equal(buttons[1].props['aria-expanded'], false);
+  buttons[1].props.onClick();
+  assert.deepEqual(collapsed, { 'cat:tools': false, 'cat:custom:Tools - Drills': false });
+  const nodes = render();
+  const checks = nodes.filter((n) => n.type === 'input');
+  assert.equal(checks.length, 5);
+  checks[3].props.onChange();
+  assert.deepEqual(selected, ['custom:Tools - Drills - Cordless', 'custom:Tools - Drills']);
+  render().filter((n) => n.type === 'input')[1].props.onChange();
+  assert.deepEqual(selected, ['custom:Tools - Drills - Cordless', 'custom:Tools - Drills', 'tools']);
+});
+
+test('longer site names win and similar custom names are not treated as descendants', () => {
+  const groups = groupCategories(facetsFor([
+    facet('Tools - Drills', 1),
+    facet('Tools - DrillsExtra', 2),
+    facet('Tools - Power - Bits', 3),
+  ], [facet('Tools', 3, 'tools'), facet('Tools - Power', 3, 'power')]));
+  assert.deepEqual(groups.map((g) => [g.facet.label, g.subs.map((s) => s.facet.label)]), [
+    ['Tools', ['Drills', 'DrillsExtra']],
+    ['Tools - Power', ['Bits']],
+  ]);
+});
+
+test('Only on a site or custom leaf replaces selections and stays exclusive on repeated clicks', () => {
+  for (const leaf of [facet('Garden', 2, 'garden'), facet('Tools - Drills - Cordless', 3)]) {
+    let selected = ['tools', 'custom:Tools - Drills', leaf.value];
+    let changes = 0;
+    const render = () => rowNodes(CategoryGroupRow({
+      group: { facet: leaf, subs: [] }, selected, collapsed: {},
+      setCollapsed: () => assert.fail('Only must not change expansion'),
+      onChange: (next) => { selected = next; changes++; },
+    }));
+    for (let i = 0; i < 2; i++) {
+      const button = render().find((n) => n.props?.class === 'btn-text check-only');
+      assert.equal(button.props.type, 'button');
+      assert.equal(button.props['aria-label'], `Show only ${leaf.label}`);
+      button.props.onClick();
+      assert.deepEqual(selected, [leaf.value]);
+      assert.equal(changes, i + 1);
+    }
+  }
+});
+
+test('Only on a parent replaces selections with the whole branch, even while collapsed', () => {
+  const [group] = groupCategories(facetsFor([
+    facet('Tools', 0, 'tools'),
+    facet('Tools - Drills', 0),
+    facet('Tools - Drills - Cordless', 3),
+    facet('Tools - Saws', 1),
+  ], [facet('Tools', 4, 'tools')]));
+  let selected = ['garden', 'custom:Tools - Saws'];
+  const render = (branch) => rowNodes(CategoryGroupRow({
+    group: branch, selected, collapsed: {},
+    setCollapsed: () => assert.fail('Only must not change expansion'),
+    onChange: (next) => { selected = next; },
+  }));
+  render(group).find((n) => n.props?.class === 'btn-text check-only').props.onClick();
+  assert.deepEqual(selected, ['tools', 'custom:Tools - Drills', 'custom:Tools - Drills - Cordless', 'custom:Tools - Saws']);
+  const button = render(group.subs[0]).find((n) => n.props?.class === 'btn-text check-only');
+  assert.equal(button.props['aria-label'], 'Show only Drills and its subcategories');
+  button.props.onClick();
+  assert.deepEqual(selected, ['custom:Tools - Drills', 'custom:Tools - Drills - Cordless']);
+});
+
+test('Only on Other excludes descendants, ancestors and unrelated categories', () => {
+  const [group] = groupCategories(facetsFor([
+    facet('Tools', 2, 'tools'),
+    facet('Tools - Drills', 1),
+    facet('Tools - Drills - Cordless', 3),
+  ], [facet('Tools', 6, 'tools')]));
+  let selected = ['garden', 'tools', 'custom:Tools - Drills - Cordless'];
+  const render = () => rowNodes(CategoryGroupRow({
+    group, selected, collapsed: { 'cat:tools': false, 'cat:custom:Tools - Drills': false },
+    setCollapsed: () => assert.fail('Only must not change expansion'),
+    onChange: (next) => { selected = next; },
+  }));
+  render().find((n) => n.props?.['aria-label'] === 'Show only lots directly in Drills').props.onClick();
+  assert.deepEqual(selected, ['custom:Tools - Drills']);
+  render().find((n) => n.props?.['aria-label'] === 'Show only lots directly in Tools').props.onClick();
+  assert.deepEqual(selected, ['tools']);
 });

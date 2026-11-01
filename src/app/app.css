@@ -421,6 +421,33 @@ h3 {
   margin-left: auto;
 }
 
+.check-category {
+  display: flex;
+  align-items: stretch;
+}
+
+.check-category .check {
+  flex: 1;
+  min-width: 0;
+}
+
+.check-category .check input,
+.check-category .count {
+  flex: none;
+}
+
+.check-category .check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.check-only {
+  flex: none;
+  align-self: center;
+  margin-left: 6px;
+  font-size: 12px;
+}
+
 .check-parent {
   display: flex;
   align-items: stretch;

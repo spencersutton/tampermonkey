@@ -443,8 +443,16 @@ function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
 /** Categories (custom ones included), conditions and locations among open lots, with counts, for the filter lists. */
 export function computeFacets(lots: Iterable<Lot>, now: number, customCategories: CustomCategory[]): Facets {
   const open = Array.from(lots).filter((l) => l.endsAt > now);
+  const categories = tally(open.map((l) => categoryOf(l, customCategories)));
+  // Keep custom parents visible when all their open lots moved into descendants.
+  for (const c of customCategories) {
+    const value = customCategoryValue(c.name);
+    if (!categories.some((f) => f.value === value) && categories.some((f) => isCustomCategory(f.value) && f.label.startsWith(c.name + ' - '))) {
+      categories.push({ value, label: c.name, count: 0 });
+    }
+  }
   return {
-    categories: tally(open.map((l) => categoryOf(l, customCategories))).sort((a, b) => a.label.localeCompare(b.label)),
+    categories: categories.sort((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map((l) => l.category)),
     conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
     locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).sort((a, b) => b.count - a.count),

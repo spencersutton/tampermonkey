@@ -190,7 +190,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
               Lots of a listed item type, or whose title matches a regex (case-insensitive, whole words), move into the category. Item types win, then the
-              first regex from the top – use the arrows to reorder. Click a category to edit it.
+              first regex from the top – use the arrows to reorder. Click a category to edit it. Name it “Parent - Name” to nest it under a site or custom
+              category, e.g. “Tools - Drills - Cordless”.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
