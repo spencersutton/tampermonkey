@@ -1639,40 +1639,6 @@ h3 {
   gap: 4px;
 }
 
-.cat-preview {
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-}
-
-.cat-preview h3 {
-  margin: 0 0 8px;
-}
-
-.cat-preview p {
-  margin: 0;
-}
-
-.cat-preview ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 260px;
-  overflow-y: auto;
-  font-size: 13px;
-}
-
-.cat-preview li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.cat-preview li .small {
-  flex: none;
-}
-
 .cat-foot {
   display: flex;
   align-items: center;
@@ -1869,10 +1835,6 @@ h3 {
   display: flex;
   align-items: baseline;
   gap: 6px;
-}
-
-.type-cat .cat-preview ul {
-  max-height: 220px;
 }
 
 .confirm-actions {

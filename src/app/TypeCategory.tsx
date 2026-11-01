@@ -11,8 +11,6 @@ import { Dialog } from './Dialog';
 import { fmtCount, plural } from './util';
 import { categoryIndex, compileCategories } from './view';
 
-/** Matching titles listed in the preview. */
-const PREVIEW_LIMIT = 30;
 /** Similar types offered as checkboxes. */
 const SIMILAR_LIMIT = 12;
 
@@ -212,17 +210,6 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
             ))}
           </fieldset>
           {losing.length > 0 && <p class="muted small">Moves {plural(types.length, 'type')} out of {losing.map((c) => `“${c.name}”`).join(', ')}.</p>}
-          <section class="cat-preview">
-            <h3>{plural(taken.length, 'open lot')}</h3>
-            <ul>
-              {taken.slice(0, PREVIEW_LIMIT).map((l) => (
-                <li>
-                  <span>{l.title}</span>
-                </li>
-              ))}
-              {taken.length > PREVIEW_LIMIT && <li class="muted small">…and {fmtCount(taken.length - PREVIEW_LIMIT)} more</li>}
-            </ul>
-          </section>
           {error && <p class="error small">{error}</p>}
         </div>
         <div class="confirm-actions">
