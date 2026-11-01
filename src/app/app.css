@@ -1639,6 +1639,45 @@ h3 {
   gap: 4px;
 }
 
+.cat-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(260px, 30vh);
+  padding: 12px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.cat-preview h3 {
+  margin: 0 0 8px;
+}
+
+.cat-preview p {
+  margin: 0;
+}
+
+.cat-preview ul {
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.cat-preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.cat-preview li .small {
+  flex: none;
+}
+
 .cat-foot {
   display: flex;
   align-items: center;
@@ -2198,6 +2237,7 @@ h3 {
 
   .cat-head,
   .cat-body,
+  .cat-preview,
   .cat-foot {
     padding-left: 16px;
     padding-right: 16px;

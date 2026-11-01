@@ -1,5 +1,5 @@
 // Full-size editor for custom categories, one line each until opened: add, rename, reorder with
-// arrows and edit the item types and regex.
+// arrows, edit the item types and regex, and preview which open lots each one takes.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { KEYS, type CustomCategory } from '../shared/keys';
@@ -20,6 +20,8 @@ interface Draft {
   pattern: string;
   within: string; // site category value, '' for any
 }
+
+const PREVIEW_LIMIT = 50;
 
 let nextKey = 0;
 const toDraft = (c: CustomCategory): Draft => ({
@@ -296,6 +298,27 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <Icon name="add" size={18} /> Add category
           </button>
         </div>
+
+        {sel && (
+          <section class="cat-preview" aria-labelledby="cat-preview-title">
+            <h3 id="cat-preview-title">
+              {sel.name.trim() || 'New category'} · {plural(selLots.length, 'open lot')}
+            </h3>
+            {selLots.length ? (
+              <ul>
+                {selLots.slice(0, PREVIEW_LIMIT).map((l) => (
+                  <li key={l.id}>
+                    <span>{l.title}</span>
+                    {l.category && <span class="muted small">{l.category.label}</span>}
+                  </li>
+                ))}
+                {selLots.length > PREVIEW_LIMIT && <li class="muted small">…and {fmtCount(selLots.length - PREVIEW_LIMIT)} more</li>}
+              </ul>
+            ) : (
+              <p class="muted small">No open lots match.</p>
+            )}
+          </section>
+        )}
 
         {/* One list of suggestions per "Only within" choice in use, most common types first. */}
         {[...new Set(drafts.map((d) => d.within))].map((w) => (
