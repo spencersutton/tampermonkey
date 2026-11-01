@@ -279,7 +279,7 @@ test('Only on a site or custom leaf replaces selections and stays exclusive on r
       onChange: (next) => { selected = next; changes++; },
     }));
     for (let i = 0; i < 2; i++) {
-      const button = render().find((n) => n.props?.class === 'btn-text check-only');
+      const button = render().find((n) => n.props?.class === 'icon-btn check-only');
       assert.equal(button.props.type, 'button');
       assert.equal(button.props['aria-label'], `Show only ${leaf.label}`);
       button.props.onClick();
@@ -302,9 +302,9 @@ test('Only on a parent replaces selections with the whole branch, even while col
     setCollapsed: () => assert.fail('Only must not change expansion'),
     onChange: (next) => { selected = next; },
   }));
-  render(group).find((n) => n.props?.class === 'btn-text check-only').props.onClick();
+  render(group).find((n) => n.props?.class === 'icon-btn check-only').props.onClick();
   assert.deepEqual(selected, ['tools', 'custom:Tools - Drills', 'custom:Tools - Drills - Cordless', 'custom:Tools - Saws']);
-  const button = render(group.subs[0]).find((n) => n.props?.class === 'btn-text check-only');
+  const button = render(group.subs[0]).find((n) => n.props?.class === 'icon-btn check-only');
   assert.equal(button.props['aria-label'], 'Show only Drills and its subcategories');
   button.props.onClick();
   assert.deepEqual(selected, ['custom:Tools - Drills', 'custom:Tools - Drills - Cordless']);
@@ -326,4 +326,26 @@ test('Only on Other excludes descendants, ancestors and unrelated categories', (
   assert.deepEqual(selected, ['custom:Tools - Drills']);
   render().find((n) => n.props?.['aria-label'] === 'Show only lots directly in Tools').props.onClick();
   assert.deepEqual(selected, ['tools']);
+});
+
+test('exclusive selection uses a compact focus icon with a descriptive tooltip on every tier', () => {
+  const [group] = groupCategories(facetsFor([
+    facet('Tools', 2, 'tools'),
+    facet('Tools - Drills', 1),
+    facet('Tools - Drills - Cordless', 3),
+  ], [facet('Tools', 6, 'tools')]));
+  const nodes = rowNodes(CategoryGroupRow({
+    group, selected: [], collapsed: { 'cat:tools': false, 'cat:custom:Tools - Drills': false },
+    setCollapsed: () => {}, onChange: () => {},
+  }));
+  const buttons = nodes.filter((n) => n.props?.class === 'icon-btn check-only');
+  assert.equal(buttons.length, 5);
+  for (const { props } of buttons) {
+    assert.equal(props.type, 'button');
+    assert.match(props['aria-label'], /^Show only /);
+    assert.equal(props.title, props['aria-label']);
+    assert.equal(props.children.type.name, 'Icon');
+    assert.equal(props.children.props.name, 'focus');
+    assert.equal(props.children.props.size, 16);
+  }
 });

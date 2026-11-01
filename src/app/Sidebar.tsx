@@ -156,6 +156,7 @@ export function CategoryGroupRow({ group, selected, onChange, collapsed, setColl
   const id = `cat:${facet.value}`;
   const open = collapsed[id] === false;
   const total = rows.reduce((n, r) => n + r.count, 0);
+  const onlyLabel = `Show only ${facet.label} and its subcategories`;
   return (
     <div class="check-group">
       <div class="check-parent">
@@ -178,8 +179,8 @@ export function CategoryGroupRow({ group, selected, onChange, collapsed, setColl
           <Icon name="expandMore" size={18} />
           <span class="count">{fmtCount(total)}</span>
         </button>
-        <button type="button" class="btn-text check-only" aria-label={`Show only ${facet.label} and its subcategories`} onClick={() => onChange(values)}>
-          Only
+        <button type="button" class="icon-btn check-only" title={onlyLabel} aria-label={onlyLabel} onClick={() => onChange(values)}>
+          <Icon name="focus" size={16} />
         </button>
       </div>
       {open && (
@@ -208,6 +209,7 @@ function CheckRow({ facet, checked, indeterminate, onChange, onOnly, onlyLabel }
   onOnly: () => void;
   onlyLabel?: string;
 }) {
+  const label = onlyLabel ?? `Show only ${facet.label}`;
   return (
     <div class="check-category">
       <label class="check">
@@ -215,8 +217,8 @@ function CheckRow({ facet, checked, indeterminate, onChange, onOnly, onlyLabel }
         <span>{facet.label}</span>
         <span class="count">{fmtCount(facet.count)}</span>
       </label>
-      <button type="button" class="btn-text check-only" aria-label={onlyLabel ?? `Show only ${facet.label}`} onClick={onOnly}>
-        Only
+      <button type="button" class="icon-btn check-only" title={label} aria-label={label} onClick={onOnly}>
+        <Icon name="focus" size={16} />
       </button>
     </div>
   );
