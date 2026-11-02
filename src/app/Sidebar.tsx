@@ -261,7 +261,7 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
   const n = activeFilterCount(view);
   const [defaults, setDefaults] = useSetting(KEYS.defaultFilters);
   const reset = defaultFilterView(defaults, view.sort);
-  const canClear =
+  const canDefault =
     view.newSince != null || !sameDefaultFilters(view, defaults) || !sameFilters({ ...view, categories: reset.categories, conditions: reset.conditions }, reset);
   const conditions = siteConditions();
   const [custom] = useSetting(KEYS.customCategories);
@@ -270,9 +270,12 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
     <section class="panel">
       <div class="panel-head">
         <h2>Filters</h2>
-        {canClear && (
+        <button type="button" class="btn-text" onClick={() => setView(DEFAULT_VIEW)}>
+          Clear
+        </button>
+        {canDefault && (
           <button type="button" class="btn-text" onClick={() => setView(reset)}>
-            Clear{n > 0 ? ` (${n})` : ''}
+            Default{n > 0 ? ` (${n})` : ''}
           </button>
         )}
       </div>
