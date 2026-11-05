@@ -3,8 +3,11 @@
 // pages of lots as were scrolled into the grid. The state is also
 // written into the URL (/tlx?search=foo&sort=price-low&page=2&lot=123) so a
 // view can be bookmarked or shared; only values that differ from the defaults appear.
-import { useEffect, useLayoutEffect, useRef } from 'preact/hooks';
+import { batch, computed, effect } from '@preact/signals';
+import { KEYS } from '../shared/keys';
 import type { ClosedSection } from './api';
+import { setSetting } from './settings';
+import { closed, openId, page, storedView } from './state';
 import { DEFAULT_VIEW, normalizeView, type ViewState } from './view';
 
 /** What a history entry restores. */
@@ -125,67 +128,68 @@ function record(nav: NavState) {
   history.pushState(entry, '', navToUrl(nav));
 }
 
-/**
- * Keep browser history in step with `nav`: changes are recorded, and back /
- * forward call `restore` with the entry's state and put the scroll position
- * back. Returns `closeLot`, which closes the open lot by going back when
- * opening it made the current entry, so back after closing doesn't reopen it.
- */
-export function useHistory(nav: NavState, restore: (nav: NavState) => void, close: () => void) {
-  const key = navKey(nav);
-  const latest = useRef({ key, restore });
-  latest.current = { key, restore };
-  const pendingScroll = useRef<number | null>(null);
+const current = computed((): NavState => ({ view: storedView.value, page: page.value, openId: openId.value, closed: closed.value }));
 
-  useLayoutEffect(() => {
+function restore(nav: NavState) {
+  batch(() => {
+    setSetting(KEYS.view, normalizeView(nav.view));
+    page.value = nav.page;
+    openId.value = nav.openId;
+    closed.value = nav.closed;
+  });
+}
+
+/**
+ * Keep browser history in step with the view, page, open lot and closed page:
+ * changes are recorded, and back / forward restore the entry's state and put
+ * the scroll position back. Call once.
+ */
+export function startHistory() {
+  history.scrollRestoration = 'manual';
+  effect(() => {
+    const nav = current.value;
     const cur: unknown = history.state;
-    if (!isEntry(cur) || navKey(cur) !== key) {
+    if (!isEntry(cur) || navKey(cur) !== navKey(nav)) {
       record(nav);
     }
-    if (pendingScroll.current != null) {
-      window.scrollTo(0, pendingScroll.current);
-      pendingScroll.current = null;
-    }
-  }, [key]);
+  });
 
-  useEffect(() => {
-    history.scrollRestoration = 'manual';
-    const onPop = (e: PopStateEvent) => {
-      if (!isEntry(e.state)) {
-        return;
-      }
-      if (navKey(e.state) === latest.current.key) {
-        window.scrollTo(0, e.state.scrollY ?? 0);
-      } else {
-        pendingScroll.current = e.state.scrollY ?? 0;
-        latest.current.restore(e.state);
-      }
-    };
-    // Remember each entry's scroll position, debounced (browsers rate-limit replaceState).
-    let t: ReturnType<typeof setTimeout> | undefined;
-    const onScroll = () => {
+  window.addEventListener('popstate', (e) => {
+    if (!isEntry(e.state)) {
+      return;
+    }
+    const y = e.state.scrollY ?? 0;
+    if (navKey(e.state) === navKey(current.peek())) {
+      window.scrollTo(0, y);
+    } else {
+      restore(e.state);
+      // Once the restored page has rendered.
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+  });
+
+  // Remember each entry's scroll position, debounced (browsers rate-limit replaceState).
+  let t: ReturnType<typeof setTimeout> | undefined;
+  window.addEventListener(
+    'scroll',
+    () => {
       clearTimeout(t);
       t = setTimeout(() => {
         if (isEntry(history.state)) {
           history.replaceState({ ...history.state, scrollY: window.scrollY }, '');
         }
       }, 200);
-    };
-    window.addEventListener('popstate', onPop);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      window.removeEventListener('scroll', onScroll);
-      clearTimeout(t);
-    };
-  }, []);
+    },
+    { passive: true },
+  );
+}
 
-  return function closeLot() {
-    const cur: unknown = history.state;
-    if (isEntry(cur) && cur.kind === 'lot' && cur.openId === nav.openId) {
-      history.back();
-    } else {
-      close();
-    }
-  };
+/** Close the open lot, by going back when opening it made the current entry, so back after closing doesn't reopen it. */
+export function closeLot() {
+  const cur: unknown = history.state;
+  if (isEntry(cur) && cur.kind === 'lot' && cur.openId === openId.peek()) {
+    history.back();
+  } else {
+    openId.value = null;
+  }
 }

@@ -3,7 +3,7 @@ import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
-import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending, type BidRequest } from './bid';
+import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending } from './bid';
 import { cachedDetail, getLot, loadDetail } from './catalog';
 import { Dialog } from './Dialog';
 import { siteConditions } from './conditions';
@@ -11,6 +11,7 @@ import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
+import { openLot, startBid, toggleHide } from './state';
 import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
 import type { Row } from './view';
@@ -18,16 +19,12 @@ import type { Row } from './view';
 interface Props {
   row: Row;
   onClose: () => void;
-  onToggleHide: () => void;
-  onBid: (req: BidRequest) => void;
-  onAddType?: (lot: Lot) => void;
-  onEditType?: (lot: Lot) => void;
   group?: Row[]; // listings of the same item, cheapest total first
-  onOpenLot?: (lot: Lot) => void;
+  onOpenLot?: (lot: Lot) => void; // a lot in the catalog
 }
 
 /** Popup with full lot details, images, bid history and bidding. */
-export function LotModal({ row, onClose, onToggleHide, onBid, onAddType, onEditType, group, onOpenLot }: Props) {
+export function LotModal({ row, onClose, group, onOpenLot = openLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +100,7 @@ export function LotModal({ row, onClose, onToggleHide, onBid, onAddType, onEditT
               {row.category && <span>{row.category.label}</span>}
               <span>Lot #{lot.lotNumber}</span>
             </div>
-            {onAddType && <ItemTypeActions lot={lot} onAddType={onAddType} onEditType={getLot(lot.id) ? onEditType : undefined} />}
+            {getLot(lot.id) && <ItemTypeActions lot={lot} />}
             <div class="modal-price">
               <div>
                 <div class="price big">{dollars(lot.currentPrice)}</div>
@@ -133,18 +130,18 @@ export function LotModal({ row, onClose, onToggleHide, onBid, onAddType, onEditT
               )}
               <span class="muted small">Next min bid {dollars(lot.nextMinIncrement)}</span>
             </div>
-            <BidPanel row={row} onBid={onBid} />
+            <BidPanel row={row} />
             <div class="row-gap">
               <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
                 Open on Triangle Liquidators <Icon name="open" size={16} />
               </a>
               <WatchButton lot={lot} />
-              <button type="button" class="btn btn-text" onClick={onToggleHide}>
+              <button type="button" class="btn btn-text" onClick={() => toggleHide(lot)}>
                 <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} /> {row.hidden ? 'Unhide' : 'Hide'}
               </button>
             </div>
 
-            {group && group.length > 1 && onOpenLot && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
+            {group && group.length > 1 && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
             {lot.pastCloses && <PastCloses lot={lot} />}
 
             {error && <p class="error">Couldn’t load lot details: {error}</p>}
@@ -237,7 +234,7 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; 
  * catalog's copy where it has one (fresher price). A lot in the catalog opens
  * here; any other opens on the site.
  */
-function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen?: (lot: Lot) => void }) {
+function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen: (lot: Lot) => void }) {
   const now = clock(30_000);
   const open = lots.map((l) => getLot(l.id) ?? l).filter((l) => l.id !== current.id && l.endsAt > now);
   if (!open.length) {
@@ -249,7 +246,7 @@ function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen?
       <ol class="similar">
         {open.map((l) => {
           const img = l.images[0];
-          const inCatalog = !!getLot(l.id) && onOpen;
+          const inCatalog = !!getLot(l.id);
           return (
             <li>
               <a
@@ -331,7 +328,7 @@ function PastCloses({ lot }: { lot: Lot }) {
 }
 
 /** Bid controls in the popup: next-increment bid and a custom max bid. */
-function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }) {
+function BidPanel({ row }: { row: Row }) {
   const { lot } = row;
   const now = clock(1000);
   const pending = bidPending(lot.id);
@@ -365,7 +362,7 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
   const submit = (e: Event) => {
     e.preventDefault();
     if (n != null && !error && !pending) {
-      onBid({ lotId: lot.id, amount: n, type: 'max_bid' });
+      startBid({ lotId: lot.id, amount: n, type: 'max_bid' });
     }
   };
 
@@ -391,7 +388,7 @@ function BidPanel({ row, onBid }: { row: Row; onBid: (req: BidRequest) => void }
             type="button"
             class="btn btn-outline"
             disabled={pending}
-            onClick={() => onBid({ lotId: lot.id, amount: quick, type: 'next_increment' })}
+            onClick={() => startBid({ lotId: lot.id, amount: quick, type: 'next_increment' })}
             title="Bid the next increment now"
           >
             Bid {dollars(quick)}

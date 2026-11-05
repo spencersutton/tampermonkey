@@ -1,36 +1,48 @@
-import { computed } from '@preact/signals';
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { KEYS, lotHref, siteUrl } from '../shared/keys';
-import { nameMatchPct } from '../shared/names';
-import { fetchPickupLocation, type ClosedSection } from './api';
+import { batch } from '@preact/signals';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { KEYS } from '../shared/keys';
 import { isAuthenticated, LoginLink } from './auth';
-import { nextPullAt, pullCatalog, settingsSynced } from './source';
-import { error, getLot, loaded, lots, meta, progress, rev } from './catalog';
+import { nextPullAt, pullCatalog } from './source';
+import { error, getLot, loaded, lots, meta, progress } from './catalog';
 import { getSetting, setSetting, useSetting } from './settings';
-import { useHistory, type NavState } from './history';
+import { closeLot } from './history';
 import { Icon } from './icons';
-import { liveState, watchLots, type LiveState } from './live';
+import { liveState, type LiveState } from './live';
 import { BidConfirm } from './BidConfirm';
 import { CategoryEditor } from './CategoryEditor';
 import { ClosedLots } from './ClosedLots';
-import type { BidRequest } from './bid';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
 import { Sidebar } from './Sidebar';
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
 import { ItemTypeEditor } from './ItemType';
-import { ago, clock, countdown, DAY, fmtCount, MINUTE, plural, shortTime } from './util';
+import { ago, clock, countdown, fmtCount, plural, shortTime } from './util';
+import {
+  accountPickupName,
+  closed,
+  closeModal,
+  filterFacets,
+  gridView,
+  highlight,
+  modal,
+  onScreen,
+  openId,
+  page,
+  pickupName,
+  rowOf,
+  searchStats,
+  setView,
+  sidebarOpen,
+  storedView,
+  totalNew,
+  visitSince,
+} from './state';
 import {
   activeFilterCount,
-  computeFacets,
-  computeView,
-  initialView,
-  makeRow,
   normalizeView,
   sameFilters,
   savedFilters,
-  savedSearchStats,
   searchRegexOf,
   SORTS,
   suggestName,
@@ -43,11 +55,10 @@ import type { Lot } from './types';
 const PAGE_SIZE = 60;
 
 /**
- * Ids of the lot cards in `grid` that are on screen or close to it, for live
- * updates. `key` changes whenever the rendered cards do.
+ * Keep `onScreen` to the lot cards in `grid` that are on screen or close to
+ * it. `key` changes whenever the rendered cards do.
  */
-function useOnScreenLots(grid: { current: HTMLElement | null }, key: string): number[] {
-  const [ids, setIds] = useState<number[]>([]);
+function useOnScreenLots(grid: { current: HTMLElement | null }, key: string) {
   useEffect(() => {
     const el = grid.current;
     if (!el) {
@@ -62,7 +73,7 @@ function useOnScreenLots(grid: { current: HTMLElement | null }, key: string): nu
           e.isIntersecting ? near.add(id) : near.delete(id);
         }
         clearTimeout(t);
-        t = setTimeout(() => setIds([...near].sort((a, b) => a - b)), 150);
+        t = setTimeout(() => (onScreen.value = [...near].sort((a, b) => a - b)), 150);
       },
       { rootMargin: '600px 0px' },
     );
@@ -72,141 +83,28 @@ function useOnScreenLots(grid: { current: HTMLElement | null }, key: string): nu
       clearTimeout(t);
     };
   }, [key]);
-  return ids;
-}
-
-/** Name of the account's pickup location (fetched by App at most once a day while logged in). */
-const accountPickupName = computed(() => {
-  const acct = getSetting(KEYS.accountPickup);
-  if (acct?.name || acct?.id == null) {
-    return acct?.name ?? null;
-  }
-  // The account may only give the location's id; find its name among the lots.
-  return lots.value.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
-});
-const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
-
-const storedView = computed(() => initialView(getSetting(KEYS.view), getSetting(KEYS.defaultFilters)));
-const exclusionRules = computed(() => ({
-  words: getSetting(KEYS.words),
-  filterOn: getSetting(KEYS.filterOn),
-  removeFiltered: getSetting(KEYS.removeFiltered),
-  hidden: getSetting(KEYS.hidden),
-  showHidden: getSetting(KEYS.showHidden),
-  customCategories: getSetting(KEYS.customCategories),
-  nameMatch: nameMatchPct(getSetting(KEYS.nameMatch)),
-}));
-
-// Closed lots drop out on a 30 s clock; countdowns tick on their own.
-/** The grid: lots through the view's filters and sort, recomputed on every lot update. */
-const gridView = computed(() => {
-  void rev.value;
-  return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000));
-});
-/** Filter options and their counts; these don't follow live price updates. */
-const filterFacets = computed(() => computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)));
-const searchStats = computed(() => {
-  void rev.value;
-  return savedSearchStats(lots.value.values(), getSetting(KEYS.savedSearches), pickupName.value, exclusionRules.value, clock(30_000));
-});
-
-/** Fetch the account's pickup location at most once a day while logged in. */
-function useAccountPickupFetch(authed: boolean) {
-  useEffect(() => {
-    const acct = getSetting(KEYS.accountPickup);
-    if (authed && !(acct && Date.now() - acct.at < DAY)) {
-      fetchPickupLocation().then(
-        (p) => setSetting(KEYS.accountPickup, { id: p?.id ?? null, name: p?.name ?? null, at: Date.now() }),
-        () => {},
-      );
-    }
-  }, [authed]);
-}
-
-/** Coming back to the tab after it was hidden this long counts as a new visit. */
-const VISIT_GAP = 30 * MINUTE;
-/** Before any visit was recorded, lots with more than this left are taken to be new. */
-const FIRST_VISIT_NEW_LEFT = 2 * DAY;
-
-/**
- * Lots first seen after this count as new: the start of the previous visit
- * (a page load, or the tab coming back after VISIT_GAP hidden), shared by all
- * devices. null until the synced settings have arrived.
- */
-function useVisitSince(): number | null {
-  const [since, setSince] = useState<number | null>(null);
-  useEffect(() => {
-    const visit = () => {
-      const now = Date.now();
-      setSince(getSetting(KEYS.lastVisit) ?? firstVisitSince(now));
-      setSetting(KEYS.lastVisit, now);
-    };
-    let hiddenAt = 0;
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenAt = Date.now();
-      } else if (hiddenAt && Date.now() - hiddenAt >= VISIT_GAP) {
-        visit();
-      }
-    };
-    void settingsSynced.then(() => {
-      visit();
-      document.addEventListener('visibilitychange', onVisibility);
-    });
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, []);
-  return since;
-}
-
-/** With no previous visit, start just before the earliest-seen lot that still has over FIRST_VISIT_NEW_LEFT to go. */
-function firstVisitSince(now: number): number {
-  const first = lots.value
-    .values()
-    .filter((l) => l.endsAt - now > FIRST_VISIT_NEW_LEFT)
-    .reduce((min, l) => Math.min(min, l.firstSeenAt ?? 0), Infinity);
-  return first === Infinity ? now : Math.max(0, first - 1);
 }
 
 /** The whole /tlx page: sidebar, toolbar, infinitely scrolling lot grid, and the lot / bid popups. */
-export function App({ fromUrl }: { fromUrl: NavState | null }) {
+export function App() {
   const authed = isAuthenticated();
-  useAccountPickupFetch(authed);
   const [titleLines] = useSetting(KEYS.titleLines);
   const [saved] = useSetting(KEYS.savedSearches);
   const view = storedView.value;
   const pickup = pickupName.value;
-  const exclusions = exclusionRules.value;
   const result = gridView.value;
   const facets = filterFacets.value;
   const savedStats = searchStats.value;
   const accountPickup = accountPickupName.value;
-
-  // How many PAGE_SIZE batches of lots the grid shows; grows as the end of it scrolls into view.
-  const [page, setPage] = useState(fromUrl?.page ?? 1);
-  const [openId, setOpenId] = useState<number | null>(fromUrl?.openId ?? null);
-  const [closed, setClosed] = useState<ClosedSection | null>(fromUrl?.closed ?? null); // the Won / Lost page, in place of the grid
-  const [bidReq, setBidReq] = useState<BidRequest | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [editingCategories, setEditingCategories] = useState(false);
-  const [typeLot, setTypeLot] = useState<Lot | null>(null); // lot whose item type is being made a category
-  const [editingTypeLot, setEditingTypeLot] = useState<Lot | null>(null);
+  const curOpenId = openId.value;
+  const curClosed = closed.value;
+  const curModal = modal.value;
   const [search, setSearch] = useState(view.search);
   const gridTop = useRef<HTMLDivElement>(null);
   const grid = useRef<HTMLDivElement>(null);
   const gridEnd = useRef<HTMLDivElement>(null);
 
   const now30 = clock(30_000);
-
-  // Lots that are new since the previous visit get a badge; while a saved
-  // search is open, since that search's previous visit instead.
-  const visitSince = useVisitSince();
-  const [highlight, setHighlight] = useState<{ id: string; since: number } | null>(null);
-
-  const setView = useCallback((patch: Partial<ViewState>) => {
-    setSetting(KEYS.view, { ...storedView.value, ...patch });
-    setPage(1);
-    setClosed(null); // changing the filters goes back to the grid
-  }, []);
 
   // Debounce the search box into the view. `pushed` remembers what the box
   // itself sent, so only outside changes (saved search, Clear, another tab)
@@ -230,15 +128,13 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
     }
   }, [view.search]);
 
-  const totalNew = savedStats.values().reduce((n, s) => n + s.fresh, 0);
   const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
-  const sinceSaved = !!highlight && activeSaved?.id === highlight.id;
-  const newSince = view.newSince ?? (sinceSaved ? highlight!.since : visitSince);
+  // Lots that are new since the previous visit get a badge; while a saved
+  // search is open, since that search's previous visit instead.
+  const hl = highlight.value;
+  const sinceSaved = !!hl && activeSaved?.id === hl.id;
+  const newSince = view.newSince ?? (sinceSaved ? hl.since : visitSince.value);
   const isNew = (lot: Lot) => newSince != null && (lot.firstSeenAt ?? 0) > newSince;
-
-  useEffect(() => {
-    document.title = totalNew ? `(${totalNew}) TL Catalog` : 'TL Catalog';
-  }, [totalNew]);
 
   const updateSaved = (fn: (list: SavedSearch[]) => SavedSearch[]) =>
     setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches)));
@@ -253,13 +149,15 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
       updateSaved((l) => (l.some((x) => sameFilters(view, x.view)) ? l : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }]));
     },
     onOpen: (s: SavedSearch, newOnly: boolean) => {
-      setSetting(KEYS.view, { ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
+      batch(() => {
+        setSetting(KEYS.view, { ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
+        page.value = 1;
+        closed.value = null;
+        highlight.value = { id: s.id, since: s.lastViewedAt };
+        updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
+        sidebarOpen.value = false;
+      });
       setSearch(s.view.search);
-      setPage(1);
-      setClosed(null);
-      setHighlight({ id: s.id, since: s.lastViewedAt });
-      updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
-      setSidebarOpen(false);
       gridTop.current?.scrollIntoView({ block: 'start' });
     },
     onDelete: (id: string) => updateSaved((l) => l.filter((x) => x.id !== id)),
@@ -267,7 +165,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
   };
 
   const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
-  const curPage = Math.min(page, pages);
+  const curPage = Math.min(page.value, pages);
   const shownRows = result.rows.slice(0, curPage * PAGE_SIZE);
 
   // Show the next batch once the end of the grid comes near. A new observer per
@@ -277,57 +175,17 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
     if (!el || curPage >= pages) {
       return;
     }
-    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setPage(curPage + 1), {
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && (page.value = curPage + 1), {
       rootMargin: '0px 0px 1200px 0px',
     });
     io.observe(el);
     return () => io.disconnect();
   }, [curPage, pages]);
 
-  // Live prices for exactly the lots on screen (plus the open one).
-  const onScreen = useOnScreenLots(grid, shownRows.map((r) => r.lot.id).join(','));
-  const watchIds = [...onScreen, ...(openId && !onScreen.includes(openId) ? [openId] : [])];
-  const watchKey = watchIds.join(',');
-  useEffect(() => {
-    if (loaded.value) {
-      const t = setTimeout(() => void watchLots(watchIds).catch(() => {}), 300);
-      return () => clearTimeout(t);
-    }
-  }, [watchKey, loaded.value]);
+  useOnScreenLots(grid, shownRows.map((r) => r.lot.id).join(','));
 
-  const toggleHide = useCallback((lot: Lot) => {
-    const { [lot.id]: wasHidden, ...rest } = getSetting(KEYS.hidden);
-    setSetting(KEYS.hidden, wasHidden ? rest : { ...rest, [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() } });
-  }, []);
-  const openLot = useCallback((lot: Lot) => setOpenId(lot.id), []);
-  const openHidden = useCallback((id: number) => {
-    if (getLot(id)) {
-      setOpenId(id);
-    } else {
-      window.open(siteUrl(getSetting(KEYS.hidden)[id]?.href ?? '/'), '_blank', 'noopener');
-    }
-  }, []);
-
-  const openClosed = useCallback((section: ClosedSection | null) => {
-    setClosed(section);
-    setSidebarOpen(false);
-    window.scrollTo(0, 0);
-  }, []);
-  const rowOf = useCallback((lot: Lot) => makeRow(lot, pickup, exclusions), [pickup, exclusions]);
-
-  const closeLot = useHistory(
-    { view, page, openId, closed },
-    (nav) => {
-      setSetting(KEYS.view, normalizeView(nav.view));
-      setPage(nav.page);
-      setOpenId(nav.openId);
-      setClosed(nav.closed);
-    },
-    () => setOpenId(null),
-  );
-
-  const openLotObj = openId != null ? getLot(openId) : undefined;
-  const bidLot = bidReq ? getLot(bidReq.lotId) : undefined;
+  const openLotObj = curOpenId != null ? getLot(curOpenId) : undefined;
+  const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
   const nFilters = activeFilterCount(view);
   const badRegex = view.searchRegex && !!search.trim() && !searchRegexOf({ ...view, search });
   // How many of the matches are new since the last visit (to the open saved search, if any).
@@ -366,26 +224,21 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
             <option value={k}>{label}</option>
           ))}
         </select>
-        <button type="button" class="btn btn-outline filters-toggle" onClick={() => setSidebarOpen(!sidebarOpen)} aria-expanded={sidebarOpen}>
+        <button type="button" class="btn btn-outline filters-toggle" onClick={() => (sidebarOpen.value = !sidebarOpen.value)} aria-expanded={sidebarOpen.value}>
           <Icon name="filter" /> Filters{nFilters ? ` (${nFilters})` : ''}
-          {totalNew > 0 && <span class="pill pill-new">{fmtCount(totalNew)} new</span>}
+          {totalNew.value > 0 && <span class="pill pill-new">{fmtCount(totalNew.value)} new</span>}
         </button>
       </header>
 
       <div class="layout">
-        <aside class={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <aside class={`sidebar ${sidebarOpen.value ? 'open' : ''}`}>
           <Sidebar
             view={view}
-            setView={setView}
             facets={facets}
             matchCounts={result.matchCounts}
             pickup={pickup}
             accountPickup={accountPickup}
             authed={authed}
-            onOpenHidden={openHidden}
-            onEditCategories={() => setEditingCategories(true)}
-            onOpenClosed={openClosed}
-            closed={closed}
             saved={savedProps}
           />
         </aside>
@@ -397,9 +250,9 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
               Not logged in: your bids, standings and watchlist aren’t shown. <LoginLink>Log in</LoginLink> to see them and bid.
             </p>
           )}
-          {closed && <ClosedLots section={closed} onSection={openClosed} onBack={() => openClosed(null)} onOpenLot={openLot} onToggleHide={toggleHide} rowOf={rowOf} />}
+          {curClosed && <ClosedLots section={curClosed} />}
           {/* Kept mounted under the Won / Lost page so its scroll observers keep working. */}
-          <div hidden={!!closed}>
+          <div hidden={!!curClosed}>
             <div class="results-line" ref={gridTop}>
               <span>
                 {result.rows.length > 0 && plural(result.rows.length, 'lot')}
@@ -428,16 +281,7 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
 
             <div class={`grid ${titleLines ? '' : 'full-titles'}`} ref={grid} style={titleLines ? { '--title-lines': titleLines } : undefined}>
               {shownRows.map((row) => (
-                <LotCard
-                  key={row.lot.id}
-                  row={row}
-                  isNew={isNew(row.lot)}
-                  onOpen={openLot}
-                  onToggleHide={toggleHide}
-                  onBid={setBidReq}
-                  onAddType={setTypeLot}
-                  onEditType={setEditingTypeLot}
-                />
+                <LotCard key={row.lot.id} row={row} isNew={isNew(row.lot)} />
               ))}
             </div>
 
@@ -447,30 +291,25 @@ export function App({ fromUrl }: { fromUrl: NavState | null }) {
         </main>
       </div>
 
-      {openLotObj && (
-        <LotModal
-          row={rowOf(openLotObj)}
-          onClose={closeLot}
-          onToggleHide={() => toggleHide(openLotObj)}
-          onBid={setBidReq}
-          onAddType={setTypeLot}
-          onEditType={setEditingTypeLot}
-          group={result.groups.get(openLotObj.id)}
-          onOpenLot={openLot}
+      {openLotObj && <LotModal row={rowOf(openLotObj)} onClose={closeLot} group={result.groups.get(openLotObj.id)} />}
+      {curModal?.kind === 'bid' && bidLot && (
+        <BidConfirm
+          key={`${curModal.req.lotId}:${curModal.req.type}:${curModal.req.amount}`}
+          req={curModal.req}
+          row={rowOf(bidLot)}
+          pickup={pickup}
+          onClose={() => closeModal(curModal)}
         />
       )}
-      {bidReq && bidLot && (
-        <BidConfirm key={`${bidReq.lotId}:${bidReq.type}:${bidReq.amount}`} req={bidReq} row={makeRow(bidLot, pickup, exclusions)} pickup={pickup} onClose={() => setBidReq(null)} />
+      {curModal?.kind === 'categories' && (
+        <CategoryEditor lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => closeModal(curModal)} />
       )}
-      {editingCategories && <CategoryEditor lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => setEditingCategories(false)} />}
-      {typeLot && (
-        <TypeCategory
-          lot={typeLot}
-          lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()}
-          onClose={() => setTypeLot(null)}
-        />
+      {curModal?.kind === 'typeCategory' && (
+        <TypeCategory lot={curModal.lot} lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => closeModal(curModal)} />
       )}
-      {editingTypeLot && <ItemTypeEditor key={editingTypeLot.id} lot={getLot(editingTypeLot.id) ?? editingTypeLot} onClose={() => setEditingTypeLot(null)} />}
+      {curModal?.kind === 'itemType' && (
+        <ItemTypeEditor key={curModal.lot.id} lot={getLot(curModal.lot.id) ?? curModal.lot} onClose={() => closeModal(curModal)} />
+      )}
       <Toasts />
     </div>
   );

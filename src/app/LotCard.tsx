@@ -4,10 +4,11 @@ import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { canWatch, toggleWatch, watchPending } from './watch';
-import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending, type BidRequest } from './bid';
+import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './bid';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
+import { openLot, startBid, toggleHide } from './state';
 import { clock, openHandler, plural, shortDate, shortTime, timeLabel } from './util';
 import type { Row } from './view';
 import type { Lot, PastClose } from './types';
@@ -85,20 +86,15 @@ export function WatchButton({ lot }: { lot: Lot }) {
 interface Props {
   row: Row;
   isNew?: boolean;
-  onOpen: (lot: Lot) => void;
-  onToggleHide: (lot: Lot) => void;
-  onBid: (req: BidRequest) => void;
-  onAddType: (lot: Lot) => void;
-  onEditType: (lot: Lot) => void;
 }
 
 /** One lot in the grid: image, title, price, total, time left and actions. */
-export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide, onBid, onAddType, onEditType }: Props) {
+export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   const { lot, matched, hidden } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
   const dim = !!matched || hidden;
   const img = lot.images[0];
-  const open = openHandler(() => onOpen(lot));
+  const open = openHandler(() => openLot(lot));
   const conditions = siteConditions();
   return (
     <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id}>
@@ -111,13 +107,13 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           class="icon-btn hide-btn"
           title={hidden ? 'Unhide this lot' : 'Hide this lot'}
           aria-label={hidden ? 'Unhide this lot' : 'Hide this lot'}
-          onClick={() => onToggleHide(lot)}
+          onClick={() => toggleHide(lot)}
         >
           <Icon name={hidden ? 'visibility' : 'visibilityOff'} />
         </button>
         <div class="media-tr">
           {isNew && <span class="pill pill-new">New</span>}
-          {row.others.length > 0 && <DupeCount row={row} onOpen={onOpen} />}
+          {row.others.length > 0 && <DupeCount row={row} />}
           <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
         </div>
@@ -134,7 +130,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
           {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
           {row.category && <span>{row.category.label}</span>}
         </div>
-        <ItemTypeActions lot={lot} onAddType={onAddType} onEditType={onEditType} />
+        <ItemTypeActions lot={lot} />
         <div class="card-price">
           <span class="price">{dollars(lot.currentPrice)}</span>
           <span class="total" title={costBreakdown(lot.currentPrice, row.transferFee)}>
@@ -155,7 +151,7 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
         {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
         <div class="card-foot">
           <TimeLeft endsAt={lot.endsAt} />
-          <CardBidButton row={row} onOpen={() => onOpen(lot)} onBid={onBid} />
+          <CardBidButton row={row} />
         </div>
       </div>
     </article>
@@ -163,10 +159,10 @@ export const LotCard = memo(function LotCard({ row, isNew, onOpen, onToggleHide,
 });
 
 /** "+N" badge for listings of the same item folded into this card; opens the cheapest's popup, which lists them all. */
-function DupeCount({ row, onOpen }: { row: Row; onOpen: (lot: Lot) => void }) {
+function DupeCount({ row }: { row: Row }) {
   const list = row.others.map((r) => `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(r.lot.endsAt)}`).join('\n');
   return (
-    <button type="button" class="pill pill-dupes" title={`${plural(row.others.length, 'more listing')} of this item:\n${list}`} onClick={() => onOpen(row.lot)}>
+    <button type="button" class="pill pill-dupes" title={`${plural(row.others.length, 'more listing')} of this item:\n${list}`} onClick={() => openLot(row.lot)}>
       +{row.others.length} more
     </button>
   );
@@ -216,7 +212,7 @@ function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void
 }
 
 /** The card's bid button: next-increment bid, raise max, or a disabled/login state. */
-function CardBidButton({ row, onOpen, onBid }: { row: Row; onOpen: () => void; onBid: (req: BidRequest) => void }) {
+function CardBidButton({ row }: { row: Row }) {
   const { lot } = row;
   const pending = bidPending(lot.id);
   const authed = isAuthenticated();
@@ -238,14 +234,14 @@ function CardBidButton({ row, onOpen, onBid }: { row: Row; onOpen: () => void; o
   // While winning, a quick bid would only raise your own price; raising the max happens in the popup.
   if (isLeading(lot)) {
     return (
-      <button type="button" class="btn btn-small btn-outline" onClick={onOpen} title="Raise your max bid">
+      <button type="button" class="btn btn-small btn-outline" onClick={() => openLot(lot)} title="Raise your max bid">
         Raise max
       </button>
     );
   }
   const amount = quickBidAmount(lot);
   return (
-    <button type="button" class="btn btn-small" onClick={() => onBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">
+    <button type="button" class="btn btn-small" onClick={() => startBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">
       Bid {dollars(amount)}
     </button>
   );

@@ -4,6 +4,7 @@ import { lots } from './catalog';
 import { Dialog } from './Dialog';
 import { Icon } from './icons';
 import { setItemType } from './source';
+import { addType, editType } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
 
@@ -16,34 +17,25 @@ export function itemTypeError(name: string): string | null {
   return name.length > MAX_ITEM_TYPE_LENGTH ? `Use at most ${MAX_ITEM_TYPE_LENGTH} characters` : null;
 }
 
-export function ItemTypeActions({ lot, onAddType, onEditType }: {
-  lot: Lot;
-  onAddType: (lot: Lot) => void;
-  onEditType?: (lot: Lot) => void;
-}) {
-  if (!lot.itemType && !onEditType) {
-    return null;
-  }
+export function ItemTypeActions({ lot }: { lot: Lot }) {
   return (
     <div class="item-type-row">
       {lot.itemType && (
-        <button type="button" class="item-type" title="Make a category of this item type" onClick={() => onAddType(lot)}>
+        <button type="button" class="item-type" title="Make a category of this item type" onClick={() => addType(lot)}>
           <span>{lot.itemType}</span>
           <Icon name="add" size={14} />
         </button>
       )}
-      {onEditType && (
-        <button
-          type="button"
-          class="icon-btn item-type-edit"
-          title={lot.itemType ? 'Change item type' : 'Set item type'}
-          aria-label={lot.itemType ? 'Change item type' : 'Set item type'}
-          onClick={() => onEditType(lot)}
-        >
-          <Icon name="edit" size={14} />
-          {!lot.itemType && <span>Set item type</span>}
-        </button>
-      )}
+      <button
+        type="button"
+        class="icon-btn item-type-edit"
+        title={lot.itemType ? 'Change item type' : 'Set item type'}
+        aria-label={lot.itemType ? 'Change item type' : 'Set item type'}
+        onClick={() => editType(lot)}
+      >
+        <Icon name="edit" size={14} />
+        {!lot.itemType && <span>Set item type</span>}
+      </button>
     </div>
   );
 }

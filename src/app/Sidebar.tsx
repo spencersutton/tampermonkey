@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
 import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
-import type { ClosedSection } from './api';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
 import { useSetting } from './settings';
+import { closed, editCategories, openClosed, openHidden, setView } from './state';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum, plural } from './util';
 import { collator } from '../shared/sortKey';
@@ -28,16 +28,11 @@ import {
 
 interface Props {
   view: ViewState;
-  setView: (patch: Partial<ViewState>) => void;
   facets: Facets;
   matchCounts: Map<string, number>;
   pickup: string;
   accountPickup: string | null;
   authed: boolean;
-  onOpenHidden: (id: number) => void;
-  onEditCategories: () => void;
-  onOpenClosed: (section: ClosedSection) => void;
-  closed: ClosedSection | null;
   saved: SavedSearchesProps;
 }
 
@@ -47,7 +42,7 @@ export function Sidebar(props: Props) {
     <div class="sidebar-inner">
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
-      <HideFilterSection matchCounts={props.matchCounts} onOpenHidden={props.onOpenHidden} />
+      <HideFilterSection matchCounts={props.matchCounts} />
       <SettingsSection pickup={props.pickup} accountPickup={props.accountPickup} locations={props.facets.locations.map((l) => l.value)} />
     </div>
   );
@@ -257,7 +252,7 @@ function PriceField(props: { label: string; value: number | null; onChange: (v: 
 }
 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
-function FiltersSection({ view, setView, facets, pickup, authed, onEditCategories, onOpenClosed, closed }: Props) {
+function FiltersSection({ view, facets, pickup, authed }: Props) {
   const n = activeFilterCount(view);
   const [defaults, setDefaults] = useSetting(KEYS.defaultFilters);
   const reset = defaultFilterView(defaults, view.sort);
@@ -300,7 +295,7 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
       <div class="closed-links">
         <span class="muted">Closed:</span>
         {(['won', 'lost'] as const).map((s) => (
-          <button type="button" class={`btn-text ${closed === s ? 'on' : ''}`} aria-pressed={closed === s} disabled={!authed} onClick={() => onOpenClosed(s)}>
+          <button type="button" class={`btn-text ${closed.value === s ? 'on' : ''}`} aria-pressed={closed.value === s} disabled={!authed} onClick={() => openClosed(s)}>
             {s === 'won' ? 'Won' : 'Lost'}
           </button>
         ))}
@@ -325,7 +320,7 @@ function FiltersSection({ view, setView, facets, pickup, authed, onEditCategorie
 
       <Collapsible id="f-category" title="Category">
         <CategoryList facets={facets} selected={view.categories} onChange={(categories) => setView({ categories })} />
-        <button type="button" class="btn-text cat-edit-btn" onClick={onEditCategories}>
+        <button type="button" class="btn-text cat-edit-btn" onClick={editCategories}>
           <Icon name="edit" size={16} /> {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
         </button>
       </Collapsible>
@@ -526,7 +521,7 @@ function Switch({ label, checked, onChange }: { label: string; checked: boolean;
 }
 
 /** Regex title filters and the list of manually hidden lots. */
-function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<string, number>; onOpenHidden: (id: number) => void }) {
+function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }) {
   const [words, setWords] = useSetting(KEYS.words);
   const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
   const [removeFiltered, setRemoveFiltered] = useSetting(KEYS.removeFiltered);
@@ -590,7 +585,7 @@ function HideFilterSection({ matchCounts, onOpenHidden }: { matchCounts: Map<str
         <ul class="hidden-list">
           {hidden.map(([id, info]) => (
             <li>
-              <a href={siteUrl(info.href)} title={info.title} onClick={openHandler(() => onOpenHidden(Number(id)))}>
+              <a href={siteUrl(info.href)} title={info.title} onClick={openHandler(() => openHidden(Number(id)))}>
                 {info.title || `Lot ${id}`}
               </a>
               <button type="button" class="icon-btn" title="Unhide" aria-label={`Unhide ${info.title}`} onClick={() => unhide(id)}>

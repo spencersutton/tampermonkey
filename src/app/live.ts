@@ -1,11 +1,12 @@
 // Live updates over the site's own Centrifugo websocket. Like the site, we
 // subscribe only to the lots currently on screen (`lot:{id}`); when logged in,
 // the server also pushes this account's outbid/winning events.
-import { signal } from '@preact/signals';
+import { computed, effect, signal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 import { fetchWsToken, normalizeStanding } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
-import { getLot, loadDetail, updateLot } from './catalog';
+import { getLot, loadDetail, loaded, updateLot } from './catalog';
+import { onScreen, openId } from './state';
 import type { Lot } from './types';
 
 /**
@@ -50,7 +51,7 @@ onAuthChange(() => {
     oldSubs.forEach((sub) => drop(c, sub));
     c.disconnect();
   });
-  void watchLots(watched).catch(() => {});
+  void watchLots(watched).catch(() => { });
 });
 
 /** Create and connect a websocket client; with a login, it also receives this account's bid events. */
@@ -124,6 +125,26 @@ export async function watchLots(ids: number[]) {
   }
 }
 
+/** Lots to watch: those on screen plus the open one, as a key so an unchanged list doesn't resubscribe. */
+const watchKey = computed(() => {
+  const ids = onScreen.value;
+  const id = openId.value;
+  return (id != null && !ids.includes(id) ? [...ids, id] : ids).join(',');
+});
+
+/** Keep live prices for exactly the lots on screen (plus the open one); call once. */
+export function startLiveWatch() {
+  effect(() => {
+    const key = watchKey.value;
+    if (!loaded.value) {
+      return;
+    }
+    const ids = key ? key.split(',').map(Number) : [];
+    const t = setTimeout(() => void watchLots(ids).catch(() => { }), 300);
+    return () => clearTimeout(t);
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Catching up lots that changed before they came on screen
 // ---------------------------------------------------------------------------
@@ -157,7 +178,7 @@ function pump() {
     fetching++;
     // loadDetail updates the catalog entry; failures just leave the old copy.
     void loadDetail(lot)
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         fetching--;
         pump();

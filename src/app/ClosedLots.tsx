@@ -13,10 +13,11 @@ import { Icon } from './icons';
 import { LocationText, TimeLeft } from './LotCard';
 import { LotModal } from './LotModal';
 import { useSetting } from './settings';
+import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
 import { clock, fmtCount, MINUTE, plural, shortDate } from './util';
-import type { Row } from './view';
+import { makeRow, type Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */
 const FRESH = 2 * MINUTE;
@@ -58,19 +59,12 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
   return data;
 }
 
-interface Props {
-  section: ClosedSection;
-  onSection: (s: ClosedSection) => void;
-  onBack: () => void;
-  onOpenLot: (lot: Lot) => void; // a lot in the catalog
-  onToggleHide: (lot: Lot) => void;
-  rowOf: (lot: Lot) => Row;
-}
-
-export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide, rowOf }: Props) {
+export function ClosedLots({ section }: { section: ClosedSection }) {
   const authed = isAuthenticated();
   const data = useClosed(section, authed);
   const [nameMatch] = useSetting(KEYS.nameMatch);
+  const pickup = pickupName.value;
+  const exclusions = exclusionRules.value;
   const [filter, setFilter] = useState('');
   const [opening, setOpening] = useState<number | null>(null);
   const [modalLot, setModalLot] = useState<Lot | null>(null);
@@ -93,14 +87,14 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
       const words = nameTokens(c.title);
       const rows = open
         .filter((o) => o.lot.id !== c.lotId && namesMatch(words, o.words, pct))
-        .map((o) => rowOf(o.lot))
+        .map((o) => makeRow(o.lot, pickup, exclusions))
         .sort((a, b) => a.total - b.total);
       if (rows.length) {
         out.set(key(c), rows);
       }
     }
     return out;
-  }, [data?.lots, open, pct, rowOf]);
+  }, [data?.lots, open, pct, pickup, exclusions]);
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const lots = (data?.lots ?? []).filter((c) => {
@@ -110,10 +104,10 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
   const bids = lots.reduce((n, c) => n + c.finalPrice, 0);
   const total = lots.reduce((n, c) => n + totalCost(c.finalPrice), 0);
 
-  const openClosed = (c: ClosedLot) => {
+  const openClosedLot = (c: ClosedLot) => {
     const inCatalog = getLot(c.lotId);
     if (inCatalog) {
-      onOpenLot(inCatalog);
+      openLot(inCatalog);
       return;
     }
     setOpening(c.lotId);
@@ -132,7 +126,7 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
   return (
     <section class="closed">
       <div class="closed-head">
-        <button type="button" class="btn btn-text" onClick={onBack}>
+        <button type="button" class="btn btn-text" onClick={() => openClosed(null)}>
           <Icon name="chevronLeft" size={18} /> Catalog
         </button>
         <h1>Closed auctions</h1>
@@ -141,7 +135,7 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
         {(['won', 'lost'] as const).map((s) => {
           const d = s === section ? data : cache.get(s);
           return (
-            <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => onSection(s)}>
+            <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => openClosed(s)}>
               {TITLES[s]}
               {d?.done && !d.error && <span class="muted"> ({fmtCount(d.lots.length)})</span>}
             </button>
@@ -181,8 +175,7 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
                 won={section === 'won'}
                 relisted={relisted.get(key(c))}
                 opening={opening === c.lotId}
-                onOpen={() => openClosed(c)}
-                onOpenLot={onOpenLot}
+                onOpen={() => openClosedLot(c)}
               />
             ))}
           </ol>
@@ -193,11 +186,9 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
         <LotModal
           row={rowOf(modalLot)}
           onClose={() => setModalLot(null)}
-          onToggleHide={() => onToggleHide(modalLot)}
-          onBid={() => {}}
           onOpenLot={(l) => {
             setModalLot(null);
-            onOpenLot(l);
+            openLot(l);
           }}
         />
       )}
@@ -207,8 +198,8 @@ export function ClosedLots({ section, onSection, onBack, onOpenLot, onToggleHide
 
 const key = (c: ClosedLot) => `${c.auctionPeriod}:${c.lotId}`;
 
-function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[]; opening: boolean; onOpen: () => void; onOpenLot: (lot: Lot) => void }) {
-  const { lot: c, won, relisted, opening, onOpen, onOpenLot } = props;
+function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[]; opening: boolean; onOpen: () => void }) {
+  const { lot: c, won, relisted, opening, onOpen } = props;
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auctionPeriod, c.lotId);
   const click = (e: MouseEvent) => {
@@ -255,7 +246,7 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[]; open
         <ol class="dupes closed-relisted">
           {relisted.map((r) => (
             <li>
-              <button type="button" onClick={() => onOpenLot(r.lot)}>
+              <button type="button" onClick={() => openLot(r.lot)}>
                 <span class="price" title={costBreakdown(r.lot.currentPrice, r.transferFee)}>
                   {dollars(r.lot.currentPrice)} <span class="muted small">≈ {money(r.total)}</span>
                 </span>
