@@ -45,6 +45,22 @@ export const accountPickupName = computed(() => {
 export const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
 
 export const storedView = computed(() => initialView(getSetting(KEYS.view), getSetting(KEYS.defaultFilters)));
+export const searchDraft = signal('');
+const committedSearch = computed(() => storedView.value.search);
+export const PAGE_SIZE = 60;
+export const shownRows = computed(() => gridView.value.rows.slice(0, page.value * PAGE_SIZE));
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function setSearchDraft(text: string) {
+    searchDraft.value = text;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => setView({ search: text }), 200);
+}
+
+export function resetSearch(text: string) {
+    clearTimeout(searchTimer);
+    searchDraft.value = text;
+}
 export const exclusionRules = computed(() => ({
     words: getSetting(KEYS.words),
     filterOn: getSetting(KEYS.filterOn),
@@ -74,6 +90,7 @@ export const rowOf = (lot: Lot) => makeRow(lot, pickupName.value, exclusionRules
 
 export function setView(patch: Partial<ViewState>) {
     batch(() => {
+        if (patch.search != null) resetSearch(patch.search);
         setSetting(KEYS.view, { ...storedView.value, ...patch });
         page.value = 1;
         closed.value = null; // changing the filters goes back to the grid
@@ -161,6 +178,7 @@ function firstVisitSince(now: number): number {
 /** Start the app-wide effects; call once. */
 export function startApp() {
     trackVisits();
+    effect(() => resetSearch(committedSearch.value));
 
     effect(() => {
         if (!isAuthenticated()) {

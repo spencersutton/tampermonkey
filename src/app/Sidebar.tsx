@@ -5,7 +5,7 @@ import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, site
 import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
-import { useSetting } from './settings';
+import { getSetting, setSetting } from './settings';
 import { closed, editCategories, openClosed, openHidden, setView } from './state';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum, plural } from './util';
@@ -50,7 +50,8 @@ export function Sidebar(props: Props) {
 
 /** Section whose open/closed state is remembered across sessions. */
 function Collapsible({ id, title, children }: { id: string; title: ComponentChildren; children: ComponentChildren }) {
-  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+  const collapsed = getSetting(KEYS.collapsed);
+  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) => setSetting(KEYS.collapsed, value);
   const open = !collapsed?.[id];
   return (
     <div class="collapsible">
@@ -121,7 +122,8 @@ const groupFacets = (g: CategoryGroup): Facet<string>[] => [g.facet, ...g.subs.f
 
 /** Category checkboxes, with expandable site and custom category parents. */
 function CategoryList({ facets, selected, onChange }: { facets: Facets; selected: string[]; onChange: (next: string[]) => void }) {
-  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+  const collapsed = getSetting(KEYS.collapsed);
+  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) => setSetting(KEYS.collapsed, value);
   return (
     <>
       {groupCategories(facets).map((group) => (
@@ -227,10 +229,13 @@ type NumberInputProps<T> = {
 } & Omit<InputHTMLAttributes, 'label' | 'value' | 'onChange'>;
 
 /** Number input that commits on blur or Enter; `parse` turns the typed text into the value. */
-function NumberInput<T extends number | null>({ label, value, parse, onChange, ...input }: NumberInputProps<T>) {
+function NumberInput<T extends number | null>(props: NumberInputProps<T>) {
+  return <NumberInputDraft key={String(props.value)} {...props} />;
+}
+
+function NumberInputDraft<T extends number | null>({ label, value, parse, onChange, ...input }: NumberInputProps<T>) {
   const format = (v: T) => (v == null ? '' : String(v));
   const [text, setText] = useState(format(value));
-  useEffect(() => setText(format(value)), [value]);
   const commit = () => {
     const v = parse(text);
     setText(format(v));
@@ -254,12 +259,13 @@ function PriceField(props: { label: string; value: number | null; onChange: (v: 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
 function FiltersSection({ view, facets, pickup, authed }: Props) {
   const n = activeFilterCount(view);
-  const [defaults, setDefaults] = useSetting(KEYS.defaultFilters);
+  const defaults = getSetting(KEYS.defaultFilters);
+  const setDefaults = (value: ReturnType<typeof getSetting<typeof KEYS.defaultFilters>>) => setSetting(KEYS.defaultFilters, value);
   const reset = defaultFilterView(defaults, view.sort);
   const canDefault =
     view.newSince != null || !sameDefaultFilters(view, defaults) || !sameFilters({ ...view, categories: reset.categories, conditions: reset.conditions }, reset);
   const conditions = siteConditions();
-  const [custom] = useSetting(KEYS.customCategories);
+  const custom = getSetting(KEYS.customCategories);
   const customCount = custom.length;
   return (
     <section class="panel">
@@ -522,11 +528,16 @@ function Switch({ label, checked, onChange }: { label: string; checked: boolean;
 
 /** Regex title filters and the list of manually hidden lots. */
 function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }) {
-  const [words, setWords] = useSetting(KEYS.words);
-  const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
-  const [removeFiltered, setRemoveFiltered] = useSetting(KEYS.removeFiltered);
-  const [showHidden, setShowHidden] = useSetting(KEYS.showHidden);
-  const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
+  const words = getSetting(KEYS.words);
+  const setWords = (value: ReturnType<typeof getSetting<typeof KEYS.words>>) => setSetting(KEYS.words, value);
+  const filterOn = getSetting(KEYS.filterOn);
+  const setFilterOn = (value: ReturnType<typeof getSetting<typeof KEYS.filterOn>>) => setSetting(KEYS.filterOn, value);
+  const removeFiltered = getSetting(KEYS.removeFiltered);
+  const setRemoveFiltered = (value: ReturnType<typeof getSetting<typeof KEYS.removeFiltered>>) => setSetting(KEYS.removeFiltered, value);
+  const showHidden = getSetting(KEYS.showHidden);
+  const setShowHidden = (value: ReturnType<typeof getSetting<typeof KEYS.showHidden>>) => setSetting(KEYS.showHidden, value);
+  const hiddenLots = getSetting(KEYS.hidden);
+  const setHiddenLots = (value: ReturnType<typeof getSetting<typeof KEYS.hidden>>) => setSetting(KEYS.hidden, value);
   const [input, setInput] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
@@ -609,10 +620,14 @@ const NAME_MATCH_CHOICES = [100, 95, 90, 85, 80, 75, 70, 60];
 
 /** Pickup location, full-refresh interval, title lines, name matching and the account. */
 function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
-  const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
-  const [override, setOverride] = useSetting(KEYS.pickup);
-  const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
-  const [nameMatch, setNameMatch] = useSetting(KEYS.nameMatch);
+  const minutes = getSetting(KEYS.syncMinutes);
+  const setMinutes = (value: ReturnType<typeof getSetting<typeof KEYS.syncMinutes>>) => setSetting(KEYS.syncMinutes, value);
+  const override = getSetting(KEYS.pickup);
+  const setOverride = (value: ReturnType<typeof getSetting<typeof KEYS.pickup>>) => setSetting(KEYS.pickup, value);
+  const titleLines = getSetting(KEYS.titleLines);
+  const setTitleLines = (value: ReturnType<typeof getSetting<typeof KEYS.titleLines>>) => setSetting(KEYS.titleLines, value);
+  const nameMatch = getSetting(KEYS.nameMatch);
+  const setNameMatch = (value: ReturnType<typeof getSetting<typeof KEYS.nameMatch>>) => setSetting(KEYS.nameMatch, value);
   const pct = nameMatchPct(nameMatch);
   return (
     <section class="panel">

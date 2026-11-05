@@ -1,4 +1,5 @@
 import { memo } from 'preact/compat';
+import { observeLot } from './viewport';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
@@ -97,7 +98,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   const open = openHandler(() => openLot(lot));
   const conditions = siteConditions();
   return (
-    <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id}>
+    <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id} ref={observeLot}>
       <div class="card-media">
         <a href={href} onClick={open} tabIndex={-1} aria-hidden="true">
           {img ? <img src={`${CDN}/${img.card}`} alt="" loading="lazy" decoding="async" /> : <span class="noimg">No image</span>}

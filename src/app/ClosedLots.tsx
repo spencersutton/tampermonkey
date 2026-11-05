@@ -12,7 +12,7 @@ import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
 import { LocationText, TimeLeft } from './LotCard';
 import { LotModal } from './LotModal';
-import { useSetting } from './settings';
+import { getSetting } from './settings';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
@@ -62,7 +62,7 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
 export function ClosedLots({ section }: { section: ClosedSection }) {
   const authed = isAuthenticated();
   const data = useClosed(section, authed);
-  const [nameMatch] = useSetting(KEYS.nameMatch);
+  const nameMatch = getSetting(KEYS.nameMatch);
   const pickup = pickupName.value;
   const exclusions = exclusionRules.value;
   const [filter, setFilter] = useState('');

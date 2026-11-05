@@ -130,7 +130,7 @@ export function LotModal({ row, onClose, group, onOpenLot = openLot }: Props) {
               )}
               <span class="muted small">Next min bid {dollars(lot.nextMinIncrement)}</span>
             </div>
-            <BidPanel row={row} />
+            <BidPanel key={`${lot.id}:${lot.yourStanding?.yourMaxBid}`} row={row} />
             <div class="row-gap">
               <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
                 Open on Triangle Liquidators <Icon name="open" size={16} />
@@ -334,7 +334,6 @@ function BidPanel({ row }: { row: Row }) {
   const pending = bidPending(lot.id);
   const authed = isAuthenticated();
   const [value, setValue] = useState('');
-  useEffect(() => setValue(''), [lot.id, lot.yourStanding?.yourMaxBid]);
 
   const blocker = bidBlocker(row, now);
   if (blocker) {

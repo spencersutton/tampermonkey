@@ -1,10 +1,10 @@
 // Dialog behind the item type button on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { saveCustomCategories } from './categories';
-import { setSetting, useSetting } from './settings';
+import { setSetting, getSetting } from './settings';
 import { toast } from './toast';
 import type { Lot } from './types';
 import { Dialog } from './Dialog';
@@ -58,8 +58,8 @@ export function without(c: CustomCategory, types: string[], names: string[] = []
 export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; onClose: () => void }) {
   const type = lot.itemType!;
   const site = lot.category;
-  const [cats] = useSetting(KEYS.customCategories);
-  const [lastCategory] = useSetting(KEYS.lastCategory);
+  const cats = getSetting(KEYS.customCategories);
+  const lastCategory = getSetting(KEYS.lastCategory);
   // The lot's custom category is the default parent, including regex matches.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
@@ -69,12 +69,8 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   }, [cats]);
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>('new');
-  const [pick, setPick] = useState(() => preferred?.name ?? '');
-  useEffect(() => {
-    if (!cats.some((c) => c.name === pick)) {
-      setPick(preferred?.name ?? '');
-    }
-  }, [cats, pick, preferred]);
+  const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
+  const pick = cats.some((category) => category.name === selectedCategory) ? selectedCategory : preferred?.name ?? '';
   const [within, setWithin] = useState(current ? !!current.within : !!site);
   const defaultName = (w: boolean) => {
     const parent = current?.name ?? (w ? site?.label : undefined);

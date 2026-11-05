@@ -58,6 +58,3 @@ export function setSetting<K extends Key>(key: K, value: Value<K>) {
   applySetting(key, value);
   onSave(key, value);
 }
-
-/** [value, setter] for a setting, for components. */
-export const useSetting = <K extends Key>(key: K): [Value<K>, (v: Value<K>) => void] => [getSetting(key), (v) => setSetting(key, v)];
