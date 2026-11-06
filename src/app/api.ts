@@ -30,15 +30,71 @@ function send(path: string, method: 'POST' | 'DELETE', body?: unknown, headers: 
   });
 }
 
-type Raw = Record<string, any>;
+export interface RawStanding {
+  is_leading: boolean;
+  your_max_bid: number | null;
+}
+
+interface RawLot {
+  id: number;
+  auction_period: string;
+  title: string;
+  lot_number: string;
+  category: { value: string; label: string } | null;
+  condition: { value: number; display_name: string } | null;
+  location: { id: number; name: string } | null;
+  is_transferable: boolean;
+  transfer_fee: number;
+  current_price: number;
+  estimated_retail_price: number | null;
+  ends_at: string;
+  status: string;
+  version: number;
+  bid_count: number;
+  next_min_increment: number;
+  your_standing: RawStanding | null;
+  is_watchlisted: boolean;
+  has_bid: boolean;
+  images: { position: number; image_thumb: string; image_card: string; image_large: string }[];
+}
+
+interface RawLotDetail extends RawLot {
+  description: string;
+  brand: string | null;
+  model: string | null;
+  lot_fee: number | null;
+  bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
+  similar: RawLot[];
+}
+
+interface RawClosedLot {
+  lot_id: number;
+  auction_period: string;
+  title: string;
+  lot_number: string;
+  location_name: string;
+  final_price: number;
+  hero_image: string | null;
+}
+
+interface RawBidResponse {
+  code?: string | null;
+  error?: string | null;
+  details?: { amount?: string[]; min_next_bid?: number | null } | null;
+  is_leading?: boolean | null;
+  is_max_collision?: boolean | null;
+  current_price?: number | null;
+  min_next_bid?: number | null;
+  version?: number | null;
+}
 
 /** Convert the API's `your_standing` object (snake_case) into a Standing. */
-export function normalizeStanding(s: Raw | null | undefined): Standing | null {
+export function normalizeStanding(s: RawStanding | null | undefined): Standing | null {
   return s ? { isLeading: !!s.is_leading, yourMaxBid: s.your_max_bid ?? null } : null;
 }
 
 /** Convert a raw API lot (snake_case) into a Lot. */
-export function normalizeLot(r: Raw): Lot {
+export function normalizeLot(r: RawLot): Lot {
   return {
     id: r.id,
     auctionPeriod: r.auction_period,
@@ -60,21 +116,21 @@ export function normalizeLot(r: Raw): Lot {
     isWatchlisted: !!r.is_watchlisted,
     hasBid: !!r.has_bid,
     images: (r.images ?? [])
-      .toSorted((a: Raw, b: Raw) => a.position - b.position)
-      .map((i: Raw) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large })),
+      .toSorted((a, b) => a.position - b.position)
+      .map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large })),
   };
 }
 
 /** Fetch one lot's full detail: description, brand/model, bid history and the site's similar lots. */
 export async function fetchLotDetail(auctionPeriod: string, id: number, signal?: AbortSignal): Promise<LotDetail> {
-  const r = await get<Raw>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
+  const r = await get<RawLotDetail>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
   return {
     ...normalizeLot(r),
     description: String(r.description ?? ''),
     brand: r.brand || null,
     model: r.model || null,
     lotFee: r.lot_fee ?? null,
-    bidHistory: (r.bid_history ?? []).map((b: Raw) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: !!b.is_you })),
+    bidHistory: (r.bid_history ?? []).map((b) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: !!b.is_you })),
     similar: (r.similar ?? []).map(normalizeLot),
   };
 }
@@ -87,7 +143,7 @@ export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedL
   const out: ClosedLot[] = [];
   const seen = new Set<string>();
   for (let page = 1; ; page++) {
-    const d = await get<{ count: number; results: Raw[] }>(`/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`, signal);
+    const d = await get<{ count: number; results: RawClosedLot[] }>(`/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`, signal);
     for (const r of d.results) {
       const lot = normalizeClosed(r);
       // Pages can shift while we walk them; the site dedupes the same way.
@@ -103,17 +159,16 @@ export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedL
   }
 }
 
-function normalizeClosed(r: Raw): ClosedLot {
-  const ends = Date.parse(r.ends_at ?? r.closed_at ?? r.ended_at ?? '');
+function normalizeClosed(r: RawClosedLot): ClosedLot {
   return {
-    lotId: Number(r.lot_id ?? r.id),
+    lotId: Number(r.lot_id),
     auctionPeriod: String(r.auction_period ?? ''),
     title: String(r.title ?? ''),
     lotNumber: String(r.lot_number ?? ''),
-    locationName: r.location_name ?? r.location?.name ?? null,
+    locationName: r.location_name ?? null,
     finalPrice: Number(r.final_price ?? 0),
     heroImage: r.hero_image ?? null,
-    endsAt: Number.isFinite(ends) ? ends : null,
+    endsAt: null, // The closed-lot endpoint does not include a closing timestamp.
   };
 }
 
@@ -126,8 +181,8 @@ export interface ConditionInfo {
 
 /** The site's condition descriptions (public; the same for everyone). */
 export async function fetchConditions(): Promise<ConditionInfo[]> {
-  const d = await get<Raw>('/v1/auctions/filter-config/');
-  return (d.conditions ?? []).map((c: Raw) => ({ value: c.value, label: String(c.label ?? ''), description: String(c.description ?? '') }));
+  const d = await get<{ conditions: { value: number; label: string; description: string }[] }>('/v1/auctions/filter-config/');
+  return (d.conditions ?? []).map((c) => ({ value: c.value, label: String(c.label ?? ''), description: String(c.description ?? '') }));
 }
 
 export interface PickupLocation {
@@ -137,8 +192,8 @@ export interface PickupLocation {
 
 /** The pickup location set on the logged-in account, or null if none. */
 export async function fetchPickupLocation(): Promise<PickupLocation | null> {
-  const p = (await get<Raw>('/v1/auth/me/')).pickup_location;
-  return p ? { id: p.id ?? null, name: p.name || p.label || null } : null;
+  const p = (await get<{ pickup_location: { id: number; name: string } | null }>('/v1/auth/me/')).pickup_location;
+  return p ? { id: p.id ?? null, name: p.name || null } : null;
 }
 
 /** Token that authenticates the live-updates websocket as this account. */
@@ -158,7 +213,7 @@ export async function setWatchlisted(auctionPeriod: string, lotId: number, on: b
   if (res.status === 401) {
     throw new Error(LOGGED_OUT);
   }
-  const data: Raw = await res.json().catch(() => ({}));
+  const data: RawBidResponse = await res.json().catch(() => ({}));
   const message = data.code === 'lot_already_bid' && data.error ? String(data.error) : 'Couldn’t update your watchlist. Please try again.';
   throw new Error(message);
 }
@@ -207,9 +262,9 @@ export async function placeBid(lotId: number, amount: number, type: BidType): Pr
   } catch {
     throw new BidError('Network error – the bid may not have been placed. Check the lot before trying again.', 0);
   }
-  const data: Raw = await res.json().catch(() => ({}));
+  const data: RawBidResponse = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const details: Raw = data.details ?? {};
+    const details = data.details ?? {};
     const message = (Array.isArray(details.amount) && details.amount[0]) || data.error || bidFailure(res.status);
     throw new BidError(String(message), res.status, data.code ?? null, details.min_next_bid ?? null);
   }

@@ -3,7 +3,7 @@
 // the server also pushes this account's outbid/winning events.
 import { computed, effect, signal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
-import { fetchWsToken, normalizeStanding } from './api';
+import { fetchWsToken, normalizeStanding, type RawStanding } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';
 import { onScreen, openId } from './state';
@@ -73,7 +73,7 @@ async function open(): Promise<Centrifuge> {
 }
 
 /** Apply this account's outbid/winning event to the lot it is about. */
-function onUserPublication(d: any) {
+function onUserPublication(d: { lot_id?: number | string; type?: string; relationship?: RawStanding | null }) {
   const lotId = Number(d.lot_id);
   const lot = getLot(lotId);
   if (!lot) {
@@ -88,7 +88,15 @@ function onUserPublication(d: any) {
 }
 
 /** Apply a lot channel update (price, bids, end time, status) to the catalog. */
-function onLotPublication(data: any) {
+function onLotPublication(data: {
+  id?: number;
+  current_price?: number;
+  bid_count?: number;
+  next_min_increment?: number;
+  ends_at?: string;
+  status?: string;
+  version?: number;
+} | null | undefined) {
   if (typeof data?.id !== 'number') {
     return;
   }

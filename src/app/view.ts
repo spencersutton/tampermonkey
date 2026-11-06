@@ -170,7 +170,7 @@ export interface Exclusions {
 /** Memoized sortKey() results by item type and title. */
 const sortKeys = new Map<string, string>();
 // Debugging: `tlxSortKeys` in the dev console shows what each title sorts on.
-(globalThis as any).tlxSortKeys = sortKeys;
+Object.assign(globalThis, { tlxSortKeys: sortKeys });
 
 /** sortKey() for a lot, cached. */
 function titleKey(lot: Lot) {
