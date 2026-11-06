@@ -1,6 +1,6 @@
 // Full-size editor for custom categories: add, rename, edit item types,
 // and preview which open lots each one takes.
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
 import { getSetting, setSetting } from './settings';
@@ -33,11 +33,6 @@ export const clean = (d: Draft): CustomCategory => {
   return { name: d.name.trim(), ...(d.types.length && { types: d.types }) };
 };
 
-/** One-line description of the item types a row matches. */
-function summary(d: Draft): string {
-  return plural(d.types.length, 'type');
-}
-
 /** What's wrong with a row, if anything. */
 export function rowError(d: Draft, drafts: Draft[]): string | null {
   const name = d.name.trim();
@@ -61,6 +56,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const [selected, setSelected] = useState<number | null>(null);
   const [focusKey, setFocusKey] = useState<number | null>(null);
   const list = useRef<HTMLOListElement>(null);
+  const editedName = useRef<{ input: HTMLInputElement; start: number | null; end: number | null } | null>(null);
 
   const dirty = JSON.stringify(drafts.map(clean)) !== baseline;
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
@@ -78,6 +74,15 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       setFocusKey(null);
     }
   }, [focusKey]);
+
+  useLayoutEffect(() => {
+    const edited = editedName.current;
+    editedName.current = null;
+    if (edited && edited.input.isConnected && document.activeElement !== edited.input) {
+      edited.input.focus();
+      edited.input.setSelectionRange(edited.start, edited.end);
+    }
+  }, [drafts]);
 
   // Which row takes each open lot, with counts.
   const assignment = useMemo(() => {
@@ -146,7 +151,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
               Lots of a listed item type move into the category, regardless of site category. The first matching category alphabetically wins.
-              Click a category to edit it. Name it “Parent - Name” to
+              Select a row to preview its lots. Name it “Parent - Name” to
               nest it under a site or custom category, e.g. “Tools - Drills - Cordless”.
             </p>
           </div>
@@ -163,7 +168,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
               {[...drafts].sort((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
                 const err = errors.get(d.key);
                 const count = assignment.taken.get(d.key)!.length;
-                const open = d.key === selected;
                 const label = d.name.trim() || 'New category';
                 return (
                   <li
@@ -172,46 +176,39 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     class={[
                       'cat-row',
                       err && 'has-error',
-                      open && 'selected',
+                      d.key === selected && 'selected',
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    onFocusIn={() => setSelected(d.key)}
+                    onMouseDown={() => setSelected(d.key)}
                   >
-                    <div class="cat-line">
-                      <button
-                        type="button"
-                        class="cat-summary"
-                        aria-expanded={open}
-                        title={open ? 'Close' : 'Edit'}
-                        onClick={() => setSelected(open ? null : d.key)}
-                      >
-                        <span class="cat-title">{label}</span>
-                        <span class={err ? 'error small' : 'muted small'}>{err ?? summary(d)}</span>
-                        <span class="cat-count">
-                          {plural(count, 'lot')}
-                        </span>
-                        <Icon name="expandMore" size={18} />
-                      </button>
-                    </div>
-                    {open && (
-                      <div class="cat-fields">
-                        <label class="field cat-name">
-                          <span>Name</span>
-                          <input type="text" value={d.name} placeholder="e.g. Tools - Pressure Washers" onInput={(e) => update(d.key, { name: e.currentTarget.value })} />
-                        </label>
-                        <TypeChips
-                          types={d.types}
-                          counts={typeCounts}
-                          listId="cat-types"
-                          onChange={(patch) => update(d.key, patch)}
-                        />
-                        <div class="cat-actions">
-                          <button type="button" class="btn-text cat-delete" onClick={() => remove(d)}>
-                            <Icon name="delete" size={16} /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <input
+                      class="cat-name"
+                      type="text"
+                      value={d.name}
+                      placeholder="Category name"
+                      aria-label={`Name of ${label}`}
+                      aria-invalid={err ? 'true' : undefined}
+                      aria-describedby={err && d.key === selected ? 'cat-editor-error' : undefined}
+                      title={err ?? undefined}
+                      onInput={(e) => {
+                        const input = e.currentTarget;
+                        editedName.current = { input, start: input.selectionStart, end: input.selectionEnd };
+                        update(d.key, { name: input.value });
+                      }}
+                    />
+                    <TypeChips
+                      types={d.types}
+                      counts={typeCounts}
+                      listId="cat-types"
+                      category={label}
+                      onChange={(patch) => update(d.key, patch)}
+                    />
+                    <span class="cat-count">{plural(count, 'lot')}</span>
+                    <button type="button" class="icon-btn cat-delete" aria-label={`Delete ${label}`} title="Delete category" onClick={() => remove(d)}>
+                      <Icon name="delete" size={18} />
+                    </button>
                   </li>
                 );
               })}
@@ -243,16 +240,16 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           </section>
         )}
 
-          <datalist id="cat-types">
-            {[...typeCounts]
-              .sort((a, b) => b[1] - a[1])
-              .map(([t, n]) => (
-                <option value={t}>{plural(n, 'open lot')}</option>
-              ))}
-          </datalist>
+        <datalist id="cat-types">
+          {[...typeCounts]
+            .sort((a, b) => b[1] - a[1])
+            .map(([t, n]) => (
+              <option value={t}>{plural(n, 'open lot')}</option>
+            ))}
+        </datalist>
 
         <div class="cat-foot">
-          {!valid && <span class="error small">Fix the highlighted rows to save.</span>}
+          {!valid && <span id="cat-editor-error" class="error small">{(sel && errors.get(sel.key)) || 'Fix the highlighted rows to save.'}</span>}
           <button type="button" class="btn btn-outline" onClick={close}>
             Cancel
           </button>
@@ -270,10 +267,11 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
  * have that type (flagged when none do), plus a box that suggests the
  * types lots really have. Enter, a comma or leaving the box adds what's typed.
  */
-function TypeChips({ types, counts, listId, onChange }: {
+function TypeChips({ types, counts, listId, category, onChange }: {
   types: string[];
   counts: Map<string, number>;
   listId: string;
+  category: string;
   onChange: (patch: Partial<Draft>) => void;
 }) {
   const [text, setText] = useState('');
@@ -286,8 +284,7 @@ function TypeChips({ types, counts, listId, onChange }: {
     setText('');
   };
   return (
-    <div class="field cat-types">
-      <span>Item types</span>
+    <div class="cat-types">
       <div class="type-chips">
         {types.map((t) => {
           const n = counts.get(t) ?? 0;
@@ -304,7 +301,7 @@ function TypeChips({ types, counts, listId, onChange }: {
           type="text"
           list={listId}
           value={text}
-          aria-label="Add item type"
+          aria-label={`Add item type to ${category}`}
           placeholder={types.length ? 'Add type…' : 'e.g. pressure washer'}
           spellcheck={false}
           onInput={(e) => {
