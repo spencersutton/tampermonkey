@@ -16,7 +16,6 @@ interface Draft {
   from: string | null;
   name: string;
   types: string[];
-  within: string; // site category value, '' for any
 }
 
 const PREVIEW_LIMIT = 50;
@@ -27,19 +26,16 @@ export const toDraft = (c: CustomCategory): Draft => ({
   from: c.name,
   name: c.name,
   types: c.types ?? [],
-  within: c.within ?? '',
 });
 
 /** The category a draft saves as. */
 export const clean = (d: Draft): CustomCategory => {
-  return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.within && { within: d.within }) };
+  return { name: d.name.trim(), ...(d.types.length && { types: d.types }) };
 };
 
-/** One-line description of a row: where it takes lots from and what it matches. */
-function summary(d: Draft, sites: { value: string; label: string }[]): string {
-  const where = d.within ? (sites.find((c) => c.value === d.within)?.label ?? d.within) : 'Any category';
-  const what = [d.types.length && plural(d.types.length, 'type')].filter(Boolean);
-  return [where, ...what].join(' · ');
+/** One-line description of the item types a row matches. */
+function summary(d: Draft): string {
+  return plural(d.types.length, 'type');
 }
 
 /** What's wrong with a row, if anything. */
@@ -83,23 +79,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
   }, [focusKey]);
 
-  // Site categories a row can be limited to: those of the open lots, plus any
-  // already chosen that no open lot is in right now.
-  const siteCategories = useMemo(() => {
-    const byValue = new Map<string, string>();
-    for (const l of lots) {
-      if (l.category) {
-        byValue.set(l.category.value, l.category.label);
-      }
-    }
-    for (const d of drafts) {
-      if (d.within && !byValue.has(d.within)) {
-        byValue.set(d.within, d.within);
-      }
-    }
-    return [...byValue].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
-  }, [lots, drafts.map((d) => d.within).join('\u0000')]);
-
   // Which row takes each open lot, with counts.
   const assignment = useMemo(() => {
     const cats = drafts.map(clean);
@@ -114,24 +93,20 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     return { taken };
   }, [drafts, lots]);
 
-  // Open lots of each item type, per site category ('' = all of them), for the type chips and suggestions.
+  // Open lots of each item type, for the type chips and suggestions.
   const typeCounts = useMemo(() => {
-    const by = new Map<string, Map<string, number>>([['', new Map()]]);
+    const by = new Map<string, number>();
     for (const l of lots) {
       if (l.itemType) {
-        for (const scope of new Set(['', l.category?.value ?? ''])) {
-          const m = by.get(scope) ?? by.set(scope, new Map()).get(scope)!;
-          m.set(l.itemType, (m.get(l.itemType) ?? 0) + 1);
-        }
+        by.set(l.itemType, (by.get(l.itemType) ?? 0) + 1);
       }
     }
     return by;
   }, [lots]);
-  const countsFor = (within: string) => typeCounts.get(within) ?? new Map<string, number>();
 
   const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const add = () => {
-    const d: Draft = { key: nextKey++, from: null, name: '', types: [], within: '' };
+    const d: Draft = { key: nextKey++, from: null, name: '', types: [] };
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
     setFocusKey(d.key);
@@ -170,8 +145,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
-              Lots of a listed item type move into the category. A category restricted to the lot's site category takes precedence over an unrestricted
-              category; otherwise the first matching category alphabetically wins. Click a category to edit it. Name it “Parent - Name” to
+              Lots of a listed item type move into the category, regardless of site category. The first matching category alphabetically wins.
+              Click a category to edit it. Name it “Parent - Name” to
               nest it under a site or custom category, e.g. “Tools - Drills - Cordless”.
             </p>
           </div>
@@ -211,7 +186,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                         onClick={() => setSelected(open ? null : d.key)}
                       >
                         <span class="cat-title">{label}</span>
-                        <span class={err ? 'error small' : 'muted small'}>{err ?? summary(d, siteCategories)}</span>
+                        <span class={err ? 'error small' : 'muted small'}>{err ?? summary(d)}</span>
                         <span class="cat-count">
                           {plural(count, 'lot')}
                         </span>
@@ -224,19 +199,10 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                           <span>Name</span>
                           <input type="text" value={d.name} placeholder="e.g. Tools - Pressure Washers" onInput={(e) => update(d.key, { name: e.currentTarget.value })} />
                         </label>
-                        <label class="field cat-within">
-                          <span>Only within</span>
-                          <select value={d.within} onChange={(e) => update(d.key, { within: e.currentTarget.value })}>
-                            <option value="">Any site category</option>
-                            {siteCategories.map((c) => (
-                              <option value={c.value}>{c.label}</option>
-                            ))}
-                          </select>
-                        </label>
                         <TypeChips
                           types={d.types}
-                          counts={countsFor(d.within)}
-                          listId={`cat-types-${d.within}`}
+                          counts={typeCounts}
+                          listId="cat-types"
                           onChange={(patch) => update(d.key, patch)}
                         />
                         <div class="cat-actions">
@@ -277,16 +243,13 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           </section>
         )}
 
-        {/* One list of suggestions per "Only within" choice in use, most common types first. */}
-        {[...new Set(drafts.map((d) => d.within))].map((w) => (
-          <datalist id={`cat-types-${w}`}>
-            {[...countsFor(w)]
+          <datalist id="cat-types">
+            {[...typeCounts]
               .sort((a, b) => b[1] - a[1])
               .map(([t, n]) => (
                 <option value={t}>{plural(n, 'open lot')}</option>
               ))}
           </datalist>
-        ))}
 
         <div class="cat-foot">
           {!valid && <span class="error small">Fix the highlighted rows to save.</span>}
@@ -303,8 +266,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
 }
 
 /**
- * The item types of a category as chips, each with how many open lots in its
- * scope have that type (flagged when none do), plus a box that suggests the
+ * The item types of a category as chips, each with how many open lots
+ * have that type (flagged when none do), plus a box that suggests the
  * types lots really have. Enter, a comma or leaving the box adds what's typed.
  */
 function TypeChips({ types, counts, listId, onChange }: {

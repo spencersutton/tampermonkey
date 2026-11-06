@@ -217,7 +217,7 @@ export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
 export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFIX);
 
 export interface CompiledCategories {
-  byType: Map<string, number>; // `${within}\0${type}` -> original index of the alphabetically first matching category
+  byType: Map<string, number>; // item type -> original index of the alphabetically first matching category
 }
 
 /** Compare category names in the same order used for display and matching. */
@@ -233,9 +233,8 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const ordered = cats.map((category, index) => ({ category, index })).sort((a, b) => compareCategoryNames(a.category.name, b.category.name));
   for (const { category: c, index: i } of ordered) {
     for (const t of c.types ?? []) {
-      const key = `${c.within ?? ''}\u0000${t}`;
-      if (!byType.has(key)) {
-        byType.set(key, i);
+      if (!byType.has(t)) {
+        byType.set(t, i);
       }
     }
   }
@@ -243,15 +242,12 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
 }
 
 /**
- * Index of the lot's custom category, or -1 for none. A category listing the
- * lot's item type wins (one limited to the lot's site category before one
- * that isn't). A category with `within` only takes lots in that site category.
+ * Index of the lot's custom category, or -1 for none. The alphabetically
+ * first category listing the lot's item type wins.
  */
 export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number {
   const t = lot.itemType;
-  const site = lot.category?.value ?? '';
-  const typed = t != null ? (byType.get(`${site}\u0000${t}`) ?? byType.get(`\u0000${t}`)) : undefined;
-  return typed ?? -1;
+  return t != null ? (byType.get(t) ?? -1) : -1;
 }
 
 const compiledCategories = memoLast(compileCategories);

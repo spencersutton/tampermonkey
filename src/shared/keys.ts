@@ -46,14 +46,12 @@ export interface HiddenLot {
 
 /**
  * A category of my own: lots whose item type is one of `types` go in it
- * instead of their site category. With `within` (a site category value), only lots in
- * that site category are taken. A category without matches can head a group
+ * instead of their site category. A category without matches can head a group
  * of child categories.
  */
 export interface CustomCategory {
   name: string;
   types?: string[];
-  within?: string;
 }
 
 export interface DefaultFilters {

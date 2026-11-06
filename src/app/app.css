@@ -1595,18 +1595,14 @@ h3 {
 
 .cat-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px 12px;
   padding: 4px 12px 10px 30px;
-  grid-template-areas: 'name within' 'types types' 'actions actions';
+  grid-template-areas: 'name' 'types' 'actions';
 }
 
 .cat-name {
   grid-area: name;
-}
-
-.cat-within {
-  grid-area: within;
 }
 
 .cat-types {
@@ -2296,8 +2292,6 @@ h3 {
   }
 
   .cat-fields {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'name' 'within' 'types' 'actions';
     padding-left: 12px;
   }
 

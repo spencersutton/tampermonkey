@@ -46,8 +46,8 @@ export function categoryError(mode: 'new' | 'add', existing: CustomCategory | un
 /** Words of a type worth comparing ("of", "and" and the like don't count). */
 const typeWords = (t: string) => t.split(/[\s/-]+/).filter((w) => w.length > 2 && !['and', 'for', 'with'].includes(w));
 
-/** Whether `c` lists any of `types` and is limited the same way (`within`), so saving takes those types from it. */
-const loses = (c: CustomCategory, types: string[], within: string | undefined) => (c.within ?? '') === (within ?? '') && !!c.types?.some((t) => types.includes(t));
+/** Whether saving takes any of `types` from `c`. */
+const loses = (c: CustomCategory, types: string[]) => !!c.types?.some((t) => types.includes(t));
 
 /** `c` without `types`, retaining empty parents of child categories. */
 export function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
@@ -62,46 +62,40 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const lastCategory = getSetting(KEYS.lastCategory);
   // The lot's custom category is the default parent.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
-  // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
+  // Categories nested under this lot's site category first, then A–Z.
   const choices = useMemo(() => {
-    const near = (c: CustomCategory) => !!site && (c.within === site.value || c.name.startsWith(`${site.label} - `));
+    const near = (c: CustomCategory) => !!site && c.name.startsWith(`${site.label} - `);
     return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
-  }, [cats]);
+  }, [cats, site]);
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>('new');
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
   const pick = cats.some((category) => category.name === selectedCategory) ? selectedCategory : preferred?.name ?? '';
-  const [within, setWithin] = useState(current ? !!current.within : false);
-  const defaultName = (w: boolean) => {
+  const defaultName = () => {
     const parent = current?.name ?? site?.label;
     return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
   };
-  const [name, setName] = useState(() => defaultName(within));
-  const [nameEdited, setNameEdited] = useState(false);
+  const [name, setName] = useState(defaultName);
   const [extra, setExtra] = useState<string[]>([]);
 
   const existing = mode === 'add' ? cats.find((c) => c.name === pick) : undefined;
   const types = [type, ...extra];
-  // The site category the target takes lots from, if it's limited to one.
-  const limit = mode === 'add' ? existing?.within : (within ? (current?.within ?? site?.value) : undefined);
-  const scope = lots.filter((l) => !limit || l.category?.value === limit);
-
-  // Other types in scope that share a word with this one, those sharing its last word ("washer") first.
+  // Other types sharing a word with this one, those sharing its last word ("washer") first.
   const similar = useMemo(() => {
     const words = typeWords(type);
     const head = words.at(-1);
     const counts = Map.groupBy(
-      scope.filter((l) => l.itemType && l.itemType !== type && typeWords(l.itemType).some((w) => words.includes(w))),
+      lots.filter((l) => l.itemType && l.itemType !== type && typeWords(l.itemType).some((w) => words.includes(w))),
       (l) => l.itemType!,
     );
     return [...counts]
       .map(([t, ls]) => ({ t, count: ls.length, head: typeWords(t).at(-1) === head }))
       .sort((a, b) => +b.head - +a.head || b.count - a.count || a.t.localeCompare(b.t))
       .slice(0, SIMILAR_LIMIT);
-  }, [lots, limit]);
+  }, [lots, type]);
 
   // Categories that lose these types to this one; their lots move here.
-  const losing = cats.filter((c) => c !== existing && loses(c, types, limit));
+  const losing = cats.filter((c) => c !== existing && loses(c, types));
   // The categories after saving, and the open lots the target would then take.
   const { next, target } = useMemo(() => {
     const names = [
@@ -115,7 +109,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
       return losing.includes(c) ? without(c, types, names) : [c];
     });
     if (mode === 'new') {
-      next.push({ name: name.trim(), types, ...(limit && { within: limit }) });
+      next.push({ name: name.trim(), types });
     }
     let target = -1;
     if (existing) {
@@ -124,7 +118,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
       target = next.length - 1;
     }
     return { next, target };
-  }, [cats, mode, pick, name, types.join('\u0000'), limit]);
+  }, [cats, mode, pick, name, types.join('\u0000')]);
   const taken = useMemo(() => {
     if (target < 0) {
       return [];
@@ -179,30 +173,11 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
               <input
                 type="text"
                 value={name}
-                onInput={(e) => {
-                  setName(e.currentTarget.value);
-                  setNameEdited(true);
-                }}
+                onInput={(e) => setName(e.currentTarget.value)}
                 onKeyDown={(e) => e.key === 'Enter' && save()}
               />
             </label>
           )}
-          {mode === 'new' &&
-            (site || current?.within) && (
-              <label class="switch-row">
-                <input
-                  type="checkbox"
-                  checked={within}
-                  onChange={(e) => {
-                    setWithin(e.currentTarget.checked);
-                    if (!nameEdited) {
-                      setName(defaultName(e.currentTarget.checked));
-                    }
-                  }}
-                />
-                <span>Only within {site?.label ?? current?.within}</span>
-              </label>
-            )}
           <fieldset class="type-cat-types">
             <legend>Item types</legend>
             <label>
