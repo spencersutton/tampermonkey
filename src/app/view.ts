@@ -1,9 +1,9 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
-import { buildRegexes, compileFilter } from '../shared/filters';
+import { buildRegexes } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { groupNames } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
-import { categoryPatterns, type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
+import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR } from './util';
@@ -11,7 +11,7 @@ import { HOUR } from './util';
 /** A lot with everything the grid needs computed once. */
 export interface Row {
   lot: Lot;
-  category: Lot['category']; // my custom category if one matches the title, else the site's
+  category: Lot['category']; // my custom category if one matches the item type, else the site's
   transferFee: number; // fee to get it to my pickup location (0 if already there)
   pickupOnly: boolean; // at another location and not transferable
   total: number;
@@ -218,13 +218,11 @@ export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFI
 
 export interface CompiledCategories {
   byType: Map<string, number>; // `${within}\0${type}` -> index of the first category listing that type ('' within = any)
-  regexes: { i: number; re: RegExp; within?: string }[];
 }
 
 /** Custom categories ready for categoryIndex(). */
 export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const byType = new Map<string, number>();
-  const regexes: CompiledCategories['regexes'] = [];
   for (const [i, c] of cats.entries()) {
     for (const t of c.types ?? []) {
       const key = `${c.within ?? ''}\u0000${t}`;
@@ -232,27 +230,20 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
         byType.set(key, i);
       }
     }
-    for (const pattern of categoryPatterns(c)) {
-      const re = pattern.trim() ? compileFilter(pattern.trim()) : null;
-      if (re) {
-        regexes.push({ i, re, within: c.within });
-      }
-    }
   }
-  return { byType, regexes };
+  return { byType };
 }
 
 /**
  * Index of the lot's custom category, or -1 for none. A category listing the
  * lot's item type wins (one limited to the lot's site category before one
- * that isn't); otherwise the first whose regex matches the title. A category
- * with `within` only takes lots in that site category.
+ * that isn't). A category with `within` only takes lots in that site category.
  */
-export function categoryIndex(lot: Lot, { byType, regexes }: CompiledCategories): number {
+export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number {
   const t = lot.itemType;
   const site = lot.category?.value ?? '';
   const typed = t != null ? (byType.get(`${site}\u0000${t}`) ?? byType.get(`\u0000${t}`)) : undefined;
-  return typed ?? regexes.find(({ re, within }) => (!within || within === site) && re.test(lot.title))?.i ?? -1;
+  return typed ?? -1;
 }
 
 const compiledCategories = memoLast(compileCategories);

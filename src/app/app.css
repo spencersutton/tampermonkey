@@ -1669,25 +1669,6 @@ h3 {
   color: var(--bad);
 }
 
-.type-chip-edit {
-  border: 0;
-  padding: 0;
-  color: inherit;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-
-.type-regex-input {
-  display: flex;
-  gap: 6px;
-}
-
-.type-regex-input input {
-  min-width: 0;
-  flex: 1;
-}
-
 .cat-actions {
   grid-area: actions;
   display: flex;

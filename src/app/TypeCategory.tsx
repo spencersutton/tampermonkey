@@ -1,7 +1,7 @@
 // Dialog behind the item type button on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useState } from 'preact/hooks';
-import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
+import { KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { saveCustomCategories } from './categories';
 import { setSetting, getSetting } from './settings';
@@ -52,7 +52,7 @@ const loses = (c: CustomCategory, types: string[], within: string | undefined) =
 /** `c` without `types`, retaining empty parents of child categories. */
 export function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
   const rest = c.types!.filter((t) => !types.includes(t));
-  return rest.length || categoryPatterns(c).length || names.some((name) => name.startsWith(`${c.name} - `)) ? [{ ...c, types: rest }] : [];
+  return rest.length || names.some((name) => name.startsWith(`${c.name} - `)) ? [{ ...c, types: rest }] : [];
 }
 
 export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; onClose: () => void }) {
@@ -60,7 +60,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const site = lot.category;
   const cats = getSetting(KEYS.customCategories);
   const lastCategory = getSetting(KEYS.lastCategory);
-  // The lot's custom category is the default parent, including regex matches.
+  // The lot's custom category is the default parent.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories to add to: those taking lots from this lot's site category (by "Only within" or name) first, then A–Z.
   const choices = useMemo(() => {
@@ -105,7 +105,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   // The categories after saving, and the open lots the target would then take.
   const { next, target } = useMemo(() => {
     const names = [
-      ...cats.filter((c) => !losing.includes(c) || c.types?.some((t) => !types.includes(t)) || categoryPatterns(c).length).map((c) => c.name),
+      ...cats.filter((c) => !losing.includes(c) || c.types?.some((t) => !types.includes(t))).map((c) => c.name),
       ...(mode === 'new' ? [name.trim()] : []),
     ];
     const next = cats.flatMap((c) => {

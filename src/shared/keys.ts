@@ -15,7 +15,7 @@ export const KEYS = {
   defaultFilters: 'tlxDefaultFilters', // default category and condition filters
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
-  customCategories: 'tlxCustomCategories', // CustomCategory[] – item types or title regexes that move lots into a category of their own
+  customCategories: 'tlxCustomCategories', // CustomCategory[] – item types that move lots into a category of their own
   lastCategory: 'tlxLastCategory', // last category used or created in this browser
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
   lastVisit: 'tlxLastVisit', // number | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
@@ -45,23 +45,15 @@ export interface HiddenLot {
 }
 
 /**
- * A category of my own: lots whose item type is one of `types`, or whose
- * title matches a pattern (same rules as the regex filters), go in it instead
- * of their site category. With `within` (a site category value), only lots in
+ * A category of my own: lots whose item type is one of `types` go in it
+ * instead of their site category. With `within` (a site category value), only lots in
  * that site category are taken. A category without matches can head a group
  * of child categories.
  */
 export interface CustomCategory {
   name: string;
   types?: string[];
-  pattern?: string; // legacy single title regex
-  patterns?: string[];
   within?: string;
-}
-
-/** Include the legacy single regex until the category is saved in the editor. */
-export function categoryPatterns(category: CustomCategory): string[] {
-  return [...(category.pattern?.trim() ? [category.pattern.trim()] : []), ...(category.patterns ?? [])];
 }
 
 export interface DefaultFilters {

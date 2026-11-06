@@ -1,8 +1,7 @@
 // Full-size editor for custom categories, one line each until opened: add, rename, reorder with
-// arrows, edit item types and title regexes, and preview which open lots each one takes.
+// arrows, edit item types, and preview which open lots each one takes.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { compileFilter } from '../shared/filters';
-import { categoryPatterns, KEYS, type CustomCategory } from '../shared/keys';
+import { KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
 import { getSetting, setSetting } from './settings';
 import { Icon } from './icons';
@@ -17,8 +16,6 @@ interface Draft {
   from: string | null;
   name: string;
   types: string[];
-  patterns: string[];
-  pendingPattern: string;
   within: string; // site category value, '' for any
 }
 
@@ -30,20 +27,18 @@ export const toDraft = (c: CustomCategory): Draft => ({
   from: c.name,
   name: c.name,
   types: c.types ?? [],
-  patterns: categoryPatterns(c),
-  pendingPattern: '',
   within: c.within ?? '',
 });
 
 /** The category a draft saves as. */
 export const clean = (d: Draft): CustomCategory => {
-  return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.patterns.length && { patterns: d.patterns }), ...(d.within && { within: d.within }) };
+  return { name: d.name.trim(), ...(d.types.length && { types: d.types }), ...(d.within && { within: d.within }) };
 };
 
 /** One-line description of a row: where it takes lots from and what it matches. */
 function summary(d: Draft, sites: { value: string; label: string }[]): string {
   const where = d.within ? (sites.find((c) => c.value === d.within)?.label ?? d.within) : 'Any category';
-  const what = [d.types.length && plural(d.types.length, 'type'), d.patterns.length && `${fmtCount(d.patterns.length)} ${d.patterns.length === 1 ? 'regex' : 'regexes'}`].filter(Boolean);
+  const what = [d.types.length && plural(d.types.length, 'type')].filter(Boolean);
   return [where, ...what].join(' · ');
 }
 
@@ -56,14 +51,8 @@ export function rowError(d: Draft, drafts: Draft[]): string | null {
   if (drafts.some((o) => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
     return 'Another category has this name';
   }
-  if (d.pendingPattern.trim()) {
-    return compileFilter(d.pendingPattern.trim()) ? 'Add or clear the pending regex' : 'Invalid regex';
-  }
-  if (!d.patterns.length && !d.types.length && !drafts.some((o) => o !== d && o.name.trim().startsWith(`${name} - `))) {
-    return 'Add item types or a regex';
-  }
-  if (d.patterns.some((pattern) => !pattern.trim() || !compileFilter(pattern.trim()))) {
-    return 'Invalid regex';
+  if (!d.types.length && !drafts.some((o) => o !== d && o.name.trim().startsWith(`${name} - `))) {
+    return 'Add item types';
   }
   return null;
 }
@@ -77,7 +66,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const [focusKey, setFocusKey] = useState<number | null>(null);
   const list = useRef<HTMLOListElement>(null);
 
-  const dirty = drafts.some((d) => d.pendingPattern.trim()) || JSON.stringify(drafts.map(clean)) !== baseline;
+  const dirty = JSON.stringify(drafts.map(clean)) !== baseline;
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
   const valid = [...errors.values()].every((e) => !e);
 
@@ -111,24 +100,18 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     return [...byValue].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   }, [lots, drafts.map((d) => d.within).join('\u0000')]);
 
-  // Which row takes each open lot, with counts, plus lots a row's regex
-  // matches that another row took (by item type, or by a regex above it).
+  // Which row takes each open lot, with counts.
   const assignment = useMemo(() => {
     const cats = drafts.map(clean);
     const compiled = compileCategories(cats);
     const taken = new Map<number, Lot[]>(drafts.map((d) => [d.key, []]));
-    const shadowed = new Map<number, number>(drafts.map((d) => [d.key, 0]));
     for (const lot of lots) {
       const owner = categoryIndex(lot, compiled);
       if (owner >= 0) {
         taken.get(drafts[owner].key)!.push(lot);
       }
-      const shadowedRows = new Set(compiled.regexes.filter(({ i, re, within }) => i !== owner && (!within || within === lot.category?.value) && re.test(lot.title)).map(({ i }) => i));
-      for (const i of shadowedRows) {
-        shadowed.set(drafts[i].key, shadowed.get(drafts[i].key)! + 1);
-      }
     }
-    return { taken, shadowed };
+    return { taken };
   }, [drafts, lots]);
 
   // Open lots of each item type, per site category ('' = all of them), for the type chips and suggestions.
@@ -154,7 +137,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       return next;
     });
   const add = () => {
-    const d: Draft = { key: nextKey++, from: null, name: '', types: [], patterns: [], pendingPattern: '', within: '' };
+    const d: Draft = { key: nextKey++, from: null, name: '', types: [], within: '' };
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
     setFocusKey(d.key);
@@ -193,9 +176,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
-              Lots of a listed item type, or whose title matches a regex (case-insensitive, whole words), move into the category. Item types win, then the
-              first regex from the top – use the arrows to reorder. Click a category to edit it. Name it “Parent - Name” to nest it under a site or custom
-              category, e.g. “Tools - Drills - Cordless”.
+              Lots of a listed item type move into the category. A category restricted to the lot's site category takes precedence over an unrestricted
+              category; otherwise the first matching category wins. Use the arrows to reorder. Click a category to edit it. Name it “Parent - Name” to
+              nest it under a site or custom category, e.g. “Tools - Drills - Cordless”.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -211,7 +194,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
               {drafts.map((d, i) => {
                 const err = errors.get(d.key);
                 const count = assignment.taken.get(d.key)!.length;
-                const shadowed = assignment.shadowed.get(d.key)!;
                 const open = d.key === selected;
                 const label = d.name.trim() || 'New category';
                 return (
@@ -236,9 +218,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       >
                         <span class="cat-title">{label}</span>
                         <span class={err ? 'error small' : 'muted small'}>{err ?? summary(d, siteCategories)}</span>
-                        <span class="cat-count" title={shadowed ? `Its regexes also match ${plural(shadowed, 'lot')} another category took` : undefined}>
+                        <span class="cat-count">
                           {plural(count, 'lot')}
-                          {shadowed > 0 && <span class="muted"> +{fmtCount(shadowed)}</span>}
                         </span>
                         <Icon name="expandMore" size={18} />
                       </button>
@@ -260,10 +241,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                         </label>
                         <TypeChips
                           types={d.types}
-                          patterns={d.patterns}
-                          pendingPattern={d.pendingPattern}
                           counts={countsFor(d.within)}
-                          lots={lots.filter((lot) => !d.within || lot.category?.value === d.within)}
                           listId={`cat-types-${d.within}`}
                           onChange={(patch) => update(d.key, patch)}
                         />
@@ -348,12 +326,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
  * scope have that type (flagged when none do), plus a box that suggests the
  * types lots really have. Enter, a comma or leaving the box adds what's typed.
  */
-function TypeChips({ types, patterns, pendingPattern, counts, lots, listId, onChange }: {
+function TypeChips({ types, counts, listId, onChange }: {
   types: string[];
-  patterns: string[];
-  pendingPattern: string;
   counts: Map<string, number>;
-  lots: Lot[];
   listId: string;
   onChange: (patch: Partial<Draft>) => void;
 }) {
@@ -366,15 +341,9 @@ function TypeChips({ types, patterns, pendingPattern, counts, lots, listId, onCh
     }
     setText('');
   };
-  const addPattern = () => {
-    const pattern = pendingPattern.trim();
-    if (pattern && compileFilter(pattern)) {
-      onChange({ patterns: [...new Set([...patterns, pattern])], pendingPattern: '' });
-    }
-  };
   return (
     <div class="field cat-types">
-      <span>Item types and title regexes</span>
+      <span>Item types</span>
       <div class="type-chips">
         {types.map((t) => {
           const n = counts.get(t) ?? 0;
@@ -382,21 +351,6 @@ function TypeChips({ types, patterns, pendingPattern, counts, lots, listId, onCh
             <span class={`type-chip ${n ? '' : 'type-chip-none'}`} title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}>
               {t} <span class="count">{n ? fmtCount(n) : 'none'}</span>
               <button type="button" class="filter-remove" aria-label={`Remove ${t}`} onClick={() => onChange({ types: types.filter((x) => x !== t) })}>
-                <Icon name="cancel" size={14} />
-              </button>
-            </span>
-          );
-        })}
-        {patterns.map((pattern, index) => {
-          const re = compileFilter(pattern);
-          const n = re ? lots.filter((lot) => re.test(lot.title)).length : 0;
-          return (
-            <span class={`type-chip ${n ? '' : 'type-chip-none'}`} title={re ? `${plural(n, 'open lot')} matches this title regex` : 'Invalid regex'}>
-              <button type="button" class="type-chip-edit" disabled={!!pendingPattern.trim()} title="Edit title regex" onClick={() => onChange({ patterns: patterns.filter((_, i) => i !== index), pendingPattern: pattern })}>
-                regex: {pattern}
-              </button>
-              <span class="count">{re ? (n ? fmtCount(n) : 'none') : 'invalid'}</span>
-              <button type="button" class="filter-remove" aria-label={`Remove regex ${pattern}`} onClick={() => onChange({ patterns: patterns.filter((_, i) => i !== index) })}>
                 <Icon name="cancel" size={14} />
               </button>
             </span>
@@ -429,24 +383,6 @@ function TypeChips({ types, patterns, pendingPattern, counts, lots, listId, onCh
           onBlur={() => add(text)}
         />
       </div>
-      <div class="type-regex-input">
-        <input
-          type="text"
-          value={pendingPattern}
-          aria-label="Add title regex"
-          placeholder="Title regex, e.g. pressure washers?"
-          spellcheck={false}
-          onInput={(e) => onChange({ pendingPattern: e.currentTarget.value })}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addPattern();
-            }
-          }}
-        />
-        <button type="button" class="btn btn-outline btn-small" onClick={addPattern}>Add regex</button>
-      </div>
-      {!!pendingPattern.trim() && !compileFilter(pendingPattern.trim()) && <span class="error small">Invalid regex</span>}
     </div>
   );
 }
