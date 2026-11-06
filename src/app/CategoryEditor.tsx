@@ -143,6 +143,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
 
   const sel = drafts.find((d) => d.key === selected);
   const selLots = sel ? assignment.taken.get(sel.key)! : [];
+  const selectedTypes = new Set(sel?.types.map(normalizeType));
 
   return (
     <Dialog onClose={close} aria-labelledby="cat-editor-title">
@@ -202,7 +203,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     <TypeChips
                       types={d.types}
                       counts={typeCounts}
-                      suggestions={typeSuggestions}
                       listId={`cat-types-${d.key}`}
                       category={label}
                       onChange={(patch) => update(d.key, patch)}
@@ -242,6 +242,15 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           </section>
         )}
 
+        {/* Only the selected row needs suggestions; duplicating them for every row is expensive. */}
+        {sel && (
+          <datalist id={`cat-types-${sel.key}`}>
+            {typeSuggestions.filter(([type]) => !selectedTypes.has(normalizeType(type))).map(([type, count]) => (
+              <option value={type}>{plural(count, 'open lot')}</option>
+            ))}
+          </datalist>
+        )}
+
         <div class="cat-foot">
           {!valid && <span id="cat-editor-error" class="error small">{(sel && errors.get(sel.key)) || 'Fix the highlighted rows to save.'}</span>}
           <button type="button" class="btn btn-outline" onClick={close}>
@@ -263,10 +272,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
  */
 const normalizeType = (type: string) => type.trim().toLowerCase().replace(/\s+/g, ' ');
 
-function TypeChips({ types, counts, suggestions, listId, category, onChange }: {
+function TypeChips({ types, counts, listId, category, onChange }: {
   types: string[];
   counts: Map<string, number>;
-  suggestions: [string, number][];
   listId: string;
   category: string;
   onChange: (patch: Partial<Draft>) => void;
@@ -322,11 +330,6 @@ function TypeChips({ types, counts, suggestions, listId, category, onChange }: {
           onBlur={() => add(text)}
         />
       </div>
-      <datalist id={listId}>
-        {suggestions.filter(([type]) => !existing.has(normalizeType(type))).map(([type, count]) => (
-          <option value={type}>{plural(count, 'open lot')}</option>
-        ))}
-      </datalist>
     </div>
   );
 }
