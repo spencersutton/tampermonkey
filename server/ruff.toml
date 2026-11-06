@@ -2,7 +2,7 @@ preview = true
 show-fixes = true
 # ruff.toml wins over [tool.ruff] in pyproject.toml, so settings must live here
 line-length = 140
-target-version = "py312"
+target-version = "py315"
 
 [lint]
 extend-select = [

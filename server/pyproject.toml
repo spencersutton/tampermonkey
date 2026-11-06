@@ -2,7 +2,7 @@
 name = "tlx-server"
 version = "1.0.0"
 description = "Catalog server for the server build of the Triangle Liquidators /tlx userscript"
-requires-python = ">=3.12"
+requires-python = ">=3.15"
 dependencies = []
 
 [project.scripts]
