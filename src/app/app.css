@@ -1845,6 +1845,11 @@ h3 {
   cursor: default;
 }
 
+.field select.type-cat-choices {
+  height: auto;
+  padding: 4px;
+}
+
 .type-cat-types {
   display: flex;
   flex-direction: column;

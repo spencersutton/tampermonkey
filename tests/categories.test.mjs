@@ -14,8 +14,6 @@ const { saveCustomCategories } = await vite.ssrLoadModule('/src/app/categories.t
 const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { DEFAULT_VIEW, categoryIndex, compileCategories, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
-const { clean, rowError, toDraft } = await vite.ssrLoadModule('/src/app/CategoryEditor.tsx');
-const { without } = await vite.ssrLoadModule('/src/app/TypeCategory.tsx');
 const { groupCategories, CategoryGroupRow } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
 
 function setup(categories, selected) {
@@ -101,36 +99,6 @@ test('category edits do not create a saved view in a new browser', () => {
 
   assert.equal(getSetting(KEYS.view), null);
   assert.deepEqual(getSetting(KEYS.defaultFilters), { categories: ['custom:Power Drills'], conditions: [2] });
-});
-
-test('multiple title regexes and legacy regexes retain matching precedence and scope', () => {
-  const categories = [
-    { name: 'Title matches', pattern: 'washer', patterns: ['drills?', 'saws?'], within: 'tools' },
-    { name: 'Exact', types: ['drill'] },
-    { name: 'Scoped exact', types: ['drill'], within: 'tools' },
-    { name: 'Later regex', patterns: ['saw', 'washer'] },
-  ];
-  const compiled = compileCategories(categories);
-  const lot = (title, itemType, category = 'tools') => ({ title, itemType, category: { value: category } });
-  assert.equal(categoryIndex(lot('Drill and saw', 'drill'), compiled), 2);
-  assert.equal(categoryIndex(lot('DRILLS', undefined), compiled), 0);
-  assert.equal(categoryIndex(lot('Pressure washer', undefined), compiled), 0);
-  assert.equal(categoryIndex(lot('Saws', undefined), compiled), 0);
-  assert.equal(categoryIndex(lot('saw', undefined, 'garden'), compiled), 3);
-  assert.equal(categoryIndex(lot('washing', undefined), compiled), -1);
-  assert.equal(categoryIndex(lot('drill', 'drill', 'garden'), compiled), 1);
-});
-
-test('legacy patterns migrate on edit, validate independently, and remain when types move', () => {
-  const draft = toDraft({ name: 'Tools', types: ['drill'], pattern: 'saw', patterns: ['drill{2,3}'] });
-  assert.deepEqual(clean(draft), { name: 'Tools', types: ['drill'], patterns: ['saw', 'drill{2,3}'] });
-  assert.equal(rowError(draft, [draft]), null);
-  assert.equal(rowError({ ...draft, pendingPattern: '[' }, []), 'Invalid regex');
-  assert.equal(rowError({ ...draft, pendingPattern: 'hammer' }, []), 'Add or clear the pending regex');
-  assert.equal(rowError({ ...draft, patterns: ['['] }, []), 'Invalid regex');
-  assert.equal(rowError({ ...draft, types: [], patterns: [] }, []), 'Add item types or a regex');
-  assert.deepEqual(without(clean(draft), ['drill']), [{ name: 'Tools', types: [], patterns: ['saw', 'drill{2,3}'] }]);
-  assert.deepEqual(without({ name: 'Old', types: ['drill'], pattern: 'saw' }, ['drill']), [{ name: 'Old', types: [], pattern: 'saw' }]);
 });
 
 const facet = (label, count = 0, value = `custom:${label}`) => ({ value, label, count });

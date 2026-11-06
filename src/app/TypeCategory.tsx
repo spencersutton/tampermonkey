@@ -70,7 +70,10 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>('new');
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
-  const pick = cats.some((category) => category.name === selectedCategory) ? selectedCategory : preferred?.name ?? '';
+  const [categorySearch, setCategorySearch] = useState('');
+  const filteredChoices = choices.filter((c) => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()));
+  const selected = cats.some((category) => category.name === selectedCategory) ? selectedCategory : preferred?.name ?? '';
+  const pick = filteredChoices.some((c) => c.name === selected) ? selected : '';
   const defaultName = () => {
     const parent = current?.name ?? site?.label;
     return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
@@ -159,14 +162,27 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
             </button>
           </div>
           {mode === 'add' ? (
-            <label class="field">
-              <span>Category</span>
-              <select value={pick} onChange={(e) => setPick(e.currentTarget.value)}>
-                {choices.map((c) => (
-                  <option value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </label>
+            <>
+              <label class="field">
+                <span>Search categories</span>
+                <input
+                  type="search"
+                  placeholder="Filter by category name"
+                  value={categorySearch}
+                  onInput={(e) => setCategorySearch(e.currentTarget.value)}
+                />
+              </label>
+              <label class="field">
+                <span id="type-cat-category-label">Category</span>
+                <select aria-labelledby="type-cat-category-label" class="type-cat-choices" size={6} value={pick} onChange={(e) => setPick(e.currentTarget.value)}>
+                  {!pick && <option value="" disabled>Pick a category</option>}
+                  {filteredChoices.map((c) => (
+                    <option key={c.name} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+              {!filteredChoices.length && <p class="muted small" role="status">No categories match your search.</p>}
+            </>
           ) : (
             <label class="field">
               <span>Name</span>
