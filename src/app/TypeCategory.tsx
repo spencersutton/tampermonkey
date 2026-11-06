@@ -71,9 +71,9 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const [mode, setMode] = useState<'new' | 'add'>('new');
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
   const pick = cats.some((category) => category.name === selectedCategory) ? selectedCategory : preferred?.name ?? '';
-  const [within, setWithin] = useState(current ? !!current.within : !!site);
+  const [within, setWithin] = useState(current ? !!current.within : false);
   const defaultName = (w: boolean) => {
-    const parent = current?.name ?? (w ? site?.label : undefined);
+    const parent = current?.name ?? site?.label;
     return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
   };
   const [name, setName] = useState(() => defaultName(within));
