@@ -217,13 +217,21 @@ export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
 export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFIX);
 
 export interface CompiledCategories {
-  byType: Map<string, number>; // `${within}\0${type}` -> index of the first category listing that type ('' within = any)
+  byType: Map<string, number>; // `${within}\0${type}` -> original index of the alphabetically first matching category
+}
+
+/** Compare category names in the same order used for display and matching. */
+export function compareCategoryNames(a: string, b: string): number {
+  const left = a.trim();
+  const right = b.trim();
+  return collator.compare(left, right) || (left < right ? -1 : left > right ? 1 : 0);
 }
 
 /** Custom categories ready for categoryIndex(). */
 export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const byType = new Map<string, number>();
-  for (const [i, c] of cats.entries()) {
+  const ordered = cats.map((category, index) => ({ category, index })).sort((a, b) => compareCategoryNames(a.category.name, b.category.name));
+  for (const { category: c, index: i } of ordered) {
     for (const t of c.types ?? []) {
       const key = `${c.within ?? ''}\u0000${t}`;
       if (!byType.has(key)) {

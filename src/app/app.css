@@ -1676,16 +1676,6 @@ h3 {
   gap: 2px;
 }
 
-.cat-actions .icon-btn {
-  padding: 4px;
-}
-
-.cat-actions .icon-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-  background: none;
-}
-
 .cat-delete {
   margin-left: auto;
 }

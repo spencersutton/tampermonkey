@@ -1,5 +1,5 @@
-// Full-size editor for custom categories, one line each until opened: add, rename, reorder with
-// arrows, edit item types, and preview which open lots each one takes.
+// Full-size editor for custom categories: add, rename, edit item types,
+// and preview which open lots each one takes.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
@@ -8,7 +8,7 @@ import { Icon } from './icons';
 import type { Lot } from './types';
 import { Dialog } from './Dialog';
 import { fmtCount, plural } from './util';
-import { categoryIndex, compileCategories } from './view';
+import { categoryIndex, compareCategoryNames, compileCategories } from './view';
 
 /** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
 interface Draft {
@@ -130,12 +130,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const countsFor = (within: string) => typeCounts.get(within) ?? new Map<string, number>();
 
   const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
-  const move = (from: number, to: number) =>
-    setDrafts((ds) => {
-      const next = [...ds];
-      next.splice(to, 0, ...next.splice(from, 1));
-      return next;
-    });
   const add = () => {
     const d: Draft = { key: nextKey++, from: null, name: '', types: [], within: '' };
     setDrafts((ds) => [...ds, d]);
@@ -177,7 +171,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
               Lots of a listed item type move into the category. A category restricted to the lot's site category takes precedence over an unrestricted
-              category; otherwise the first matching category wins. Use the arrows to reorder. Click a category to edit it. Name it “Parent - Name” to
+              category; otherwise the first matching category alphabetically wins. Click a category to edit it. Name it “Parent - Name” to
               nest it under a site or custom category, e.g. “Tools - Drills - Cordless”.
             </p>
           </div>
@@ -191,7 +185,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <p class="muted">No custom categories yet.</p>
           ) : (
             <ol class="cat-list" ref={list}>
-              {drafts.map((d, i) => {
+              {[...drafts].sort((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
                 const err = errors.get(d.key);
                 const count = assignment.taken.get(d.key)!.length;
                 const open = d.key === selected;
@@ -246,19 +240,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                           onChange={(patch) => update(d.key, patch)}
                         />
                         <div class="cat-actions">
-                          <button type="button" class="icon-btn" aria-label={`Move ${label} up`} title="Move up" disabled={i === 0} onClick={() => move(i, i - 1)}>
-                            <Icon name="arrowUp" size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            class="icon-btn"
-                            aria-label={`Move ${label} down`}
-                            title="Move down"
-                            disabled={i === drafts.length - 1}
-                            onClick={() => move(i, i + 1)}
-                          >
-                            <Icon name="arrowDown" size={16} />
-                          </button>
                           <button type="button" class="btn-text cat-delete" onClick={() => remove(d)}>
                             <Icon name="delete" size={16} /> Delete
                           </button>
