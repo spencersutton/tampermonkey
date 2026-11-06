@@ -119,14 +119,34 @@ export function groupCategories({ categories, siteCategories }: Facets): Categor
 }
 
 const groupFacets = (g: CategoryGroup): Facet<string>[] => [g.facet, ...g.subs.flatMap(groupFacets)];
+const categoryCollapseId = (value: string) => `cat:${value}`;
+const expandableCategories = (g: CategoryGroup): string[] =>
+  g.subs.length ? [categoryCollapseId(g.facet.value), ...g.subs.flatMap(expandableCategories)] : [];
 
 /** Category checkboxes, with expandable site and custom category parents. */
 function CategoryList({ facets, selected, onChange }: { facets: Facets; selected: string[]; onChange: (next: string[]) => void }) {
   const collapsed = getSetting(KEYS.collapsed);
   const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) => setSetting(KEYS.collapsed, value);
+  const groups = groupCategories(facets);
+  const ids = groups.flatMap(expandableCategories);
+  const setAllCollapsed = (value: boolean) => {
+    const next = { ...collapsed };
+    for (const id of ids) {
+      next[id] = value;
+    }
+    setCollapsed(next);
+  };
   return (
     <>
-      {groupCategories(facets).map((group) => (
+      <div class="category-expand-actions">
+        <button type="button" class="btn-text" disabled={!ids.length} onClick={() => setAllCollapsed(false)}>
+          Expand all
+        </button>
+        <button type="button" class="btn-text" disabled={!ids.length} onClick={() => setAllCollapsed(true)}>
+          Collapse all
+        </button>
+      </div>
+      {groups.map((group) => (
         <CategoryGroupRow key={group.facet.value} group={group} selected={selected} onChange={onChange} collapsed={collapsed ?? {}} setCollapsed={setCollapsed} />
       ))}
     </>
@@ -150,7 +170,7 @@ export function CategoryGroupRow({ group, selected, onChange, collapsed, setColl
   const all = values.every((v) => selected.includes(v));
   const some = values.some((v) => selected.includes(v));
   // Subcategory lists start closed; `collapsed[id] === false` means opened.
-  const id = `cat:${facet.value}`;
+  const id = categoryCollapseId(facet.value);
   const open = collapsed[id] === false;
   const total = rows.reduce((n, r) => n + r.count, 0);
   const onlyLabel = `Show only ${facet.label} and its subcategories`;

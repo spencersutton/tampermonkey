@@ -372,6 +372,12 @@ h3 {
   gap: 4px;
 }
 
+.category-expand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .default-filters-btn {
   align-self: flex-start;
   text-align: left;
