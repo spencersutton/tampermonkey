@@ -1,6 +1,7 @@
 // Entry point of the web app (the tlx server serves it; see server/): the
 // catalog UI behind the server's password prompt, with the site login form
 // available from anywhere.
+import 'temporal-polyfill/global';
 import { effect, untracked } from '@preact/signals';
 import { render } from 'preact';
 import './app/app.css';
