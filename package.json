@@ -4,12 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run lint && tsc --noEmit && vite build",
+    "lint": "eslint src vite.config.ts",
     "test": "node --test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "eslint": "^10.14.0",
     "typescript": "^6.0.0",
+    "typescript-eslint": "^8.72.1",
     "vite": "^8.3.4"
   },
   "dependencies": {

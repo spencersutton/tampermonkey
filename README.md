@@ -74,7 +74,8 @@ Source is in `src/` (TypeScript + Preact, bundled with Vite). The build goes to
 
 ```bash
 npm install
-npm run build     # typecheck, then build the web app
+npm run build     # lint, typecheck, then build the web app
+npm run lint      # disallow explicit TypeScript any types
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
 ```
 
