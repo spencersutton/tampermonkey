@@ -5,12 +5,14 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run lint && tsc --noEmit && vite build",
-    "lint": "eslint src vite.config.ts",
     "test": "node --test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
   },
   "devDependencies": {
     "eslint": "^10.14.0",
+    "oxlint": "^1.92.0",
     "typescript": "^6.0.0",
     "typescript-eslint": "^8.72.1",
     "vite": "^8.3.4"
