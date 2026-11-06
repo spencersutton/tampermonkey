@@ -108,6 +108,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
     return by;
   }, [lots]);
+  const typeSuggestions = useMemo(() => [...typeCounts].sort((a, b) => b[1] - a[1]), [typeCounts]);
 
   const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const add = () => {
@@ -201,7 +202,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     <TypeChips
                       types={d.types}
                       counts={typeCounts}
-                      listId="cat-types"
+                      suggestions={typeSuggestions}
+                      listId={`cat-types-${d.key}`}
                       category={label}
                       onChange={(patch) => update(d.key, patch)}
                     />
@@ -240,14 +242,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           </section>
         )}
 
-        <datalist id="cat-types">
-          {[...typeCounts]
-            .sort((a, b) => b[1] - a[1])
-            .map(([t, n]) => (
-              <option value={t}>{plural(n, 'open lot')}</option>
-            ))}
-        </datalist>
-
         <div class="cat-foot">
           {!valid && <span id="cat-editor-error" class="error small">{(sel && errors.get(sel.key)) || 'Fix the highlighted rows to save.'}</span>}
           <button type="button" class="btn btn-outline" onClick={close}>
@@ -267,17 +261,21 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
  * have that type (flagged when none do), plus a box that suggests the
  * types lots really have. Enter, a comma or leaving the box adds what's typed.
  */
-function TypeChips({ types, counts, listId, category, onChange }: {
+const normalizeType = (type: string) => type.trim().toLowerCase().replace(/\s+/g, ' ');
+
+function TypeChips({ types, counts, suggestions, listId, category, onChange }: {
   types: string[];
   counts: Map<string, number>;
+  suggestions: [string, number][];
   listId: string;
   category: string;
   onChange: (patch: Partial<Draft>) => void;
 }) {
   const [text, setText] = useState('');
+  const existing = new Set(types.map(normalizeType));
   /** Add the comma-separated types in `raw`. */
   const add = (raw: string) => {
-    const fresh = raw.split(',').map((t) => t.trim().toLowerCase().replace(/\s+/g, ' ')).filter((t) => t && !types.includes(t));
+    const fresh = raw.split(',').map(normalizeType).filter((t) => t && !existing.has(t));
     if (fresh.length) {
       onChange({ types: [...new Set([...types, ...fresh])] });
     }
@@ -324,6 +322,11 @@ function TypeChips({ types, counts, listId, category, onChange }: {
           onBlur={() => add(text)}
         />
       </div>
+      <datalist id={listId}>
+        {suggestions.filter(([type]) => !existing.has(normalizeType(type))).map(([type, count]) => (
+          <option value={type}>{plural(count, 'open lot')}</option>
+        ))}
+      </datalist>
     </div>
   );
 }
