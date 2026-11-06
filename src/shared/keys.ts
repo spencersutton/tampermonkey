@@ -51,7 +51,7 @@ export interface HiddenLot {
  */
 export interface CustomCategory {
   name: string;
-  types?: string[];
+  types: string[];
 }
 
 export interface DefaultFilters {
@@ -88,7 +88,7 @@ export const DEFAULTS = {
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
-export const lotHref = (auctionPeriod: string, id: number | string) => `https://triangleliquidators.com/lots/${auctionPeriod}/${id}`;
+export const lotHref = (auctionPeriod: string, id: number) => `https://triangleliquidators.com/lots/${auctionPeriod}/${id}`;
 
 /** A link saved with a hidden lot as an absolute URL on the site (older ones were saved as paths). */
 export const siteUrl = (href: string) => new URL(href, 'https://triangleliquidators.com/').href;

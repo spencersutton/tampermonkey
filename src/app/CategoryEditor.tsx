@@ -30,7 +30,11 @@ export const toDraft = (c: CustomCategory): Draft => ({
 
 /** The category a draft saves as. */
 export const clean = (d: Draft): CustomCategory => {
-  return { name: d.name.trim(), ...(d.types.length && { types: d.types }) };
+  const category: CustomCategory = { name: d.name.trim(), types: [] };
+  if (d.types.length > 0) {
+    category.types = d.types;
+  }
+  return category;
 };
 
 /** What's wrong with a row, if anything. */
