@@ -43,6 +43,20 @@ npm install && npm run build
 
 Run `npm test` for the web app's regression tests.
 
+### Client structure
+
+The client uses Preact for rendering and signals for shared state and derived
+views. One-shot startup waits for the first unlocked session. DOM setup and
+cleanup belong to element refs; effects remain for ongoing synchronization and
+data loading. Lot dialogs keep their outer dialog mounted while keyed contents
+reset when switching lots, so image selection, details and scroll position do
+not leak between listings.
+
+Catalog replies merge in one place: newer live prices win, server metadata stays
+authoritative, and pending item-type corrections survive older in-flight polls.
+
+### Starting the server
+
 ```bash
 cd server
 python3 -m tlx_server                                             # this computer only: http://127.0.0.1:8765

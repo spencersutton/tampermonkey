@@ -49,6 +49,24 @@ test('server type corrections win over a newer websocket price version, includin
   assert.equal(lots.peek().get(1).itemType, undefined);
 });
 
+test('delta replies retain unchanged lots, delete missing ids, and preserve the Map on no-op polls', () => {
+  applyCatalog(reply(1, [lot(1, 'Drill', 'drill'), lot(2, 'Saw', 'saw')]));
+  const previous = lots.peek();
+  applyCatalog(reply(2, [], { full: false, ids: [1, 2] }));
+  assert.equal(lots.peek(), previous);
+  applyCatalog(reply(3, [lot(3, 'Hammer', 'hammer')], { full: false, ids: [1, 3] }));
+  assert.deepEqual([...lots.peek().keys()], [1, 3]);
+  assert.equal(lots.peek().get(1), previous.get(1));
+  assert.equal(previous.has(2), true);
+});
+
+test('invalid catalog timestamps leave the previous catalog intact', () => {
+  applyCatalog(reply(1, [lot(1, 'Drill', 'drill')]));
+  const previous = lots.peek();
+  assert.throws(() => applyCatalog(reply(2, [lot(2, 'Saw', 'saw', { endsAt: 1.5 })])), /Invalid epoch/);
+  assert.equal(lots.peek(), previous);
+});
+
 test('saving uses the guarded endpoint and applies the canonical server response to all exact titles', async () => {
   lots.value = new Map([catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery')].map((l) => [l.id, l]));
   globalThis.fetch = async (path, init) => {

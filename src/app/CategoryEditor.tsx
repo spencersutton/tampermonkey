@@ -1,6 +1,6 @@
 // Full-size editor for custom categories: add, rename, edit item types,
 // and preview which open lots each one takes.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
 import { getSetting, setSetting } from './settings';
@@ -52,8 +52,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
   const [baseline] = useState(() => JSON.stringify(drafts.map(clean)));
   const [selected, setSelected] = useState<number | null>(null);
-  const [focusKey, setFocusKey] = useState<number | null>(null);
-  const list = useRef<HTMLOListElement>(null);
+  const focusKey = useRef<number | null>(null);
   const editedName = useRef<{ input: HTMLInputElement; start: number | null; end: number | null } | null>(null);
 
   const dirty = JSON.stringify(drafts.map(clean)) !== baseline;
@@ -65,14 +64,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       onClose();
     }
   };
-  // Focus the name box of a row just added.
-  useEffect(() => {
-    if (focusKey != null) {
-      list.current?.querySelector<HTMLInputElement>(`[data-key="${focusKey}"] input`)?.focus();
-      setFocusKey(null);
-    }
-  }, [focusKey]);
-
   useLayoutEffect(() => {
     const edited = editedName.current;
     editedName.current = null;
@@ -113,7 +104,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     const d: Draft = { key: nextKey++, from: null, name: '', types: [] };
     setDrafts((ds) => [...ds, d]);
     setSelected(d.key);
-    setFocusKey(d.key);
+    focusKey.current = d.key;
   };
   const remove = (d: Draft) => {
     setDrafts((ds) => ds.filter((x) => x.key !== d.key));
@@ -164,7 +155,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           {drafts.length === 0 ? (
             <p class="muted">No custom categories yet.</p>
           ) : (
-            <ol class="cat-list" ref={list}>
+            <ol class="cat-list">
               {[...drafts].sort((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
                 const err = errors.get(d.key);
                 const count = taken.get(d.key)!.length;
@@ -184,6 +175,12 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     onMouseDown={() => setSelected(d.key)}
                   >
                     <input
+                      ref={(input) => {
+                        if (input && focusKey.current === d.key) {
+                          focusKey.current = null;
+                          input.focus();
+                        }
+                      }}
                       class="cat-name"
                       type="text"
                       value={d.name}

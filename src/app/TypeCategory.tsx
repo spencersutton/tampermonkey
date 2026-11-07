@@ -63,10 +63,8 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   // The lot's custom category is the default parent.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories nested under this lot's site category first, then A–Z.
-  const choices = useMemo(() => {
-    const near = (c: CustomCategory) => !!site && c.name.startsWith(`${site.label} - `);
-    return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
-  }, [cats, site]);
+  const near = (c: CustomCategory) => !!site && c.name.startsWith(`${site.label} - `);
+  const choices = cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>('new');
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
@@ -82,7 +80,6 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const [extra, setExtra] = useState<string[]>([]);
 
   const existing = mode === 'add' ? cats.find((c) => c.name === pick) : undefined;
-  const types = [type, ...extra];
   // Other types sharing a word with this one, those sharing its last word ("washer") first.
   const similar = useMemo(() => {
     const words = typeWords(type);
@@ -97,10 +94,10 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
       .slice(0, SIMILAR_LIMIT);
   }, [lots, type]);
 
-  // Categories that lose these types to this one; their lots move here.
-  const losing = cats.filter((c) => c !== existing && loses(c, types));
   // The categories after saving, and the open lots the target would then take.
-  const { next, target } = useMemo(() => {
+  const { next, target, taken, losing, types } = useMemo(() => {
+    const types = [type, ...extra];
+    const losing = cats.filter((c) => c !== existing && loses(c, types));
     const names = [
       ...cats.filter((c) => !losing.includes(c) || c.types?.some((t) => !types.includes(t))).map((c) => c.name),
       ...(mode === 'new' ? [name.trim()] : []),
@@ -120,15 +117,10 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     } else if (mode === 'new') {
       target = next.length - 1;
     }
-    return { next, target };
-  }, [cats, mode, pick, name, types.join('\u0000')]);
-  const taken = useMemo(() => {
-    if (target < 0) {
-      return [];
-    }
     const compiled = compileCategories(next);
-    return lots.filter((l) => categoryIndex(l, compiled) === target);
-  }, [next, target, lots]);
+    const taken = target < 0 ? [] : lots.filter((l) => categoryIndex(l, compiled) === target);
+    return { next, target, taken, losing, types };
+  }, [cats, mode, existing, name, type, extra, lots]);
 
   const error = categoryError(mode, existing, name, cats);
   const save = () => {

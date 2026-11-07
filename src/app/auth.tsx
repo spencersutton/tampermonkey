@@ -22,6 +22,9 @@ export interface Me {
 
 /** The server's last answer to /api/me (null until the first one). */
 export const me = signal<Me | null>(null);
+let markUnlocked: () => void;
+/** Resolves on the first unlocked session, including after the password prompt. */
+export const appUnlocked = new Promise<void>((resolve) => (markUnlocked = resolve));
 /** Whether the login form is open. */
 const loginOpen = signal(false);
 const authed = computed(() => !!me.value?.site?.loggedIn);
@@ -63,6 +66,7 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
   const data = await res.json().catch(() => ({ error: `Server replied ${res.status}` }));
   if (data?.app) {
     me.value = data;
+    if (!data.app.locked) markUnlocked();
   }
   if (!res.ok) {
     throw new Error(data?.error || `Server replied ${res.status}`);

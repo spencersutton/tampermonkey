@@ -1,5 +1,5 @@
 import type { ComponentChildren, InputHTMLAttributes } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
 import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
@@ -399,6 +399,8 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
 /** Saves the edited text; returns an error message to keep the editor open. */
 type SaveFn = (text: string) => string | void;
 
+const selectText = (box: HTMLInputElement | HTMLTextAreaElement | null) => box?.select();
+
 /**
  * Inline text editors, one open at a time (identified by an id). Enter or
  * blur saves the trimmed text (empty just closes), Escape cancels.
@@ -407,17 +409,10 @@ function useInlineEdit() {
   const [editing, setEditing] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const box = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   // Which editor is open, updated synchronously: Enter closes the editor, and
   // removing the focused box then fires a blur whose handler still sees the
   // old state – this keeps that second save from running.
   const open = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (editing != null) {
-      box.current?.select();
-    }
-  }, [editing]);
 
   const start = (id: string, initial: string) => {
     open.current = id;
@@ -444,7 +439,7 @@ function useInlineEdit() {
   };
   /** Props for the editor's input or textarea. */
   const boxProps = (id: string, onSave: SaveFn) => ({
-    ref: box,
+    ref: selectText,
     value: text,
     onInput: (e: { currentTarget: HTMLInputElement | HTMLTextAreaElement }) => {
       setText(e.currentTarget.value.replace(/\n/g, ''));

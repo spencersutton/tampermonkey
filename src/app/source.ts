@@ -100,25 +100,30 @@ function normalizeCatalogLot(lot: ServerLot): Lot {
 let seq = 0;
 /** When the server allows the next pull, in our clock. */
 let nextAt: Temporal.Instant | null = null;
-/** Why the last request to the server failed, if it did. */
-let serverError: string | null = null;
 /** Local corrections not yet included in a catalog poll; protect them from an older in-flight reply. */
 const typeEdits = new Map<string, { itemType: string; seq: number }>();
 
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
-  nextAt = instantFromEpochMilliseconds(s.nextPullAt - skew);
-  fetchedAt.value = s.meta.fetchedAt ? instantFromEpochMilliseconds(s.meta.fetchedAt) : null;
-  progress.value = s.progress;
-  error.value = s.error;
+  const next = instantFromEpochMilliseconds(s.nextPullAt - skew);
+  const fetched = s.meta.fetchedAt ? instantFromEpochMilliseconds(s.meta.fetchedAt) : null;
+  batch(() => {
+    nextAt = next;
+    fetchedAt.value = fetched;
+    progress.value = s.progress;
+    error.value = s.error;
+  });
 }
 
 /** Merge a catalog reply into memory. */
-function applyCatalog(r: CatalogReply) {
+export function applyCatalog(r: CatalogReply) {
   const pulled = r.lots.map(normalizeCatalogLot);
   batch(() => {
     applyStatus(r);
+    for (const [title, edit] of typeEdits) {
+      if (r.seq >= edit.seq) typeEdits.delete(title);
+    }
     const cur = lots.peek();
     if (r.full || r.lots.length || (r.ids && r.ids.length !== cur.size)) {
       const next = new Map(r.full ? [] : cur);
@@ -126,54 +131,30 @@ function applyCatalog(r: CatalogReply) {
         const keep = new Set(r.ids);
         next.forEach((_, id) => keep.has(id) || next.delete(id));
       }
-      pulled.forEach((l) => next.set(l.id, l));
-      const merged = keepNewer(next, pulled);
-      for (const [title, edit] of typeEdits) {
-        if (r.seq < edit.seq) {
-          for (const [id, lot] of merged) {
-            if (lot.title === title) {
-              merged.set(id, { ...lot, itemType: edit.itemType });
-            }
-          }
-        }
+      for (const fresh of pulled) {
+        const mine = cur.get(fresh.id);
+        // Keep newer live prices, but take server-owned metadata from the poll.
+        next.set(fresh.id, mine && mine.version > fresh.version
+          ? { ...mine, firstSeenAt: fresh.firstSeenAt, itemType: fresh.itemType }
+          : fresh);
       }
-      lots.value = merged;
-    }
-    for (const [title, edit] of typeEdits) {
-      if (r.seq >= edit.seq) {
-        typeEdits.delete(title);
+      for (const [id, lot] of next) {
+        const edit = typeEdits.get(lot.title);
+        if (edit) next.set(id, { ...lot, itemType: edit.itemType });
       }
+      lots.value = next;
     }
     seq = r.seq;
     loaded.value = true;
   });
 }
 
-/**
- * Websocket updates that arrived since the server's pull may be newer (by
- * `version`) than the lots it sent, so those win, keeping the pull's
- * first-seen time and authoritative item type.
- */
-function keepNewer(next: Map<number, Lot>, pulled: Lot[]): Map<number, Lot> {
-  for (const fresh of pulled) {
-    const mine = lots.peek().get(fresh.id);
-    if (mine && mine.version > fresh.version) {
-      next.set(fresh.id, { ...mine, firstSeenAt: fresh.firstSeenAt, itemType: fresh.itemType });
-    }
-  }
-  return next;
-}
-
-/** Report a failed request in the status bar (once it changes). */
+/** Report a failed request in the status bar. Signals ignore unchanged values. */
 function setServerError(err: unknown) {
-  const message = (err as Error).message || String(err);
-  if (message !== serverError) {
-    serverError = message;
-    batch(() => {
-      error.value = message;
-      loaded.value = true;
-    });
-  }
+  batch(() => {
+    error.value = err instanceof Error ? err.message : String(err);
+    loaded.value = true;
+  });
 }
 
 let pollTimer = 0;
@@ -186,7 +167,6 @@ function poll(): Promise<void> {
     try {
       await authReady();
       const r = await call<CatalogReply>('GET', `/api/catalog?since=${seq}`, undefined, { 'X-TLX-Active': inUse() ? '1' : '0' });
-      serverError = null;
       applyCatalog(r);
       await syncSettings();
     } catch (err) {

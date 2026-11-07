@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
@@ -23,24 +23,33 @@ interface Props {
   onOpenLot?: (lot: Lot) => void; // a lot in the catalog
 }
 
+const focusContent = (element: HTMLDivElement | null) => element?.focus();
+
 /** Popup with full lot details, images, bid history and bidding. */
-export function LotModal({ row, onClose, group, onOpenLot = openLot }: Props) {
+export function LotModal(props: Props) {
+  return (
+    <Dialog onClose={props.onClose} aria-labelledby="lot-title">
+      <LotContent key={props.row.lot.id} {...props} />
+    </Dialog>
+  );
+}
+
+function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
-  const dialog = useRef<HTMLDivElement>(null);
   const conditions = siteConditions();
 
   useEffect(() => {
-    const ac = new AbortController();
+    let active = true;
     setError(null);
-    loadDetail(lot, ac.signal).then(setDetail, (e) => {
-      if (!ac.signal.aborted) {
-        setError((e as Error).message || String(e));
-      }
-    });
-    return () => ac.abort();
+    // The cache shares this request with other callers; only detach this reader.
+    loadDetail(lot).then(
+      (data) => { if (active) setDetail(data); },
+      (e) => { if (active) setError(e instanceof Error ? e.message : String(e)); },
+    );
+    return () => { active = false; };
   }, [lot.id, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading]);
 
   const images = (detail ?? lot).images;
@@ -56,12 +65,8 @@ export function LotModal({ row, onClose, group, onOpenLot = openLot }: Props) {
       step(1);
     }
   };
-  // Switching to another listing or similar lot starts at the top.
-  useEffect(() => dialog.current?.scrollTo(0, 0), [lot.id]);
-
   return (
-    <Dialog onClose={onClose} onKeyDown={onKeyDown} aria-labelledby="lot-title">
-      <div class="modal" tabIndex={-1} ref={dialog}>
+      <div class="modal" tabIndex={-1} ref={focusContent} onKeyDown={onKeyDown}>
         <button type="button" class="icon-btn modal-close" aria-label="Close" onClick={onClose}>
           <Icon name="close" size={22} />
         </button>
@@ -168,7 +173,6 @@ export function LotModal({ row, onClose, group, onOpenLot = openLot }: Props) {
           </div>
         </div>
       </div>
-    </Dialog>
   );
 }
 

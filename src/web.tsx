@@ -2,11 +2,10 @@
 // catalog UI behind the server's password prompt, with the site login form
 // available from anywhere.
 import 'temporal-polyfill/global';
-import { effect, untracked } from '@preact/signals';
 import { render } from 'preact';
 import './app/app.css';
 import { App } from './app/App';
-import { AppLock, LoginDialog, me, startAuth } from './app/auth';
+import { AppLock, appUnlocked, LoginDialog, me, startAuth } from './app/auth';
 import { navFromUrl, startHistory } from './app/history';
 import { startLiveWatch } from './app/live';
 import { setSetting } from './app/settings';
@@ -27,17 +26,11 @@ if (fromUrl) {
 }
 
 // The app starts once the server is unlocked, so its first requests aren't refused.
-let started = false;
-effect(() => {
-  if (!started && me.value && !me.value.app.locked) {
-    started = true;
-    untracked(() => {
-      startCatalog();
-      startApp();
-      startHistory();
-      startLiveWatch();
-    });
-  }
+void appUnlocked.then(() => {
+  startCatalog();
+  startApp();
+  startHistory();
+  startLiveWatch();
 });
 
 function Root() {
