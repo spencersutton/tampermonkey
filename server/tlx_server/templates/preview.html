@@ -1,0 +1,6 @@
+<div id="{{ preview_id }}">
+  <h3>{{ preview_name }} · {{ plural(preview_rows|length, 'open lot') }}</h3>
+  {% if preview_error %}<p class="error">{{ preview_error }}</p>{% endif %}
+  <ul>{% for row in preview_rows[:50] %}<li>{{ row.lot.title }}</li>{% endfor %}</ul>
+  {% if preview_rows|length > 50 %}<p>And {{ preview_rows|length - 50 }} more</p>{% endif %}
+</div>

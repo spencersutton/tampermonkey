@@ -1,0 +1,105 @@
+{% from 'macros.html' import action, category, location, timeleft with context %}
+<div class="app" id="app" data-url="{{ url }}" data-total-new="{{ total_new }}" data-server-now="{{ now }}" data-imported="{{ '1' if browser.get('imported') else '0' }}"
+     hx-target="#app" hx-swap="outerHTML" hx-boost="true">
+  <header class="topbar">
+    <a class="brand" href="https://triangleliquidators.com/" hx-boost="false">TL <span>Catalog</span></a>
+    <div class="search-box">
+      <input id="search" class="search" form="filters" name="search" type="search" value="{{ view.search }}" placeholder="Search {{ result.open }} lots" aria-label="Search lots">
+      <label title="Use regex search"><input form="filters" name="regex" type="checkbox" value="1" {{ 'checked' if view.searchRegex else '' }}>.*</label>
+    </div>
+    <select id="sort" class="sort" form="filters" name="sort" aria-label="Sort">{% for value,label in sorts.items() %}<option value="{{ value }}" {{ 'selected' if view.sort == value else '' }}>{{ label }}</option>{% endfor %}</select>
+    <button type="button" class="btn btn-outline filters-toggle" data-toggle-sidebar>Filters</button>
+  </header>
+  <div id="notifications" class="notifications" popover="manual" role="status">{% if message %}<p>{{ message }}</p>{% endif %}{% for error in errors %}<p class="error" role="alert">{{ error }}</p>{% endfor %}</div>
+  <div class="layout">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>Saved searches</h2>
+        <form action="/ui/search-save" method="post" hx-post="/ui/search-save">
+          <input type="hidden" name="return" value="{{ url }}">
+          <input aria-label="Name for saved search" name="name" placeholder="Name this search" required>
+          <button type="submit" class="btn-text">Save current</button>
+        </form>
+        <ul class="filter-list">
+        {% for search in settings.tlxSavedSearches %}
+          <li class="filter-row saved-row {{ 'active' if active and active.id == search.id else '' }}">
+            {{ action('search-open', search.name, search.id, 'saved-name') }}
+            <span id="saved-{{ search.id }}" class="count">{{ stats.get(search.id, {}).get('total', 0) }} / {{ stats.get(search.id, {}).get('fresh', 0) }} new</span>
+            {{ action('search-open', 'New only', search.id, 'btn-text', {'newOnly':'1'}) }}
+            <details><summary>Rename</summary><form method="post" action="/ui/search-rename" hx-post="/ui/search-rename"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="id" value="{{ search.id }}"><input name="name" value="{{ search.name }}" aria-label="Rename saved search" data-select required><button>Save</button></form></details>
+            {{ action('search-delete', 'Delete', search.id) }}
+          </li>
+        {% endfor %}
+        </ul>
+      </section>
+      <section class="panel">
+        <div class="panel-head"><h2>Filters</h2>{{ action('clear', 'Clear') }}</div>
+        <nav class="my-lots">{% for value,label in mine.items() %}<a href="{{ mine_url(value) }}" hx-get="{{ mine_url(value) }}" class="{{ 'on' if view.mine == value else '' }}">{{ label }}</a>{% endfor %}
+          <span>Closed: <a href="{{ view_url(closed='won') }}" hx-get="{{ view_url(closed='won') }}">Won</a> · <a href="{{ view_url(closed='lost') }}" hx-get="{{ view_url(closed='lost') }}">Lost</a></span>
+        </nav>
+        <form id="filters" action="/tlx" method="get" hx-get="/tlx" hx-trigger="change, input changed delay:200ms from:#search" hx-sync="this:replace">
+          <details data-collapse="f-category" open><summary>Category</summary>
+            <button type="button" class="btn-text" data-expand-categories="1">Expand all</button><button type="button" class="btn-text" data-expand-categories="0">Collapse all</button>
+            <ul class="facet-list category-tree">{% for node in tree %}{{ category(node) }}{% endfor %}</ul>
+            <a href="{{ view_url(page=page, dialog='categories') }}" hx-get="{{ view_url(page=page, dialog='categories') }}">Add / Edit custom categories</a>
+          </details>
+          <details data-collapse="f-condition" open><summary>Condition</summary><ul class="facet-list">
+            {% for option in facets.conditions %}<li><label title="{{ conditions.get(option.value, '') }}"><input type="checkbox" name="condition" value="{{ option.value }}" {{ 'checked' if option.value in view.conditions else '' }}>{{ option.label }} <span class="count">{{ option.count }}</span></label></li>{% endfor %}
+          </ul><a href="{{ view_url(page=page, dialog='conditions') }}" hx-get="{{ view_url(page=page, dialog='conditions') }}">About conditions</a></details>
+          <details data-collapse="f-location" open><summary>Location</summary><ul class="facet-list">
+            {% for option in facets.locations %}<li><label><input type="checkbox" name="location" value="{{ option.value }}" {{ 'checked' if option.value in view.locations else '' }}>{{ option.label }} <span class="count">{{ option.count }}</span></label></li>{% endfor %}
+          </ul><label><input name="reachable" type="checkbox" value="1" {{ 'checked' if view.reachable else '' }}>Available at {{ pickup }}</label></details>
+          <details data-collapse="f-price" open><summary>Price and ending time</summary>
+            {% for field,label in [('priceMin','Bid min'),('priceMax','Bid max'),('totalMax','Max estimated total'),('retailMin','Min retail')] %}
+            <label class="field">{{ label }}<input type="number" step="any" min="0" name="{{ field }}" value="{{ view[field] if view[field] is not none else '' }}"></label>{% endfor %}
+            <label class="field">Ending<select name="ending">{% for value,label in ending.items() %}<option value="{{ value }}" {{ 'selected' if view.ending == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+          </details>
+          <noscript><button class="btn" type="submit">Apply filters</button></noscript>
+        </form>
+        {{ action('defaults', 'Save category & condition defaults') }}
+      </section>
+      <details class="panel" data-collapse="regex"><summary>Regex filters</summary>
+        <form method="post" action="/ui/regex-add" hx-post="/ui/regex-add"><input type="hidden" name="return" value="{{ url }}"><input name="pattern" aria-label="New regex filter" required><button>Add</button></form>
+        <ul class="filter-list">{% for pattern in settings.filterWords %}<li class="filter-row">
+          <details><summary>{{ pattern }} ({{ result.matchCounts.get(pattern, 0) }})</summary><form method="post" action="/ui/regex-edit" hx-post="/ui/regex-edit"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="old" value="{{ pattern }}"><input name="pattern" value="{{ pattern }}" aria-label="Edit filter regex" data-select required><button>Save</button></form></details>
+          {{ action('regex-delete', 'Remove', extra={'old':pattern}) }}
+        </li>{% endfor %}</ul>
+      </details>
+      <details class="panel" data-collapse="hidden"><summary>Hidden lots ({{ settings.hiddenLots|length }})</summary>
+        <ul>{% for id,lot in settings.hiddenLots.items() %}<li>{% if id in catalog_ids %}<a href="{{ view_url(page=page, lot=id) }}" hx-get="{{ view_url(page=page, lot=id) }}">{{ lot.title }}</a>{% elif hidden_links[id] %}<a href="{{ hidden_links[id] }}" target="_blank" rel="noopener" hx-boost="false">{{ lot.title }}</a>{% else %}{{ lot.title }}{% endif %}{{ action('unhide','Unhide',id) }}</li>{% endfor %}</ul>
+      </details>
+      <details class="panel" data-collapse="settings"><summary>Settings</summary>
+        <form method="post" action="/ui/settings" hx-post="/ui/settings">
+          <input type="hidden" name="return" value="{{ url }}">
+          {% for key,label in [('filterEnabled','Enable regex filters'),('removeFiltered','Remove filtered lots instead of graying out'),('showHidden','Show hidden lots')] %}<label class="switch-row"><input type="checkbox" name="{{ key }}" {{ 'checked' if settings[key] else '' }}>{{ label }}</label>{% endfor %}
+          <label class="field">Pickup location<input name="tlxPickup" list="pickup-options" value="{{ settings.tlxPickup or '' }}" placeholder="{{ (account_pickup or {}).get('name', 'Raleigh') }}"></label>
+          <datalist id="pickup-options">{% for option in facets.locations %}<option>{{ option.value }}</option>{% endfor %}</datalist>
+          <label class="field">Refresh interval (minutes)<input type="number" min="1" step="any" name="tlxSyncMinutes" value="{{ settings.tlxSyncMinutes }}" required></label>
+          <label class="field">Same item when titles share (%)<input type="number" min="50" max="100" name="tlxNameMatch" value="{{ settings.tlxNameMatch }}" required></label>
+          <label class="field">Title lines (0 = unlimited)<input type="number" min="0" max="100" name="tlxTitleLines" value="{{ browser.get('tlxTitleLines', 6) }}" required></label>
+          <button class="btn" type="submit">Save settings</button>
+        </form>
+        {% if authed %}<p>Logged in as {{ account.name or account.email }}</p>{{ action('site-logout', 'Log out') }}{% else %}<a href="{{ view_url(page=page, dialog='login') }}" hx-get="{{ view_url(page=page, dialog='login') }}">Log in</a>{% endif %}
+        {{ action('lock', 'Lock app') }}
+      </details>
+    </aside>
+    <main class="main">
+      {% include 'status.html' %}
+      {% if not authed %}<p class="notice">Not logged in: your bids, standings and watchlist are not shown. <a href="{{ view_url(page=page, dialog='login') }}" hx-get="{{ view_url(page=page, dialog='login') }}">Log in</a> to see them and bid.</p>{% endif %}
+      {% if closed %}
+      <section class="closed">
+        <a href="{{ view_url() }}" hx-get="{{ view_url() }}">Catalog</a><h1>Closed auctions: {{ closed|title }}</h1>
+        <p>{{ plural(closed_rows|length, 'lot') }}{% if closed == 'won' %} · ≈ {{ money(closed_total) }} with fees and tax{% else %} · the site keeps lost lots for 14 days{% endif %}</p>
+        <form action="/tlx" hx-get="/tlx" hx-trigger="input changed delay:200ms"><input type="hidden" name="closed" value="{{ closed }}"><input type="search" id="closed-filter" name="filter" value="{{ closed_filter }}" placeholder="Filter closed lots" aria-label="Filter closed lots"></form>
+        <ol class="closed-list">{% for lot in closed_rows %}
+          <li class="closed-row"><a href="{{ view_url(closed=closed, lot=lot.lot_id, period=lot.auction_period) }}" hx-get="{{ view_url(closed=closed, lot=lot.lot_id, period=lot.auction_period) }}">{% if lot.hero_image %}<img class="closed-img" src="https://cdn.triangleliquidators.com/{{ lot.hero_image }}" loading="lazy" alt="">{% endif %}{{ lot.title }}</a>
+            <span>{{ lot.location_name }} · Lot {{ lot.lot_number }} · {{ money(lot.final_price) }}{% if closed == 'won' %} · ≈ {{ money(total_cost(lot.final_price)) }} total{% endif %}</span>
+            {% if lot.relisted %}<details><summary>{{ plural(lot.relisted|length, 'listing') }} open now</summary><ul>{% for row in lot.relisted %}<li><a href="{{ view_url(lot=row.lot.id) }}" hx-get="{{ view_url(lot=row.lot.id) }}">{{ row.lot.title }} · {{ money(row.total) }} total</a> {{ location(row) }} {{ timeleft(row.lot) }}</li>{% endfor %}</ul></details>{% endif %}
+          </li>{% endfor %}
+        </ol>
+      </section>
+      {% else %}{% include 'results.html' %}{% endif %}
+    </main>
+  </div>
+  <div id="dialogs">{% include 'dialogs.html' %}</div>
+</div>

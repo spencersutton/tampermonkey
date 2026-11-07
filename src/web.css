@@ -1,0 +1,24 @@
+.inline-form { display: inline-flex; gap: .3rem; margin: 0; align-items: center; }
+.notifications { max-width: min(42rem, 90vw); padding: 1rem; border: 1px solid var(--border, #888); border-radius: .5rem; }
+.notifications:empty { display: none; }
+.facet-list { padding-left: 1rem; list-style: none; }
+.facet-list li { margin: .25rem 0; }
+.facet-list label, .my-lots, #type-category fieldset label { display: flex; gap: .4rem; align-items: center; }
+.my-lots { flex-wrap: wrap; margin-bottom: .75rem; }
+.panel > summary, .panel form > details > summary { cursor: pointer; font-weight: 600; padding: .5rem 0; }
+.panel form > details { margin-bottom: .7rem; }
+.panel form input:not([type=checkbox]):not([type=radio]):not([type=hidden]), .panel form select { max-width: 100%; }
+.card-body { padding: .8rem; }
+.card-prices, .card-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.card-img { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; }
+.card-img img { width: 100%; height: 100%; object-fit: contain; }
+.card-title { display: -webkit-box; -webkit-line-clamp: var(--title-lines, 6); -webkit-box-orient: vertical; overflow: hidden; }
+.card-filtered, .card-hidden { opacity: .55; }
+#category-editor .cat-row { display: flex; flex-wrap: wrap; gap: .5rem; padding: .5rem; }
+#category-editor .cat-row .field { flex: 1 1 14rem; }
+#category-editor textarea { width: 100%; }
+#type-category select { width: 100%; }
+.closed-row { display: block; padding: .75rem; }
+.closed-row .closed-img { width: 5rem; height: 4rem; object-fit: contain; }
+.description { white-space: pre-wrap; }
+.htmx-request button[type=submit] { opacity: .65; pointer-events: none; }

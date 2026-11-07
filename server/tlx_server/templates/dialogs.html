@@ -1,0 +1,118 @@
+{% from 'macros.html' import action, location, timeleft, type_actions with context %}
+{% if detail %}
+<dialog class="backdrop" data-dialog="lot-{{ detail.id }}" data-close-url="{{ view_url(page=page, closed=closed or none) }}" aria-labelledby="lot-title">
+  <div class="modal" tabindex="-1" data-lot="{{ detail.id }}">
+    <button class="icon-btn modal-close" type="button" data-close-dialog aria-label="Close">×</button>
+    <div class="modal-grid">
+      <div class="gallery">
+        <div class="gallery-main">{% if detail.images %}<img id="gallery-image" src="https://cdn.triangleliquidators.com/{{ detail.images[0].large }}" alt="">{% else %}<span>No image</span>{% endif %}
+          {% if detail.images|length > 1 %}<button class="icon-btn gal-prev" data-image-step="-1" aria-label="Previous image">‹</button><button class="icon-btn gal-next" data-image-step="1" aria-label="Next image">›</button>{% endif %}
+        </div>
+        <div class="thumbs">{% for image in detail.images %}<button class="{{ 'on' if loop.first else '' }}" data-image="https://cdn.triangleliquidators.com/{{ image.large }}" aria-label="Image {{ loop.index }}"><img src="https://cdn.triangleliquidators.com/{{ image.thumb }}" loading="lazy" alt=""></button>{% endfor %}</div>
+      </div>
+      <div class="modal-info">
+        <h2 id="lot-title">{{ detail.title }}</h2>
+        {% if detail.brand or detail.model %}<p><a href="https://www.google.com/search?{{ {'q': (detail.brand or '') ~ ' ' ~ (detail.model or '')}|urlencode }}" target="_blank" rel="noopener">{{ detail.brand or '' }} {{ detail.model or '' }}</a></p>{% endif %}
+        {% include 'lot-live.html' %}
+        {% if detail.id|string in catalog_ids %}{{ type_actions(detail) }}{% endif %}
+        <div class="row-gap">
+          {% if detail.id|string in catalog_ids and detail.status == 'live' and detail.endsAt > now and not detail_row.hidden and not detail_row.matched %}
+            {% if authed %}
+              {{ action('bid-preview', 'Bid ' ~ money(quick_bid(detail)), detail.id, 'btn', {'type':'next_increment'}) }}
+              <form action="/ui/bid-preview" method="post" hx-post="/ui/bid-preview"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="id" value="{{ detail.id }}"><input type="hidden" name="type" value="max_bid">
+                <label class="field">Your maximum bid<input name="amount" type="number" step="1" min="{{ min_max_bid(detail) }}" required id="max-bid-amount"></label><button class="btn" type="submit">Review max bid</button>
+              </form>
+            {% else %}<a href="{{ view_url(page=page, lot=detail.id, dialog='login') }}" hx-get="{{ view_url(page=page, lot=detail.id, dialog='login') }}">Log in to bid</a>{% endif %}
+          {% else %}<p class="muted">Bidding is disabled for closed, hidden or filtered lots.</p>{% endif %}
+        </div>
+        <div class="row-gap">
+          <a class="btn-text" href="{{ lot_href(detail) }}" target="_blank" rel="noopener" hx-boost="false">Open on Triangle Liquidators</a>
+          {% if detail.id|string in catalog_ids %}
+            {{ action('watch', 'Unwatch' if detail.isWatchlisted else 'Watch', detail.id) }}
+            {{ action('unhide' if detail_row.hidden else 'hide', 'Unhide' if detail_row.hidden else 'Hide', detail.id) }}
+          {% endif %}
+        </div>
+        {% if group|length > 1 %}<h3>Same item ({{ group|length }} listings)</h3><ol class="dupes">{% for row in group %}<li><a href="{{ view_url(page=page, lot=row.lot.id) }}" hx-get="{{ view_url(page=page, lot=row.lot.id) }}">{{ money(row.lot.currentPrice) }} · ≈ {{ money(row.total) }} total</a> {{ location(row) }} {{ timeleft(row.lot) }}</li>{% endfor %}</ol>{% endif %}
+        {% if closes %}<h3>Closed before ({{ closes|length }})</h3><ol class="past">{% for item in closes %}<li><span class="price">{{ money(item.price) if item.sold else 'No sale' }}{{ '*' if not item.final else '' }}</span> {{ item.condition or 'Unknown' }} · {{ item.location or 'Unknown' }} · {{ plural(item.bidCount or 0,'bid') }} <a href="{{ lot_href(item) }}" target="_blank" rel="noopener" hx-boost="false"><time data-date="{{ item.endsAt }}"></time></a></li>{% endfor %}</ol><p class="muted small">* Last price seen; the site no longer has the final price.</p>{% endif %}
+        {% if detail.description %}<div class="description">{{ detail.description }}</div>{% endif %}
+        {% if detail.bidHistory %}<h3>Bid history</h3><ol class="bids">{% for bid in detail.bidHistory %}<li class="{{ 'you' if bid.isYou else '' }}"><span>{{ 'You' if bid.isYou else bid.bidderLabel }}</span><span>{{ money(bid.amount) }}</span></li>{% endfor %}</ol>{% endif %}
+      </div>
+    </div>
+    {% if detail.similar %}<h3>Similar auctions</h3><ol class="similar">{% for lot in detail.similar if lot.id != detail.id and lot.endsAt > now %}<li>{% if lot.id|string in catalog_ids %}<a href="{{ view_url(page=page, lot=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot.id) }}">{{ lot.title }} · {{ money(lot.currentPrice) }}</a>{% else %}<a href="{{ lot_href(lot) }}" target="_blank" rel="noopener" hx-boost="false">{{ lot.title }} · {{ money(lot.currentPrice) }}</a>{% endif %} {{ timeleft(lot) }}</li>{% endfor %}</ol>{% endif %}
+  </div>
+</dialog>
+{% endif %}
+{% if dialog %}
+<dialog class="backdrop" data-dialog="{{ dialog }}" data-close-url="{{ url }}" aria-labelledby="dialog-title">
+  <div class="{{ 'modal cat-editor' if dialog == 'categories' else 'confirm' }}" tabindex="-1">
+    <button class="icon-btn modal-close" data-close-dialog type="button" aria-label="Close">×</button>
+    {% if dialog == 'login' %}
+    <h2 id="dialog-title">Log in to Triangle Liquidators</h2>
+    <form method="post" action="/ui/site-login" hx-post="/ui/site-login" hx-disabled-elt="find button">
+      <input type="hidden" name="return" value="{{ url }}"><label class="field">Email<input type="email" name="email" autocomplete="username" value="{{ account.email or '' }}" required autofocus></label>
+      <label class="field">Password<input type="password" name="password" autocomplete="current-password" required></label><p class="muted small">Your password is sent to the site once and is not stored.</p><button class="btn" type="submit">Log in</button>
+    </form>
+    {% elif dialog == 'conditions' %}
+    <h2 id="dialog-title">About conditions</h2><dl>{% for option in condition_info %}<dt>{{ option.label }}</dt><dd>{{ option.description }}</dd>{% endfor %}</dl>
+    {% elif dialog == 'item-type' %}
+    <h2 id="dialog-title">Change item type</h2>
+    <form method="post" action="/ui/item-type" hx-post="/ui/item-type" hx-disabled-elt="find button">
+      <input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="id" value="{{ type_lot.id }}"><p>{{ type_lot.title }}</p>
+      <label class="field">Item type<input name="itemType" value="{{ type_lot.itemType or '' }}" maxlength="60" list="item-type-options" required autofocus></label>
+      <datalist id="item-type-options">{% for name,count in types %}<option value="{{ name }}">{{ count }} open lots</option>{% endfor %}</datalist>
+      <p class="muted small">Use a short singular name. This changes every listing with the exact same title, including future relistings. Automatic labelling cannot replace it.</p><button class="btn">Save item type</button>
+    </form>
+    {% elif dialog == 'categories' %}
+    <h2 id="dialog-title">Custom categories</h2>
+    <p class="muted small">Categories match exact item types across all locations. Name a category "Parent - Name" to nest it. The alphabetically first match wins. Changes apply on Save.</p>
+    <form id="category-editor" action="/ui/categories" method="post" hx-post="/ui/categories" hx-sync="this:replace" data-dirty-confirm>
+      <input type="hidden" name="return" value="{{ url }}">
+      <ol class="cat-list">
+      {% for category in drafts|sort(attribute='name') %}
+        <li class="cat-row" data-category-row="{{ loop.index0 }}">
+          <input type="hidden" name="cat-key" value="{{ loop.index0 }}"><input type="hidden" name="from-{{ loop.index0 }}" value="{{ category.name }}">
+          <label class="field">Category name<input class="cat-name" name="name-{{ loop.index0 }}" value="{{ category.name }}" required aria-label="Category name"></label>
+          <label class="field">Item types (one per line)<textarea name="types-{{ loop.index0 }}" rows="3" class="cat-types">{{ category.types|join('\n') }}</textarea></label>
+          <input class="type-add" list="category-type-options" placeholder="Add item type" aria-label="Add item type"><button type="button" class="btn-text" data-add-type>Add type</button>
+          <button type="button" class="btn-text" data-remove-category>Delete</button>
+          <button type="button" class="btn-text" data-preview-category="{{ loop.index0 }}">Preview</button>
+        </li>
+      {% endfor %}
+      </ol>
+      <datalist id="category-type-options">{% for name,count in types %}<option value="{{ name }}">{{ count }} open lots</option>{% endfor %}</datalist>
+      <button type="button" class="btn btn-outline" data-add-category>Add category</button>
+      <button type="submit" class="btn">Save</button>
+      <div id="category-preview"></div>
+    </form>
+    <template id="category-row-template"><li class="cat-row" data-category-row=""><input type="hidden" name="cat-key"><input type="hidden" data-name="from">
+      <label class="field">Category name<input class="cat-name" data-name="name" required aria-label="Category name"></label>
+      <label class="field">Item types (one per line)<textarea class="cat-types" data-name="types" rows="3"></textarea></label>
+      <input class="type-add" list="category-type-options" placeholder="Add item type" aria-label="Add item type"><button type="button" class="btn-text" data-add-type>Add type</button>
+      <button type="button" class="btn-text" data-remove-category>Delete</button><button type="button" class="btn-text" data-preview-category="">Preview</button>
+    </li></template>
+    {% elif dialog == 'type-category' %}
+    <h2 id="dialog-title">Make a category of "{{ type_lot.itemType }}"</h2>
+    <form id="type-category" method="post" action="/ui/type-category" hx-post="/ui/type-category" hx-sync="this:replace">
+      <input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="id" value="{{ type_lot.id }}">
+      <label><input type="radio" name="mode" value="new" checked>New category</label><label><input type="radio" name="mode" value="add" {{ 'disabled' if not settings.tlxCustomCategories else '' }}>Add to existing</label>
+      <label class="field">Full category name<input name="name" value="{{ suggested }}"></label>
+      <label class="field">Search existing categories<input type="search" data-category-search></label>
+      <select name="existing" size="5" aria-label="Existing category">{% for category in category_choices %}<option value="{{ category.name }}" {{ 'selected' if category.name == preferred_category else '' }}>{{ category.name }}</option>{% endfor %}</select>
+      <fieldset><legend>Item types</legend><label><input type="checkbox" checked disabled>{{ type_lot.itemType }}</label>{% for name,count in similar_types %}<label><input name="extra" value="{{ name }}" type="checkbox">{{ name }} ({{ count }})</label>{% endfor %}</fieldset>
+      <div id="type-preview"></div><button class="btn" type="submit">Save category</button>
+    </form>
+    {% elif dialog == 'bid' %}
+    <h2 id="dialog-title">{{ 'Confirm max bid' if bid_type == 'max_bid' else 'Confirm bid' }}</h2>
+    <div class="confirm-body"><p class="confirm-lot">{{ bid_row.lot.title }}</p><p class="big">{{ money(bid_amount) }}</p>
+      <p>{{ 'The site bids for you, up to your maximum.' if bid_type == 'max_bid' else 'Bid at the next increment.' }}</p>
+      <dl><dt>Estimated total if won at this amount</dt><dd>{{ money(total_cost(bid_amount,bid_row.transferFee)) }}</dd><dt>Fees</dt><dd>15% premium + $1 lot fee{% if bid_row.transferFee %} + {{ money(bid_row.transferFee) }} transfer{% endif %}, then 7.25% sales tax</dd><dt>Current bid</dt><dd>{{ money(bid_row.lot.currentPrice) }}</dd><dt>Ends</dt><dd>{{ timeleft(bid_row.lot) }}</dd></dl>
+      {% if bid_row.pickupOnly %}<p class="confirm-warn">Pickup only at {{ bid_row.lot.location.name }}. This lot cannot be transferred to {{ pickup }}.</p>{% elif bid_row.transferFee %}<p class="confirm-warn">Transfer to {{ pickup }} costs {{ money(bid_row.transferFee) }} (included above).</p>{% endif %}
+    </div>
+    <form method="post" action="/ui/bid" hx-post="/ui/bid" hx-sync="this:drop" hx-disabled-elt="find button">
+      <input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="nonce" value="{{ nonce }}">
+      <button class="btn btn-outline" type="button" data-close-dialog>Cancel</button><button class="btn" type="submit" autofocus>Place {{ money(bid_amount) }} bid</button>
+    </form>
+    {% endif %}
+  </div>
+</dialog>
+{% endif %}

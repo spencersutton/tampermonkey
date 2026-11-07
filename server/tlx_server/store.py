@@ -8,7 +8,7 @@ A lot is a row of `lots` with its site category, condition and location in
 lookup tables, its images in `lot_images`, its item type joined from
 `item_types` by title, and its most recent past closes in `lot_past_closes`,
 pointing at `closed_lots`. The store hands lots out, and takes them in, as one
-dict each, in the shape the app gets them (Lot in src/app/types.ts).
+dict each, normalized by site.py with numeric epoch-millisecond timestamps.
 
 Every full pull that changes anything gets a new sequence number, and each lot
 row records the sequence of its last change, so a client that has seen
@@ -53,6 +53,7 @@ CREATE INDEX IF NOT EXISTS lot_past_closes_closed ON lot_past_closes (closed_id)
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS browser_views (id TEXT PRIMARY KEY, value TEXT NOT NULL, updated REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS item_types (
   title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0
 );
@@ -169,6 +170,7 @@ class Store:
         self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._lock = threading.Lock()
+        self._account_seq: dict[tuple[int, str], int] = {}
         self._db.executescript(SCHEMA)
         if "manual" not in {row[1] for row in self._db.execute("PRAGMA table_info(item_types)")}:
             self._db.execute("ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0")
@@ -338,12 +340,19 @@ class Store:
         with self._lock:
             return self._load("WHERE l.id = ?", (lot_id,)).get(lot_id)
 
-    def replace_all(self, lots: Iterable[dict[str, Any]], **meta: object) -> int:
+    def replace_all(self, lots: Iterable[dict[str, Any]], *, started_seq: int | None = None, **meta: object) -> int:
         """Store a full pull: changed lots get the next sequence, missing ones move to closed_lots. Returns the sequence."""
         with self._lock:
             old = self._load()
             seq = self._get_int("seq")
             fresh = {lot["id"]: lot for lot in lots}
+            for i, lot in fresh.items():
+                previous = old.get(i)
+                if previous and (previous.get("version") or 0) > (lot.get("version") or 0):
+                    fresh[i] = {**previous, "firstSeenAt": lot.get("firstSeenAt")}
+                if previous and started_seq is not None:
+                    for field in ("yourStanding", "hasBid", "isWatchlisted"):
+                        fresh[i][field] = previous.get(field) if self._account_seq.get((i, field), 0) > started_seq else lot.get(field)
             changed = [lot for i, lot in fresh.items() if old.get(i) != lot]
             gone = old.keys() - fresh.keys()
             back = fresh.keys() - old.keys()  # usually new, but may have been taken for closed
@@ -362,6 +371,13 @@ class Store:
                     )
                     self._set("closedRev", self._get_int("closedRev") + 1)
                 self._set("catalog", asdict(replace(CatalogMeta.from_json(self._get("catalog")), **meta)))
+            for lot in changed:
+                for field in ("yourStanding", "hasBid", "isWatchlisted"):
+                    if lot.get(field) != old.get(lot["id"], {}).get(field):
+                        self._account_seq[lot["id"], field] = seq
+            for lot_id in gone:
+                for field in ("yourStanding", "hasBid", "isWatchlisted"):
+                    self._account_seq.pop((lot_id, field), None)
             return self._get_int("seq")
 
     def changes(self, since: int) -> CatalogChanges:
@@ -385,6 +401,41 @@ class Store:
                     self._set("seq", seq)
             return len(changed)
 
+    def merge_lot(self, lot_id: int, patch: dict[str, Any], *, account: bool = False, since: int | None = None) -> dict[str, Any] | None:
+        """One authoritative merge for live publications, detail reads and mutations."""
+        with self._lock:
+            current = self._load("WHERE l.id = ?", (lot_id,)).get(lot_id)
+            if current is None:
+                return None
+            fields = {k: v for k, v in patch.items() if k in current and k not in ("id", "firstSeenAt", "itemType", "pastCloses")}
+            account_fields = {"yourStanding", "hasBid", "isWatchlisted"}
+            newer = patch.get("version", current.get("version") or 0) >= (current.get("version") or 0)
+            fields = {
+                k: v
+                for k, v in fields.items()
+                if (newer if k not in account_fields else account and (since is None or self._account_seq.get((lot_id, k), 0) <= since))
+            }
+            merged = {**current, **fields}
+            if merged != current:
+                seq = self._get_int("seq") + 1
+                with self._tx():
+                    self._write_lots([merged], seq)
+                    self._set("seq", seq)
+                for field in account_fields:
+                    if merged.get(field) != current.get(field):
+                        self._account_seq[lot_id, field] = seq
+            return merged
+
+    def browser(self, browser_id: str) -> dict[str, Any]:
+        with self._lock:
+            row = self._db.execute("SELECT value FROM browser_views WHERE id = ?", (browser_id,)).fetchone()
+            return json.loads(row[0]) if row else {}
+
+    def save_browser(self, browser_id: str, value: dict[str, Any]) -> None:
+        with self._lock:
+            self._db.execute("DELETE FROM browser_views WHERE updated < ?", (time.time() - 90 * 86400,))
+            self._db.execute("INSERT OR REPLACE INTO browser_views VALUES (?, ?, ?)", (browser_id, dumps(value), time.time()))
+
     # -- closed lots ----------------------------------------------------------
     def closed_rev(self) -> int:
         """Goes up whenever closed_lots changes."""
@@ -392,7 +443,7 @@ class Store:
             return self._get_int("closedRev")
 
     def closed_lots(self) -> list[dict[str, Any]]:
-        """Every closed lot, in the shape the app gets them (see PastClose in src/app/types.ts)."""
+        """Every closed lot, with numeric timestamps for matching and rendering."""
         with self._lock:
             rows = self._db.execute(f"SELECT {CLOSED_COLUMNS} FROM closed_lots").fetchall()
         return [

@@ -1,0 +1,11 @@
+<div id="status" class="statusbar" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <span>{% if status.progress %}Refreshing catalog: {{ status.progress.done }}{% if status.progress.total %} of {{ status.progress.total }}{% endif %}{% elif status.meta.fetchedAt %}{{ result.open }} open lots · refreshed <time data-ago="{{ status.meta.fetchedAt }}"></time>{% else %}No cached catalog yet{% endif %}</span>
+  <span class="live live-{{ live }}">{{ live }}</span>
+  <form class="inline-form" action="/ui/refresh" method="post" hx-post="/ui/refresh" hx-target="#app" hx-swap="outerHTML">
+    <input type="hidden" name="return" value="{{ url }}">
+    <button class="btn-text" type="submit" data-next-pull="{{ status.nextPullAt }}" {{ 'disabled' if status.progress or status.nextPullAt > now else '' }}>Refresh</button>
+  </form>
+  {% if status.progress %}<progress value="{{ status.progress.done }}" {% if status.progress.total %}max="{{ status.progress.total }}"{% endif %}></progress>{% endif %}
+  {% if status.error %}<span class="error">{{ status.error }}</span>{% endif %}
+  {% if status.liveError %}<span class="error">Live updates: {{ status.liveError }}</span>{% endif %}
+</div>

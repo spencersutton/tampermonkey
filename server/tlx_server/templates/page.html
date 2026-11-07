@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TL Catalog">
+  <meta name="theme-color" content="#172b4d">
+  <meta name="htmx-config" content='{"selfRequestsOnly":true,"allowEval":false,"includeIndicatorStyles":false,"historyCacheSize":0}'>
+  <link rel="icon" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>{{ '(' ~ total_new ~ ') ' if total_new else '' }}TL Catalog</title>
+  {% for css in styles %}<link rel="stylesheet" href="/{{ css }}">{% endfor %}
+  <script type="module" src="/{{ script }}"></script>
+</head>
+<body hx-headers='{"X-TLX-Client":"1"}' hx-history="false">
+  {% if locked %}
+  <main class="lock-page">
+    <form class="confirm login-form" method="post" action="/ui/unlock" hx-post="/ui/unlock" hx-target="body">
+      <h1>TL Catalog</h1>
+      <p>Enter the password this server was started with.</p>
+      <label class="field">Password<input type="password" name="password" autocomplete="current-password" required autofocus></label>
+      <div id="notifications" popover="manual" role="alert"></div>
+      <button class="btn" type="submit">Unlock</button>
+    </form>
+  </main>
+  {% else %}{% include 'app.html' %}{% endif %}
+  <div id="live-sink" hidden></div>
+  <span id="live-meta" hidden></span>
+</body>
+</html>

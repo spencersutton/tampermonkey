@@ -1,0 +1,74 @@
+{% macro action(path, label, id='', cls='btn-text', extra={}) -%}
+<form class="inline-form" action="/ui/{{ path }}" method="post" hx-post="/ui/{{ path }}" hx-target="#app" hx-swap="outerHTML" hx-disabled-elt="find button" {% if path == 'defaults' %}hx-include="#filters"{% endif %}>
+  <input type="hidden" name="return" value="{{ url }}">
+  {% if id != '' %}<input type="hidden" name="id" value="{{ id }}">{% endif %}
+  {% for key,value in extra.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+  <button type="submit" class="{{ cls }}">{{ label }}</button>
+</form>
+{%- endmacro %}
+
+{% macro timeleft(lot) -%}
+<time data-ends="{{ lot.endsAt }}" datetime="" title="" class="time-left">{{ 'Closed' if lot.endsAt <= now else 'Ending soon' }}</time>
+{%- endmacro %}
+
+{% macro location(row) -%}
+<span>{{ (row.lot.location or {}).get('name', 'Unknown location') }}</span>
+{% if row.pickupOnly %}<span class="pill">Pickup only</span>{% elif row.transferFee %}<span class="muted small">+{{ money(row.transferFee) }} transfer to {{ pickup }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro standing(lot) -%}
+{% if lot.yourStanding %}<span class="pill {{ 'pill-good' if is_leading(lot) else 'pill-bad' }}">{{ 'Winning' if is_leading(lot) else 'Outbid' }}{% if lot.yourStanding.yourMaxBid is not none %} · max {{ money(lot.yourStanding.yourMaxBid) }}{% endif %}</span>{% elif lot.hasBid %}<span class="pill">Bid on</span>{% endif %}
+{%- endmacro %}
+
+{% macro type_actions(lot) -%}
+<div class="item-type-row">
+{% if lot.itemType %}<a class="item-type" href="{{ view_url(page=page, lot=lot_id, dialog='type-category', id=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot_id, dialog='type-category', id=lot.id) }}">+ {{ lot.itemType }}</a>{% endif %}
+<a class="btn-text" href="{{ view_url(page=page, lot=lot_id, dialog='item-type', id=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot_id, dialog='item-type', id=lot.id) }}">{{ 'Edit type' if lot.itemType else 'Set item type' }}</a>
+</div>
+{%- endmacro %}
+
+{% macro card(row) -%}
+{% set lot = row.lot %}
+<article class="card {{ 'card-hidden' if row.hidden else '' }} {{ 'card-filtered' if row.matched else '' }}" data-lot="{{ lot.id }}">
+  <a class="card-img" href="{{ view_url(page=page, lot=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot.id) }}">
+    {% if lot.images %}<img src="https://cdn.triangleliquidators.com/{{ lot.images[0].card }}" loading="lazy" alt="">{% else %}<span class="noimg">No image</span>{% endif %}
+    {% if since is not none and (lot.firstSeenAt or 0) > since %}<span class="pill pill-new">New</span>{% endif %}
+    {% if row.others %}<span class="pill">+{{ row.others|length }} more</span>{% endif %}
+  </a>
+  <div class="card-body">
+    <a class="card-title" style="--title-lines:{{ browser.get('tlxTitleLines', 6) }}" href="{{ view_url(page=page, lot=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot.id) }}">{{ lot.title }}</a>
+    <div class="card-meta">{{ location(row) }}{% if lot.condition %}<span title="{{ conditions.get(lot.condition.value, '') }}">{{ lot.condition.label }}</span>{% endif %}{% if row.category %}<span>{{ row.category.label }}</span>{% endif %}</div>
+    {{ type_actions(lot) }}
+    <div class="card-prices"><span class="price">{{ money(lot.currentPrice) }}</span><span class="total">≈ {{ money(row.total) }} total</span></div>
+    <div class="card-meta">{% if lot.estimatedRetailPrice %}<span>Retail {{ money(lot.estimatedRetailPrice) }} · {{ (row.retailPct * 100)|round|int }}%</span>{% endif %}<span>{{ plural(lot.bidCount or 0, 'bid') }}</span>{{ timeleft(lot) }}</div>
+    {% set past = past_price(lot) %}{% if past %}<p class="muted small" title="Recent sales{{ ' in the same condition' if past.same else '' }}">Sold before for {{ money(past.median) }} (median of {{ past.n }})</p>{% endif %}
+    {{ standing(lot) }}
+    {% if row.matched %}<p class="muted small">Filtered: {{ row.matched }}</p>{% endif %}
+    <div class="card-actions">
+      {{ action('unhide' if row.hidden else 'hide', 'Unhide' if row.hidden else 'Hide', lot.id) }}
+      {{ action('watch', 'Unwatch' if lot.isWatchlisted else 'Watch', lot.id) }}
+      {% if not row.hidden and not row.matched and lot.status == 'live' and authed %}
+        {{ action('bid-preview', 'Bid ' ~ money(quick_bid(lot)), lot.id, 'btn btn-small', {'type':'next_increment'}) }}
+      {% endif %}
+    </div>
+  </div>
+</article>
+{%- endmacro %}
+
+{% macro category(node) -%}
+<li>
+  {% if node.children %}<details data-collapse="category-{{ node.value }}" open><summary>
+    <input type="checkbox" data-branch="{{ node['values']|tojson|forceescape }}" aria-label="Select {{ node.label }}" {{ 'checked' if node['values'] and node['values']|select('in', view.categories)|list|length == node['values']|length else '' }}>
+    {{ node.label }} <span class="count">{{ node.count }}</span>
+    <button class="btn-text" type="button" data-only="{{ node['values']|tojson|forceescape }}" title="Show only {{ node.label }}" aria-label="Show only {{ node.label }}">⊙</button>
+  </summary><ul class="facet-list">
+    <li><label><input type="checkbox" name="category" value="{{ node.value }}" {{ 'checked' if node.value in view.categories else '' }}>Other <span class="count">{{ node.ownCount }}</span></label>
+      <button class="btn-text" type="button" data-only="{{ [node.value]|tojson|forceescape }}" title="Show only {{ node.label }} - Other" aria-label="Show only {{ node.label }} - Other">⊙</button></li>
+    {% for child in node.children %}{{ category(child) }}{% endfor %}
+  </ul></details>
+  {% else %}
+  <label><input type="checkbox" name="category" value="{{ node.value }}" {{ 'checked' if node.value in view.categories else '' }}>{{ node.label }} <span class="count">{{ node.count }}</span></label>
+  <button class="btn-text" type="button" data-only="{{ [node.value]|tojson|forceescape }}" title="Show only {{ node.label }}" aria-label="Show only {{ node.label }}">⊙</button>
+  {% endif %}
+</li>
+{%- endmacro %}

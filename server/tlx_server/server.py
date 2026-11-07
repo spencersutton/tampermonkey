@@ -1,15 +1,9 @@
-"""HTTP side: serves the /tlx web app and everything it talks to.
+"""Authenticated HTML pages, HTMX form actions, and server-sent invalidations.
 
-The app is a Preact UI built for the browser (`npm run build` puts it in
-static/), so it runs on a phone too.
-It can't talk to the site directly: the site's API sends no CORS headers and
-its websocket only accepts its own Origin. So this server stands in for the
-site:
-
-  /backend/v1/...  the site's JSON API, with the server's login token added
-                   (refreshed and retried once on a 401, like the site's client)
-  /ws              the site's live-updates websocket, relayed byte for byte
-                   with the Origin swapped for the site's
+  /tlx             full HTML or an HTMX fragment for the current URL
+  /ui/...          validated form actions; every bid needs a one-use confirmation
+  /events          authenticated SSE invalidations; reconnects fetch fresh HTML
+  /backend/v1/...   compatibility proxy for the site's API
   /api/...         this server's own endpoints:
     GET  /api/me                login state (this app's and the site's)
     POST /api/app-login         {"password"}; sets the session cookie
@@ -29,22 +23,21 @@ except the app's static files needs this app's own password (a session
 cookie, SameSite=Strict) once one is set, and one must be set to listen
 anywhere but loopback. State-changing requests also need an `X-TLX-Client`
 header, which another site can't add without a CORS preflight that's never
-answered; websocket upgrades must come from this server's own Origin.
+answered. Ordinary HTML forms must carry this server's exact Origin.
 Without a password, the Host header must be a local name (stops DNS
 rebinding).
 """
 
 from __future__ import annotations
 
-import contextlib
 import gzip
+import hashlib
 import hmac
 import json
 import logging
 import mimetypes
 import re
 import secrets
-import socket
 import sqlite3
 import ssl
 import threading
@@ -60,17 +53,19 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
+from .gateway import Gateway
 from .history import HISTORY_LIMIT, NAME_MATCH_KEY
 from .itemtypes import MAX_TYPE_LENGTH, clean_type
+from .live import Live
 from .session import SiteSession
-from .site import SITE, TIMEOUT, USER_AGENT, normalize_detail, now_ms
+from .site import SITE, TIMEOUT, USER_AGENT, ApiError, normalize_detail, now_ms
 from .store import Store, dumps
+from .ui import LOCAL_KEYS, UI
+from .views import view_from_query
 
 log = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
-WS_HOST = "ws.triangleliquidators.com"
-WS_PATH = "/connection/websocket"
 MAX_BODY = 4 * 1024 * 1024
 SETTING_KEY = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -79,7 +74,6 @@ SESSION_MAX_AGE = 90 * 24 * 3600
 # Request headers passed through to the site's API (the rest are dropped).
 LOT_DETAIL_PATH = re.compile(r"/backend/v1/auctions/lots/[^/]+/\d+/")  # a lot detail the proxy keeps (store.lot_details)
 PROXY_HEADERS = ("Accept", "Content-Type", "X-CSRF-Protection", "X-Bid-Surface", "X-Bid-Type")
-WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol")
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -100,6 +94,11 @@ class Api:
         self.password = password
         self.hosts = LOCAL_HOSTS | {h.lower().strip("[]") for h in hosts}
         self.tls = tls
+        self.gateway = Gateway(store, session)
+        self.live = Live(store, self.gateway)
+        self.ui = UI(self, self.gateway)
+        self.stream_id = secrets.token_hex(8)
+        self.stopped = threading.Event()
 
     def status(self) -> dict[str, Any]:
         meta = self.store.meta()
@@ -110,6 +109,7 @@ class Api:
             "nextPullAt": self.catalog.next_pull_at(meta),
             "progress": {"done": p.done, "total": p.total} if p else None,
             "error": self.catalog.error,
+            "liveError": self.live.error,
         }
 
 
@@ -151,7 +151,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             self._send(status, dumps(obj), headers=headers)
 
         def _error(self, status: HTTPStatus, message: str) -> None:
-            self._json(status, {"error": message})
+            self.close_connection = True
+            self._json(status, {"error": message}, {"Connection": "close"})
 
         def _body(self) -> bytes:
             n = int(self.headers.get("Content-Length") or 0)
@@ -202,8 +203,15 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not api.password and self._host() not in api.hosts:
                 self._error(HTTPStatus.FORBIDDEN, f"Host {self._host()!r} not allowed (use --allow-host, or set a password)")
                 return False
-            public = path in ("/api/me", "/api/app-login", "/api/health") or not path.startswith(("/api/", "/backend/", "/ws"))
-            if method not in ("GET", "HEAD") and not self.headers.get("X-TLX-Client"):
+            public = path in ("/api/me", "/api/app-login", "/api/health", "/ui/unlock") or not path.startswith((
+                "/api/",
+                "/backend/",
+                "/ui/",
+                "/events",
+            ))
+            origin = f"{'https' if self._secure() else 'http'}://{self.headers.get('Host', '')}"
+            same_origin_form = path.startswith("/ui/") and self.headers.get("Origin") == origin
+            if method not in ("GET", "HEAD") and not self.headers.get("X-TLX-Client") and not same_origin_form:
                 self._error(HTTPStatus.FORBIDDEN, "Missing X-TLX-Client header")
                 return False
             if not public and not self._unlocked():
@@ -217,8 +225,12 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not self._guard(method, path):
                 return
             try:
-                if path == "/ws" and self.headers.get("Upgrade", "").lower() == "websocket":
-                    self._relay_ws()
+                if path == "/events" and method == "GET":
+                    self._events()
+                elif path in ("/", "/tlx", "/tlx/") and method in ("GET", "HEAD"):
+                    self._html(parse_qs(url.query))
+                elif path.startswith("/ui/") and method == "POST":
+                    self._ui_action(path.removeprefix("/ui/"))
                 elif path.startswith("/backend/v1/") and ".." not in path.split("/"):
                     self._proxy(method)
                 elif path.startswith("/api/"):
@@ -227,7 +239,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                     self._static(path)
                 else:
                     self._error(HTTPStatus.NOT_FOUND, "Not found")
-            except (ValueError, KeyError) as e:
+            except (ValueError, KeyError, TypeError) as e:
                 self._error(HTTPStatus.BAD_REQUEST, str(e))
 
         # -- this server's API ------------------------------------------------
@@ -237,6 +249,20 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 self._json(HTTPStatus.OK, {"ok": True, "version": __version__})
             elif route == ("GET", "/api/me"):
                 self._json(HTTPStatus.OK, self._me())
+            elif route == ("POST", "/api/activity"):
+                data = self._json_body()
+                active = data.get("active") is True
+                api.live.watch(str(data.get("tab", "")), data.get("ids", []), active)
+                api.catalog.heartbeat(active)
+                self._json(HTTPStatus.OK, {"ok": True})
+            elif route == ("POST", "/api/import"):
+                self._import_browser()
+            elif route == ("POST", "/api/visit"):
+                self._json_body()
+                browser_id, browser, cookie = self._browser()
+                api.ui.visit(browser, api.ui.settings())
+                api.store.save_browser(browser_id, browser)
+                self._json(200, {"ok": True}, {"Set-Cookie": cookie})
             elif route == ("POST", "/api/app-login"):
                 self._app_login()
             elif route == ("POST", "/api/app-logout"):
@@ -247,10 +273,12 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 d = self._json_body()
                 error = api.session.login(str(d.get("email", "")).strip(), str(d.get("password", "")))
                 if not error:
+                    api.live.reconnect()
                     api.catalog.request_pull()  # pick up your standings and watchlist when allowed
                 self._json(HTTPStatus.OK, {"error": error, **self._me()})
             elif route == ("POST", "/api/site-logout"):
                 api.session.logout()
+                api.live.reconnect()
                 self._json(HTTPStatus.OK, self._me())
             elif route == ("GET", "/api/catalog"):
                 self._catalog(self._since(query))
@@ -365,64 +393,208 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if method == "GET" and status == HTTPStatus.OK and LOT_DETAIL_PATH.fullmatch(urlsplit(self.path).path):
                 try:
                     api.store.save_lot_detail(normalize_detail(json.loads(data)))
-                except (ValueError, KeyError, TypeError, AttributeError, sqlite3.Error):
+                except ValueError, KeyError, TypeError, AttributeError, sqlite3.Error:
                     log.warning("couldn't keep the detail of %s", self.path, exc_info=True)
 
-        def _relay_ws(self) -> None:
-            """Relay the site's websocket: our handshake goes upstream with the site's Origin, then bytes flow both ways."""
-            origin = self.headers.get("Origin")
-            if origin and urlsplit(origin).netloc.lower() != (self.headers.get("Host") or "").lower():
-                self._error(HTTPStatus.FORBIDDEN, "Cross-origin websocket")
-                return
-            try:
-                raw = socket.create_connection((WS_HOST, 443), timeout=15)
-                upstream = ssl.create_default_context().wrap_socket(raw, server_hostname=WS_HOST)
-                lines = [
-                    f"GET {WS_PATH} HTTP/1.1",
-                    f"Host: {WS_HOST}",
-                    "Upgrade: websocket",
-                    "Connection: Upgrade",
-                    f"Origin: {SITE}",
-                    f"User-Agent: {USER_AGENT}",
-                ]
-                lines += [f"{h}: {v}" for h in WS_HEADERS if (v := self.headers.get(h))]
-                upstream.sendall(("\r\n".join(lines) + "\r\n\r\n").encode())
-                head = b""
-                while b"\r\n\r\n" not in head:
-                    chunk = upstream.recv(4096)
-                    if not chunk or len(head) > 65536:
-                        raise OSError("bad handshake reply")
-                    head += chunk
-            except OSError as e:
-                self._error(HTTPStatus.BAD_GATEWAY, f"Couldn’t reach the live-updates server: {e}")
-                return
-            self.close_connection = True
-            self.connection.sendall(head)  # the 101 (its accept key depends only on the client's key) and any first frames
-            if not head.startswith(b"HTTP/1.1 101"):
-                upstream.close()
-                return
-            upstream.settimeout(None)
-
-            def up() -> None:
-                try:
-                    while chunk := self.rfile.read1(65536):
-                        upstream.sendall(chunk)
-                except OSError:
-                    pass
-                finally:
-                    _shutdown(upstream)
-
-            threading.Thread(target=up, name="ws-up", daemon=True).start()
-            try:
-                while chunk := upstream.recv(65536):
-                    self.connection.sendall(chunk)
-            except OSError:
-                pass
-            finally:
-                _shutdown(self.connection)
-                upstream.close()
-
         # -- the app itself -------------------------------------------------
+
+        def _browser(self) -> tuple[str, dict[str, Any], str]:
+            cookies = SimpleCookie()
+            try:
+                cookies.load(self.headers.get("Cookie", ""))
+            except CookieError:
+                cookies = SimpleCookie()
+            raw = cookies.get("tlx_browser")
+            browser_id = raw.value if raw and re.fullmatch(r"[A-Za-z0-9_-]{32,64}", raw.value) else secrets.token_urlsafe(32)
+            secure = "; Secure" if self._secure() else ""
+            cookie = f"tlx_browser={browser_id}; Path=/; Max-Age={SESSION_MAX_AGE}; HttpOnly; SameSite=Strict{secure}"
+            return browser_id, api.store.browser(browser_id), cookie
+
+        def _assets(self) -> dict[str, Any]:
+            manifest = STATIC_DIR / ".vite" / "manifest.json"
+            if not manifest.is_file():
+                raise ValueError("Build the web assets first: npm install && npm run build")
+            entries = [entry for entry in json.loads(manifest.read_text()).values() if entry.get("isEntry")]
+            if len(entries) != 1:
+                raise ValueError("Expected one web asset entry")
+            return {"script": entries[0]["file"], "styles": entries[0].get("css", [])}
+
+        def _html(self, query: dict[str, list[str]], message: str = "") -> None:
+            browser_id, browser, cookie = self._browser()
+            if not self._unlocked():
+                self._send(200, api.ui.render("page.html", {"locked": True, **self._assets()}), "text/html; charset=utf-8")
+                return
+            fragment = self.headers.get("HX-Request") == "true" and self.headers.get("HX-History-Restore-Request") != "true"
+            if (
+                self.headers.get("HX-Request") != "true"
+                and self.headers.get("HX-History-Restore-Request") != "true"
+                and self.command != "HEAD"
+            ):
+                api.ui.visit(browser, api.ui.settings())
+            context = api.ui.context(query, browser)
+            context.update(oob=False, message=message, locked=False)
+            if self.headers.get("X-TLX-Live") != "1":
+                api.store.save_browser(browser_id, browser)
+            headers = {"Set-Cookie": cookie, "Vary": "HX-Request, HX-History-Restore-Request, X-TLX-Live, X-TLX-More"}
+            if self.headers.get("X-TLX-Live") == "1":
+                template = "live.html"
+            elif self.headers.get("X-TLX-More") == "1":
+                template = "results.html"
+                headers["HX-Replace-Url"] = context["url"]
+            elif fragment:
+                template = "app.html"
+                previous = parse_qs(urlsplit(self.headers.get("HX-Current-URL", "")).query)
+                previous_view = view_from_query(previous)
+                changed_search = previous_view["search"] != context["view"]["search"]
+                same_rest = (
+                    {k: v for k, v in previous_view.items() if k != "search"} == {k: v for k, v in context["view"].items() if k != "search"}
+                    and previous.get("closed") == query.get("closed")
+                    and previous.get("lot") == query.get("lot")
+                    and int(previous.get("page", ["1"])[0]) == context["page"]
+                )
+                replacing = (
+                    bool(previous.get("lot") and query.get("lot"))
+                    or (changed_search and same_rest and browser.get("searchEntry"))
+                    or (not changed_search and same_rest)
+                    or self.headers.get("X-TLX-Init") == "1"
+                )
+                headers["HX-Replace-Url" if replacing else "HX-Push-Url"] = context["url"]
+                if query.get("dialog"):
+                    headers.pop("HX-Replace-Url", None)
+                    headers["HX-Push-Url"] = "false"
+                browser["searchEntry"] = changed_search and same_rest
+                api.store.save_browser(browser_id, browser)
+            else:
+                template = "page.html"
+                context.update(self._assets())
+            self._send(200, api.ui.render(template, context), "text/html; charset=utf-8", headers)
+
+        def _ui_action(self, action: str) -> None:
+            data = parse_qs(self._body().decode(), keep_blank_values=True)
+            if action == "unlock":
+                given = data.get("password", [""])[0]
+                if api.password and not hmac.compare_digest(given.encode(), api.password.encode()):
+                    time.sleep(1)
+                    self._send(
+                        401,
+                        '<p class="error" role="alert">Wrong password.</p>',
+                        "text/html; charset=utf-8",
+                        {"HX-Retarget": "#notifications"},
+                    )
+                    return
+                sid = secrets.token_urlsafe(32)
+                api.store.add_session(sid)
+                self._send(
+                    200 if self.headers.get("HX-Request") == "true" else 303,
+                    "",
+                    headers={"Set-Cookie": self._cookie(sid, SESSION_MAX_AGE), "Location": "/tlx", "HX-Redirect": "/tlx"},
+                )
+                return
+            if action == "lock":
+                if sid := self._session_id():
+                    api.store.drop_session(sid)
+                self._send(
+                    200 if self.headers.get("HX-Request") == "true" else 303,
+                    "",
+                    headers={"Set-Cookie": self._cookie("", 0), "HX-Redirect": "/tlx", "Location": "/tlx"},
+                )
+                return
+            browser_id, browser, cookie = self._browser()
+            try:
+                if action == "bid-preview":
+                    context = api.ui.bid_preview(data, browser, browser_id)
+                    context.update(oob=False, message="")
+                    self._send(200, api.ui.render("app.html", context), "text/html; charset=utf-8", {"Set-Cookie": cookie})
+                    return
+                if action in ("categories-preview", "type-preview"):
+                    context = api.ui.preview(action, data, browser)
+                    self._send(200, api.ui.render("preview.html", context), "text/html; charset=utf-8")
+                    return
+                url, message = api.ui.action(action, data, browser, browser_id)
+                api.store.save_browser(browser_id, browser)
+                if self.headers.get("HX-Request") != "true":
+                    self._send(303, "", headers={"Location": url, "Set-Cookie": cookie})
+                    return
+                context = api.ui.context(parse_qs(urlsplit(url).query), browser)
+                context.update(oob=False, message=message)
+                self._send(
+                    200,
+                    api.ui.render("app.html", context),
+                    "text/html; charset=utf-8",
+                    {"HX-Push-Url" if action in ("clear", "search-open") else "HX-Replace-Url": url, "Set-Cookie": cookie},
+                )
+            except (ApiError, ValueError, KeyError, TypeError) as error:
+                from html import escape
+
+                self._send(
+                    400,
+                    f'<p class="error" role="alert">{escape(str(error))}</p>',
+                    "text/html; charset=utf-8",
+                    {"HX-Retarget": "#notifications", "HX-Reswap": "innerHTML"},
+                )
+
+        def _import_browser(self) -> None:
+            from zoneinfo import ZoneInfo
+
+            data = self._json_body()
+            values = data.get("values", {})
+            if not isinstance(values, dict):
+                raise TypeError("Expected a settings object")
+            timezone = data.get("timezone", "America/New_York")
+            if not isinstance(timezone, str):
+                raise TypeError("Invalid timezone")
+            ZoneInfo(timezone)
+            browser_id, browser, cookie = self._browser()
+            if not browser.get("imported"):
+                stored = api.store.settings()[1]
+                for key, value in values.items():
+                    if key in LOCAL_KEYS and not (key == "tlxView" and data.get("shared")):
+                        browser[key] = value
+                    elif key in api.ui.settings() and key not in stored:
+                        api.store.put_setting(key, value)
+                browser["imported"] = True
+            browser["timezone"] = timezone
+            api.store.save_browser(browser_id, browser)
+            self._json(200, {"ok": True}, {"Set-Cookie": cookie})
+
+        def _events(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Accel-Buffering", "no")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            last, heartbeat = "", 0.0
+            try:
+                while not api.stopped.is_set():
+                    if not self._unlocked():
+                        self.wfile.write(b"event: locked\ndata: {}\n\n")
+                        self.wfile.flush()
+                        return
+                    status = api.status()
+                    state = [
+                        api.store.seq(),
+                        api.store.settings()[0],
+                        status["progress"],
+                        status["error"],
+                        status["meta"],
+                        api.live.state,
+                        api.session.status(),
+                        now_ms() // 30_000,
+                    ]
+                    revision = api.stream_id + "-" + hashlib.sha256(dumps(state).encode()).hexdigest()[:20]
+                    if revision != last:
+                        self.wfile.write(f"id: {revision}\nevent: refresh\ndata: {{}}\n\n".encode())
+                        last = revision
+                    elif time.monotonic() - heartbeat > 15:
+                        self.wfile.write(b": heartbeat\n\n")
+                        heartbeat = time.monotonic()
+                    self.wfile.flush()
+                    api.stopped.wait(1)
+            except BrokenPipeError, ConnectionResetError, TimeoutError:
+                log.debug("Browser event stream disconnected")
 
         def _static(self, path: str) -> None:
             name = "index.html" if path in ("/", "/tlx", "/tlx/") else path.lstrip("/")
@@ -455,16 +627,12 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-def _shutdown(sock: socket.socket) -> None:
-    with contextlib.suppress(OSError):
-        sock.shutdown(socket.SHUT_RDWR)
-
-
 def serve(api: Api, host: str, port: int, cert: Path | None = None, key: Path | None = None) -> None:
     mimetypes.add_type("application/manifest+json", ".webmanifest")
     mimetypes.add_type("image/svg+xml", ".svg")
-    if not (STATIC_DIR / "index.html").is_file():
-        log.warning("the web app isn't built (%s is missing): run `npm install && npm run build` in the repo root", STATIC_DIR)
+    if not (STATIC_DIR / ".vite" / "manifest.json").is_file():
+        log.warning("web assets are not built: run `npm install && npm run build` in the repo root")
+    api.live.start()
     httpd = ThreadingHTTPServer((host, port), make_handler(api))
     httpd.daemon_threads = True
     if cert:
@@ -473,4 +641,9 @@ def serve(api: Api, host: str, port: int, cert: Path | None = None, key: Path | 
         # Handshake in the request thread, so a stalled client can't block accept().
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True, do_handshake_on_connect=False)
     log.info("serving the app on %s://%s:%d/", "https" if cert else "http", host if ":" not in host else f"[{host}]", port)
-    httpd.serve_forever()
+    try:
+        httpd.serve_forever()
+    finally:
+        api.stopped.set()
+        api.live.stop()
+        httpd.server_close()

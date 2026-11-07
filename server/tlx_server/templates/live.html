@@ -1,0 +1,6 @@
+{% set oob = true %}
+{% if not closed %}{% include 'results.html' %}{% endif %}
+{% include 'status.html' %}
+{% if detail %}{% include 'lot-live.html' %}{% endif %}
+{% for id,stat in stats.items() %}<span id="saved-{{ id }}" class="count" hx-swap-oob="outerHTML">{{ stat.total }} / {{ stat.fresh }} new</span>{% endfor %}
+<span id="live-meta" hidden hx-swap-oob="outerHTML" data-total-new="{{ total_new }}" data-server-now="{{ now }}"></span>

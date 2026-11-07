@@ -12,8 +12,8 @@ Each open lot gets `pastCloses`: how many closed lots match its name and the
 most recent few of them, so a card can show what the item usually goes for.
 GET /api/history?id=N lists every match for the lot popup.
 
-Names match fuzzily, by `names_match`, which src/shared/names.ts mirrors for
-combining duplicate listings in the app. How fuzzy is the synced
+Names match fuzzily, by `names_match`, also used by views.py for combining
+duplicate listings. How fuzzy is the synced
 `tlxNameMatch` setting: the share of words two titles must have in common,
 100 meaning the same words (ignoring case, punctuation and word order).
 """
@@ -34,7 +34,7 @@ from .store import Store
 
 log = logging.getLogger(__name__)
 
-NAME_MATCH_KEY = "tlxNameMatch"  # same key as src/shared/keys.ts
+NAME_MATCH_KEY = "tlxNameMatch"
 DEFAULT_NAME_MATCH = 90
 MIN_NAME_MATCH = 50
 RECENT = 8  # closes attached to each lot

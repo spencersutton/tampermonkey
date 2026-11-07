@@ -3,7 +3,11 @@ name = "tlx-server"
 version = "1.0.0"
 description = "Catalog server for the server build of the Triangle Liquidators /tlx userscript"
 requires-python = ">=3.15"
-dependencies = []
+dependencies = [
+    "jinja2>=3.1.6,<4",
+    "regex>=2025.9.18",
+    "websocket-client>=1.8,<2",
+]
 
 [project.scripts]
 tlx-server = "tlx_server.__main__:main"

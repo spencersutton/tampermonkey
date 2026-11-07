@@ -1,0 +1,7 @@
+{% from 'macros.html' import location, timeleft, standing with context %}
+<div id="lot-live" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  <div class="card-meta">{{ location(detail_row) }}{% if detail.condition %}<span title="{{ conditions.get(detail.condition.value, '') }}">{{ detail.condition.label }}</span>{% endif %}{% if detail_row.category %}<span>{{ detail_row.category.label }}</span>{% endif %} · Lot {{ detail.lotNumber }}</div>
+  <div class="modal-price"><span class="price big">{{ money(detail.currentPrice) }}</span><span class="total big">≈ {{ money(detail_row.total) }} total</span>{{ timeleft(detail) }}</div>
+  <p>{{ plural(detail.bidCount or 0, 'bid') }} · Next minimum {{ money(quick_bid(detail)) }}{% if detail.estimatedRetailPrice %} · Retail {{ money(detail.estimatedRetailPrice) }}{% endif %}</p>
+  {{ standing(detail) }}
+</div>

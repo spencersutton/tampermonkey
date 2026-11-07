@@ -1,7 +1,7 @@
 """Client for triangleliquidators.com's JSON API (the same endpoints /tlx uses).
 
-`normalize_lot` mirrors `normalizeLot` in src/app/api.ts, so the server hands
-the app lots in exactly the shape it already works with.
+All timestamps are epoch milliseconds. Templates and live reconciliation use
+this one normalized lot shape.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ def token_expiry(token: str | None) -> float | None:
     try:
         part = token.split(".")[1]
         claims = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
-    except (IndexError, ValueError):
+    except IndexError, ValueError:
         return None
     exp = claims.get("exp")
     return float(exp) if isinstance(exp, (int, float)) else None
@@ -94,7 +94,7 @@ def normalize_standing(s: object) -> Raw | None:
 
 
 def normalize_lot(r: Raw) -> Raw:
-    """A raw API lot (snake_case) as a Lot (see src/app/types.ts)."""
+    """A raw API lot (snake_case) in the server's normalized shape."""
     cat, cond, loc = r.get("category"), r.get("condition"), r.get("location")
     images = sorted(r.get("images") or [], key=lambda i: _num(i.get("position")))
     return {
@@ -122,7 +122,7 @@ def normalize_lot(r: Raw) -> Raw:
 
 
 def normalize_detail(r: Raw) -> Raw:
-    """A raw API lot detail as a LotDetail (mirrors fetchLotDetail in src/app/api.ts, less the `similar` lots)."""
+    """Normalize detail fields; Gateway adds similar lots and reconciles live fields."""
     return {
         **normalize_lot(r),
         "description": str(r.get("description") or ""),

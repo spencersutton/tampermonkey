@@ -37,7 +37,7 @@ DEFAULT_SYNC_MINUTES = 5
 MIN_SYNC_MINUTES = 1
 ACTIVE_WINDOW_MS = 10 * MINUTE_MS  # pull only if a tab was in use this recently
 CHECK_EVERY = 15  # seconds between checks whether a pull is due
-SYNC_MINUTES_KEY = "tlxSyncMinutes"  # same key as src/shared/keys.ts
+SYNC_MINUTES_KEY = "tlxSyncMinutes"
 ACCOUNT_FIELDS = ("yourStanding", "isWatchlisted", "hasBid")
 
 
@@ -75,10 +75,10 @@ class Catalog:
         m = m if isinstance(m, (int, float)) and not isinstance(m, bool) else DEFAULT_SYNC_MINUTES
         return max(MIN_SYNC_MINUTES, m) * MINUTE_MS
 
-    def next_pull_at(self, meta: CatalogMeta | None = None) -> float:
+    def next_pull_at(self, meta: CatalogMeta | None = None) -> int:
         """Epoch ms when the next full pull is allowed."""
         meta = meta or self.store.meta()
-        return 0 if meta.pullStartedAt is None else meta.pullStartedAt + self.interval_ms()
+        return 0 if meta.pullStartedAt is None else round(meta.pullStartedAt + self.interval_ms())
 
     def due(self) -> bool:
         return now_ms() >= self.next_pull_at()
@@ -118,6 +118,7 @@ class Catalog:
     def pull(self) -> None:
         """Fetch every catalog page, merge with what we have, and store the result."""
         started = now_ms()
+        started_seq = self.store.seq()
         self.store.write_meta(pullStartedAt=started)
         prev = self.store.all_lots()
         first_load = not prev
@@ -179,7 +180,9 @@ class Catalog:
                     lot["itemType"] = types[lot["title"]]
             self.history.annotate(pulled.values())
 
-            seq = self.store.replace_all(pulled.values(), fetchedAt=now_ms(), count=count, authed=token is not None)
+            seq = self.store.replace_all(
+                pulled.values(), started_seq=started_seq, fetchedAt=now_ms(), count=count, authed=token is not None
+            )
             log.info("pull done: %d lots in %.1fs (seq %d)", len(pulled), (now_ms() - started) / 1000, seq)
             self.history.wake()
             self.after_pull()
