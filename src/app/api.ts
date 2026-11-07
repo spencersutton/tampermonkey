@@ -168,7 +168,6 @@ function normalizeClosed(r: RawClosedLot): ClosedLot {
     locationName: r.location_name ?? null,
     finalPrice: Number(r.final_price ?? 0),
     heroImage: r.hero_image ?? null,
-    endsAt: null, // The closed-lot endpoint does not include a closing timestamp.
   };
 }
 

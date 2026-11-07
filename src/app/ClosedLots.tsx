@@ -4,19 +4,18 @@
 // lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
-import { KEYS, lotHref } from '../shared/keys';
-import { nameMatchPct, namesMatch, nameTokens } from '../shared/names';
+import { lotHref } from '../shared/keys';
+import { namesMatch, nameTokens } from '../shared/names';
 import { CDN, fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
 import { LocationText, TimeLeft } from './LotCard';
 import { LotModal } from './LotModal';
-import { getSetting } from './settings';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, fmtCount, MINUTE, plural, shortDate } from './util';
+import { clock, fmtCount, MINUTE, openHandler, plural } from './util';
 import { makeRow, type Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */
@@ -62,7 +61,6 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
 export function ClosedLots({ section }: { section: ClosedSection }) {
   const authed = isAuthenticated();
   const data = useClosed(section, authed);
-  const nameMatch = getSetting(KEYS.nameMatch);
   const pickup = pickupName.value;
   const exclusions = exclusionRules.value;
   const [filter, setFilter] = useState('');
@@ -80,7 +78,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         .toArray(),
     [catalogLots.value, rev.value, now],
   );
-  const pct = nameMatchPct(nameMatch);
+  const pct = exclusions.nameMatch;
   const relisted = useMemo(() => {
     const out = new Map<string, Row[]>();
     for (const c of data?.lots ?? []) {
@@ -112,8 +110,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     }
     setOpening(c.lotId);
     loadDetail({ id: c.lotId, auctionPeriod: c.auctionPeriod }).then(
-      // oxlint-disable-next-line no-unused-vars
-      ({ description, brand, model, lotFee, bidHistory, similar, ...lot }) => {
+      (lot) => {
         setOpening(null);
         setModalLot(lot);
       },
@@ -203,12 +200,7 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | und
   const { lot: c, won, relisted, opening, onOpen } = props;
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auctionPeriod, c.lotId);
-  const click = (e: MouseEvent) => {
-    if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-      e.preventDefault();
-      onOpen();
-    }
-  };
+  const click = openHandler(onOpen);
   return (
     <li class={`closed-row ${opening ? 'opening' : ''}`}>
       <div class="closed-main">
@@ -221,7 +213,6 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | und
           </a>
           <span class="muted small">
             {c.locationName ?? 'Unknown'} · Lot #{c.lotNumber}
-            {c.endsAt != null && ` · ${shortDate(c.endsAt)}`}
             {relisted && (
               <>
                 {' · '}

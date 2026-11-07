@@ -80,5 +80,4 @@ export interface ClosedLot {
   locationName: string | null;
   finalPrice: number;
   heroImage: string | null; // path on the CDN
-  endsAt: Temporal.Instant | null; // when it closed, if the API says
 }
