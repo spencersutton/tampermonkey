@@ -21,7 +21,7 @@ export function categoryName(type: string): string {
   let many = `${last}s`;
   if (/(ss|x|z|ch|sh)$/.test(last)) {
     many = `${last}es`;
-  } else if (/s$/.test(last)) {
+  } else if (last.endsWith('s')) {
     many = last;
   } else if (/[^aeiou]y$/.test(last)) {
     many = `${last.slice(0, -1)}ies`;

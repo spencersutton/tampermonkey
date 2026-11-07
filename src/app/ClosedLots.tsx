@@ -112,6 +112,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     }
     setOpening(c.lotId);
     loadDetail({ id: c.lotId, auctionPeriod: c.auctionPeriod }).then(
+      // oxlint-disable-next-line no-unused-vars
       ({ description, brand, model, lotFee, bidHistory, similar, ...lot }) => {
         setOpening(null);
         setModalLot(lot);

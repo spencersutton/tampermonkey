@@ -11,7 +11,11 @@ export function observeLot(element: HTMLElement | null) {
     for (const entry of entries) {
       if (!entry.target.isConnected) continue;
       const id = Number((entry.target as HTMLElement).dataset.lot);
-      entry.isIntersecting ? nearby.add(id) : nearby.delete(id);
+      if (entry.isIntersecting) {
+        nearby.add(id);
+      } else {
+        nearby.delete(id);
+      }
     }
     publish();
   }, { rootMargin: '600px 0px' });

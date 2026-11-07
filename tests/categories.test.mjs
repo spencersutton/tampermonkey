@@ -14,7 +14,7 @@ after(() => vite.close());
 const { saveCustomCategories } = await vite.ssrLoadModule('/src/app/categories.ts');
 const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { DEFAULT_VIEW, categoryIndex, compileCategories, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
+const { DEFAULT_VIEW, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
 const { groupCategories, CategoryGroupRow } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
 
 function setup(categories, selected) {
@@ -175,7 +175,7 @@ test('parent rows count and toggle all descendants without touching unrelated se
     facet('Tools - Saws', 4),
   ], [facet('Tools', 10, 'tools')]));
   let selected = ['garden', 'custom:Tools - Drills - Cordless'];
-  const props = { group, selected, collapsed: {}, setCollapsed: () => {}, onChange: (next) => { selected = next; } };
+  const props = { group, selected, collapsed: {}, setCollapsed: () => { }, onChange: (next) => { selected = next; } };
   const nodes = rowNodes(CategoryGroupRow(props));
   const checkbox = nodes.find((n) => n.type === 'input');
   assert.equal(checkbox.props.checked, false);
@@ -305,7 +305,7 @@ test('exclusive selection uses a compact focus icon with a descriptive tooltip o
   ], [facet('Tools', 6, 'tools')]));
   const nodes = rowNodes(CategoryGroupRow({
     group, selected: [], collapsed: { 'cat:tools': false, 'cat:custom:Tools - Drills': false },
-    setCollapsed: () => {}, onChange: () => {},
+    setCollapsed: () => { }, onChange: () => { },
   }));
   const buttons = nodes.filter((n) => n.props?.class === 'icon-btn check-only');
   assert.equal(buttons.length, 5);

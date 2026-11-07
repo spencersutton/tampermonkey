@@ -35,6 +35,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unkn
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...headers,
       },
+      // oxlint-disable-next-line unicorn/no-invalid-fetch-options
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
