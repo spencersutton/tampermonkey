@@ -23,7 +23,8 @@ export interface NavState {
  * (so closing the lot can just go back), 'search' typed in the search box (so
  * further typing replaces it rather than adding an entry per pause).
  */
-interface Entry extends NavState {
+interface Entry extends Omit<NavState, 'view'> {
+  view: Omit<ViewState, 'newSince'> & { newSince: string | null };
   tlx: true;
   kind: 'lot' | 'search' | 'other';
   scrollY?: number;
@@ -90,14 +91,15 @@ export function navFromUrl(search = location.search): NavState | null {
 }
 
 const isEntry = (s: unknown): s is Entry => !!s && typeof s === 'object' && (s as Entry).tlx === true;
-const navKey = (n: NavState) => JSON.stringify([n.view, n.page, n.openId, n.closed]);
+const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed]);
 /** Same view on the same page (the grid, or one of the closed-lot pages). */
-const sameView = (a: NavState, b: NavState) => a.closed === b.closed && JSON.stringify(a.view) === JSON.stringify(b.view);
+const sameView = (a: Pick<NavState, 'closed'> & { view: unknown }, b: Pick<NavState, 'closed'> & { view: unknown }) =>
+  a.closed === b.closed && JSON.stringify(a.view) === JSON.stringify(b.view);
 
 /** Push a new entry for `nav`, or replace the current one when the change doesn't deserve its own. */
 function record(nav: NavState) {
   const prev: unknown = history.state;
-  const entry: Entry = { tlx: true, ...nav, kind: 'other' };
+  const entry: Entry = { tlx: true, ...nav, view: { ...nav.view, newSince: nav.view.newSince?.toString() ?? null }, kind: 'other' };
   if (!isEntry(prev)) {
     history.replaceState(entry, '', navToUrl(nav));
     return;
@@ -130,7 +132,7 @@ function record(nav: NavState) {
 
 const current = computed((): NavState => ({ view: storedView.value, page: page.value, openId: openId.value, closed: closed.value }));
 
-function restore(nav: NavState) {
+function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
   batch(() => {
     setSetting(KEYS.view, normalizeView(nav.view));
     page.value = nav.page;

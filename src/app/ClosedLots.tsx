@@ -75,7 +75,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     () =>
       catalogLots.value
         .values()
-        .filter((l) => l.endsAt > now)
+        .filter((l) => Temporal.Instant.compare(l.endsAt, now) > 0)
         .map((l) => ({ lot: l, words: nameTokens(l.title) }))
         .toArray(),
     [catalogLots.value, rev.value, now],

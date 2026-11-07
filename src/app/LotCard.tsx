@@ -15,11 +15,11 @@ import type { Row } from './view';
 import type { Lot, PastClose } from './types';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
-export function TimeLeft({ endsAt }: { endsAt: number }) {
+export function TimeLeft({ endsAt }: { endsAt: Temporal.Instant }) {
   const now = clock(1000);
   const { text, soon } = timeLabel(endsAt, now);
   return (
-    <span class={`time ${soon ? 'soon' : ''}`} title={new Date(endsAt).toLocaleString()}>
+    <span class={`time ${soon ? 'soon' : ''}`} title={endsAt.toLocaleString()}>
       {text}
     </span>
   );

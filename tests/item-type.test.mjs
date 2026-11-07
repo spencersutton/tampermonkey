@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, afterEach, test } from 'node:test';
+import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
@@ -15,6 +16,10 @@ const lot = (id, title, itemType, fields = {}) => ({
   id, title, itemType, version: 1, currentPrice: 10, firstSeenAt: 5, endsAt: 2000,
   category: { value: 'tools', label: 'Tools' }, condition: null, location: null, ...fields,
 });
+const catalogLot = (id, title, itemType, fields = {}) => {
+  const raw = lot(id, title, itemType, fields);
+  return { ...raw, endsAt: Temporal.Instant.from('1970-01-01T00:00:02Z'), firstSeenAt: Temporal.Instant.from('1970-01-01T00:00:00.005Z') };
+};
 const reply = (seq, rows, fields = {}) => ({
   seq, full: true, ids: null, lots: rows, now: Date.now(), nextPullAt: Date.now(),
   meta: { fetchedAt: 0, pullStartedAt: 0, count: rows.length, authed: false },
@@ -22,7 +27,7 @@ const reply = (seq, rows, fields = {}) => ({
 });
 
 test('title corrections replace the catalog Map and update category matching and counts immediately', () => {
-  lots.value = new Map([lot(1, 'Drill', 'battery'), lot(2, 'Drill', 'battery'), lot(3, 'Saw', 'saw'), lot(4, 'DRILL', 'battery')].map((l) => [l.id, l]));
+  lots.value = new Map([catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery'), catalogLot(3, 'Saw', 'saw'), catalogLot(4, 'DRILL', 'battery')].map((l) => [l.id, l]));
   const previous = lots.peek();
   updateTitleItemType('Drill', 'drill driver');
   assert.notEqual(lots.peek(), previous);
@@ -30,22 +35,22 @@ test('title corrections replace the catalog Map and update category matching and
   assert.equal(previous.get(1).itemType, 'battery');
   const cats = [{ name: 'Tools - Drills', types: ['drill driver'] }];
   assert.equal(categoryOf(lots.peek().get(1), cats).value, 'custom:Tools - Drills');
-  assert.equal(computeFacets(lots.peek().values(), 1000, cats).categories.find((f) => f.value === 'custom:Tools - Drills').count, 2);
+  assert.equal(computeFacets(lots.peek().values(), Temporal.Instant.from('1970-01-01T00:00:01Z'), cats).categories.find((f) => f.value === 'custom:Tools - Drills').count, 2);
 });
 
 test('server type corrections win over a newer websocket price version, including explicit type resets', () => {
-  lots.value = new Map([[1, lot(1, 'Drill', 'battery', { version: 9, currentPrice: 42 })]]);
+  lots.value = new Map([[1, catalogLot(1, 'Drill', 'battery', { version: 9, currentPrice: 42 })]]);
   applyCatalog(reply(2, [lot(1, 'Drill', 'drill driver', { firstSeenAt: 7 })]));
   assert.equal(lots.peek().get(1).currentPrice, 42);
   assert.equal(lots.peek().get(1).version, 9);
-  assert.equal(lots.peek().get(1).firstSeenAt, 7);
+  assert.equal(lots.peek().get(1).firstSeenAt.toString(), '1970-01-01T00:00:00.007Z');
   assert.equal(lots.peek().get(1).itemType, 'drill driver');
   applyCatalog(reply(3, [lot(1, 'Drill', undefined)]));
   assert.equal(lots.peek().get(1).itemType, undefined);
 });
 
 test('saving uses the guarded endpoint and applies the canonical server response to all exact titles', async () => {
-  lots.value = new Map([lot(1, 'Drill', 'battery'), lot(2, 'Drill', 'battery')].map((l) => [l.id, l]));
+  lots.value = new Map([catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery')].map((l) => [l.id, l]));
   globalThis.fetch = async (path, init) => {
     assert.equal(path, '/api/item-type');
     assert.equal(init.method, 'PUT');
@@ -65,7 +70,7 @@ test('saving uses the guarded endpoint and applies the canonical server response
 });
 
 test('failed saves surface the API error or connection failure and leave item types unchanged', async () => {
-  lots.value = new Map([[1, lot(1, 'Drill', 'battery')]]);
+  lots.value = new Map([[1, catalogLot(1, 'Drill', 'battery')]]);
   globalThis.fetch = async () => Response.json({ error: 'No such catalog lot' }, { status: 404 });
   await assert.rejects(setItemType(1, 'drill'), /No such catalog lot/);
   assert.equal(lots.peek().get(1).itemType, 'battery');

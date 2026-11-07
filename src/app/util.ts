@@ -7,8 +7,8 @@ export const DAY = 24 * HOUR;
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /** Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within the last hour. */
-export function timeLabel(endsAt: number, now: number) {
-  const ms = endsAt - now;
+export function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
+  const ms = endsAt.epochMilliseconds - now.epochMilliseconds;
   if (ms <= 0) {
     return { text: 'Closed', soon: true };
   }
@@ -26,8 +26,8 @@ export function timeLabel(endsAt: number, now: number) {
 }
 
 /** How long ago `ts` was, e.g. "just now", "12 min ago"; older than a day shows the date. */
-export function ago(ts: number, now: number) {
-  const m = Math.round((now - ts) / MINUTE);
+export function ago(ts: Temporal.Instant, now: Temporal.Instant) {
+  const m = Math.round((now.epochMilliseconds - ts.epochMilliseconds) / MINUTE);
   if (m < 1) {
     return 'just now';
   }
@@ -35,7 +35,7 @@ export function ago(ts: number, now: number) {
     return `${m} min ago`;
   }
   const h = Math.floor(m / 60);
-  return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts).toLocaleString();
+  return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts.epochMilliseconds).toLocaleString();
 }
 
 /** Remaining time as "m:ss", or "Ns" under a minute. */
@@ -45,10 +45,10 @@ export function countdown(ms: number) {
 }
 
 /** Weekday and time, e.g. "Tue 3:45 PM". */
-export const shortTime = (ts: number) => new Date(ts).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+export const shortTime = (ts: Temporal.Instant) => new Date(ts.epochMilliseconds).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
 /** "Oct 22": a date in the past. */
-export const shortDate = (ts: number) => new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
+export const shortDate = (ts: Temporal.Instant) => new Date(ts.epochMilliseconds).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
 /** Format a count with thousands separators. */
 export const fmtCount = (n: number) => n.toLocaleString('en-US');
@@ -77,17 +77,17 @@ export function observableSet<T>() {
 }
 
 /** One clock signal per interval; its timer runs only while something reads it. */
-const clocks = new Map<number, Signal<number>>();
+const clocks = new Map<number, Signal<Temporal.Instant>>();
 
 /** Current time, updated every `every` ms; read in a component or computed, it re-runs them on each tick. */
-export function clock(every = 1000): number {
+export function clock(every = 1000): Temporal.Instant {
   let s = clocks.get(every);
   if (!s) {
     let timer = 0;
-    s = signal(Date.now(), {
+    s = signal(Temporal.Now.instant(), {
       watched() {
-        this.value = Date.now();
-        timer = window.setInterval(() => (this.value = Date.now()), every);
+        this.value = Temporal.Now.instant();
+        timer = window.setInterval(() => (this.value = Temporal.Now.instant()), every);
       },
       unwatched: () => clearInterval(timer),
     });

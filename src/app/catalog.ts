@@ -14,8 +14,8 @@ const DETAIL_TTL = 2 * MINUTE;
 export const ACTIVE_WINDOW = 10 * MINUTE;
 
 export interface CatalogMeta {
-  fetchedAt: number | null; // when the last complete pull finished
-  pullStartedAt: number | null; // when the last pull (successful or not) started – rate limit anchor
+  fetchedAt: Temporal.Instant | null; // when the last complete pull finished
+  pullStartedAt: Temporal.Instant | null; // when the last pull (successful or not) started – rate limit anchor
   count: number; // lot count the API reported in the last complete pull
   authed: boolean; // whether that pull carried account data
 }

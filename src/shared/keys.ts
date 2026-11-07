@@ -18,7 +18,7 @@ export const KEYS = {
   customCategories: 'tlxCustomCategories', // CustomCategory[] – item types that move lots into a category of their own
   lastCategory: 'tlxLastCategory', // last category used or created in this browser
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
-  lastVisit: 'tlxLastVisit', // number | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
+  lastVisit: 'tlxLastVisit', // Instant | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
   nameMatch: 'tlxNameMatch', // number – % of words titles must share to combine listings and match past closes (see shared/names.ts)
 } as const;
 
@@ -83,7 +83,7 @@ export const DEFAULTS = {
   [KEYS.customCategories]: [] as CustomCategory[],
   [KEYS.lastCategory]: null as string | null,
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
-  [KEYS.lastVisit]: null as number | null,
+  [KEYS.lastVisit]: null as Temporal.Instant | null,
   [KEYS.nameMatch]: DEFAULT_NAME_MATCH,
 };
 

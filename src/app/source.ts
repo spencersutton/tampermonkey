@@ -11,8 +11,8 @@ import { authReady, onAuthChange, refreshSession } from './auth';
 import { batch } from '@preact/signals';
 import { error, inUse, loaded, lots, meta, progress, trackActivity, updateTitleItemType, type CatalogMeta } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
-import { DEFAULTS, SYNCED_KEYS } from '../shared/keys';
-import type { Lot, PastCloseDetail } from './types';
+import { DEFAULTS, KEYS, SYNCED_KEYS } from '../shared/keys';
+import type { Lot, PastClose, PastCloseDetail } from './types';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
@@ -55,23 +55,51 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unkn
 // ---------------------------------------------------------------------------
 interface Status {
   now: number;
-  meta: CatalogMeta;
+  meta: Omit<CatalogMeta, 'fetchedAt' | 'pullStartedAt'> & { fetchedAt: number | null; pullStartedAt: number | null };
   nextPullAt: number;
   progress: { done: number; total: number | null } | null;
   error: string | null;
 }
 
+type ServerPastClose = Omit<PastClose, 'endsAt'> & { endsAt: number };
+type ServerPastCloseDetail = Omit<PastCloseDetail, 'endsAt'> & { endsAt: number };
+type ServerLot = Omit<Lot, 'endsAt' | 'firstSeenAt' | 'pastCloses'> & {
+  endsAt: number;
+  firstSeenAt?: number;
+  pastCloses?: { n: number; recent: ServerPastClose[] };
+};
+
 interface CatalogReply extends Status {
   seq: number;
   full: boolean;
   ids: number[] | null; // every current lot id (delta replies only)
-  lots: Lot[]; // lots changed since the requested sequence
+  lots: ServerLot[]; // lots changed since the requested sequence
+}
+
+function instantFromEpochMilliseconds(ms: number): Temporal.Instant {
+  if (!Number.isSafeInteger(ms)) {
+    throw new TypeError('Invalid epoch-millisecond timestamp from the tlx server');
+  }
+  return Temporal.Instant.fromEpochMilliseconds(ms);
+}
+
+function normalizePastClose<T extends ServerPastClose>(close: T): Omit<T, 'endsAt'> & { endsAt: Temporal.Instant } {
+  return { ...close, endsAt: instantFromEpochMilliseconds(close.endsAt) };
+}
+
+function normalizeCatalogLot(lot: ServerLot): Lot {
+  return {
+    ...lot,
+    endsAt: instantFromEpochMilliseconds(lot.endsAt),
+    firstSeenAt: lot.firstSeenAt == null ? undefined : instantFromEpochMilliseconds(lot.firstSeenAt),
+    pastCloses: lot.pastCloses && { ...lot.pastCloses, recent: lot.pastCloses.recent.map(normalizePastClose) },
+  };
 }
 
 /** Last catalog sequence applied here (0 = have nothing). */
 let seq = 0;
 /** When the server allows the next pull, in our clock. */
-let nextAt = 0;
+let nextAt: Temporal.Instant | null = null;
 /** Why the last request to the server failed, if it did. */
 let serverError: string | null = null;
 /** Local corrections not yet included in a catalog poll; protect them from an older in-flight reply. */
@@ -80,14 +108,19 @@ const typeEdits = new Map<string, { itemType: string; seq: number }>();
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
-  nextAt = s.nextPullAt - skew;
-  meta.value = s.meta;
+  nextAt = instantFromEpochMilliseconds(s.nextPullAt - skew);
+  meta.value = {
+    ...s.meta,
+    fetchedAt: s.meta.fetchedAt ? instantFromEpochMilliseconds(s.meta.fetchedAt) : null,
+    pullStartedAt: s.meta.pullStartedAt == null ? null : instantFromEpochMilliseconds(s.meta.pullStartedAt),
+  };
   progress.value = s.progress;
   error.value = s.error;
 }
 
 /** Merge a catalog reply into memory. */
 export function applyCatalog(r: CatalogReply) {
+  const pulled = r.lots.map(normalizeCatalogLot);
   batch(() => {
     applyStatus(r);
     const cur = lots.peek();
@@ -97,8 +130,8 @@ export function applyCatalog(r: CatalogReply) {
         const keep = new Set(r.ids);
         next.forEach((_, id) => keep.has(id) || next.delete(id));
       }
-      r.lots.forEach((l) => next.set(l.id, l));
-      const merged = keepNewer(next, r.lots);
+      pulled.forEach((l) => next.set(l.id, l));
+      const merged = keepNewer(next, pulled);
       for (const [title, edit] of typeEdits) {
         if (r.seq < edit.seq) {
           for (const [id, lot] of merged) {
@@ -184,11 +217,12 @@ export async function pullCatalog() {
   }
 }
 
-/** Epoch ms when the next full pull is allowed. */
-export const nextPullAt = () => nextAt;
+/** When the next full pull is allowed. */
+export const nextPullAt = () => nextAt ?? Temporal.Instant.from('1970-01-01T00:00:00Z');
 
 /** Every closed lot whose name matches this open lot's, most recent first. */
-export const fetchPastCloses = (id: number) => call<{ closes: PastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes);
+export const fetchPastCloses = (id: number) =>
+  call<{ closes: ServerPastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes.map(normalizePastClose));
 
 /** Persist a title-based correction and update cards, sorting and category matching immediately. */
 export async function setItemType(lotId: number, itemType: string): Promise<string> {
@@ -210,11 +244,48 @@ export const settingsSynced = new Promise<void>((resolve) => (markSynced = resol
 /** Synced settings saved here that the server hasn't confirmed yet. */
 const unsent = new Map<Key, unknown>();
 
+function serverSettingToLocal(key: Key, value: unknown): unknown {
+  if (key === KEYS.lastVisit) {
+    if (value == null) return null;
+    if (typeof value !== 'number') throw new TypeError('Invalid last visit from the tlx server');
+    return instantFromEpochMilliseconds(value);
+  }
+  if (key === KEYS.savedSearches) {
+    if (!Array.isArray(value)) throw new TypeError('Invalid saved searches from the tlx server');
+    return value.map((search: unknown) => {
+      if (!search || typeof search !== 'object' || !('lastViewedAt' in search) || typeof search.lastViewedAt !== 'number') {
+        throw new TypeError('Invalid saved search timestamp from the tlx server');
+      }
+      return { ...search, lastViewedAt: instantFromEpochMilliseconds(search.lastViewedAt) };
+    });
+  }
+  return value;
+}
+
+function localSettingToServer(key: Key, value: unknown): unknown {
+  if (key === KEYS.lastVisit) {
+    if (value == null) return null;
+    if (!(value instanceof Temporal.Instant)) throw new TypeError('Invalid last visit for the tlx server');
+    return value.epochMilliseconds;
+  }
+  if (key === KEYS.savedSearches) {
+    if (!Array.isArray(value)) throw new TypeError('Invalid saved searches for the tlx server');
+    return value.map((search: unknown) => {
+      if (!search || typeof search !== 'object' || !('lastViewedAt' in search) || !(search.lastViewedAt instanceof Temporal.Instant)) {
+        throw new TypeError('Invalid saved search timestamp for the tlx server');
+      }
+      return { ...search, lastViewedAt: search.lastViewedAt.epochMilliseconds };
+    });
+  }
+  return value;
+}
+
 /** Send a synced setting to the server; if that fails, it's retried on the next poll. */
 async function sendSetting(key: Key, value: unknown) {
   unsent.set(key, value);
+  const serverValue = localSettingToServer(key, value);
   try {
-    await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value });
+    await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value: serverValue });
     if (unsent.get(key) === value) {
       unsent.delete(key);
     }
@@ -235,8 +306,11 @@ async function syncSettings() {
   }
   const r = await call<{ rev: number; values: Record<string, unknown> }>('GET', '/api/settings?since=0');
   for (const [key, value] of Object.entries(r.values)) {
-    if (synced.has(key as Key) && !unsent.has(key as Key) && JSON.stringify(value) !== JSON.stringify(getSetting(key as Key))) {
-      applySetting(key as Key, value as never);
+    if (synced.has(key as Key) && !unsent.has(key as Key)) {
+      const localValue = serverSettingToLocal(key as Key, value);
+      if (JSON.stringify(localValue) !== JSON.stringify(getSetting(key as Key))) {
+        applySetting(key as Key, localValue as never);
+      }
     }
   }
   for (const key of synced) {

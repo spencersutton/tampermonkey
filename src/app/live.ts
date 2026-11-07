@@ -104,7 +104,7 @@ function onLotPublication(data: {
     currentPrice: data.current_price,
     bidCount: data.bid_count,
     nextMinIncrement: data.next_min_increment,
-    endsAt: data.ends_at ? Date.parse(data.ends_at) : undefined,
+    endsAt: data.ends_at ? Temporal.Instant.from(data.ends_at) : undefined,
     status: data.status,
     version: data.version,
   };

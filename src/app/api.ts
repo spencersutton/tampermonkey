@@ -107,7 +107,7 @@ export function normalizeLot(r: RawLot): Lot {
     transferFee: r.transfer_fee ?? 0,
     currentPrice: r.current_price ?? 0,
     estimatedRetailPrice: r.estimated_retail_price ?? null,
-    endsAt: Date.parse(r.ends_at),
+    endsAt: Temporal.Instant.from(r.ends_at),
     status: r.status,
     version: r.version ?? -1,
     bidCount: r.bid_count ?? 0,

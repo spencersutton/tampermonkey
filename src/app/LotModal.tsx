@@ -236,7 +236,7 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; 
  */
 function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen: (lot: Lot) => void }) {
   const now = clock(30_000);
-  const open = lots.map((l) => getLot(l.id) ?? l).filter((l) => l.id !== current.id && l.endsAt > now);
+  const open = lots.map((l) => getLot(l.id) ?? l).filter((l) => l.id !== current.id && Temporal.Instant.compare(l.endsAt, now) > 0);
   if (!open.length) {
     return null;
   }

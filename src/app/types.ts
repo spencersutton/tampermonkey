@@ -22,7 +22,7 @@ export interface Lot {
   transferFee: number;
   currentPrice: number;
   estimatedRetailPrice: number | null;
-  endsAt: number; // epoch ms
+  endsAt: Temporal.Instant;
   status: string;
   version: number;
   bidCount: number;
@@ -31,7 +31,7 @@ export interface Lot {
   isWatchlisted: boolean;
   hasBid: boolean;
   images: LotImage[];
-  firstSeenAt?: number; // when a full pull first saw this lot (0 = already there on the first pull)
+  firstSeenAt?: Temporal.Instant; // when a full pull first saw this lot (Unix epoch = already there on the first pull)
   itemType?: string; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] }; // closed lots with the same or a similar name (most recent first); missing if none
 }
@@ -40,7 +40,7 @@ export interface Lot {
 export interface PastClose {
   id: number;
   price: number;
-  endsAt: number;
+  endsAt: Temporal.Instant;
   condition: string | null; // label, e.g. "Like New"
   sold: boolean; // had a winning bid
   final: boolean; // the site's final price; else the last price seen before it closed
@@ -80,5 +80,5 @@ export interface ClosedLot {
   locationName: string | null;
   finalPrice: number;
   heroImage: string | null; // path on the CDN
-  endsAt: number | null; // when it closed, if the API says
+  endsAt: Temporal.Instant | null; // when it closed, if the API says
 }

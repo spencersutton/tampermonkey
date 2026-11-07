@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 import { Component, h, options } from 'preact';
 
@@ -40,7 +41,7 @@ function nodes(node) {
 }
 
 const lot = (itemType = 'cordless drill', category = { value: 'tools', label: 'Tools' }) => ({
-  itemType, category, title: 'Cordless drill kit', endsAt: Date.now() + 10000,
+  itemType, category, title: 'Cordless drill kit', endsAt: Temporal.Now.instant().add({ seconds: 10 }),
 });
 
 function dialog(t, categories, item = lot(), lots = [item]) {

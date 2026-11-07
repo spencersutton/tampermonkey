@@ -2,17 +2,28 @@
 // the SYNCED_KEYS also on the server (see source.ts). Each tab reads them once,
 // so changes made in other tabs or devices show up after a refresh.
 import { signal, type Signal } from '@preact/signals';
-import { DEFAULTS } from '../shared/keys';
+import { DEFAULTS, KEYS } from '../shared/keys';
 
 export type Key = keyof typeof DEFAULTS;
 type Value<K extends Key> = (typeof DEFAULTS)[K];
 
 const PREFIX = 'tlx:';
 
+function restoreLocalSetting(key: Key, value: unknown): unknown {
+  if (key === KEYS.lastVisit) return value == null ? null : Temporal.Instant.from(value as string);
+  if (key === KEYS.savedSearches) {
+    return (value as { lastViewedAt: string }[]).map((search) => ({
+      ...search, lastViewedAt: Temporal.Instant.from(search.lastViewedAt),
+    }));
+  }
+  return value;
+}
+
 function load(key: Key): unknown {
   try {
     const raw = localStorage.getItem(PREFIX + key);
-    return raw == null ? DEFAULTS[key] : JSON.parse(raw);
+    if (raw == null) return DEFAULTS[key];
+    return restoreLocalSetting(key, JSON.parse(raw));
   } catch {
     return DEFAULTS[key]; // storage blocked (private mode) or a corrupt value
   }
@@ -44,7 +55,7 @@ export function getSetting<K extends Key>(key: K): Value<K> {
 }
 
 /** Called with every setting saved here (source.ts sends synced ones to the server). */
-let onSave: (key: Key, value: unknown) => void = () => {};
+let onSave: (key: Key, value: unknown) => void = () => { };
 export const setSaveHook = (fn: (key: Key, value: unknown) => void) => void (onSave = fn);
 
 /** Store a setting without calling the save hook (for values from the server). */

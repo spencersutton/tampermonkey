@@ -23,7 +23,7 @@ export const sidebarOpen = signal(false);
 /** Ids of the lot cards on screen or close to it, sorted. */
 export const onScreen = signal<number[]>([]);
 /** The saved search opened last, and when it had been viewed before that. */
-export const highlight = signal<{ id: string; since: number } | null>(null);
+export const highlight = signal<{ id: string; since: Temporal.Instant } | null>(null);
 
 export type Modal =
     | { kind: 'bid'; req: BidRequest }
@@ -144,12 +144,13 @@ const FIRST_VISIT_NEW_LEFT = 2 * DAY;
  * (a page load, or the tab coming back after VISIT_GAP hidden), shared by all
  * devices. null until the synced settings have arrived.
  */
-export const visitSince = signal<number | null>(null);
+export const visitSince = signal<Temporal.Instant | null>(null);
 
 function trackVisits() {
     const visit = () => {
-        const now = Date.now();
-        visitSince.value = getSetting(KEYS.lastVisit) ?? firstVisitSince(now);
+        const now = Temporal.Now.instant();
+        const lastVisit = getSetting(KEYS.lastVisit);
+        visitSince.value = lastVisit ?? firstVisitSince(now);
         setSetting(KEYS.lastVisit, now);
     };
     let hiddenAt = 0;
@@ -166,13 +167,19 @@ function trackVisits() {
 }
 
 /** With no previous visit, start just before the earliest-seen lot that still has over FIRST_VISIT_NEW_LEFT to go. */
-function firstVisitSince(now: number): number {
+function firstVisitSince(now: Temporal.Instant): Temporal.Instant {
+    const newAfter = now.add({ milliseconds: FIRST_VISIT_NEW_LEFT });
+    const epoch = Temporal.Instant.from('1970-01-01T00:00:00Z');
     const first = lots
         .peek()
         .values()
-        .filter((l) => l.endsAt - now > FIRST_VISIT_NEW_LEFT)
-        .reduce((min, l) => Math.min(min, l.firstSeenAt ?? 0), Infinity);
-    return first === Infinity ? now : Math.max(0, first - 1);
+        .filter((l) => Temporal.Instant.compare(l.endsAt, newAfter) > 0)
+        .reduce<Temporal.Instant | null>((min, l) => {
+            const seen = l.firstSeenAt ?? epoch;
+            return min == null || Temporal.Instant.compare(seen, min) < 0 ? seen : min;
+        }, null);
+    if (first == null) return now;
+    return Temporal.Instant.compare(first, epoch) <= 0 ? epoch : first.subtract({ milliseconds: 1 });
 }
 
 /** Start the app-wide effects; call once. */

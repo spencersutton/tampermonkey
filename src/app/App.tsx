@@ -45,6 +45,7 @@ import {
 } from './state';
 import {
   activeFilterCount,
+  firstSeenAfter,
   normalizeView,
   sameFilters,
   savedFilters,
@@ -81,7 +82,7 @@ export function App() {
   const hl = highlight.value;
   const sinceSaved = !!hl && activeSaved?.id === hl.id;
   const newSince = view.newSince ?? (sinceSaved ? hl.since : visitSince.value);
-  const isNew = (lot: Lot) => newSince != null && (lot.firstSeenAt ?? 0) > newSince;
+  const isNew = (lot: Lot) => newSince != null && firstSeenAfter(lot, newSince);
 
   const updateSaved = (fn: (list: SavedSearch[]) => SavedSearch[]) =>
     setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches)));
@@ -93,7 +94,7 @@ export function App() {
     suggestedName: suggestName(view, facets),
     onSave: (name: string) => {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      updateSaved((l) => (l.some((x) => sameFilters(view, x.view)) ? l : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }]));
+      updateSaved((l) => (l.some((x) => sameFilters(view, x.view)) ? l : [...l, { id, name, view: savedFilters(view), lastViewedAt: Temporal.Now.instant() }]));
     },
     onOpen: (s: SavedSearch, newOnly: boolean) => {
       batch(() => {
@@ -101,7 +102,7 @@ export function App() {
         page.value = 1;
         closed.value = null;
         highlight.value = { id: s.id, since: s.lastViewedAt };
-        updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
+        updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Temporal.Now.instant() } : x)));
         sidebarOpen.value = false;
       });
       resetSearch(s.view.search);
@@ -232,10 +233,10 @@ export function App() {
         />
       )}
       {curModal?.kind === 'categories' && (
-        <CategoryEditor lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => closeModal(curModal)} />
+        <CategoryEditor lots={lots.value.values().filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0).toArray()} onClose={() => closeModal(curModal)} />
       )}
       {curModal?.kind === 'typeCategory' && (
-        <TypeCategory lot={curModal.lot} lots={lots.value.values().filter((l) => l.endsAt > now30).toArray()} onClose={() => closeModal(curModal)} />
+        <TypeCategory lot={curModal.lot} lots={lots.value.values().filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0).toArray()} onClose={() => closeModal(curModal)} />
       )}
       {curModal?.kind === 'itemType' && (
         <ItemTypeEditor key={curModal.lot.id} lot={getLot(curModal.lot.id) ?? curModal.lot} onClose={() => closeModal(curModal)} />
@@ -253,8 +254,9 @@ function StatusBar() {
   const now = clock(1000);
   const pull = progress.value;
   const { fetchedAt } = meta.value;
-  const wait = nextPullAt() - now;
-  const due = wait <= 0;
+  const nextPull = nextPullAt();
+  const wait = nextPull.epochMilliseconds - now.epochMilliseconds;
+  const due = Temporal.Instant.compare(nextPull, now) <= 0;
 
   let text = 'No cached catalog yet';
   if (!loaded.value) {

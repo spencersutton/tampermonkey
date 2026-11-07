@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
 const storage = new Map();
@@ -22,8 +23,8 @@ function setup(categories, selected) {
   applySetting(KEYS.view, { ...DEFAULT_VIEW, categories: selected, search: 'drill' });
   applySetting(KEYS.defaultFilters, { categories: [], conditions: [] });
   applySetting(KEYS.savedSearches, [
-    { id: 'one', name: 'Search', view: { ...DEFAULT_VIEW, categories: selected }, lastViewedAt: 123 },
-    { id: 'old', name: 'Old search', view: { search: 'old' }, lastViewedAt: 456 },
+    { id: 'one', name: 'Search', view: { ...DEFAULT_VIEW, categories: selected }, lastViewedAt: Temporal.Instant.from('1970-01-01T00:00:00.123Z') },
+    { id: 'old', name: 'Old search', view: { search: 'old' }, lastViewedAt: Temporal.Instant.from('1970-01-01T00:00:00.456Z') },
   ]);
   const saves = [];
   setSaveHook((key, value) => saves.push([key, value]));
@@ -43,10 +44,10 @@ test('renames and deletions update current and saved filters without changing ot
   assert.equal(getSetting(KEYS.view).search, 'drill');
   const searches = getSetting(KEYS.savedSearches);
   assert.deepEqual(searches[0].view.categories, ['custom:Power Drills', 'tools', 'custom:Tools']);
-  assert.equal(searches[0].lastViewedAt, 123);
+  assert.equal(searches[0].lastViewedAt.toString(), '1970-01-01T00:00:00.123Z');
   assert.deepEqual(searches[1].view.categories, []);
   assert.deepEqual(saves.map(([key]) => key), [KEYS.customCategories, KEYS.view, KEYS.savedSearches]);
-  assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.savedSearches}`)), searches);
+  assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.savedSearches}`)), JSON.parse(JSON.stringify(searches)));
 });
 
 test('removes filters when moving item types leaves a category empty', () => {
@@ -150,8 +151,8 @@ test('facets retain empty custom ancestors but not unrelated empty categories or
     { name: 'Unused', types: ['saw'] },
     { name: 'Tools - Drills - Corded', types: ['corded drill'] },
   ];
-  const lot = (itemType, endsAt = 2) => ({ itemType, endsAt, category: { value: 'tools', label: 'Tools' }, condition: null, location: null });
-  const facets = computeFacets([lot('cordless drill'), lot('corded drill', 0)], 1, cats);
+  const lot = (itemType, endsAt = '1970-01-01T00:00:00.002Z') => ({ itemType, endsAt: Temporal.Instant.from(endsAt), category: { value: 'tools', label: 'Tools' }, condition: null, location: null });
+  const facets = computeFacets([lot('cordless drill'), lot('corded drill', '1970-01-01T00:00:00Z')], Temporal.Instant.from('1970-01-01T00:00:00.001Z'), cats);
   assert.deepEqual(facets.categories, [facet('Tools - Drills'), facet('Tools - Drills - Cordless', 1)]);
   const groups = groupCategories(facets);
   assert.equal(groups[0].facet.count, 0);
