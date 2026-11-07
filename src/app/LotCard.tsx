@@ -10,9 +10,28 @@ import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { openLot, startBid, toggleHide } from './state';
-import { clock, openHandler, plural, shortDate, shortTime, timeLabel } from './util';
+import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
 import type { Lot, PastClose } from './types';
+
+/** Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within the last hour. */
+export function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
+  const ms = endsAt.epochMilliseconds - now.epochMilliseconds;
+  if (ms <= 0) {
+    return { text: 'Closed', soon: true };
+  }
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const soon = ms <= HOUR;
+  if (h >= 24) {
+    return { text: `${Math.floor(h / 24)}d ${h % 24}h`, soon };
+  }
+  if (h >= 1) {
+    return { text: `${h}h ${String(m % 60).padStart(2, '0')}m`, soon };
+  }
+  return { text: `${m}m ${String(s % 60).padStart(2, '0')}s`, soon };
+}
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
 export function TimeLeft({ endsAt }: { endsAt: Temporal.Instant }) {

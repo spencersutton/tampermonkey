@@ -4,46 +4,6 @@ export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
-/** Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within the last hour. */
-export function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
-  const ms = endsAt.epochMilliseconds - now.epochMilliseconds;
-  if (ms <= 0) {
-    return { text: 'Closed', soon: true };
-  }
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  const soon = ms <= HOUR;
-  if (h >= 24) {
-    return { text: `${Math.floor(h / 24)}d ${h % 24}h`, soon };
-  }
-  if (h >= 1) {
-    return { text: `${h}h ${pad2(m % 60)}m`, soon };
-  }
-  return { text: `${m}m ${pad2(s % 60)}s`, soon };
-}
-
-/** How long ago `ts` was, e.g. "just now", "12 min ago"; older than a day shows the date. */
-export function ago(ts: Temporal.Instant, now: Temporal.Instant) {
-  const m = Math.round((now.epochMilliseconds - ts.epochMilliseconds) / MINUTE);
-  if (m < 1) {
-    return 'just now';
-  }
-  if (m < 60) {
-    return `${m} min ago`;
-  }
-  const h = Math.floor(m / 60);
-  return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts.epochMilliseconds).toLocaleString();
-}
-
-/** Remaining time as "m:ss", or "Ns" under a minute. */
-export function countdown(ms: number) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return s >= 60 ? `${Math.floor(s / 60)}:${pad2(s % 60)}` : `${s}s`;
-}
-
 /** Weekday and time, e.g. "Tue 3:45 PM". */
 export const shortTime = (ts: Temporal.Instant) => new Date(ts.epochMilliseconds).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
 
