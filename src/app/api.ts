@@ -62,7 +62,6 @@ interface RawLotDetail extends RawLot {
   description: string;
   brand: string | null;
   model: string | null;
-  lot_fee: number | null;
   bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
   similar: RawLot[];
 }
@@ -129,7 +128,6 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
     description: String(r.description ?? ''),
     brand: r.brand || null,
     model: r.model || null,
-    lotFee: r.lot_fee ?? null,
     bidHistory: (r.bid_history ?? []).map((b) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: !!b.is_you })),
     similar: (r.similar ?? []).map(normalizeLot),
   };

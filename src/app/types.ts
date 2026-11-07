@@ -66,7 +66,6 @@ export interface LotDetail extends Lot {
   description: string;
   brand: string | null;
   model: string | null;
-  lotFee: number | null;
   bidHistory: BidHistoryEntry[];
   similar: Lot[]; // the site's "Similar Auctions" for this lot
 }

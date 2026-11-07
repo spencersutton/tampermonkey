@@ -6,9 +6,10 @@ import { createServer } from 'vite';
 const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
 after(() => vite.close());
 const { fetchClosed } = await vite.ssrLoadModule('/src/app/api.ts');
-const { loadDetail } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { loadDetail, lots: catalogLots } = await vite.ssrLoadModule('/src/app/catalog.ts');
 const { openHandler } = await vite.ssrLoadModule('/src/app/util.ts');
 const { makeRow } = await vite.ssrLoadModule('/src/app/view.ts');
+const { totalCost, costBreakdown } = await vite.ssrLoadModule('/src/shared/cost.ts');
 
 test('closed lots are normalized, deduplicated and reported as pages arrive', async (t) => {
   const first = { lot_id: 1, auction_period: 'a', title: 'Drill', lot_number: '10', location_name: 'Raleigh', final_price: 25, hero_image: null };
@@ -50,6 +51,13 @@ test('lot links open in-app only for unhandled, unmodified primary clicks', () =
   assert.equal(opened, 1);
 });
 
+test('estimated costs use the supplied transfer fee', () => {
+  assert.equal(totalCost(100), (100 * 1.15 + 1) * 1.0725);
+  assert.equal(totalCost(100, 8), (100 * 1.15 + 1 + 8) * 1.0725);
+  assert.match(costBreakdown(100, 8), /\$8\.00 transfer/);
+  assert.doesNotMatch(costBreakdown(100), /transfer/);
+});
+
 test('a fetched closed lot detail can be used as a row and reused by the modal', async (t) => {
   const raw = {
     id: 4321, auction_period: 'a', title: 'Drill', lot_number: '10', category: null, condition: null,
@@ -71,4 +79,17 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
   assert.equal(row.retailPct, 0.5);
   assert.equal(await loadDetail(row.lot), detail);
   assert.equal(requests, 1);
+  assert.equal('lotFee' in detail, false);
+
+  const { description, brand: _brand, model: _model, bidHistory: _bidHistory, similar: _similar, ...base } = detail;
+  raw.id++;
+  catalogLots.value = new Map([[raw.id, { ...base, id: raw.id, version: 0 }]]);
+  const updatedDetail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });
+  assert.equal(updatedDetail.description, description);
+  const updated = catalogLots.peek().get(raw.id);
+  assert.equal(updated.version, 1);
+  for (const field of ['description', 'brand', 'model', 'bidHistory', 'similar', 'lotFee']) {
+    assert.equal(field in updated, false);
+  }
+  assert.equal(requests, 2);
 });

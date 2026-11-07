@@ -29,13 +29,7 @@ export const toDraft = (c: CustomCategory): Draft => ({
 });
 
 /** The category a draft saves as. */
-export const clean = (d: Draft): CustomCategory => {
-  const category: CustomCategory = { name: d.name.trim(), types: [] };
-  if (d.types.length > 0) {
-    category.types = d.types;
-  }
-  return category;
-};
+export const clean = (d: Draft): CustomCategory => ({ name: d.name.trim(), types: d.types });
 
 /** What's wrong with a row, if anything. */
 export function rowError(d: Draft, drafts: Draft[]): string | null {
@@ -89,7 +83,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   }, [drafts]);
 
   // Which row takes each open lot, with counts.
-  const assignment = useMemo(() => {
+  const taken = useMemo(() => {
     const cats = drafts.map(clean);
     const compiled = compileCategories(cats);
     const taken = new Map<number, Lot[]>(drafts.map((d) => [d.key, []]));
@@ -99,7 +93,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
         taken.get(drafts[owner]!.key)!.push(lot);
       }
     }
-    return { taken };
+    return taken;
   }, [drafts, lots]);
 
   // Open lots of each item type, for the type chips and suggestions.
@@ -146,7 +140,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   };
 
   const sel = drafts.find((d) => d.key === selected);
-  const selLots = sel ? assignment.taken.get(sel.key)! : [];
+  const selLots = sel ? taken.get(sel.key)! : [];
   const selectedTypes = new Set(sel?.types.map(normalizeType));
 
   return (
@@ -173,7 +167,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <ol class="cat-list" ref={list}>
               {[...drafts].sort((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
                 const err = errors.get(d.key);
-                const count = assignment.taken.get(d.key)!.length;
+                const count = taken.get(d.key)!.length;
                 const label = d.name.trim() || 'New category';
                 return (
                   <li

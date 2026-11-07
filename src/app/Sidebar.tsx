@@ -218,10 +218,9 @@ function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }
   );
 }
 
-function CheckRow({ facet, checked, indeterminate, onChange, onOnly, onlyLabel }: {
+function CheckRow({ facet, checked, onChange, onOnly, onlyLabel }: {
   facet: Facet<string>;
   checked: boolean;
-  indeterminate?: boolean;
   onChange: () => void;
   onOnly: () => void;
   onlyLabel?: string;
@@ -230,7 +229,7 @@ function CheckRow({ facet, checked, indeterminate, onChange, onOnly, onlyLabel }
   return (
     <div class="check-category">
       <label class="check">
-        <input type="checkbox" checked={checked} indeterminate={indeterminate} onChange={onChange} />
+        <input type="checkbox" checked={checked} onChange={onChange} />
         <span>{facet.label}</span>
         <span class="count">{fmtCount(facet.count)}</span>
       </label>
@@ -560,8 +559,6 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
   const hiddenLots = getSetting(KEYS.hidden);
   const setHiddenLots = (value: ReturnType<typeof getSetting<typeof KEYS.hidden>>) => setSetting(KEYS.hidden, value);
   const [input, setInput] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-
   const add = () => {
     setWords([...new Set([...words, input])]);
     setInput('');
@@ -575,7 +572,7 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
   return (
     <section class="panel">
       <h2>Hide &amp; filter</h2>
-      <div class={`add-filter ${err ? 'has-error' : ''}`}>
+      <div class="add-filter">
         <input
           type="text"
           placeholder="Regex, e.g. batter(y|ies)"
@@ -583,17 +580,14 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
           autocomplete="off"
           spellcheck={false}
           value={input}
-          onInput={(e) => {
-            setInput(e.currentTarget.value);
-            setErr(null);
-          }}
+          onInput={(e) => setInput(e.currentTarget.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
         />
         <button type="button" class="btn-text" onClick={add}>
           Add
         </button>
       </div>
-      {err ? <p class="error small">{err}</p> : <p class="muted small">Case-insensitive, whole words: \b(?:pattern)\b. Commas add several.</p>}
+      <p class="muted small">Case-insensitive, whole words: \b(?:pattern)\b. Commas add several.</p>
 
       <Collapsible id="words" title={`Filter patterns (${words.length})`}>
         <ul class="filter-list">

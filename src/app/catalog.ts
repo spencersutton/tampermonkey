@@ -85,7 +85,7 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
     (d) => {
       details.set(lot.id, { at: Date.now(), data: d });
       // oxlint-disable-next-line no-unused-vars
-      const { description, brand, model, lotFee, bidHistory, similar, ...base } = d;
+      const { description, brand, model, bidHistory, similar, ...base } = d;
       const cur = lots.peek().get(lot.id);
       // Detail responses are authoritative for account fields even at equal versions.
       if (cur && base.version >= cur.version) {

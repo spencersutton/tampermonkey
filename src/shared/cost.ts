@@ -2,7 +2,6 @@
 const FEES = {
   premium: 0.15, // 15% buyer's premium
   lotFee: 1, // $1 per lot
-  transferFee: 5, // $5 for Anderson / Transferable lots
   salesTax: 0.0725, // 7.25% NC sales tax
 };
 
