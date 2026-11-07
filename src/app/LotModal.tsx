@@ -19,7 +19,7 @@ import type { Row } from './view';
 interface Props {
   row: Row;
   onClose: () => void;
-  group?: Row[]; // listings of the same item, cheapest total first
+  group?: Row[] | undefined; // listings of the same item, cheapest total first
   onOpenLot?: (lot: Lot) => void; // a lot in the catalog
 }
 

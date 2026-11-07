@@ -76,9 +76,13 @@ Source is in `src/` (TypeScript + Preact, bundled with Vite). The build goes to
 ```bash
 npm install
 npm run build     # lint, typecheck, then build the web app
+npm run typecheck # check TypeScript and included JavaScript with strict compiler options
 npm run lint      # disallow explicit TypeScript any types
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
 ```
+
+The type check also validates declaration files and enables additional checks for
+optional properties, indexed access, unused code, and control flow.
 
 Python is formatted with [ruff](https://docs.astral.sh/ruff/) (`pipx install ruff`). A
 pre-commit hook in `githooks/` runs `ruff format` on the Python files being committed and

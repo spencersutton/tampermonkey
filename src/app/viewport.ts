@@ -10,7 +10,7 @@ export function observeLot(element: HTMLElement | null) {
   cards ??= new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (!entry.target.isConnected) continue;
-      const id = Number((entry.target as HTMLElement).dataset.lot);
+      const id = Number((entry.target as HTMLElement).dataset['lot']);
       if (entry.isIntersecting) {
         nearby.add(id);
       } else {
@@ -22,7 +22,7 @@ export function observeLot(element: HTMLElement | null) {
   cards.observe(element);
   return () => {
     cards!.unobserve(element);
-    nearby.delete(Number(element.dataset.lot));
+    nearby.delete(Number(element.dataset['lot']));
     publish();
   };
 }

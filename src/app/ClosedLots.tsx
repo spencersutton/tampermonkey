@@ -199,7 +199,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
 
 const key = (c: ClosedLot) => `${c.auctionPeriod}:${c.lotId}`;
 
-function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[]; opening: boolean; onOpen: () => void }) {
+function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | undefined; opening: boolean; onOpen: () => void }) {
   const { lot: c, won, relisted, opening, onOpen } = props;
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auctionPeriod, c.lotId);

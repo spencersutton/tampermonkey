@@ -58,7 +58,7 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
     credentials: 'same-origin',
     cache: 'no-store',
     headers: { Accept: 'application/json', 'X-TLX-Client': '1', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const data = await res.json().catch(() => ({ error: `Server replied ${res.status}` }));
   if (data?.app) {

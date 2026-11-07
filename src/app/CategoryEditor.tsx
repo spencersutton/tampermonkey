@@ -96,7 +96,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     for (const lot of lots) {
       const owner = categoryIndex(lot, compiled);
       if (owner >= 0) {
-        taken.get(drafts[owner].key)!.push(lot);
+        taken.get(drafts[owner]!.key)!.push(lot);
       }
     }
     return { taken };

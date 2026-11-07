@@ -357,11 +357,11 @@ function combineDuplicates(rows: Row[], names: Map<string, string>): { cards: Ro
   );
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {
-      cards.push(bucket[0]);
+      cards.push(bucket[0]!);
       continue;
     }
     bucket.sort(byCost);
-    cards.push({ ...bucket[0], others: bucket.slice(1) });
+    cards.push({ ...bucket[0]!, others: bucket.slice(1) });
     bucket.forEach((r) => groups.set(r.lot.id, bucket));
   }
   return { cards, groups };
@@ -440,7 +440,7 @@ function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
     items.filter((i) => i != null),
     (i) => i.value,
   );
-  return Array.from(groups.values(), (g) => ({ value: g[0].value, label: g[0].label, count: g.length }));
+  return Array.from(groups.values(), (g) => ({ value: g[0]!.value, label: g[0]!.label, count: g.length }));
 }
 
 /** Categories (custom ones included), conditions and locations among open lots, with counts, for the filter lists. */

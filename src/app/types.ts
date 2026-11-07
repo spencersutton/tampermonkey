@@ -31,9 +31,9 @@ export interface Lot {
   isWatchlisted: boolean;
   hasBid: boolean;
   images: LotImage[];
-  firstSeenAt?: Temporal.Instant; // when a full pull first saw this lot (Unix epoch = already there on the first pull)
-  itemType?: string; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
-  pastCloses?: { n: number; recent: PastClose[] }; // closed lots with the same or a similar name (most recent first); missing if none
+  firstSeenAt?: Temporal.Instant | undefined; // when a full pull first saw this lot (Unix epoch = already there on the first pull)
+  itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
+  pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
 }
 
 /** An earlier lot that closed, as the server records them (server/tlx_server/history.py). */

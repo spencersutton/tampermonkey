@@ -135,9 +135,13 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     if (error) {
       return;
     }
+    const category = next[target];
+    if (!category) {
+      throw new Error('Selected category is missing');
+    }
     saveCustomCategories(next);
-    setSetting(KEYS.lastCategory, next[target].name);
-    toast('good', `${existing ? 'Updated' : 'Created'} “${next[target].name}” · ${plural(taken.length, 'open lot')}`);
+    setSetting(KEYS.lastCategory, category.name);
+    toast('good', `${existing ? 'Updated' : 'Created'} “${category.name}” · ${plural(taken.length, 'open lot')}`);
     onClose();
   };
 

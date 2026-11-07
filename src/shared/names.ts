@@ -65,7 +65,7 @@ export function groupNames(titles: Iterable<string>, minPct: number): Map<string
   }
   const entries = [...byKey.values()];
   const parent = entries.map((_, i) => i);
-  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
 
   if (minPct < 100) {
     const freq = new Map<string, number>();
@@ -85,7 +85,7 @@ export function groupNames(titles: Iterable<string>, minPct: number): Map<string
             continue;
           }
           seen.add(j);
-          if (find(i) !== find(j) && namesMatch(words, entries[j].words, minPct)) {
+          if (find(i) !== find(j) && namesMatch(words, entries[j]!.words, minPct)) {
             parent[find(i)] = find(j);
           }
         }
@@ -97,7 +97,7 @@ export function groupNames(titles: Iterable<string>, minPct: number): Map<string
 
   const out = new Map<string, string>();
   entries.forEach(({ titles: ts }, i) => {
-    const head = entries[find(i)].titles[0];
+    const head = entries[find(i)]!.titles[0]!;
     for (const t of ts) {
       out.set(t, head);
     }

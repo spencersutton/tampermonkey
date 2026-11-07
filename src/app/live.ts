@@ -101,15 +101,15 @@ function onLotPublication(data: {
     return;
   }
   const patch: Partial<Lot> = {
-    currentPrice: data.current_price,
-    bidCount: data.bid_count,
-    nextMinIncrement: data.next_min_increment,
-    endsAt: data.ends_at ? Temporal.Instant.from(data.ends_at) : undefined,
-    status: data.status,
-    version: data.version,
+    ...(data.current_price == null ? {} : { currentPrice: data.current_price }),
+    ...(data.bid_count == null ? {} : { bidCount: data.bid_count }),
+    ...(data.next_min_increment == null ? {} : { nextMinIncrement: data.next_min_increment }),
+    ...(data.ends_at ? { endsAt: Temporal.Instant.from(data.ends_at) } : {}),
+    ...(data.status == null ? {} : { status: data.status }),
+    ...(data.version == null ? {} : { version: data.version }),
   };
   // Only the fields the message actually carried.
-  updateLot(data.id, Object.fromEntries(Object.entries(patch).filter(([, v]) => v != null)));
+  updateLot(data.id, patch);
 }
 
 /** Keep subscriptions in sync with the lots on screen. */

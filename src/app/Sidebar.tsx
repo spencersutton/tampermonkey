@@ -499,6 +499,7 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
       return 'Invalid regex';
     }
     onSave(next);
+    return;
   };
 
   return (

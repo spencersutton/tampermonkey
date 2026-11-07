@@ -13,7 +13,7 @@ const LOGGED_OUT = 'You’re logged out. Log in, then try again.';
 
 /** GET a JSON endpoint. */
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await authedFetch(BASE + path, { headers: { Accept: 'application/json' }, signal });
+  const res = await authedFetch(BASE + path, { headers: { Accept: 'application/json' }, ...(signal === undefined ? {} : { signal }) });
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText || 'error'} for ${path}`);
   }
@@ -26,7 +26,7 @@ function send(path: string, method: 'POST' | 'DELETE', body?: unknown, headers: 
   return authedFetch(`${BASE}${path}`, {
     method,
     headers: { Accept: 'application/json', ...json, 'X-CSRF-Protection': '1', ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
 
