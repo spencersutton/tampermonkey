@@ -566,10 +566,6 @@ h3 {
   outline-offset: -1px;
 }
 
-.add-filter.has-error {
-  border-color: var(--bad);
-}
-
 .add-filter input {
   flex: 1;
   min-width: 0;

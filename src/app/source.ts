@@ -9,7 +9,7 @@
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
 import { batch } from '@preact/signals';
-import { error, inUse, loaded, lots, meta, progress, trackActivity, updateTitleItemType, type CatalogMeta } from './catalog';
+import { error, fetchedAt, inUse, loaded, lots, progress, trackActivity, updateTitleItemType } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, KEYS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot, PastClose, PastCloseDetail } from './types';
@@ -55,7 +55,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unkn
 // ---------------------------------------------------------------------------
 interface Status {
   now: number;
-  meta: Omit<CatalogMeta, 'fetchedAt' | 'pullStartedAt'> & { fetchedAt: number | null; pullStartedAt: number | null };
+  meta: { fetchedAt: number | null };
   nextPullAt: number;
   progress: { done: number; total: number | null } | null;
   error: string | null;
@@ -109,11 +109,7 @@ const typeEdits = new Map<string, { itemType: string; seq: number }>();
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
   nextAt = instantFromEpochMilliseconds(s.nextPullAt - skew);
-  meta.value = {
-    ...s.meta,
-    fetchedAt: s.meta.fetchedAt ? instantFromEpochMilliseconds(s.meta.fetchedAt) : null,
-    pullStartedAt: s.meta.pullStartedAt == null ? null : instantFromEpochMilliseconds(s.meta.pullStartedAt),
-  };
+  fetchedAt.value = s.meta.fetchedAt ? instantFromEpochMilliseconds(s.meta.fetchedAt) : null;
   progress.value = s.progress;
   error.value = s.error;
 }

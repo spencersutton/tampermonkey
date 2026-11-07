@@ -13,13 +13,6 @@ const DETAIL_TTL = 2 * MINUTE;
 /** Auto-refresh only if the page was used this recently. */
 export const ACTIVE_WINDOW = 10 * MINUTE;
 
-export interface CatalogMeta {
-  fetchedAt: Temporal.Instant | null; // when the last complete pull finished
-  pullStartedAt: Temporal.Instant | null; // when the last pull (successful or not) started – rate limit anchor
-  count: number; // lot count the API reported in the last complete pull
-  authed: boolean; // whether that pull carried account data
-}
-
 export interface SyncProgress {
   done: number;
   total: number | null;
@@ -34,7 +27,8 @@ export const loaded = signal(false);
 export const lots = signal(new Map<number, Lot>());
 /** Bumps on every in-place lot update; read it (or getLot) to follow live prices. */
 export const rev = signal(0);
-export const meta = signal<CatalogMeta>({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false });
+/** When the last complete pull finished. */
+export const fetchedAt = signal<Temporal.Instant | null>(null);
 /** A pull running. */
 export const progress = signal<SyncProgress | null>(null);
 export const error = signal<string | null>(null);

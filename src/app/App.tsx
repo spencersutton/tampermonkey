@@ -3,7 +3,7 @@ import { useRef } from 'preact/hooks';
 import { KEYS } from '../shared/keys';
 import { isAuthenticated, LoginLink } from './auth';
 import { nextPullAt, pullCatalog } from './source';
-import { error, getLot, loaded, lots, meta, progress } from './catalog';
+import { error, fetchedAt, getLot, loaded, lots, progress } from './catalog';
 import { getSetting, setSetting } from './settings';
 import { closeLot } from './history';
 import { Icon } from './icons';
@@ -272,7 +272,7 @@ function StatusBar() {
   const live = liveState.value;
   const now = clock(1000);
   const pull = progress.value;
-  const { fetchedAt } = meta.value;
+  const lastFetch = fetchedAt.value;
   const nextPull = nextPullAt();
   const wait = nextPull.epochMilliseconds - now.epochMilliseconds;
   const due = Temporal.Instant.compare(nextPull, now) <= 0;
@@ -282,8 +282,8 @@ function StatusBar() {
     text = 'Loading catalog…';
   } else if (pull) {
     text = pull.total ? `Refreshing catalog… ${fmtCount(pull.done)} of ${fmtCount(pull.total)}` : 'Refreshing catalog…';
-  } else if (fetchedAt) {
-    text = `${fmtCount(lots.value.size)} lots · refreshed ${ago(fetchedAt, now)}`;
+  } else if (lastFetch) {
+    text = `${fmtCount(lots.value.size)} lots · refreshed ${ago(lastFetch, now)}`;
   }
 
   const pct = pull?.total ? Math.round((pull.done / pull.total) * 100) : 0;
