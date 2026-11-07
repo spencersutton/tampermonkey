@@ -113,7 +113,7 @@ function onLotPublication(data: {
 }
 
 /** Keep subscriptions in sync with the lots on screen. */
-export async function watchLots(ids: number[]) {
+async function watchLots(ids: number[]) {
   watched = ids;
   const c = await connect();
   const want = new Set(ids);

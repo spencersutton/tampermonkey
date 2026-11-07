@@ -82,7 +82,7 @@ function CheckList<T>(props: { facets: Facet<T>[]; selected: T[]; onChange: (nex
 }
 
 /** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
-export interface CategoryGroup {
+interface CategoryGroup {
   facet: Facet<string>;
   subs: CategoryGroup[];
 }
@@ -91,7 +91,7 @@ export interface CategoryGroup {
 const SUB = ' - ';
 
 /** Nest custom categories under the longest matching site or custom category name. */
-export function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
+function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
   const all = new Map([...siteCategories.map((f) => ({ ...f, count: 0 })), ...categories].map((f) => [f.value, f]));
   const parents = [...all.values()].sort((a, b) => b.label.length - a.label.length);
   const groups = new Map([...all].map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]));
@@ -153,7 +153,7 @@ function CategoryList({ facets, selected, onChange }: { facets: Facets; selected
   );
 }
 
-export function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }: {
+function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }: {
   group: CategoryGroup;
   selected: string[];
   onChange: (next: string[]) => void;
@@ -697,7 +697,7 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
   );
 }
 
-export interface SavedSearchesProps {
+interface SavedSearchesProps {
   searches: SavedSearch[];
   stats: Map<string, SavedSearchStats>;
   activeId: string | null;

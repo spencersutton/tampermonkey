@@ -8,9 +8,9 @@ import { addType, editType } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
 
-export const MAX_ITEM_TYPE_LENGTH = 60;
+const MAX_ITEM_TYPE_LENGTH = 60;
 
-export function itemTypeError(name: string): string | null {
+function itemTypeError(name: string): string | null {
   if (!name.trim()) {
     return 'Item type is required';
   }

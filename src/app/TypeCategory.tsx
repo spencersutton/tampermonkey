@@ -15,7 +15,7 @@ import { categoryIndex, compileCategories } from './view';
 const SIMILAR_LIMIT = 12;
 
 /** "drill bit set" -> "Drill Bit Sets" */
-export function categoryName(type: string): string {
+function categoryName(type: string): string {
   const words = type.split(' ');
   const last = words.pop()!;
   let many = `${last}s`;
@@ -29,7 +29,7 @@ export function categoryName(type: string): string {
   return [...words, many].map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-export function categoryError(mode: 'new' | 'add', existing: CustomCategory | undefined, name: string, cats: CustomCategory[]): string | null {
+function categoryError(mode: 'new' | 'add', existing: CustomCategory | undefined, name: string, cats: CustomCategory[]): string | null {
   if (mode === 'add') {
     return existing ? null : 'Pick a category';
   }
@@ -50,7 +50,7 @@ const typeWords = (t: string) => t.split(/[\s/-]+/).filter((w) => w.length > 2 &
 const loses = (c: CustomCategory, types: string[]) => !!c.types?.some((t) => types.includes(t));
 
 /** `c` without `types`, retaining empty parents of child categories. */
-export function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
+function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
   const rest = c.types!.filter((t) => !types.includes(t));
   return rest.length || names.some((name) => name.startsWith(`${c.name} - `)) ? [{ ...c, types: rest }] : [];
 }

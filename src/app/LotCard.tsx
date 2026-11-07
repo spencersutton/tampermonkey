@@ -15,7 +15,7 @@ import type { Row } from './view';
 import type { Lot, PastClose } from './types';
 
 /** Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within the last hour. */
-export function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
+function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
   const ms = endsAt.epochMilliseconds - now.epochMilliseconds;
   if (ms <= 0) {
     return { text: 'Closed', soon: true };
@@ -207,7 +207,7 @@ export function pastPrice(lot: Lot): { median: number; count: number; sameCondit
 }
 
 /** One past close as a line of text. */
-export const pastCloseText = (c: PastClose) =>
+const pastCloseText = (c: PastClose) =>
   `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${shortDate(c.endsAt)}`;
 
 /** "Sold before for $12 (median of 4)", with the recent closes on hover; opens the popup, which lists them all. */

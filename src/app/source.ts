@@ -119,7 +119,7 @@ function applyStatus(s: Status) {
 }
 
 /** Merge a catalog reply into memory. */
-export function applyCatalog(r: CatalogReply) {
+function applyCatalog(r: CatalogReply) {
   const pulled = r.lots.map(normalizeCatalogLot);
   batch(() => {
     applyStatus(r);

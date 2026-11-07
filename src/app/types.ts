@@ -1,4 +1,4 @@
-export interface LotImage {
+interface LotImage {
   thumb: string;
   card: string;
   large: string;
@@ -56,7 +56,7 @@ export interface PastCloseDetail extends PastClose {
   retail: number | null;
 }
 
-export interface BidHistoryEntry {
+interface BidHistoryEntry {
   bidderLabel: string;
   amount: number;
   isYou: boolean;

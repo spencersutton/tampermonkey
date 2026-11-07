@@ -11,7 +11,7 @@ import { closed, openId, page, storedView } from './state';
 import { DEFAULT_VIEW, normalizeView, type ViewState } from './view';
 
 /** What a history entry restores. */
-export interface NavState {
+interface NavState {
   view: ViewState;
   page: number;
   openId: number | null;
@@ -36,7 +36,7 @@ const NUMBERS = ['priceMin', 'priceMax', 'totalMax', 'retailMin'] as const;
 const LIST_PARAM = { categories: 'category', conditions: 'condition', locations: 'location' } as const;
 
 /** The URL (path and query) that shows `nav`. */
-export function navToUrl({ view, page, openId, closed }: NavState): string {
+function navToUrl({ view, page, openId, closed }: NavState): string {
   const q = new URLSearchParams();
   const put = (k: string, v: string | number | null | undefined, def?: unknown) => v != null && v !== '' && v !== def && q.append(k, String(v));
   put('search', view.search.trim());
