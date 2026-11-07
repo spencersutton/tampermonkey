@@ -4,7 +4,7 @@
     <span>{{ plural(result.rows|length, 'lot') }}{% if result.combined %} · {{ result.combined }} duplicates combined{% endif %}{% if result.removed %} · {{ result.removed }} hidden/filtered{% endif %}</span>
     {% if fresh or view.newSince is not none %}<a href="{{ new_url }}" hx-get="{{ new_url }}" hx-target="#app" hx-swap="outerHTML">{{ 'Show all matches' if view.newSince is not none else 'Show only new (' ~ fresh ~ ')' }}</a>{% endif %}
   </div>
-  <div class="grid">{% for row in rows %}{{ card(row) }}{% else %}<p class="muted">No matching lots.</p>{% endfor %}</div>
+  <div class="grid {{ 'full-titles' if browser.get('tlxTitleLines', 6) == 0 else '' }}">{% for row in rows %}{{ card(row) }}{% else %}<p class="muted">No matching lots.</p>{% endfor %}</div>
   {% if more %}
   <div class="grid-more" hx-get="{{ next_url }}" hx-trigger="intersect once" hx-target="#results" hx-swap="outerHTML" hx-headers='{"X-TLX-More":"1"}'>
     <a href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="#results" hx-swap="outerHTML" hx-headers='{"X-TLX-More":"1"}'>Load more lots</a>

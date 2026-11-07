@@ -105,10 +105,10 @@
     <h2 id="dialog-title">{{ 'Confirm max bid' if bid_type == 'max_bid' else 'Confirm bid' }}</h2>
     <div class="confirm-body"><p class="confirm-lot">{{ bid_row.lot.title }}</p><p class="big">{{ money(bid_amount) }}</p>
       <p>{{ 'The site bids for you, up to your maximum.' if bid_type == 'max_bid' else 'Bid at the next increment.' }}</p>
-      <dl><dt>Estimated total if won at this amount</dt><dd>{{ money(total_cost(bid_amount,bid_row.transferFee)) }}</dd><dt>Fees</dt><dd>15% premium + $1 lot fee{% if bid_row.transferFee %} + {{ money(bid_row.transferFee) }} transfer{% endif %}, then 7.25% sales tax</dd><dt>Current bid</dt><dd>{{ money(bid_row.lot.currentPrice) }}</dd><dt>Ends</dt><dd>{{ timeleft(bid_row.lot) }}</dd></dl>
+      <dl class="confirm-facts"><dt>Estimated total if won at this amount</dt><dd>{{ money(total_cost(bid_amount,bid_row.transferFee)) }}</dd><dt>Fees</dt><dd>15% premium + $1 lot fee{% if bid_row.transferFee %} + {{ money(bid_row.transferFee) }} transfer{% endif %}, then 7.25% sales tax</dd><dt>Current bid</dt><dd>{{ money(bid_row.lot.currentPrice) }}</dd><dt>Ends</dt><dd>{{ timeleft(bid_row.lot) }}</dd></dl>
       {% if bid_row.pickupOnly %}<p class="confirm-warn">Pickup only at {{ bid_row.lot.location.name }}. This lot cannot be transferred to {{ pickup }}.</p>{% elif bid_row.transferFee %}<p class="confirm-warn">Transfer to {{ pickup }} costs {{ money(bid_row.transferFee) }} (included above).</p>{% endif %}
     </div>
-    <form method="post" action="/ui/bid" hx-post="/ui/bid" hx-sync="this:drop" hx-disabled-elt="find button">
+    <form class="confirm-actions" method="post" action="/ui/bid" hx-post="/ui/bid" hx-sync="this:drop" hx-disabled-elt="find button">
       <input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="nonce" value="{{ nonce }}">
       <button class="btn btn-outline" type="button" data-close-dialog>Cancel</button><button class="btn" type="submit" autofocus>Place {{ money(bid_amount) }} bid</button>
     </form>

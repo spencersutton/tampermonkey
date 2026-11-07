@@ -93,6 +93,23 @@ class UITests(unittest.TestCase):
         context = self.ui.context(parse_qs(query), browser if browser is not None else {})
         return {**context, "oob": False, "message": "", "locked": False}
 
+    def test_title_line_setting_selects_the_unlimited_layout_only_for_zero(self) -> None:
+        for lines in (0, 2, 6):
+            with self.subTest(lines=lines):
+                html = self.ui.render("results.html", self.context(browser={"tlxTitleLines": lines}))
+                self.assertEqual('class="grid full-titles"' in html, lines == 0)
+                self.assertIn(f"--title-lines:{lines}", html)
+
+    def test_search_toggle_and_card_badges_have_their_layout_containers(self) -> None:
+        lot = normalize_lot(raw_lot())
+        lot["firstSeenAt"] = 100
+        self.store.replace_all([lot])
+        html = self.ui.render("app.html", self.context("newSince=0"))
+        self.assertIn('class="regex-toggle"', html)
+        self.assertIn('aria-label="Use regex search"', html)
+        self.assertIn('class="card-badges"', html)
+        self.assertIn('class="pill pill-new">New</span>', html)
+
     def login(self) -> None:
         self.session.user = {"name": "Fixture"}
         self.session._cookies["token"] = "fixture-only"

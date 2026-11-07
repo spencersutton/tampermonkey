@@ -112,6 +112,7 @@ git config core.hooksPath githooks
 ```
 
 - `src/web.ts`, `src/time.ts`, and `web/public/`: browser interactions, numeric time helpers and app icons.
+- `src/app.css` supplies the shared theme and components; `src/web.css` adapts forms, native details, cards and dialog layouts to the server-rendered markup, including narrow screens.
 - `server/tlx_server/templates/`: autoescaped Jinja pages, dialogs and HTMX fragments.
 - `server/tlx_server/views.py`: filtering, sorting, grouping, categories, costs and saved-search counts.
 - `server/tlx_server/ui.py`: view context, settings and validated form actions.

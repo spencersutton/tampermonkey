@@ -32,8 +32,10 @@
 <article class="card {{ 'card-hidden' if row.hidden else '' }} {{ 'card-filtered' if row.matched else '' }}" data-lot="{{ lot.id }}">
   <a class="card-img" href="{{ view_url(page=page, lot=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot.id) }}">
     {% if lot.images %}<img src="https://cdn.triangleliquidators.com/{{ lot.images[0].card }}" loading="lazy" alt="">{% else %}<span class="noimg">No image</span>{% endif %}
-    {% if since is not none and (lot.firstSeenAt or 0) > since %}<span class="pill pill-new">New</span>{% endif %}
-    {% if row.others %}<span class="pill">+{{ row.others|length }} more</span>{% endif %}
+    <span class="card-badges">
+      {% if since is not none and (lot.firstSeenAt or 0) > since %}<span class="pill pill-new">New</span>{% endif %}
+      {% if row.others %}<span class="pill pill-dupes">+{{ row.others|length }} more</span>{% endif %}
+    </span>
   </a>
   <div class="card-body">
     <a class="card-title" style="--title-lines:{{ browser.get('tlxTitleLines', 6) }}" href="{{ view_url(page=page, lot=lot.id) }}" hx-get="{{ view_url(page=page, lot=lot.id) }}">{{ lot.title }}</a>
@@ -58,16 +60,16 @@
 {% macro category(node) -%}
 <li>
   {% if node.children %}<details data-collapse="category-{{ node.value }}" open><summary>
-    <input type="checkbox" data-branch="{{ node['values']|tojson|forceescape }}" aria-label="Select {{ node.label }}" {{ 'checked' if node['values'] and node['values']|select('in', view.categories)|list|length == node['values']|length else '' }}>
-    {{ node.label }} <span class="count">{{ node.count }}</span>
+    <label><input type="checkbox" data-branch="{{ node['values']|tojson|forceescape }}" aria-label="Select {{ node.label }}" {{ 'checked' if node['values'] and node['values']|select('in', view.categories)|list|length == node['values']|length else '' }}>
+    <span>{{ node.label }}</span> <span class="count">{{ node.count }}</span></label>
     <button class="btn-text" type="button" data-only="{{ node['values']|tojson|forceescape }}" title="Show only {{ node.label }}" aria-label="Show only {{ node.label }}">⊙</button>
   </summary><ul class="facet-list">
-    <li><label><input type="checkbox" name="category" value="{{ node.value }}" {{ 'checked' if node.value in view.categories else '' }}>Other <span class="count">{{ node.ownCount }}</span></label>
+    <li><label><input type="checkbox" name="category" value="{{ node.value }}" {{ 'checked' if node.value in view.categories else '' }}><span>Other</span> <span class="count">{{ node.ownCount }}</span></label>
       <button class="btn-text" type="button" data-only="{{ [node.value]|tojson|forceescape }}" title="Show only {{ node.label }} - Other" aria-label="Show only {{ node.label }} - Other">⊙</button></li>
     {% for child in node.children %}{{ category(child) }}{% endfor %}
   </ul></details>
   {% else %}
-  <label><input type="checkbox" name="category" value="{{ node.value }}" {{ 'checked' if node.value in view.categories else '' }}>{{ node.label }} <span class="count">{{ node.count }}</span></label>
+  <label><input type="checkbox" name="category" value="{{ node.value }}" {{ 'checked' if node.value in view.categories else '' }}><span>{{ node.label }}</span> <span class="count">{{ node.count }}</span></label>
   <button class="btn-text" type="button" data-only="{{ [node.value]|tojson|forceescape }}" title="Show only {{ node.label }}" aria-label="Show only {{ node.label }}">⊙</button>
   {% endif %}
 </li>

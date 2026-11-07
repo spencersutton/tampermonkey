@@ -5,7 +5,7 @@
     <a class="brand" href="https://triangleliquidators.com/" hx-boost="false">TL <span>Catalog</span></a>
     <div class="search-box">
       <input id="search" class="search" form="filters" name="search" type="search" value="{{ view.search }}" placeholder="Search {{ result.open }} lots" aria-label="Search lots">
-      <label title="Use regex search"><input form="filters" name="regex" type="checkbox" value="1" {{ 'checked' if view.searchRegex else '' }}>.*</label>
+      <label class="regex-toggle" title="Use regex search"><input form="filters" name="regex" type="checkbox" value="1" aria-label="Use regex search" {{ 'checked' if view.searchRegex else '' }}>.*</label>
     </div>
     <select id="sort" class="sort" form="filters" name="sort" aria-label="Sort">{% for value,label in sorts.items() %}<option value="{{ value }}" {{ 'selected' if view.sort == value else '' }}>{{ label }}</option>{% endfor %}</select>
     <button type="button" class="btn btn-outline filters-toggle" data-toggle-sidebar>Filters</button>
@@ -26,7 +26,7 @@
             {{ action('search-open', search.name, search.id, 'saved-name') }}
             <span id="saved-{{ search.id }}" class="count">{{ stats.get(search.id, {}).get('total', 0) }} / {{ stats.get(search.id, {}).get('fresh', 0) }} new</span>
             {{ action('search-open', 'New only', search.id, 'btn-text', {'newOnly':'1'}) }}
-            <details><summary>Rename</summary><form method="post" action="/ui/search-rename" hx-post="/ui/search-rename"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="id" value="{{ search.id }}"><input name="name" value="{{ search.name }}" aria-label="Rename saved search" data-select required><button>Save</button></form></details>
+            <details><summary>Rename</summary><form method="post" action="/ui/search-rename" hx-post="/ui/search-rename"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="id" value="{{ search.id }}"><input name="name" value="{{ search.name }}" aria-label="Rename saved search" data-select required><button class="btn-text">Save</button></form></details>
             {{ action('search-delete', 'Delete', search.id) }}
           </li>
         {% endfor %}
@@ -59,9 +59,9 @@
         {{ action('defaults', 'Save category & condition defaults') }}
       </section>
       <details class="panel" data-collapse="regex"><summary>Regex filters</summary>
-        <form method="post" action="/ui/regex-add" hx-post="/ui/regex-add"><input type="hidden" name="return" value="{{ url }}"><input name="pattern" aria-label="New regex filter" required><button>Add</button></form>
+        <form method="post" action="/ui/regex-add" hx-post="/ui/regex-add"><input type="hidden" name="return" value="{{ url }}"><input name="pattern" aria-label="New regex filter" required><button class="btn-text">Add</button></form>
         <ul class="filter-list">{% for pattern in settings.filterWords %}<li class="filter-row">
-          <details><summary>{{ pattern }} ({{ result.matchCounts.get(pattern, 0) }})</summary><form method="post" action="/ui/regex-edit" hx-post="/ui/regex-edit"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="old" value="{{ pattern }}"><input name="pattern" value="{{ pattern }}" aria-label="Edit filter regex" data-select required><button>Save</button></form></details>
+          <details><summary>{{ pattern }} ({{ result.matchCounts.get(pattern, 0) }})</summary><form method="post" action="/ui/regex-edit" hx-post="/ui/regex-edit"><input type="hidden" name="return" value="{{ url }}"><input type="hidden" name="old" value="{{ pattern }}"><input name="pattern" value="{{ pattern }}" aria-label="Edit filter regex" data-select required><button class="btn-text">Save</button></form></details>
           {{ action('regex-delete', 'Remove', extra={'old':pattern}) }}
         </li>{% endfor %}</ul>
       </details>
