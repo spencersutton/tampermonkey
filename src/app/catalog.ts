@@ -66,6 +66,9 @@ export function updateTitleItemType(title: string, itemType: string) {
 /** Lot detail cache (or the in-flight request), by lot id. */
 const details = new Map<number, { at: number; data?: LotDetail; promise?: Promise<LotDetail> }>();
 
+/** Brands stay useful after price details expire; null means the site supplied no brand. */
+export const lotBrands = signal(new Map<number, string | null>());
+
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
 export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: AbortSignal): Promise<LotDetail> {
   const hit = details.get(lot.id);
@@ -78,6 +81,7 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
   const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
     (d) => {
       details.set(lot.id, { at: Date.now(), data: d });
+      lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
       // oxlint-disable-next-line no-unused-vars
       const { description, brand, model, bidHistory, similar, ...base } = d;
       const cur = lots.peek().get(lot.id);

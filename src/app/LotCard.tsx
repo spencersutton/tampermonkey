@@ -9,6 +9,7 @@ import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './b
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
+import { CardBrand } from './brands';
 import { hideCategory, openLot, startBid, toggleHide } from './state';
 import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
@@ -145,6 +146,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         <a class="card-title" href={href} title={lot.title} onClick={open}>
           {lot.title}
         </a>
+        <CardBrand id={lot.id} />
         <div class="card-meta">
           <LocationText row={row} />
           {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}

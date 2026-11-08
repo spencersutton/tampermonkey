@@ -8,6 +8,7 @@ import { App } from './app/App';
 import { AppLock, appUnlocked, LoginDialog, me, startAuth } from './app/auth';
 import { navFromUrl, startHistory } from './app/history';
 import { startLiveWatch } from './app/live';
+import { startBrandWatch } from './app/brands';
 import { setSetting } from './app/settings';
 import { KEYS } from './shared/keys';
 import { startCatalog } from './app/source';
@@ -31,6 +32,7 @@ void appUnlocked.then(() => {
   startApp();
   startHistory();
   startLiveWatch();
+  startBrandWatch();
 });
 
 function Root() {
