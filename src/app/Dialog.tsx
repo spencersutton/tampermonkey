@@ -1,6 +1,7 @@
 // Modal popups as native <dialog> elements: the browser keeps them in the top
 // layer (the newest on top), traps focus, and sends Escape to the top one only.
 import type { ComponentChildren, JSX } from 'preact';
+import { useCallback } from 'preact/hooks';
 
 interface Props extends Omit<JSX.HTMLAttributes<HTMLDialogElement>, 'onClose'> {
   /** Escape or a click outside the box; the caller unmounts the dialog to close it. */
@@ -27,10 +28,12 @@ function showDialog(dialog: HTMLDialogElement | null) {
 }
 
 export function Dialog({ onClose, children, class: cls, ...rest }: Props) {
+  // Preact stores ref cleanup on the callback, so each dialog needs its own.
+  const ref = useCallback((dialog: HTMLDialogElement | null) => showDialog(dialog), []);
   return (
     <dialog
       {...rest}
-      ref={showDialog}
+      ref={ref}
       class={`backdrop ${cls ?? ''}`}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       onCancel={(e) => {
