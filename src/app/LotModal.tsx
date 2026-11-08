@@ -4,7 +4,7 @@ import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending } from './bid';
-import { cachedDetail, getLot, loadDetail } from './catalog';
+import { cachedDetail, cachedMetadata, getLot, loadDetail, loadMetadata } from './catalog';
 import { Dialog } from './Dialog';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
@@ -13,7 +13,7 @@ import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from '.
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
 import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
-import type { Lot, LotDetail, PastCloseDetail } from './types';
+import type { Lot, LotDetail, LotMetadata, PastCloseDetail } from './types';
 import type { Row } from './view';
 
 interface Props {
@@ -37,22 +37,46 @@ export function LotModal(props: Props) {
 function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
+  const [metadata, setMetadata] = useState<LotMetadata | null>(() => cachedMetadata(lot.id) ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [imgIdx, setImgIdx] = useState(0);
   const conditions = siteConditions();
+  const authed = isAuthenticated();
 
   useEffect(() => {
     let active = true;
+    let refreshed = false;
     setError(null);
+    setMetadataError(null);
+    setRefreshing(true);
+    setDetail(cachedDetail(lot.id) ?? null);
+    loadMetadata(lot).then(
+      (saved) => { if (active && !refreshed && saved) setMetadata(saved); },
+      (e) => { if (active && !refreshed) setMetadataError(e instanceof Error ? e.message : String(e)); },
+    );
     // The cache shares this request with other callers; only detach this reader.
     loadDetail(lot).then(
-      (data) => { if (active) setDetail(data); },
-      (e) => { if (active) setError(e instanceof Error ? e.message : String(e)); },
+      (data) => {
+        if (!active) return;
+        refreshed = true;
+        setDetail(data);
+        setMetadata(cachedMetadata(lot.id) ?? null);
+        setMetadataError(null);
+        setRefreshing(false);
+      },
+      (e) => {
+        if (!active) return;
+        setError(e instanceof Error ? e.message : String(e));
+        setRefreshing(false);
+      },
     );
     return () => { active = false; };
-  }, [lot.id, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading]);
+  }, [lot.id, lot.version, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading, authed]);
 
-  const images = (detail ?? lot).images;
+  const images = metadata?.images ?? lot.images;
+  const auction = detail && detail.version >= lot.version ? detail : null;
   const img = images[Math.min(imgIdx, images.length - 1)];
   /** Move through the images by `delta`, wrapping around. */
   const step = (delta: number) => setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
@@ -98,7 +122,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
 
           <div class="modal-info">
             <h2 id="lot-title">{lot.title}</h2>
-            {detail && <BrandModel brand={detail.brand} model={detail.model} />}
+            {metadata && <BrandModel brand={metadata.brand} model={metadata.model} />}
             <div class="card-meta">
               <LocationText row={row} />
               {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
@@ -149,16 +173,18 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
             {group && group.length > 1 && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
             {lot.pastCloses && <PastCloses lot={lot} />}
 
-            {error && <p class="error">Couldn’t load lot details: {error}</p>}
-            {!detail && !error && <p class="muted">Loading details…</p>}
-            {detail && (
+            {metadataError && <p class="error">Couldn’t load saved item details: {metadataError}</p>}
+            {error && <p class="error">Couldn’t refresh auction data: {error}</p>}
+            {!metadata && !error && !metadataError && <p class="muted">Loading details…</p>}
+            {refreshing && metadata && <p class="muted">Refreshing auction data…</p>}
+            {metadata?.description && <div class="description">{metadata.description}</div>}
+            {auction && (
               <>
-                {detail.description && <div class="description">{detail.description}</div>}
-                {detail.bidHistory.length > 0 && (
+                {auction.bidHistory.length > 0 && (
                   <div>
                     <h3>Bid history</h3>
                     <ol class="bids">
-                      {detail.bidHistory.map((b) => (
+                      {auction.bidHistory.map((b) => (
                         <li class={b.isYou ? 'you' : ''}>
                           <span>{b.isYou ? 'You' : b.bidderLabel}</span>
                           <span>{dollars(b.amount)}</span>
@@ -167,7 +193,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
                     </ol>
                   </div>
                 )}
-                {detail.similar.length > 0 && <Similar lots={detail.similar} current={lot} onOpen={onOpenLot} />}
+                {auction.similar.length > 0 && <Similar lots={auction.similar} current={lot} onOpen={onOpenLot} />}
               </>
             )}
           </div>

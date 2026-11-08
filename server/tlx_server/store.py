@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS closed_lots (
 CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at);
 CREATE TABLE IF NOT EXISTS lot_details (
   lot_id INTEGER PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price NUMERIC, description TEXT,
-  brand TEXT, model TEXT, lot_fee NUMERIC, bid_history TEXT NOT NULL, fetched_at INTEGER NOT NULL
+  brand TEXT, model TEXT, lot_fee NUMERIC, bid_history TEXT NOT NULL, fetched_at INTEGER NOT NULL, images TEXT
 );
 """
 
@@ -172,6 +172,8 @@ class Store:
         self._db.executescript(SCHEMA)
         if "manual" not in {row[1] for row in self._db.execute("PRAGMA table_info(item_types)")}:
             self._db.execute("ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0")
+        if "images" not in {row[1] for row in self._db.execute("PRAGMA table_info(lot_details)")}:
+            self._db.execute("ALTER TABLE lot_details ADD COLUMN images TEXT")
         path.chmod(0o600)  # holds the site login cookies
 
     @contextmanager
@@ -454,14 +456,30 @@ class Store:
             brand = (d.get("brand") or "").strip() or None
             self._db.execute(
                 """INSERT OR REPLACE INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
-                  lot_fee, bid_history, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                  lot_fee, bid_history, fetched_at, images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (d["id"], d.get("auctionPeriod"), d.get("title") or "", d.get("status"), d.get("currentPrice"), d.get("description"),
-                 brand, d.get("model"), d.get("lotFee"), dumps(d.get("bidHistory") or []), round(time.time() * 1000)),
+                 brand, d.get("model"), d.get("lotFee"), dumps(d.get("bidHistory") or []), round(time.time() * 1000),
+                 dumps(d["images"]) if "images" in d else None),
             )  # fmt: skip
             if previous is None or previous[0] != brand:
                 seq = self._get_int("seq") + 1
                 if self._db.execute("UPDATE lots SET seq = ? WHERE id = ?", (seq, d["id"])).rowcount:
                     self._set("seq", seq)
+
+    def lot_metadata(self, lot_id: int, auction_period: str) -> dict[str, Any] | None:
+        """Saved item details only; never serve archived auction or account state as current."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT description, brand, model, lot_fee, images FROM lot_details WHERE lot_id = ? AND auction_period = ?",
+                (lot_id, auction_period),
+            ).fetchone()
+        if row is None:
+            return None
+        description, brand, model, fee, images = row
+        metadata = {"description": description or "", "brand": brand, "model": model, "lotFee": fee}
+        if images is not None:
+            metadata["images"] = json.loads(images)
+        return metadata
 
     # -- item types -----------------------------------------------------------
     def item_types(self, titles: Iterable[str]) -> dict[str, str]:

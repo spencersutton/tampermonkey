@@ -63,10 +63,20 @@ interface BidHistoryEntry {
   isYou: boolean;
 }
 
+/** Reusable item metadata, kept separately from prices, bids and account state. */
+export interface LotMetadata {
+  description: string;
+  brand: string | null;
+  model: string | null;
+  lotFee: number | null;
+  images?: LotImage[] | undefined; // older server cache entries may not have saved images
+}
+
 export interface LotDetail extends Lot {
   description: string;
   brand: string | null;
   model: string | null;
+  lotFee: number | null;
   bidHistory: BidHistoryEntry[];
   similar: Lot[]; // the site's "Similar Auctions" for this lot
 }

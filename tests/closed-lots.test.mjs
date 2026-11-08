@@ -79,9 +79,9 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
   assert.equal(row.retailPct, 0.5);
   assert.equal(await loadDetail(row.lot), detail);
   assert.equal(requests, 1);
-  assert.equal('lotFee' in detail, false);
+  assert.equal(detail.lotFee, 1);
 
-  const { description, brand: _brand, model: _model, bidHistory: _bidHistory, similar: _similar, ...base } = detail;
+  const { description, brand: _brand, model: _model, lotFee: _lotFee, bidHistory: _bidHistory, similar: _similar, ...base } = detail;
   raw.id++;
   catalogLots.value = new Map([[raw.id, { ...base, id: raw.id, version: 0 }]]);
   const updatedDetail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });

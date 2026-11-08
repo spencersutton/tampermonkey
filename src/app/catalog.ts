@@ -4,8 +4,9 @@
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
 import { signal } from '@preact/signals';
-import { fetchLotDetail } from './api';
-import type { Lot, LotDetail } from './types';
+import { fetchLotDetail, fetchLotMetadata } from './api';
+import { onAuthChange } from './auth';
+import type { Lot, LotDetail, LotMetadata } from './types';
 import { MINUTE } from './util';
 
 /** How long a fetched lot detail is reused. */
@@ -65,6 +66,29 @@ export function updateTitleItemType(title: string, itemType: string) {
 
 /** Lot detail cache (or the in-flight request), by lot id. */
 const details = new Map<number, { at: number; data?: LotDetail; promise?: Promise<LotDetail> }>();
+const metadata = new Map<number, LotMetadata>();
+const metadataRequests = new Map<number, Promise<LotMetadata | null>>();
+
+onAuthChange(() => details.clear());
+
+export const cachedMetadata = (id: number) => metadata.get(id);
+
+/** Reuse the server's item metadata even after the price cache expires or a bid invalidates it. */
+export function loadMetadata(lot: Pick<Lot, 'id' | 'auctionPeriod'>): Promise<LotMetadata | null> {
+  const hit = metadata.get(lot.id);
+  if (hit) return Promise.resolve(hit);
+  const pending = metadataRequests.get(lot.id);
+  if (pending) return pending;
+  const promise = fetchLotMetadata(lot.auctionPeriod, lot.id).then((saved) => {
+    // A concurrent live response is newer than the saved copy.
+    const current = metadata.get(lot.id);
+    if (current) return current;
+    if (saved) metadata.set(lot.id, saved);
+    return saved;
+  }).finally(() => metadataRequests.delete(lot.id));
+  metadataRequests.set(lot.id, promise);
+  return promise;
+}
 
 /** Brands from server-cached or newly fetched details; null means the site supplied no brand. */
 export const lotBrands = signal(new Map<number, string | null>());
@@ -72,18 +96,17 @@ export const lotBrands = signal(new Map<number, string | null>());
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
 export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: AbortSignal): Promise<LotDetail> {
   const hit = details.get(lot.id);
-  if (hit && Date.now() - hit.at < DETAIL_TTL) {
-    const cached = hit.data ? Promise.resolve(hit.data) : hit.promise;
-    if (cached) {
-      return cached;
-    }
-  }
+  if (hit?.promise) return hit.promise;
+  const cached = cachedDetail(lot.id);
+  if (cached) return Promise.resolve(cached);
   const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
     (d) => {
+      if (details.get(lot.id)?.promise !== promise) return d;
+      metadata.set(lot.id, { description: d.description, brand: d.brand, model: d.model, lotFee: d.lotFee, images: d.images });
       details.set(lot.id, { at: Date.now(), data: d });
       lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
       // oxlint-disable-next-line no-unused-vars
-      const { description, brand, model, bidHistory, similar, ...base } = d;
+      const { description, brand, model, lotFee, bidHistory, similar, ...base } = d;
       const cur = lots.peek().get(lot.id);
       // Detail responses are authoritative for account fields even at equal versions.
       if (cur && base.version >= cur.version) {
@@ -92,7 +115,7 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
       return d;
     },
     (err) => {
-      details.delete(lot.id);
+      if (details.get(lot.id)?.promise === promise) details.delete(lot.id);
       throw err;
     },
   );
@@ -106,7 +129,8 @@ export const invalidateDetail = (id: number) => void details.delete(id);
 /** A lot's cached detail if it's still fresh, without fetching. */
 export function cachedDetail(id: number): LotDetail | undefined {
   const hit = details.get(id);
-  return hit && Date.now() - hit.at < DETAIL_TTL ? hit.data : undefined;
+  const current = lots.peek().get(id);
+  return hit?.data && Date.now() - hit.at < DETAIL_TTL && (!current || hit.data.version >= current.version) ? hit.data : undefined;
 }
 
 // ---------------------------------------------------------------------------

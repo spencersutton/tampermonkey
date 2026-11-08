@@ -254,6 +254,12 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                 self._json(HTTPStatus.OK, self._me())
             elif route == ("GET", "/api/catalog"):
                 self._catalog(self._since(query))
+            elif route == ("GET", "/api/lot-metadata"):
+                lot_id = int(query.get("id", ["0"])[0])
+                period = query.get("auctionPeriod", [""])[0]
+                if not 0 < lot_id <= 2**53 - 1 or not period:
+                    raise ValueError("Expected a positive lot id and auctionPeriod")
+                self._json(HTTPStatus.OK, {"metadata": api.store.lot_metadata(lot_id, period)})
             elif route == ("POST", "/api/pull"):
                 self._json(HTTPStatus.OK, {"result": api.catalog.request_pull(), **api.status()})
             elif route == ("GET", "/api/settings"):

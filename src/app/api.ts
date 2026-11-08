@@ -2,7 +2,7 @@
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
 import { authedFetch, isAuthenticated } from './auth';
-import type { ClosedLot, Lot, LotDetail, Standing } from './types';
+import type { ClosedLot, Lot, LotDetail, LotMetadata, Standing } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
@@ -12,8 +12,8 @@ export const CDN = 'https://cdn.triangleliquidators.com';
 const LOGGED_OUT = 'You’re logged out. Log in, then try again.';
 
 /** GET a JSON endpoint. */
-async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await authedFetch(BASE + path, { headers: { Accept: 'application/json' }, ...(signal === undefined ? {} : { signal }) });
+async function get<T>(path: string, signal?: AbortSignal, prefix = BASE): Promise<T> {
+  const res = await authedFetch(prefix + path, { headers: { Accept: 'application/json' }, ...(signal === undefined ? {} : { signal }) });
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText || 'error'} for ${path}`);
   }
@@ -68,6 +68,7 @@ interface RawLotDetail extends RawLot {
   description: string;
   brand: string | null;
   model: string | null;
+  lot_fee: number | null;
   bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
   similar: RawLot[];
 }
@@ -137,9 +138,17 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
     description: String(r.description ?? ''),
     brand: r.brand || null,
     model: r.model || null,
+    lotFee: r.lot_fee ?? null,
     bidHistory: (r.bid_history ?? []).map((b) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: !!b.is_you })),
     similar: (r.similar ?? []).map(normalizeLot),
   };
+}
+
+/** Read persisted item metadata without asking the site or returning stale auction state. */
+export async function fetchLotMetadata(auctionPeriod: string, id: number): Promise<LotMetadata | null> {
+  const query = new URLSearchParams({ id: String(id), auctionPeriod });
+  const reply = await get<{ metadata: LotMetadata | null }>(`/api/lot-metadata?${query}`, undefined, '');
+  return reply.metadata;
 }
 
 /** Closed lots you won or lost, as the site's control panel lists them. */
