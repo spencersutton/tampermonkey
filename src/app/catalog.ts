@@ -66,7 +66,7 @@ export function updateTitleItemType(title: string, itemType: string) {
 /** Lot detail cache (or the in-flight request), by lot id. */
 const details = new Map<number, { at: number; data?: LotDetail; promise?: Promise<LotDetail> }>();
 
-/** Brands stay useful after price details expire; null means the site supplied no brand. */
+/** Brands from server-cached or newly fetched details; null means the site supplied no brand. */
 export const lotBrands = signal(new Map<number, string | null>());
 
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */

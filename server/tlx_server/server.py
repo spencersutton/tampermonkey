@@ -361,12 +361,12 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             except (urllib.error.URLError, OSError) as e:
                 self._error(HTTPStatus.BAD_GATEWAY, f"Couldn’t reach the site: {e}")
                 return
-            self._send(status, data, ctype)
             if method == "GET" and status == HTTPStatus.OK and LOT_DETAIL_PATH.fullmatch(urlsplit(self.path).path):
                 try:
                     api.store.save_lot_detail(normalize_detail(json.loads(data)))
-                except (ValueError, KeyError, TypeError, AttributeError, sqlite3.Error):
+                except ValueError, KeyError, TypeError, AttributeError, sqlite3.Error:
                     log.warning("couldn't keep the detail of %s", self.path, exc_info=True)
+            self._send(status, data, ctype)
 
         def _relay_ws(self) -> None:
             """Relay the site's websocket: our handshake goes upstream with the site's Origin, then bytes flow both ways."""

@@ -9,7 +9,7 @@
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
 import { batch } from '@preact/signals';
-import { error, fetchedAt, inUse, loaded, lots, progress, trackActivity, updateTitleItemType } from './catalog';
+import { error, fetchedAt, inUse, loaded, lotBrands, lots, progress, trackActivity, updateTitleItemType } from './catalog';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, KEYS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot, PastClose, PastCloseDetail } from './types';
@@ -121,6 +121,11 @@ export function applyCatalog(r: CatalogReply) {
   const pulled = r.lots.map(normalizeCatalogLot);
   batch(() => {
     applyStatus(r);
+    const brands = new Map(lotBrands.peek());
+    for (const lot of pulled) {
+      if (lot.brand !== undefined) brands.set(lot.id, lot.brand?.trim() || null);
+    }
+    lotBrands.value = brands;
     for (const [title, edit] of typeEdits) {
       if (r.seq >= edit.seq) typeEdits.delete(title);
     }

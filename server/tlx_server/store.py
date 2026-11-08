@@ -371,6 +371,12 @@ class Store:
             if since > seq:  # the client saw a newer (since reset) database: send everything
                 since = 0
             lots = list(self._load("WHERE l.seq > ?", (since,)).values())
+            brands = dict(
+                self._db.execute("SELECT d.lot_id, d.brand FROM lot_details d JOIN lots l ON l.id = d.lot_id WHERE l.seq > ?", (since,))
+            )
+            for lot in lots:
+                if lot["id"] in brands:
+                    lot["brand"] = (brands[lot["id"]] or "").strip() or None
             ids = [i for (i,) in self._db.execute("SELECT id FROM lots")]
             return CatalogChanges(seq=seq, lots=lots, ids=ids)
 
@@ -443,13 +449,19 @@ class Store:
     # -- lot details ----------------------------------------------------------
     def save_lot_detail(self, d: dict[str, Any]) -> None:
         """Keep a lot's detail (normalize_detail in site.py), replacing the one fetched before."""
-        with self._lock:
+        with self._lock, self._tx():
+            previous = self._db.execute("SELECT brand FROM lot_details WHERE lot_id = ?", (d["id"],)).fetchone()
+            brand = (d.get("brand") or "").strip() or None
             self._db.execute(
                 """INSERT OR REPLACE INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
                   lot_fee, bid_history, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (d["id"], d.get("auctionPeriod"), d.get("title") or "", d.get("status"), d.get("currentPrice"), d.get("description"),
-                 d.get("brand"), d.get("model"), d.get("lotFee"), dumps(d.get("bidHistory") or []), round(time.time() * 1000)),
+                 brand, d.get("model"), d.get("lotFee"), dumps(d.get("bidHistory") or []), round(time.time() * 1000)),
             )  # fmt: skip
+            if previous is None or previous[0] != brand:
+                seq = self._get_int("seq") + 1
+                if self._db.execute("UPDATE lots SET seq = ? WHERE id = ?", (seq, d["id"])).rowcount:
+                    self._set("seq", seq)
 
     # -- item types -----------------------------------------------------------
     def item_types(self, titles: Iterable[str]) -> dict[str, str]:

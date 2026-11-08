@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
+import { Component, options } from 'preact';
 
 const storage = new Map();
 globalThis.localStorage = {
@@ -106,16 +107,23 @@ function nodes(node) {
 }
 
 test('the card exposes a labeled category hide button targeting its assigned custom category', () => {
-  const vnode = LotCard.call({}, { row: rowOf(fixtures[1]) });
-  const tree = vnode.type(vnode.props);
+  const renderCard = (lot) => {
+    const vnode = LotCard.call({}, { row: rowOf(lot) });
+    vnode.__c = new Component(vnode.props);
+    options.__r(vnode);
+    const tree = vnode.type(vnode.props);
+    options.diffed(vnode);
+    return tree;
+  };
+  const tree = renderCard(fixtures[1]);
   const button = nodes(tree).find((n) => n.props?.class === 'icon-btn category-hide');
   assert.equal(button.props.type, 'button');
   assert.equal(button.props['aria-label'], 'Hide category: Tools - Drills');
   assert.equal(button.props.title, button.props['aria-label']);
   button.props.onClick();
   assert.deepEqual(visibleIds(), [1, 3]);
-  const uncategorized = LotCard.call({}, { row: rowOf({ ...fixtures[0], category: null }) });
-  assert.equal(nodes(uncategorized.type(uncategorized.props)).some((n) => n.props?.class === 'icon-btn category-hide'), false);
+  const uncategorized = renderCard({ ...fixtures[0], category: null });
+  assert.equal(nodes(uncategorized).some((n) => n.props?.class === 'icon-btn category-hide'), false);
 });
 
 test('explicit empty categories round-trip through URLs and browser history', () => {
