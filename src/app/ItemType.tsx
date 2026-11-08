@@ -4,7 +4,7 @@ import { lots } from './catalog';
 import { Dialog } from './Dialog';
 import { Icon } from './icons';
 import { setItemType } from './source';
-import { addType, editType } from './state';
+import { modalActions } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
 
@@ -21,7 +21,7 @@ export function ItemTypeActions({ lot }: { lot: Lot }) {
   return (
     <div class="item-type-row">
       {lot.itemType && (
-        <button type="button" class="item-type" title="Make a category of this item type" onClick={() => addType(lot)}>
+        <button type="button" class="item-type" title="Make a category of this item type" onClick={() => modalActions.addType(lot)}>
           <span>{lot.itemType}</span>
           <Icon name="add" size={14} />
         </button>
@@ -31,7 +31,7 @@ export function ItemTypeActions({ lot }: { lot: Lot }) {
         class="icon-btn item-type-edit"
         title={lot.itemType ? 'Change item type' : 'Set item type'}
         aria-label={lot.itemType ? 'Change item type' : 'Set item type'}
-        onClick={() => editType(lot)}
+        onClick={() => modalActions.editType(lot)}
       >
         <Icon name="edit" size={14} />
         {!lot.itemType && <span>Set item type</span>}

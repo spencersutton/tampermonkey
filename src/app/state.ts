@@ -131,17 +131,26 @@ export function toggleHide(lot: Lot) {
     setSetting(KEYS.hidden, wasHidden ? rest : { ...rest, [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() } });
 }
 
-export const startBid = (req: BidRequest) => void (modal.value = { kind: 'bid', req });
-export const addType = (lot: Lot) => void (modal.value = { kind: 'typeCategory', lot });
-export const editType = (lot: Lot) => void (modal.value = { kind: 'itemType', lot });
-export const editCategories = () => void (modal.value = { kind: 'categories' });
-
-/** Close `m` if it is still the open popup (a late close mustn't close a newer one). */
-export function closeModal(m: Modal) {
-    if (modal.peek() === m) {
-        modal.value = null;
-    }
-}
+export const modalActions = {
+    startBid(req: BidRequest) {
+        modal.value = { kind: 'bid', req };
+    },
+    addType(lot: Lot) {
+        modal.value = { kind: 'typeCategory', lot };
+    },
+    editType(lot: Lot) {
+        modal.value = { kind: 'itemType', lot };
+    },
+    editCategories() {
+        modal.value = { kind: 'categories' };
+    },
+    /** Close `m` if it is still the open popup (a late close mustn't close a newer one). */
+    close(m: Modal) {
+        if (modal.peek() === m) {
+            modal.value = null;
+        }
+    },
+};
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
 const VISIT_GAP = 30 * MINUTE;

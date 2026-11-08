@@ -11,7 +11,7 @@ import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
-import { openLot, startBid, toggleHide } from './state';
+import { modalActions, openLot, toggleHide } from './state';
 import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
 import type { Row } from './view';
@@ -365,7 +365,7 @@ function BidPanel({ row }: { row: Row }) {
   const submit = (e: Event) => {
     e.preventDefault();
     if (n != null && !error && !pending) {
-      startBid({ lotId: lot.id, amount: n, type: 'max_bid' });
+      modalActions.startBid({ lotId: lot.id, amount: n, type: 'max_bid' });
     }
   };
 
@@ -391,7 +391,7 @@ function BidPanel({ row }: { row: Row }) {
             type="button"
             class="btn btn-outline"
             disabled={pending}
-            onClick={() => startBid({ lotId: lot.id, amount: quick, type: 'next_increment' })}
+            onClick={() => modalActions.startBid({ lotId: lot.id, amount: quick, type: 'next_increment' })}
             title="Bid the next increment now"
           >
             Bid {dollars(quick)}

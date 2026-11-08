@@ -10,7 +10,7 @@ import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { CardBrand } from './brands';
-import { hideCategory, openLot, startBid, toggleHide } from './state';
+import { hideCategory, modalActions, openLot, toggleHide } from './state';
 import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
 import type { Lot, PastClose } from './types';
@@ -276,7 +276,7 @@ function CardBidButton({ row }: { row: Row }) {
   }
   const amount = quickBidAmount(lot);
   return (
-    <button type="button" class="btn btn-small" onClick={() => startBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">
+    <button type="button" class="btn btn-small" onClick={() => modalActions.startBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">
       Bid {dollars(amount)}
     </button>
   );

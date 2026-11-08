@@ -6,7 +6,7 @@ import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
 import { getSetting, setSetting } from './settings';
-import { closed, editCategories, openClosed, openHidden, setView } from './state';
+import { closed, modalActions, openClosed, openHidden, setView } from './state';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum, plural } from './util';
 import { collator } from '../shared/sortKey';
@@ -353,7 +353,7 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
           </div>
         )}
         <CategoryList facets={facets} selected={view.categories} onChange={(categories) => setView({ categories, noCategories: false })} />
-        <button type="button" class="btn-text cat-edit-btn" onClick={editCategories}>
+        <button type="button" class="btn-text cat-edit-btn" onClick={modalActions.editCategories}>
           <Icon name="edit" size={16} /> {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
         </button>
       </Collapsible>

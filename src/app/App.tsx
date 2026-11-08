@@ -22,7 +22,7 @@ import { clock, fmtCount, MINUTE, plural, shortTime } from './util';
 import {
   accountPickupName,
   closed,
-  closeModal,
+  modalActions,
   filterFacets,
   gridView,
   highlight,
@@ -248,17 +248,17 @@ export function App() {
           req={curModal.req}
           row={rowOf(bidLot)}
           pickup={pickup}
-          onClose={() => closeModal(curModal)}
+          onClose={() => modalActions.close(curModal)}
         />
       )}
       {curModal?.kind === 'categories' && (
-        <CategoryEditor lots={lots.value.values().filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0).toArray()} onClose={() => closeModal(curModal)} />
+        <CategoryEditor lots={lots.value.values().filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0).toArray()} onClose={() => modalActions.close(curModal)} />
       )}
       {curModal?.kind === 'typeCategory' && (
-        <TypeCategory lot={curModal.lot} lots={lots.value.values().filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0).toArray()} onClose={() => closeModal(curModal)} />
+        <TypeCategory lot={curModal.lot} lots={lots.value.values().filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0).toArray()} onClose={() => modalActions.close(curModal)} />
       )}
       {curModal?.kind === 'itemType' && (
-        <ItemTypeEditor key={curModal.lot.id} lot={getLot(curModal.lot.id) ?? curModal.lot} onClose={() => closeModal(curModal)} />
+        <ItemTypeEditor key={curModal.lot.id} lot={getLot(curModal.lot.id) ?? curModal.lot} onClose={() => modalActions.close(curModal)} />
       )}
       <Toasts />
     </div>
