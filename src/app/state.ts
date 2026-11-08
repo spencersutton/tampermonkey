@@ -7,7 +7,7 @@ import { nameMatchPct } from '../shared/names';
 import { fetchPickupLocation, type ClosedSection } from './api';
 import { isAuthenticated } from './auth';
 import type { BidRequest } from './bid';
-import { getLot, lots, rev } from './catalog';
+import { getLot, lotBrands, lotModels, lots, rev } from './catalog';
 import { getSetting, setSetting } from './settings';
 import { settingsSynced } from './source';
 import type { Lot } from './types';
@@ -145,10 +145,11 @@ export const page = signal(1);
 export const onScreen = signal<number[]>([]);
 
 // Closed lots drop out on a 30 s clock; countdowns tick on their own.
+const searchDetails = computed(() => ({ brands: lotBrands.value, models: lotModels.value }));
 /** The grid: lots through the view's filters and sort, recomputed on every lot update. */
 export const gridView = computed(() => {
     void rev.value;
-    return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000));
+    return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000), searchDetails.value);
 });
 /** Filter options and their counts; these don't follow live price updates. */
 export const filterFacets = computed(() => computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)));
@@ -162,7 +163,7 @@ export const highlight = signal<{ id: string; since: Temporal.Instant } | null>(
 
 export const searchStats = computed(() => {
     void rev.value;
-    return savedSearchStats(lots.value.values(), getSetting(KEYS.savedSearches), pickupName.value, exclusionRules.value, clock(30_000));
+    return savedSearchStats(lots.value.values(), getSetting(KEYS.savedSearches), pickupName.value, exclusionRules.value, clock(30_000), searchDetails.value);
 });
 /** New lots across all saved searches. */
 export const totalNew = computed(() => searchStats.value.values().reduce((n, s) => n + s.fresh, 0));

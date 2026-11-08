@@ -151,10 +151,12 @@ export function App() {
           <input
             class={`search ${badRegex ? 'has-error' : ''}`}
             type="search"
-            placeholder={view.searchRegex ? `Regex search ${fmtCount(result.open)} lots` : `Search ${fmtCount(result.open)} lots`}
+            placeholder={view.searchRegex ? `Regex search ${fmtCount(result.open)} lots` : `Search ${fmtCount(result.open)} lots: title, brand, model`}
             aria-label="Search lots"
             aria-invalid={badRegex}
-            title={badRegex ? 'Invalid regex' : undefined}
+            title={badRegex ? 'Invalid regex' : view.searchRegex
+              ? 'Case-insensitive regex across title, lot number, and known brand/model details'
+              : 'Search title, lot number, and known brand/model details. Narrow with brand:dewalt model:dcd791; quote multi-word values, e.g. brand:"Black & Decker". All terms must match. Uncached details become searchable when loaded.'}
             spellcheck={!view.searchRegex}
             value={search}
             onInput={(e) => setSearchDraft(e.currentTarget.value)}

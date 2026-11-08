@@ -96,6 +96,11 @@ export interface ViewState {
   newSince: Temporal.Instant | null; // only lots first seen after this time (not saved with searches)
 }
 
+export interface SearchDetails {
+  brands: ReadonlyMap<number, string | null>;
+  models: ReadonlyMap<number, string | null>;
+}
+
 /** View with no filters, sorted by ending soonest. */
 export const DEFAULT_VIEW: ViewState = {
   sort: 'ending-soonest',
@@ -291,8 +296,8 @@ export interface ViewResult {
 }
 
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
-export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant): ViewResult {
-  const matches = makeMatcher(view, now);
+export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant, details?: SearchDetails): ViewResult {
+  const matches = makeMatcher(view, now, details);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const titleMatches = titleMatcher(ex.words);
 
@@ -395,8 +400,11 @@ export function searchRegexOf(v: ViewState): RegExp | null {
 }
 
 /** Predicate for the view's own filters (not hide / regex exclusions). */
-export function makeMatcher(v: ViewState, now: Temporal.Instant): (row: Row) => boolean {
-  const terms = v.searchRegex ? [] : v.search.toLowerCase().split(/\s+/).filter(Boolean);
+export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: SearchDetails): (row: Row) => boolean {
+  const terms = v.searchRegex ? [] : Array.from(
+    v.search.toLowerCase().matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("[^"]*"(?=\s|$)|\S+)/g),
+    ([, field, value = '']) => ({ field, value: value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value }),
+  );
   // An invalid regex matches nothing, so the mistake is obvious.
   const re = v.searchRegex && v.search.trim() ? (searchRegexOf(v) ?? /$^/) : null;
   const win = ENDING[v.ending].window?.(now);
@@ -406,8 +414,16 @@ export function makeMatcher(v: ViewState, now: Temporal.Instant): (row: Row) => 
   const location = oneOf(v.locations);
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
   const searchMatches = (lot: Lot) => {
-    const hay = `${lot.title} ${lot.lotNumber}`;
-    return re ? re.test(hay) : terms.every((t) => hay.toLowerCase().includes(t));
+    // Detail caches can be newer than the lot's price-versioned catalog entry.
+    const cachedBrand = details?.brands.get(lot.id);
+    const cachedModel = details?.models.get(lot.id);
+    const brand = (cachedBrand === undefined ? lot.brand : cachedBrand) ?? '';
+    const model = (cachedModel === undefined ? lot.model : cachedModel) ?? '';
+    const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
+    if (re) return re.test(hay);
+    return terms.every(({ field, value }) =>
+      !!value && (field === 'brand' ? brand : field === 'model' ? model : hay).toLowerCase().includes(value),
+    );
   };
   return ({ lot, category: cat, total, pickupOnly }) =>
     !v.noCategories &&
@@ -510,11 +526,12 @@ export function savedSearchStats(
   pickup: string,
   ex: Exclusions,
   now: Temporal.Instant,
+  details?: SearchDetails,
 ): Map<string, SavedSearchStats> {
   const matchers = searches.map((s) => ({
     s,
     since: s.lastViewedAt,
-    matches: makeMatcher(normalizeView(s.view), now),
+    matches: makeMatcher(normalizeView(s.view), now, details),
     stats: { total: 0, fresh: 0 },
   }));
   for (const lot of lots) {
