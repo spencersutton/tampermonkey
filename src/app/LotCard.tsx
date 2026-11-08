@@ -10,7 +10,7 @@ import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './b
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { CardBrand } from './brands';
+import { CardBrandModel } from './brands';
 import { hideCategory, modalActions, openLot, toggleHide } from './state';
 import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
@@ -146,16 +146,19 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         </span>}
       </div>
       <div class="card-body">
+        <div class="card-kicker">
+          {lot.condition && <span class="card-condition" title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
+          {lot.lotNumber && <span class="card-lot-number">Lot #{lot.lotNumber}</span>}
+        </div>
         <a class="card-title" href={href} title={lot.title} onClick={open}>
           {lot.title}
         </a>
-        <CardBrand id={lot.id} />
+        <CardBrandModel id={lot.id} />
         <div class="card-meta">
-          <LocationText row={row} />
-          {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
+          <div class="card-location"><span class="card-label">Location</span><LocationText row={row} /></div>
           {category && (
-            <span class="card-category">
-              {category.label}
+            <div class="card-category">
+              <span>{category.label}</span>
               <button
                 type="button"
                 class="icon-btn category-hide"
@@ -165,30 +168,39 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
               >
                 <Icon name="visibilityOff" size={16} />
               </button>
-            </span>
+            </div>
           )}
         </div>
         <ItemTypeActions lot={lot} />
-        <div class="card-price">
-          <span class="price">{dollars(lot.currentPrice)}</span>
-          <span class="total" title={costBreakdown(lot.currentPrice, row.transferFee)}>
-            ≈ <b>{money(row.total)}</b> total
-          </span>
+        <div class="card-summary">
+          <dl class="card-price">
+            <div>
+              <dt class="card-label">Current bid</dt>
+              <dd class="price">{dollars(lot.currentPrice)}</dd>
+            </div>
+            <div title={costBreakdown(lot.currentPrice, row.transferFee)}>
+              <dt class="card-label">Est. total</dt>
+              <dd class="card-total">≈ {money(row.total)}</dd>
+            </div>
+          </dl>
+          <div class="card-sub">
+            {lot.estimatedRetailPrice ? (
+              <span>
+                Retail {dollars(lot.estimatedRetailPrice)}
+                {row.retailPct != null && <span class="card-retail-pct">Bid is {Math.round(row.retailPct * 100)}% of retail</span>}
+              </span>
+            ) : (
+              <span class="muted">No retail estimate</span>
+            )}
+            <span>{plural(lot.bidCount, 'bid')}</span>
+          </div>
+          {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
         </div>
-        <div class="card-sub">
-          {lot.estimatedRetailPrice ? (
-            <span>
-              Retail {dollars(lot.estimatedRetailPrice)}
-              {row.retailPct != null && <span class="muted"> ({Math.round(row.retailPct * 100)}%)</span>}
-            </span>
-          ) : (
-            <span class="muted">No retail estimate</span>
-          )}
-          <span>{plural(lot.bidCount, 'bid')}</span>
-        </div>
-        {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
         <div class="card-foot">
-          <TimeLeft endsAt={lot.endsAt} />
+          <div class="card-ending">
+            <span class="card-label">Time left</span>
+            <TimeLeft endsAt={lot.endsAt} />
+          </div>
           <CardBidButton row={row} />
         </div>
       </div>

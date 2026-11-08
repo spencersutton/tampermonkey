@@ -3,7 +3,7 @@
 // source.ts). Between pulls prices for lots on screen stay current over the
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
-import { signal } from '@preact/signals';
+import { batch, signal } from '@preact/signals';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 import type { Lot, LotDetail, LotMetadata } from './types';
@@ -92,6 +92,7 @@ export function loadMetadata(lot: Pick<Lot, 'id' | 'auctionPeriod'>): Promise<Lo
 
 /** Brands from server-cached or newly fetched details; null means the site supplied no brand. */
 export const lotBrands = signal(new Map<number, string | null>());
+export const lotModels = signal(new Map<number, string | null>());
 
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
 export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: AbortSignal): Promise<LotDetail> {
@@ -104,7 +105,10 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
       if (details.get(lot.id)?.promise !== promise) return d;
       metadata.set(lot.id, { description: d.description, brand: d.brand, model: d.model, lotFee: d.lotFee, images: d.images });
       details.set(lot.id, { at: Date.now(), data: d });
-      lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
+      batch(() => {
+        lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
+        lotModels.value = new Map(lotModels.peek()).set(lot.id, d.model?.trim() || null);
+      });
       // oxlint-disable-next-line no-unused-vars
       const { description, brand, model, lotFee, bidHistory, similar, ...base } = d;
       const cur = lots.peek().get(lot.id);

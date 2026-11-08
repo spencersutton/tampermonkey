@@ -9,6 +9,7 @@ import { Dialog } from './Dialog';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
+import { BrandModel } from './brands';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
@@ -199,38 +200,6 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           </div>
         </div>
       </div>
-  );
-}
-
-/**
- * Brand and model, right under the title. The model (or the brand, if there's
- * no model) links to a Google search for both, to look up specs and prices.
- */
-function BrandModel({ brand, model }: { brand: string | null; model: string | null }) {
-  if (!brand && !model) {
-    return null;
-  }
-  const query = [brand, model].filter(Boolean).join(' ');
-  const search = (text: string) => (
-    <a href={`https://www.google.com/search?q=${encodeURIComponent(query)}`} target="_blank" rel="noopener" title={`Search Google for “${query}”`}>
-      {text} <Icon name="open" size={14} />
-    </a>
-  );
-  return (
-    <dl class="brand-model">
-      {brand && (
-        <div>
-          <dt>Brand</dt>
-          <dd>{model ? brand : search(brand)}</dd>
-        </div>
-      )}
-      {model && (
-        <div>
-          <dt>Model</dt>
-          <dd>{search(model)}</dd>
-        </div>
-      )}
-    </dl>
   );
 }
 

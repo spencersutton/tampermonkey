@@ -18,16 +18,19 @@ class BrandStoreTests(unittest.TestCase):
 
     def test_catalog_distinguishes_uncached_details_from_known_missing_brands(self) -> None:
         before = self.store.seq()
-        self.store.save_lot_detail({"id": 1, "brand": "  Acme  "})
-        self.store.save_lot_detail({"id": 2, "brand": None})
+        self.store.save_lot_detail({"id": 1, "brand": "  Acme  ", "model": "  D-1  "})
+        self.store.save_lot_detail({"id": 2, "brand": None, "model": "   "})
         catalog = {lot["id"]: lot for lot in self.store.changes(0).lots}
         self.assertEqual(catalog[1]["brand"], "Acme")
         self.assertIsNone(catalog[2]["brand"])
         self.assertNotIn("brand", catalog[3])
+        self.assertEqual(catalog[1]["model"], "D-1")
+        self.assertIsNone(catalog[2]["model"])
+        self.assertNotIn("model", catalog[3])
         self.assertEqual({lot["id"] for lot in self.store.changes(before).lots}, {1, 2})
 
     def test_details_survive_reopening_the_database_and_catalog_refreshes(self) -> None:
-        self.store.save_lot_detail({"id": 1, "brand": "Acme"})
+        self.store.save_lot_detail({"id": 1, "brand": "Acme", "model": "D-1"})
         self.store.save_lot_detail({"id": 2, "brand": None})
         reopened = Store(self.path)
         self.addCleanup(reopened._db.close)
@@ -37,10 +40,12 @@ class BrandStoreTests(unittest.TestCase):
         self.assertEqual(reopened.changes(before).lots, [])
         catalog = {lot["id"]: lot for lot in reopened.changes(0).lots}
         self.assertEqual(catalog[1]["brand"], "Acme")
+        self.assertEqual(catalog[1]["model"], "D-1")
         self.assertIsNone(catalog[2]["brand"])
         changed = [{**lot, "currentPrice": 25} for lot in self.lots]
         reopened.replace_all(changed)
         self.assertEqual(reopened.changes(before).lots[0]["brand"], "Acme")
+        self.assertEqual(reopened.changes(before).lots[0]["model"], "D-1")
 
     def test_only_brand_changes_publish_catalog_deltas(self) -> None:
         self.store.save_lot_detail({"id": 1, "brand": "Acme"})
@@ -60,6 +65,17 @@ class BrandStoreTests(unittest.TestCase):
         self.store.replace_all([*self.lots, normalize_lot({"id": 4})])
         catalog = {lot["id"]: lot for lot in self.store.changes(0).lots}
         self.assertEqual(catalog[4]["brand"], "Already cached")
+
+    def test_model_only_changes_and_removals_publish_deltas(self) -> None:
+        self.store.save_lot_detail({"id": 1, "brand": None, "model": "D-1"})
+        before = self.store.seq()
+        self.store.save_lot_detail({"id": 1, "brand": None, "model": " D-1 ", "description": "Updated"})
+        self.assertEqual(self.store.seq(), before)
+        self.store.save_lot_detail({"id": 1, "brand": None, "model": "D-2"})
+        self.assertEqual([(lot["id"], lot["model"]) for lot in self.store.changes(before).lots], [(1, "D-2")])
+        before = self.store.seq()
+        self.store.save_lot_detail({"id": 1, "brand": None, "model": None})
+        self.assertEqual([(lot["id"], lot["model"]) for lot in self.store.changes(before).lots], [(1, None)])
 
 
 if __name__ == "__main__":
