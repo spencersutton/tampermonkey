@@ -14,99 +14,14 @@ import type { Lot } from './types';
 import { clock, DAY, MINUTE } from './util';
 import { computeFacets, computeView, initialView, makeRow, savedSearchStats, type ViewState } from './view';
 
-/** How many batches of lots the grid shows; grows as the end of it scrolls into view. */
-export const page = signal(1);
+// Navigation and lot actions
+
 export const openId = signal<number | null>(null);
 /** The Won / Lost page, shown in place of the grid. */
 export const closed = signal<ClosedSection | null>(null);
 export const sidebarOpen = signal(false);
-/** Ids of the lot cards on screen or close to it, sorted. */
-export const onScreen = signal<number[]>([]);
-/** The saved search opened last, and when it had been viewed before that. */
-export const highlight = signal<{ id: string; since: Temporal.Instant } | null>(null);
-
-export type Modal =
-    | { kind: 'bid'; req: BidRequest }
-    | { kind: 'categories' }
-    | { kind: 'typeCategory'; lot: Lot } // making the lot's item type a category
-    | { kind: 'itemType'; lot: Lot };
-/** The popup over everything else, including the lot popup. */
-export const modal = signal<Modal | null>(null);
-
-/** Name of the account's pickup location (fetched at most once a day while logged in). */
-export const accountPickupName = computed(() => {
-    const acct = getSetting(KEYS.accountPickup);
-    if (acct?.name || acct?.id == null) {
-        return acct?.name ?? null;
-    }
-    // The account may only give the location's id; find its name among the lots.
-    return lots.value.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
-});
-export const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
-
-export const storedView = computed(() => initialView(getSetting(KEYS.view), getSetting(KEYS.defaultFilters)));
-export const searchDraft = signal('');
-const committedSearch = computed(() => storedView.value.search);
-export const PAGE_SIZE = 60;
-export const shownRows = computed(() => gridView.value.rows.slice(0, page.value * PAGE_SIZE));
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
-
-export function setSearchDraft(text: string) {
-    searchDraft.value = text;
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => setView({ search: text }), 200);
-}
-
-export function resetSearch(text: string) {
-    clearTimeout(searchTimer);
-    searchDraft.value = text;
-}
-export const exclusionRules = computed(() => ({
-    words: getSetting(KEYS.words),
-    filterOn: getSetting(KEYS.filterOn),
-    removeFiltered: getSetting(KEYS.removeFiltered),
-    hidden: getSetting(KEYS.hidden),
-    showHidden: getSetting(KEYS.showHidden),
-    customCategories: getSetting(KEYS.customCategories),
-    nameMatch: nameMatchPct(getSetting(KEYS.nameMatch)),
-}));
-
-// Closed lots drop out on a 30 s clock; countdowns tick on their own.
-/** The grid: lots through the view's filters and sort, recomputed on every lot update. */
-export const gridView = computed(() => {
-    void rev.value;
-    return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000));
-});
-/** Filter options and their counts; these don't follow live price updates. */
-export const filterFacets = computed(() => computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)));
-export const searchStats = computed(() => {
-    void rev.value;
-    return savedSearchStats(lots.value.values(), getSetting(KEYS.savedSearches), pickupName.value, exclusionRules.value, clock(30_000));
-});
-/** New lots across all saved searches. */
-export const totalNew = computed(() => searchStats.value.values().reduce((n, s) => n + s.fresh, 0));
-
-export const rowOf = (lot: Lot) => makeRow(lot, pickupName.value, exclusionRules.value);
-
-export function setView(patch: Partial<ViewState>) {
-    batch(() => {
-        if (patch.search != null) resetSearch(patch.search);
-        setSetting(KEYS.view, { ...storedView.value, ...patch });
-        page.value = 1;
-        closed.value = null; // changing the filters goes back to the grid
-    });
-}
 
 export const openLot = (lot: Lot) => void (openId.value = lot.id);
-
-export function hideCategory(value: string) {
-    const view = storedView.value;
-    const selected = view.categories.length || view.noCategories
-        ? view.categories
-        : filterFacets.value.categories.map((f) => f.value);
-    const categories = selected.filter((v) => v !== value);
-    setView({ categories, noCategories: !categories.length });
-}
 
 /** Open a hidden lot: in the popup when it's in the catalog, else on the site. */
 export function openHidden(id: number) {
@@ -131,6 +46,16 @@ export function toggleHide(lot: Lot) {
     setSetting(KEYS.hidden, wasHidden ? rest : { ...rest, [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() } });
 }
 
+// Modal state and actions
+
+export type Modal =
+    | { kind: 'bid'; req: BidRequest }
+    | { kind: 'categories' }
+    | { kind: 'typeCategory'; lot: Lot } // making the lot's item type a category
+    | { kind: 'itemType'; lot: Lot };
+/** The popup over everything else, including the lot popup. */
+export const modal = signal<Modal | null>(null);
+
 export const modalActions = {
     startBid(req: BidRequest) {
         modal.value = { kind: 'bid', req };
@@ -151,6 +76,96 @@ export const modalActions = {
         }
     },
 };
+
+// Pickup location
+
+/** Name of the account's pickup location (fetched at most once a day while logged in). */
+export const accountPickupName = computed(() => {
+    const acct = getSetting(KEYS.accountPickup);
+    if (acct?.name || acct?.id == null) {
+        return acct?.name ?? null;
+    }
+    // The account may only give the location's id; find its name among the lots.
+    return lots.value.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
+});
+export const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
+
+// Filters and debounced search
+
+export const storedView = computed(() => initialView(getSetting(KEYS.view), getSetting(KEYS.defaultFilters)));
+export const searchDraft = signal('');
+const committedSearch = computed(() => storedView.value.search);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function setSearchDraft(text: string) {
+    searchDraft.value = text;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => setView({ search: text }), 200);
+}
+
+export function resetSearch(text: string) {
+    clearTimeout(searchTimer);
+    searchDraft.value = text;
+}
+
+export function setView(patch: Partial<ViewState>) {
+    batch(() => {
+        if (patch.search != null) resetSearch(patch.search);
+        setSetting(KEYS.view, { ...storedView.value, ...patch });
+        page.value = 1;
+        closed.value = null; // changing the filters goes back to the grid
+    });
+}
+
+export function hideCategory(value: string) {
+    const view = storedView.value;
+    const selected = view.categories.length || view.noCategories
+        ? view.categories
+        : filterFacets.value.categories.map((f) => f.value);
+    const categories = selected.filter((v) => v !== value);
+    setView({ categories, noCategories: !categories.length });
+}
+
+export const exclusionRules = computed(() => ({
+    words: getSetting(KEYS.words),
+    filterOn: getSetting(KEYS.filterOn),
+    removeFiltered: getSetting(KEYS.removeFiltered),
+    hidden: getSetting(KEYS.hidden),
+    showHidden: getSetting(KEYS.showHidden),
+    customCategories: getSetting(KEYS.customCategories),
+    nameMatch: nameMatchPct(getSetting(KEYS.nameMatch)),
+}));
+
+// Catalog rows, facets and pagination
+
+export const PAGE_SIZE = 60;
+/** How many batches of lots the grid shows; grows as the end of it scrolls into view. */
+export const page = signal(1);
+/** Ids of the lot cards on screen or close to it, sorted. */
+export const onScreen = signal<number[]>([]);
+
+// Closed lots drop out on a 30 s clock; countdowns tick on their own.
+/** The grid: lots through the view's filters and sort, recomputed on every lot update. */
+export const gridView = computed(() => {
+    void rev.value;
+    return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000));
+});
+/** Filter options and their counts; these don't follow live price updates. */
+export const filterFacets = computed(() => computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)));
+export const shownRows = computed(() => gridView.value.rows.slice(0, page.value * PAGE_SIZE));
+export const rowOf = (lot: Lot) => makeRow(lot, pickupName.value, exclusionRules.value);
+
+// Saved searches and visit tracking
+
+/** The saved search opened last, and when it had been viewed before that. */
+export const highlight = signal<{ id: string; since: Temporal.Instant } | null>(null);
+
+export const searchStats = computed(() => {
+    void rev.value;
+    return savedSearchStats(lots.value.values(), getSetting(KEYS.savedSearches), pickupName.value, exclusionRules.value, clock(30_000));
+});
+/** New lots across all saved searches. */
+export const totalNew = computed(() => searchStats.value.values().reduce((n, s) => n + s.fresh, 0));
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
 const VISIT_GAP = 30 * MINUTE;
@@ -199,6 +214,8 @@ function firstVisitSince(now: Temporal.Instant): Temporal.Instant {
     if (first == null) return now;
     return Temporal.Instant.compare(first, epoch) <= 0 ? epoch : first.subtract({ milliseconds: 1 });
 }
+
+// App initialization
 
 /** Start the app-wide effects; call once. */
 export function startApp() {
