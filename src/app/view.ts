@@ -83,6 +83,7 @@ export interface ViewState {
   search: string;
   searchRegex: boolean; // the search box holds a case-insensitive regex rather than words
   categories: string[];
+  noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -101,6 +102,7 @@ export const DEFAULT_VIEW: ViewState = {
   search: '',
   searchRegex: false,
   categories: [],
+  noCategories: false,
   conditions: [],
   locations: [],
   reachable: false,
@@ -119,6 +121,7 @@ export function normalizeView(v: unknown): ViewState {
   const rawNewSince: unknown = view.newSince;
   return {
     ...view,
+    noCategories: !view.categories.length && view.noCategories === true,
     newSince: typeof rawNewSince === 'string' ? Temporal.Instant.from(rawNewSince)
       : rawNewSince instanceof Temporal.Instant ? rawNewSince : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -129,7 +132,7 @@ export function normalizeView(v: unknown): ViewState {
 
 /** Reset all filters to the saved defaults while preserving the current sort. */
 export function defaultFilterView(defaults: DefaultFilters, sort: SortId = DEFAULT_VIEW.sort): ViewState {
-  return { ...DEFAULT_VIEW, sort, categories: [...defaults.categories], conditions: [...defaults.conditions] };
+  return { ...DEFAULT_VIEW, sort, categories: [...defaults.categories], noCategories: !defaults.categories.length && defaults.noCategories === true, conditions: [...defaults.conditions] };
 }
 
 /** Use saved defaults only when the browser has no view of its own. */
@@ -138,16 +141,16 @@ export function initialView(stored: unknown, defaults: DefaultFilters): ViewStat
 }
 
 /** Compare category and condition selections without depending on their order. */
-export function sameDefaultFilters(view: Pick<ViewState, 'categories' | 'conditions'>, defaults: DefaultFilters): boolean {
+export function sameDefaultFilters(view: DefaultFilters, defaults: DefaultFilters): boolean {
   const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every((v) => b.includes(v));
-  return same(view.categories, defaults.categories) && same(view.conditions, defaults.conditions);
+  return !!view.noCategories === !!defaults.noCategories && same(view.categories, defaults.categories) && same(view.conditions, defaults.conditions);
 }
 
 /** How many filters the view has turned on (shown on the "Clear" button). */
 export const activeFilterCount = (v: ViewState) =>
   [
     v.search.trim(),
-    v.categories.length,
+    v.categories.length || v.noCategories,
     v.conditions.length,
     v.locations.length,
     v.reachable,
@@ -407,6 +410,7 @@ export function makeMatcher(v: ViewState, now: Temporal.Instant): (row: Row) => 
     return re ? re.test(hay) : terms.every((t) => hay.toLowerCase().includes(t));
   };
   return ({ lot, category: cat, total, pickupOnly }) =>
+    !v.noCategories &&
     (newSince == null || firstSeenAfter(lot, newSince)) &&
     ((!terms.length && !re) || searchMatches(lot)) &&
     category(cat?.value ?? '') &&
@@ -485,6 +489,7 @@ export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boole
 export function suggestName(v: ViewState, facets: Facets): string {
   const parts = [
     v.search.trim(),
+    v.noCategories && 'No categories',
     ...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
     v.locations.join('/'),
     v.priceMax != null && `≤ $${v.priceMax}`,

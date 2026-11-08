@@ -41,6 +41,7 @@ function navToUrl({ view, page, openId, closed }: NavState): string {
   const put = (k: string, v: string | number | null | undefined, def?: unknown) => v != null && v !== '' && v !== def && q.append(k, String(v));
   put('search', view.search.trim());
   put('regex', view.searchRegex ? 1 : null);
+  put('noCategories', view.noCategories ? 1 : null);
   put('sort', view.sort, DEFAULT_VIEW.sort);
   for (const f of LISTS) {
     view[f].forEach((v: string | number) => put(LIST_PARAM[f], v));
@@ -73,6 +74,7 @@ export function navFromUrl(search = location.search): NavState | null {
     searchRegex: q.has('regex') && q.get('regex') !== '0',
     sort: q.get('sort') ?? undefined,
     categories: q.getAll('category'),
+    noCategories: q.get('noCategories') === '1',
     conditions: q.getAll('condition').map(Number).filter(Number.isFinite),
     locations: q.getAll('location'),
     reachable: q.has('reachable') && q.get('reachable') !== '0',

@@ -9,7 +9,7 @@ import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './b
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { openLot, startBid, toggleHide } from './state';
+import { hideCategory, openLot, startBid, toggleHide } from './state';
 import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
 import type { Lot, PastClose } from './types';
@@ -110,7 +110,7 @@ interface Props {
 
 /** One lot in the grid: image, title, price, total, time left and actions. */
 export const LotCard = memo(function LotCard({ row, isNew }: Props) {
-  const { lot, matched, hidden } = row;
+  const { lot, matched, hidden, category } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
   const dim = !!matched || hidden;
   const img = lot.images[0];
@@ -148,7 +148,20 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         <div class="card-meta">
           <LocationText row={row} />
           {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
-          {row.category && <span>{row.category.label}</span>}
+          {category && (
+            <span class="card-category">
+              {category.label}
+              <button
+                type="button"
+                class="icon-btn category-hide"
+                title={`Hide category: ${category.label}`}
+                aria-label={`Hide category: ${category.label}`}
+                onClick={() => hideCategory(category.value)}
+              >
+                <Icon name="visibilityOff" size={16} />
+              </button>
+            </span>
+          )}
         </div>
         <ItemTypeActions lot={lot} />
         <div class="card-price">

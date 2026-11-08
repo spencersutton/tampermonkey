@@ -99,6 +99,15 @@ export function setView(patch: Partial<ViewState>) {
 
 export const openLot = (lot: Lot) => void (openId.value = lot.id);
 
+export function hideCategory(value: string) {
+    const view = storedView.value;
+    const selected = view.categories.length || view.noCategories
+        ? view.categories
+        : filterFacets.value.categories.map((f) => f.value);
+    const categories = selected.filter((v) => v !== value);
+    setView({ categories, noCategories: !categories.length });
+}
+
 /** Open a hidden lot: in the popup when it's in the catalog, else on the site. */
 export function openHidden(id: number) {
     if (getLot(id)) {

@@ -1064,6 +1064,17 @@ h3 {
   opacity: 0.6;
 }
 
+.card-category {
+  display: inline-flex;
+  align-items: center;
+}
+
+.category-hide {
+  flex: none;
+  padding: 4px;
+  margin-left: 2px;
+}
+
 .item-type-row {
   display: flex;
   align-items: center;

@@ -56,6 +56,7 @@ export interface CustomCategory {
 
 export interface DefaultFilters {
   categories: string[];
+  noCategories?: boolean;
   conditions: number[];
 }
 

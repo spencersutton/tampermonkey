@@ -282,7 +282,7 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
   const setDefaults = (value: ReturnType<typeof getSetting<typeof KEYS.defaultFilters>>) => setSetting(KEYS.defaultFilters, value);
   const reset = defaultFilterView(defaults, view.sort);
   const canDefault =
-    view.newSince != null || !sameDefaultFilters(view, defaults) || !sameFilters({ ...view, categories: reset.categories, conditions: reset.conditions }, reset);
+    view.newSince != null || !sameDefaultFilters(view, defaults) || !sameFilters({ ...view, categories: reset.categories, noCategories: reset.noCategories, conditions: reset.conditions }, reset);
   const conditions = siteConditions();
   const custom = getSetting(KEYS.customCategories);
   const customCount = custom.length;
@@ -344,7 +344,15 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
       </Collapsible>
 
       <Collapsible id="f-category" title="Category">
-        <CategoryList facets={facets} selected={view.categories} onChange={(categories) => setView({ categories })} />
+        {view.noCategories && (
+          <div>
+            <p class="muted">No categories selected.</p>
+            <button type="button" class="btn-text" onClick={() => setView({ categories: [], noCategories: false })}>
+              Show all categories
+            </button>
+          </div>
+        )}
+        <CategoryList facets={facets} selected={view.categories} onChange={(categories) => setView({ categories, noCategories: false })} />
         <button type="button" class="btn-text cat-edit-btn" onClick={editCategories}>
           <Icon name="edit" size={16} /> {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
         </button>
@@ -376,7 +384,7 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
         type="button"
         class="btn-text default-filters-btn"
         disabled={sameDefaultFilters(view, defaults)}
-        onClick={() => setDefaults({ categories: [...view.categories], conditions: [...view.conditions] })}
+        onClick={() => setDefaults({ categories: [...view.categories], conditions: [...view.conditions], ...(view.noCategories ? { noCategories: true } : {}) })}
         title="Save the current category and condition selections as defaults"
       >
         Save category &amp; condition defaults
