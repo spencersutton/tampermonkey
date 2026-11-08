@@ -35,6 +35,9 @@ export interface RawStanding {
   your_max_bid: number | null;
 }
 
+/** 
+ * @see Lot, which is the normalized version of this.
+ */  
 interface RawLot {
   id: number;
   auction_period: string;
@@ -58,6 +61,9 @@ interface RawLot {
   images: { position: number; image_thumb: string; image_card: string; image_large: string }[];
 }
 
+/**
+ * @see LotDetail, which is the normalized version of this.
+ */
 interface RawLotDetail extends RawLot {
   description: string;
   brand: string | null;
@@ -66,6 +72,9 @@ interface RawLotDetail extends RawLot {
   similar: RawLot[];
 }
 
+/**
+ * @see ClosedLot, which is the normalized version of this.
+ */
 interface RawClosedLot {
   lot_id: number;
   auction_period: string;
