@@ -7,7 +7,7 @@ import { batch, computed, effect } from '@preact/signals';
 import { KEYS } from '../shared/keys';
 import type { ClosedSection } from './api';
 import { setSetting } from './settings';
-import { closed, openId, page, storedView } from './state';
+import { closed, filteredOnly, openId, page, storedView } from './state';
 import { DEFAULT_VIEW, normalizeView, type ViewState } from './view';
 
 /** What a history entry restores. */
@@ -16,6 +16,7 @@ interface NavState {
   page: number;
   openId: number | null;
   closed: ClosedSection | null; // the Won / Lost page shown instead of the grid
+  filteredOnly: boolean;
 }
 
 /**
@@ -36,7 +37,7 @@ const NUMBERS = ['priceMin', 'priceMax', 'totalMax', 'retailMin'] as const;
 const LIST_PARAM = { categories: 'category', conditions: 'condition', locations: 'location' } as const;
 
 /** The URL (path and query) that shows `nav`. */
-function navToUrl({ view, page, openId, closed }: NavState): string {
+function navToUrl({ view, page, openId, closed, filteredOnly }: NavState): string {
   const q = new URLSearchParams();
   const put = (k: string, v: string | number | null | undefined, def?: unknown) => v != null && v !== '' && v !== def && q.append(k, String(v));
   put('search', view.search.trim());
@@ -55,6 +56,7 @@ function navToUrl({ view, page, openId, closed }: NavState): string {
   put('page', page, 1);
   put('lot', openId);
   put('closed', closed);
+  put('filtered', filteredOnly ? 1 : null);
   const qs = q.toString();
   return location.pathname + (qs ? `?${qs}` : '');
 }
@@ -89,14 +91,15 @@ export function navFromUrl(search = location.search): NavState | null {
     page: page && page >= 1 ? Math.floor(page) : 1,
     openId: num('lot'),
     closed: closed === 'won' || closed === 'lost' ? closed : null,
+    filteredOnly: closed !== 'won' && closed !== 'lost' && q.get('filtered') === '1',
   };
 }
 
 const isEntry = (s: unknown): s is Entry => !!s && typeof s === 'object' && (s as Entry).tlx === true;
-const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed]);
+const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed, !!n.filteredOnly]);
 /** Same view on the same page (the grid, or one of the closed-lot pages). */
-const sameView = (a: Pick<NavState, 'closed'> & { view: unknown }, b: Pick<NavState, 'closed'> & { view: unknown }) =>
-  a.closed === b.closed && JSON.stringify(a.view) === JSON.stringify(b.view);
+const sameView = (a: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }, b: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }) =>
+  a.closed === b.closed && !!a.filteredOnly === !!b.filteredOnly && JSON.stringify(a.view) === JSON.stringify(b.view);
 
 /** Push a new entry for `nav`, or replace the current one when the change doesn't deserve its own. */
 function record(nav: NavState) {
@@ -132,7 +135,7 @@ function record(nav: NavState) {
   history.pushState(entry, '', navToUrl(nav));
 }
 
-const current = computed((): NavState => ({ view: storedView.value, page: page.value, openId: openId.value, closed: closed.value }));
+const current = computed((): NavState => ({ view: storedView.value, page: page.value, openId: openId.value, closed: closed.value, filteredOnly: filteredOnly.value }));
 
 function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
   batch(() => {
@@ -140,6 +143,7 @@ function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
     page.value = nav.page;
     openId.value = nav.openId;
     closed.value = nav.closed;
+    filteredOnly.value = !!nav.filteredOnly;
   });
 }
 

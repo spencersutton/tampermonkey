@@ -19,6 +19,7 @@ import { computeFacets, computeView, initialView, makeRow, savedSearchStats, typ
 export const openId = signal<number | null>(null);
 /** The Won / Lost page, shown in place of the grid. */
 export const closed = signal<ClosedSection | null>(null);
+export const filteredOnly = signal(false);
 export const sidebarOpen = signal(false);
 
 export const openLot = (lot: Lot) => void (openId.value = lot.id);
@@ -36,6 +37,17 @@ export function openHidden(id: number) {
 export function openClosed(section: ClosedSection | null) {
     batch(() => {
         closed.value = section;
+        filteredOnly.value = false;
+        sidebarOpen.value = false;
+    });
+    window.scrollTo(0, 0);
+}
+
+export function openFiltered(show = true) {
+    batch(() => {
+        filteredOnly.value = show;
+        closed.value = null;
+        page.value = 1;
         sidebarOpen.value = false;
     });
     window.scrollTo(0, 0);
@@ -149,7 +161,7 @@ const searchDetails = computed(() => ({ brands: lotBrands.value, models: lotMode
 /** The grid: lots through the view's filters and sort, recomputed on every lot update. */
 export const gridView = computed(() => {
     void rev.value;
-    return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000), searchDetails.value);
+    return computeView(lots.value.values(), storedView.value, pickupName.value, exclusionRules.value, clock(30_000), searchDetails.value, filteredOnly.value);
 });
 /** Filter options and their counts; these don't follow live price updates. */
 export const filterFacets = computed(() => computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)));

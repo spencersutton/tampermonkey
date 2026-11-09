@@ -22,6 +22,8 @@ import { clock, fmtCount, MINUTE, plural, shortTime } from './util';
 import {
   accountPickupName,
   closed,
+  filteredOnly,
+  openFiltered,
   modalActions,
   filterFacets,
   gridView,
@@ -89,13 +91,14 @@ export function App() {
   const accountPickup = accountPickupName.value;
   const curOpenId = openId.value;
   const curClosed = closed.value;
+  const curFiltered = filteredOnly.value;
   const curModal = modal.value;
   const search = searchDraft.value;
   const gridTop = useRef<HTMLDivElement>(null);
 
   const now30 = clock(30_000);
 
-  const activeSaved = saved.find((s) => sameFilters(view, s.view)) ?? null;
+  const activeSaved = curFiltered ? null : saved.find((s) => sameFilters(view, s.view)) ?? null;
   // Lots that are new since the previous visit get a badge; while a saved
   // search is open, since that search's previous visit instead.
   const hl = highlight.value;
@@ -109,7 +112,7 @@ export function App() {
     searches: saved,
     stats: savedStats,
     activeId: activeSaved?.id ?? null,
-    canSave: activeFilterCount({ ...view, newSince: null }) > 0 && !activeSaved,
+    canSave: !curFiltered && activeFilterCount({ ...view, newSince: null }) > 0 && !activeSaved,
     suggestedName: suggestName(view, facets),
     onSave: (name: string) => {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -120,6 +123,7 @@ export function App() {
         setSetting(KEYS.view, { ...normalizeView(s.view), newSince: newOnly ? s.lastViewedAt : null });
         page.value = 1;
         closed.value = null;
+        filteredOnly.value = false;
         highlight.value = { id: s.id, since: s.lastViewedAt };
         updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Temporal.Now.instant() } : x)));
         sidebarOpen.value = false;
@@ -205,10 +209,21 @@ export function App() {
           {curClosed && <ClosedLots section={curClosed} />}
           {/* Kept mounted under the Won / Lost page so its scroll observers keep working. */}
           <div hidden={!!curClosed}>
+            {curFiltered && (
+              <>
+                <div class="closed-head">
+                  <button type="button" class="btn btn-text" onClick={() => openFiltered(false)}>
+                    <Icon name="chevronLeft" size={18} /> Catalog
+                  </button>
+                  <h1>Filtered lots</h1>
+                </div>
+                <p class="muted">Only lots matching your exclusion rules, including hidden lots. Search and sidebar filters still apply.</p>
+              </>
+            )}
             <div class="results-line" ref={gridTop}>
               <span>
                 {result.rows.length > 0 && plural(result.rows.length, 'lot')}
-                {result.rows.length === 0 && loaded.value && !progress.value && 'No lots match'}
+                {result.rows.length === 0 && loaded.value && !progress.value && (curFiltered ? 'No filtered lots match' : 'No lots match')}
                 {result.removed > 0 && <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>}
                 {result.filteredOut > 0 && <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>}
                 {result.combined > 0 && <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>}

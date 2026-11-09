@@ -296,10 +296,11 @@ export interface ViewResult {
 }
 
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
-export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant, details?: ItemDetails): ViewResult {
+export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant, details?: ItemDetails, filteredOnly = false): ViewResult {
   const matches = makeMatcher(view, now, details);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const titleMatches = titleMatcher(ex.words);
+  const rowRules = filteredOnly ? { ...ex, filterOn: true } : ex;
 
   const rows: Row[] = [];
   let open = 0;
@@ -313,9 +314,12 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
     for (const word of titleMatches(lot.title)) {
       matchCounts.set(word, matchCounts.get(word)! + 1);
     }
-    const row = makeRow(lot, pickup, ex);
+    const row = makeRow(lot, pickup, rowRules);
+    if (filteredOnly && !row.matched) {
+      continue;
+    }
     // My lots views show every lot of mine, hidden or regex-filtered included.
-    if (!view.mine && ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))) {
+    if (!filteredOnly && !view.mine && ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))) {
       removed++;
     } else if (!matches(row)) {
       filteredOut++;

@@ -12,7 +12,7 @@ import { startBrandWatch } from './app/brands';
 import { setSetting } from './app/settings';
 import { KEYS } from './shared/keys';
 import { startCatalog } from './app/source';
-import { closed, openId, page, startApp } from './app/state';
+import { closed, filteredOnly, openId, page, startApp } from './app/state';
 
 // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
 const fromUrl = navFromUrl();
@@ -24,6 +24,7 @@ if (fromUrl) {
   page.value = fromUrl.page;
   openId.value = fromUrl.openId;
   closed.value = fromUrl.closed;
+  filteredOnly.value = fromUrl.filteredOnly;
 }
 
 // The app starts once the server is unlocked, so its first requests aren't refused.

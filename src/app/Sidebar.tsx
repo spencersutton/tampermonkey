@@ -6,7 +6,7 @@ import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
 import { getSetting, setSetting } from './settings';
-import { closed, modalActions, openClosed, openHidden, setView } from './state';
+import { closed, filteredOnly, modalActions, openClosed, openFiltered, openHidden, setView } from './state';
 import { Icon } from './icons';
 import { fmtCount, openHandler, parseNum, plural } from './util';
 import { collator } from '../shared/sortKey';
@@ -575,6 +575,9 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
   return (
     <section class="panel">
       <h2>Hide &amp; filter</h2>
+      <button type="button" class={`btn-text ${filteredOnly.value ? 'on' : ''}`} aria-pressed={filteredOnly.value} onClick={() => openFiltered()}>
+        View filtered lots
+      </button>
       <div class="add-filter">
         <input
           type="text"
