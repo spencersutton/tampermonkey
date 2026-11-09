@@ -16,11 +16,11 @@ const { getSetting } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { normalizeView, firstSeenAfter } = await vite.ssrLoadModule('/src/app/view.ts');
 const { ago, timeLabel, countdown } = await vite.ssrLoadModule('/src/app/util.ts');
 
-test('restores serialized timestamps from local settings', () => {
+test('ignores browser copies of server-backed timestamp settings', () => {
     storage.set(`tlx:${KEYS.lastVisit}`, JSON.stringify('1970-01-01T00:00:00.123Z'));
     storage.set(`tlx:${KEYS.savedSearches}`, JSON.stringify([{ id: 'one', lastViewedAt: '1970-01-01T00:00:00.456Z' }]));
-    assert.equal(getSetting(KEYS.lastVisit).epochMilliseconds, 123);
-    assert.equal(getSetting(KEYS.savedSearches)[0].lastViewedAt.epochMilliseconds, 456);
+    assert.equal(getSetting(KEYS.lastVisit), null);
+    assert.deepEqual(getSetting(KEYS.savedSearches), []);
 });
 
 test('restores serialized new-since filters', () => {

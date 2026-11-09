@@ -9,7 +9,7 @@ import { isAuthenticated } from './auth';
 import type { BidRequest } from './bid';
 import { getLot, lotBrands, lotModels, lots, rev } from './catalog';
 import { getSetting, setSetting } from './settings';
-import { settingsSynced } from './source';
+import { settingsReady } from './source';
 import type { Lot } from './types';
 import { clock, DAY, MINUTE } from './util';
 import { computeFacets, computeView, initialView, makeRow, savedSearchStats, type ViewState } from './view';
@@ -200,7 +200,7 @@ function trackVisits() {
         setSetting(KEYS.lastVisit, now);
     };
     let hiddenAt = 0;
-    void settingsSynced.then(() => {
+    void settingsReady.then(() => {
         visit();
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {

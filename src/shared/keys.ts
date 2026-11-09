@@ -1,4 +1,4 @@
-// Settings keys (localStorage, and the server for SYNCED_KEYS).
+// Settings keys (server-only for SERVER_KEYS, otherwise browser-local).
 import type { SavedSearch } from '../app/view';
 import { DEFAULT_NAME_MATCH } from './names';
 
@@ -23,7 +23,7 @@ export const KEYS = {
 } as const;
 
 /** Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay per browser. */
-export const SYNCED_KEYS = [
+export const SERVER_KEYS = [
   KEYS.hidden,
   KEYS.words,
   KEYS.filterOn,

@@ -10,7 +10,7 @@ globalThis.document = { visibilityState: 'visible', addEventListener: () => {} }
 const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
 after(() => vite.close());
 const { error, fetchedAt, loaded, progress } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { nextPullAt, pullCatalog, settingsSynced, startCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
+const { nextPullAt, pullCatalog, settingsReady, startCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
 
 test('catalog polling and manual refresh preserve the visible pull status', async (t) => {
   const now = Date.now();
@@ -22,13 +22,13 @@ test('catalog polling and manual refresh preserve the visible pull status', asyn
   t.mock.method(globalThis, 'fetch', async (path, init) => {
     requests.push([path, init.method]);
     if (path === '/api/catalog?since=0') return Response.json({ ...status, seq: 1, full: true, ids: null, lots: [] });
-    if (path === '/api/settings?since=0') return Response.json({ rev: 0, values: {} });
+    if (path === '/api/settings') return Response.json({ rev: 0, values: {} });
     if (path === '/api/pull') return Response.json({ ...status, progress: { done: 2, total: 3 } });
     throw new Error(`Unexpected request: ${path}`);
   });
 
   startCatalog();
-  await settingsSynced;
+  await settingsReady;
   assert.equal(loaded.peek(), true);
   assert.equal(fetchedAt.peek().epochMilliseconds, 12_000);
   assert.equal(progress.peek(), null);
@@ -36,7 +36,7 @@ test('catalog polling and manual refresh preserve the visible pull status', asyn
   assert.ok(nextPullAt().epochMilliseconds > now);
   await pullCatalog();
   assert.deepEqual(progress.peek(), { done: 2, total: 3 });
-  assert.deepEqual(requests, [['/api/catalog?since=0', 'GET'], ['/api/settings?since=0', 'GET'], ['/api/pull', 'POST']]);
+  assert.deepEqual(requests, [['/api/catalog?since=0', 'GET'], ['/api/settings', 'GET'], ['/api/pull', 'POST']]);
 
   status.meta.fetchedAt = 12.5;
   await pullCatalog();

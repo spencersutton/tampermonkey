@@ -6,12 +6,12 @@ import { createServer } from 'vite';
 const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
 after(() => vite.close());
 const { DEFAULT_VIEW, defaultFilterView, initialView, sameDefaultFilters } = await vite.ssrLoadModule('/src/app/view.ts');
-const { KEYS, SYNCED_KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
+const { KEYS, SERVER_KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
 
-test('defaults are synced and used only when there is no saved browser view', () => {
+test('defaults are server-backed and used only when there is no saved browser view', () => {
   const defaults = { categories: ['tools'], conditions: [2] };
-  assert.ok(SYNCED_KEYS.includes(KEYS.defaultFilters));
+  assert.ok(SERVER_KEYS.includes(KEYS.defaultFilters));
   assert.deepEqual(initialView(null, defaults), { ...DEFAULT_VIEW, categories: ['tools'], conditions: [2] });
   const stored = { ...DEFAULT_VIEW, categories: [], conditions: [3], search: 'saw' };
   assert.deepEqual(initialView(stored, defaults), stored);

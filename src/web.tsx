@@ -11,7 +11,8 @@ import { startLiveWatch } from './app/live';
 import { startBrandWatch } from './app/brands';
 import { setSetting } from './app/settings';
 import { KEYS } from './shared/keys';
-import { startCatalog } from './app/source';
+import { settingsLoaded, settingsReady, startCatalog } from './app/source';
+import { error } from './app/catalog';
 import { closed, filteredOnly, openId, page, startApp } from './app/state';
 
 // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
@@ -28,8 +29,9 @@ if (fromUrl) {
 }
 
 // The app starts once the server is unlocked, so its first requests aren't refused.
-void appUnlocked.then(() => {
+void appUnlocked.then(async () => {
   startCatalog();
+  await settingsReady;
   startApp();
   startHistory();
   startLiveWatch();
@@ -43,6 +45,9 @@ function Root() {
   }
   if (state.app.locked) {
     return <AppLock />;
+  }
+  if (!settingsLoaded.value) {
+    return <p class="muted lock-page">{error.value || 'Loading settings…'}</p>;
   }
   return (
     <>

@@ -1,35 +1,27 @@
-// Reactive access to settings. They're stored in localStorage (as JSON), and
-// the SYNCED_KEYS also on the server (see source.ts). Each tab reads them once,
-// so changes made in other tabs or devices show up after a refresh.
+// Reactive access to settings. Shared settings live only on the server;
+// browser-only UI settings use localStorage.
 import { signal, type Signal } from '@preact/signals';
-import { DEFAULTS, KEYS } from '../shared/keys';
+import { DEFAULTS, SERVER_KEYS } from '../shared/keys';
 
 export type Key = keyof typeof DEFAULTS;
 type Value<K extends Key> = (typeof DEFAULTS)[K];
 
 const PREFIX = 'tlx:';
-
-function restoreLocalSetting(key: Key, value: unknown): unknown {
-  if (key === KEYS.lastVisit) return value == null ? null : Temporal.Instant.from(value as string);
-  if (key === KEYS.savedSearches) {
-    return (value as { lastViewedAt: string }[]).map((search) => ({
-      ...search, lastViewedAt: Temporal.Instant.from(search.lastViewedAt),
-    }));
-  }
-  return value;
-}
+const serverKeys = new Set<Key>(SERVER_KEYS);
 
 function load(key: Key): unknown {
+  if (serverKeys.has(key)) return DEFAULTS[key];
   try {
     const raw = localStorage.getItem(PREFIX + key);
     if (raw == null) return DEFAULTS[key];
-    return restoreLocalSetting(key, JSON.parse(raw));
+    return JSON.parse(raw);
   } catch {
     return DEFAULTS[key]; // storage blocked (private mode) or a corrupt value
   }
 }
 
 function store(key: Key, value: unknown) {
+  if (serverKeys.has(key)) return;
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value));
   } catch {
@@ -37,7 +29,7 @@ function store(key: Key, value: unknown) {
   }
 }
 
-/** Each setting as a signal, loaded from localStorage on first use. */
+/** Server settings are held in memory; browser settings load from localStorage. */
 const signals = new Map<Key, Signal<unknown>>();
 
 function setting(key: Key): Signal<unknown> {
@@ -54,7 +46,7 @@ export function getSetting<K extends Key>(key: K): Value<K> {
   return setting(key).value as Value<K>;
 }
 
-/** Called with every setting saved here (source.ts sends synced ones to the server). */
+/** Called with every setting saved here (source.ts persists shared ones to the server). */
 let onSave: (key: Key, value: unknown) => void = () => { };
 export const setSaveHook = (fn: (key: Key, value: unknown) => void) => void (onSave = fn);
 

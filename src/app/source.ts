@@ -1,18 +1,19 @@
 // Catalog source for the web app, which the tlx server (server/, Python)
 // serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
-// keeps the SYNCED_KEYS settings, so every device using it shares filters,
+// keeps the SERVER_KEYS settings, so every device using it shares filters,
 // hidden lots, custom categories and saved searches.
 //
 // Each poll tells the server whether this tab is in use (it only pulls while
 // some tab is, unless run with --background-minutes). Its pulls use its own
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
-import { batch } from '@preact/signals';
+import { batch, signal } from '@preact/signals';
 import { error, fetchedAt, inUse, loaded, lotBrands, lotModels, lots, progress, trackActivity, updateItemType } from './catalog';
 import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
-import { applySetting, getSetting, setSaveHook, type Key } from './settings';
-import { DEFAULTS, KEYS, SYNCED_KEYS } from '../shared/keys';
+import { applySetting, setSaveHook, type Key } from './settings';
+import { DEFAULTS, KEYS, SERVER_KEYS } from '../shared/keys';
+import { toast } from './toast';
 import type { Lot, PastClose, PastCloseDetail } from './types';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
@@ -172,7 +173,7 @@ function setServerError(err: unknown) {
 let pollTimer = 0;
 let polling: Promise<void> | null = null;
 
-/** Fetch catalog changes (and settings), then schedule the next poll. */
+/** Fetch catalog changes, load settings at startup, then schedule the next poll. */
 function poll(): Promise<void> {
   return (polling ??= (async () => {
     clearTimeout(pollTimer);
@@ -180,7 +181,7 @@ function poll(): Promise<void> {
       await authReady();
       const r = await call<CatalogReply>('GET', `/api/catalog?since=${seq}`, undefined, { 'X-TLX-Active': inUse() ? '1' : '0' });
       applyCatalog(r);
-      await syncSettings();
+      await loadSettings();
     } catch (err) {
       setServerError(err);
     } finally {
@@ -225,16 +226,14 @@ export async function setItemType(lotId: number, itemType: string): Promise<stri
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
-const synced = new Set<Key>(SYNCED_KEYS);
+const serverKeys = new Set<Key>(SERVER_KEYS);
 /** Whether the server's settings have been loaded into this tab. */
-let settingsLoaded = false;
-let markSynced: () => void;
-/** Resolves once the first settings sync has finished (the catalog has loaded by then too). */
-export const settingsSynced = new Promise<void>((resolve) => (markSynced = resolve));
-/** Synced settings saved here that the server hasn't confirmed yet. */
-const unsent = new Map<Key, unknown>();
+export const settingsLoaded = signal(false);
+let markSettingsReady: () => void;
+/** Resolves once settings and the initial catalog have loaded. */
+export const settingsReady = new Promise<void>((resolve) => (markSettingsReady = resolve));
 
-function serverSettingToLocal(key: Key, value: unknown): unknown {
+function decodeSetting(key: Key, value: unknown): unknown {
   if (key === KEYS.lastVisit) {
     if (value == null) return null;
     if (typeof value !== 'number') throw new TypeError('Invalid last visit from the tlx server');
@@ -252,7 +251,7 @@ function serverSettingToLocal(key: Key, value: unknown): unknown {
   return value;
 }
 
-function localSettingToServer(key: Key, value: unknown): unknown {
+function encodeSetting(key: Key, value: unknown): unknown {
   if (key === KEYS.lastVisit) {
     if (value == null) return null;
     if (!(value instanceof Temporal.Instant)) throw new TypeError('Invalid last visit for the tlx server');
@@ -270,52 +269,35 @@ function localSettingToServer(key: Key, value: unknown): unknown {
   return value;
 }
 
-/** Send a synced setting to the server; if that fails, it's retried on the next poll. */
+/** Persist a shared setting without keeping a browser copy or retry queue. */
 async function sendSetting(key: Key, value: unknown) {
-  unsent.set(key, value);
-  const serverValue = localSettingToServer(key, value);
   try {
+    const serverValue = encodeSetting(key, value);
     await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value: serverValue });
-    if (unsent.get(key) === value) {
-      unsent.delete(key);
-    }
-  } catch {
-    // stays in `unsent`
+  } catch (err) {
+    toast('bad', `Couldn’t save ${key}: ${err instanceof Error ? err.message : String(err)}. This change has not been saved.`);
   }
 }
 
-/**
- * Retry unsent settings, and on the first sync take the server's values and
- * send up any setting it doesn't have yet but this browser does. Later polls
- * don't pull, so changes from other tabs and devices wait for a refresh.
- */
-async function syncSettings() {
-  await Promise.all([...unsent].map(([k, v]) => sendSetting(k, v)));
-  if (settingsLoaded) {
+/** Read shared settings from the server; absent values use defaults, never localStorage. */
+async function loadSettings() {
+  if (settingsLoaded.peek()) {
     return;
   }
-  const r = await call<{ rev: number; values: Record<string, unknown> }>('GET', '/api/settings?since=0');
-  for (const [key, value] of Object.entries(r.values)) {
-    if (synced.has(key as Key) && !unsent.has(key as Key)) {
-      const localValue = serverSettingToLocal(key as Key, value);
-      if (JSON.stringify(localValue) !== JSON.stringify(getSetting(key as Key))) {
-        applySetting(key as Key, localValue as never);
-      }
+  const r = await call<{ values: Record<string, unknown> }>('GET', '/api/settings');
+  const values = SERVER_KEYS.map((key) => [key, decodeSetting(key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key])] as const);
+  batch(() => {
+    for (const [key, value] of values) {
+      applySetting(key, value as never);
     }
-  }
-  for (const key of synced) {
-    const mine = getSetting(key);
-    if (!(key in r.values) && JSON.stringify(mine) !== JSON.stringify(DEFAULTS[key])) {
-      void sendSetting(key, mine);
-    }
-  }
-  settingsLoaded = true;
-  markSynced();
+    settingsLoaded.value = true;
+  });
+  markSettingsReady();
 }
 
-/** Load what the server has and keep it fresh. */
+/** Start catalog polling and server-backed setting saves. */
 export function startCatalog() {
-  setSaveHook((key, value) => synced.has(key) && void sendSetting(key, value));
+  setSaveHook((key, value) => serverKeys.has(key) && void sendSetting(key, value));
   trackActivity(() => void poll());
   // A new login (or logout) changes what the server's pulls will see; check in now.
   onAuthChange(() => void poll());
