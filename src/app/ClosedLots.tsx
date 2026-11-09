@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { itemIdentity, itemsMatch } from '../shared/names';
+import { DEFAULT_NAME_MATCH, itemIdentity, itemsMatch } from '../shared/names';
 import { CDN, fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { getLot, loadDetail, lotBrands, lotModels, lots as catalogLots, rev } from './catalog';
@@ -79,13 +79,12 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         .toArray(),
     [catalogLots.value, rev.value, now, brands, models],
   );
-  const pct = exclusions.nameMatch;
   const relisted = useMemo(() => {
     const out = new Map<string, Row[]>();
     for (const c of data?.lots ?? []) {
       const identity = itemIdentity({ ...c, id: c.lotId }, { brands, models });
       const rows = open
-        .filter((o) => o.lot.id !== c.lotId && itemsMatch(identity, o.identity, pct))
+        .filter((o) => o.lot.id !== c.lotId && itemsMatch(identity, o.identity, DEFAULT_NAME_MATCH))
         .map((o) => makeRow(o.lot, pickup, exclusions))
         .sort((a, b) => a.total - b.total);
       if (rows.length) {
@@ -93,7 +92,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
       }
     }
     return out;
-  }, [data?.lots, open, pct, pickup, exclusions, brands, models]);
+  }, [data?.lots, open, pickup, exclusions, brands, models]);
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const lots = (data?.lots ?? []).filter((c) => {

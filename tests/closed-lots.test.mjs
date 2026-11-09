@@ -72,7 +72,7 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
     return new Response(JSON.stringify(raw), { status: 200 });
   });
   const detail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });
-  const row = makeRow(detail, 'Raleigh', { words: [], filterOn: false, removeFiltered: false, hidden: {}, showHidden: false, customCategories: [], nameMatch: 90 });
+  const row = makeRow(detail, 'Raleigh', { words: [], filterOn: false, removeFiltered: false, hidden: {}, showHidden: false, customCategories: [] });
   assert.equal(row.lot, detail);
   assert.equal(row.lot.description, 'Details');
   assert.equal(row.transferFee, 0);

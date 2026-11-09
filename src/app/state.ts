@@ -3,7 +3,6 @@
 // state and callbacks down.
 import { batch, computed, effect, signal, untracked } from '@preact/signals';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
-import { nameMatchPct } from '../shared/names';
 import { fetchPickupLocation, type ClosedSection } from './api';
 import { isAuthenticated } from './auth';
 import type { BidRequest } from './bid';
@@ -100,7 +99,7 @@ export const accountPickupName = computed(() => {
     // The account may only give the location's id; find its name among the lots.
     return lots.value.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
 });
-export const pickupName = computed(() => getSetting(KEYS.pickup) || accountPickupName.value || 'Raleigh');
+export const pickupName = computed(() => accountPickupName.value || 'Raleigh');
 
 // Filters and debounced search
 
@@ -145,7 +144,6 @@ export const exclusionRules = computed(() => ({
     hidden: getSetting(KEYS.hidden),
     showHidden: getSetting(KEYS.showHidden),
     customCategories: getSetting(KEYS.customCategories),
-    nameMatch: nameMatchPct(getSetting(KEYS.nameMatch)),
 }));
 
 // Catalog rows, facets and pagination

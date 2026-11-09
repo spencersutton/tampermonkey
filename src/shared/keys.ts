@@ -1,6 +1,5 @@
 // Settings keys (server-only for SERVER_KEYS, otherwise browser-local).
 import type { SavedSearch } from '../app/view';
-import { DEFAULT_NAME_MATCH } from './names';
 
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
@@ -10,7 +9,6 @@ export const KEYS = {
   removeFiltered: 'removeFiltered', // boolean – drop filtered lots entirely instead of graying out
   collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
   syncMinutes: 'tlxSyncMinutes', // number – minimum minutes between full catalog pulls
-  pickup: 'tlxPickup', // string | null – pickup location name; null = from account, else Raleigh
   view: 'tlxView', // persisted catalog view state (sort, filters)
   defaultFilters: 'tlxDefaultFilters', // default category and condition filters
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
@@ -19,7 +17,6 @@ export const KEYS = {
   lastCategory: 'tlxLastCategory', // last category used or created in this browser
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
   lastVisit: 'tlxLastVisit', // Instant | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
-  nameMatch: 'tlxNameMatch', // number – % of words titles must share to combine listings and match past closes (see shared/names.ts)
 } as const;
 
 /** Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay per browser. */
@@ -30,12 +27,10 @@ export const SERVER_KEYS = [
   KEYS.showHidden,
   KEYS.removeFiltered,
   KEYS.syncMinutes, // the server's own pull interval
-  KEYS.pickup,
   KEYS.savedSearches,
   KEYS.defaultFilters,
   KEYS.customCategories,
   KEYS.lastVisit,
-  KEYS.nameMatch, // the server matches past closes with it too
 ] as const;
 
 export interface HiddenLot {
@@ -76,7 +71,6 @@ export const DEFAULTS = {
   [KEYS.removeFiltered]: false,
   [KEYS.collapsed]: { words: false, hidden: false } as Record<string, boolean>,
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
-  [KEYS.pickup]: null as string | null,
   [KEYS.view]: null as unknown,
   [KEYS.defaultFilters]: { categories: [], conditions: [] } as DefaultFilters,
   [KEYS.savedSearches]: [] as SavedSearch[],
@@ -85,7 +79,6 @@ export const DEFAULTS = {
   [KEYS.lastCategory]: null as string | null,
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
   [KEYS.lastVisit]: null as Temporal.Instant | null,
-  [KEYS.nameMatch]: DEFAULT_NAME_MATCH,
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */

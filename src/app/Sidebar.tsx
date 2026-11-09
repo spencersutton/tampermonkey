@@ -2,7 +2,6 @@ import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
-import { DEFAULT_NAME_MATCH, nameMatchPct } from '../shared/names';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
 import { getSetting, setSetting } from './settings';
@@ -43,7 +42,7 @@ export function Sidebar(props: Props) {
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
       <HideFilterSection matchCounts={props.matchCounts} />
-      <SettingsSection pickup={props.pickup} accountPickup={props.accountPickup} locations={props.facets.locations.map((l) => l.value)} />
+      <SettingsSection />
     </div>
   );
 }
@@ -636,20 +635,12 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
   );
 }
 
-/** Choices for how alike two titles must be to count as the same item. */
-const NAME_MATCH_CHOICES = [100, 95, 90, 85, 80, 75, 70, 60];
-
-/** Pickup location, full-refresh interval, title lines, name matching and the account. */
-function SettingsSection({ pickup, accountPickup, locations }: { pickup: string; accountPickup: string | null; locations: string[] }) {
+/** Pickup location, full-refresh interval, title lines and the account. */
+function SettingsSection() {
   const minutes = getSetting(KEYS.syncMinutes);
   const setMinutes = (value: ReturnType<typeof getSetting<typeof KEYS.syncMinutes>>) => setSetting(KEYS.syncMinutes, value);
-  const override = getSetting(KEYS.pickup);
-  const setOverride = (value: ReturnType<typeof getSetting<typeof KEYS.pickup>>) => setSetting(KEYS.pickup, value);
   const titleLines = getSetting(KEYS.titleLines);
   const setTitleLines = (value: ReturnType<typeof getSetting<typeof KEYS.titleLines>>) => setSetting(KEYS.titleLines, value);
-  const nameMatch = getSetting(KEYS.nameMatch);
-  const setNameMatch = (value: ReturnType<typeof getSetting<typeof KEYS.nameMatch>>) => setSetting(KEYS.nameMatch, value);
-  const pct = nameMatchPct(nameMatch);
   return (
     <section class="panel">
       <Collapsible id="settings" title={<h2>Settings</h2>}>
@@ -671,26 +662,6 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
           min={0}
           step={1}
         />
-        <label class="field" title="Brand and model take precedence when both listings have both. Otherwise titles use this threshold for duplicates, relisted lots and past prices. In title matching, a number only one title has (size, pack count, Qty) never matches.">
-          <span>Same item when titles share</span>
-          <select value={pct} onChange={(e) => setNameMatch(Number(e.currentTarget.value))}>
-            {[...new Set([...NAME_MATCH_CHOICES, pct])].sort((a, b) => b - a).map((n) => (
-              <option value={n}>
-                {n === 100 ? 'All words (any case, punctuation, order)' : `${n}% of words`}
-                {n === DEFAULT_NAME_MATCH ? ' – default' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label class="field">
-          <span>Pickup location (for transfer fees)</span>
-          <select value={override ?? ''} onChange={(e) => setOverride(e.currentTarget.value || null)}>
-            <option value="">Account default ({accountPickup ?? 'Raleigh'})</option>
-            {[...new Set([...locations, pickup])].map((o) => (
-              <option value={o}>{o}</option>
-            ))}
-          </select>
-        </label>
         <AccountSettings />
       </Collapsible>
     </section>

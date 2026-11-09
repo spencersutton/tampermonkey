@@ -80,6 +80,13 @@ class IdentityTests(unittest.TestCase):
         self.assertEqual([r["id"] for r in index.matches(lot(3))], [2])
         self.assertEqual(index.matches(lot(3, "Cordless drill Qty 3")), [])
 
+    def test_history_uses_fixed_title_threshold_instead_of_retired_setting(self) -> None:
+        title = "Cordless drill with battery charger case bits belt clip"
+        self.add_closed(lot(1, f"{title} manual", brand=None), lot(2, "Cordless drill with battery charger", brand=None))
+        for value in (50, 100):
+            self.store.put_setting("tlxNameMatch", value)
+            self.assertEqual([row["id"] for row in self.history.closes_for(lot(3, title, brand=None))], [1])
+
     def test_saved_identity_changes_invalidate_history_index_and_publish_updated_past_closes(self) -> None:
         self.add_open(lot(10, "Open tool"))
         self.add_closed(lot(1, "Old listing", model="D-200"))

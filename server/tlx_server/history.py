@@ -13,9 +13,9 @@ GET /api/history?id=N lists every match for the lot popup.
 
 Brand and model match exactly, ignoring case and whitespace, when both lots
 have both fields. Otherwise names match fuzzily, by `names_match`, which
-src/shared/names.ts mirrors for combining duplicate listings in the app. How fuzzy is the synced
-`tlxNameMatch` setting: the share of words two titles must have in common,
-100 meaning the same words (ignoring case, punctuation and word order).
+src/shared/names.ts mirrors for combining duplicate listings in the app.
+Title fallback requires 90% of words in common, ignoring case, punctuation
+and word order.
 """
 
 from __future__ import annotations
@@ -35,9 +35,7 @@ from .store import Store
 
 log = logging.getLogger(__name__)
 
-NAME_MATCH_KEY = "tlxNameMatch"  # same key as src/shared/keys.ts
 DEFAULT_NAME_MATCH = 90
-MIN_NAME_MATCH = 50
 RECENT = 8  # closes attached to each lot
 HISTORY_LIMIT = 200  # closes listed in the lot popup
 DETAIL_PAUSE = 0.5  # seconds between final-price requests
@@ -63,13 +61,6 @@ def names_match(a: frozenset[str], b: frozenset[str], min_pct: float) -> bool:
     if any(any(c.isdigit() for c in t) for t in diff):
         return False
     return len(a & b) * 100 >= min_pct * len(a | b)
-
-
-def name_match_pct(value: object) -> float:
-    """The `tlxNameMatch` setting as a percentage, defaulted and clamped."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return DEFAULT_NAME_MATCH
-    return min(100, max(MIN_NAME_MATCH, value))
 
 
 class NameIndex:
@@ -148,17 +139,17 @@ class History:
     def __init__(self, store: Store) -> None:
         self.store = store
         self._wake = threading.Event()
-        self._cache: tuple[tuple[int, float], ItemIndex] | None = None
+        self._cache: tuple[int, ItemIndex] | None = None
         self._cache_lock = threading.Lock()
 
     # -- matching ---------------------------------------------------------------
     def _index(self) -> ItemIndex:
-        """Rebuild when closed lots, cached identities, or title matching settings change."""
-        version = (self.store.closed_rev(), name_match_pct(self.store.setting(NAME_MATCH_KEY)))
+        """Rebuild when closed lots or cached identities change."""
+        version = self.store.closed_rev()
         with self._cache_lock:
             if self._cache and self._cache[0] == version:
                 return self._cache[1]
-            index = ItemIndex(self.store.closed_lots(), version[1])
+            index = ItemIndex(self.store.closed_lots(), DEFAULT_NAME_MATCH)
             self._cache = (version, index)
             return index
 
@@ -180,7 +171,7 @@ class History:
             lot.pop("pastCloses", None)
 
     def refresh(self) -> None:
-        """Re-annotate the stored lots (after closes were added or the setting changed)."""
+        """Re-annotate the stored lots after closes or identities change."""
         index = self._index()  # outside the store lock, which update_lots holds
 
         def update(lot: dict[str, Any]) -> dict[str, Any]:

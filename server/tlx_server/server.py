@@ -60,7 +60,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
-from .history import HISTORY_LIMIT, NAME_MATCH_KEY
+from .history import HISTORY_LIMIT
 from .itemtypes import MAX_TYPE_LENGTH, clean_type
 from .session import SiteSession
 from .site import SITE, TIMEOUT, USER_AGENT, normalize_detail, now_ms
@@ -312,8 +312,6 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if "value" not in body:
                 raise ValueError('Expected {"value": ...}')
             self._json(HTTPStatus.OK, {"rev": api.store.put_setting(key, body["value"])})
-            if key == NAME_MATCH_KEY:
-                api.catalog.history.wake()  # match names again
 
         def _put_item_type(self) -> None:
             try:

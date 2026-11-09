@@ -15,7 +15,7 @@ const { fetchClosed } = await vite.ssrLoadModule('/src/app/api.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
 
 const now = Temporal.Now.instant();
-const ex = { words: [], filterOn: false, removeFiltered: false, hidden: {}, showHidden: false, customCategories: [], nameMatch: 90 };
+const ex = { words: [], filterOn: false, removeFiltered: false, hidden: {}, showHidden: false, customCategories: [] };
 const lot = (id, fields = {}) => ({
   id, auctionPeriod: 'test', title: 'Cordless drill', lotNumber: `${id}`,
   brand: 'Acme', model: 'D-100', endsAt: now.add({ hours: 2 }), currentPrice: 10,
@@ -52,6 +52,19 @@ test('grouping keeps known models separate, even when an unknown title matches b
   const fallback = groupNames(['Cordless drill', 'drill CORDLESS', 'Cordless drill Qty 2'], 90);
   assert.equal(fallback.get('Cordless drill'), fallback.get('drill CORDLESS'));
   assert.notEqual(fallback.get('Cordless drill'), fallback.get('Cordless drill Qty 2'));
+});
+
+test('catalog title fallback uses a fixed 90% threshold', () => {
+  const title = 'Cordless drill with battery charger case bits belt clip';
+  const items = [
+    lot(1, { title: `${title} manual`, brand: null, model: null }),
+    lot(2, { title, brand: null, model: null }),
+    lot(3, { title: 'Cordless drill with battery charger', brand: null, model: null }),
+  ];
+  const result = view(items);
+  assert.equal(result.combined, 1);
+  assert.deepEqual(result.groups.get(1).map((row) => row.lot.id), [1, 2]);
+  assert.deepEqual(result.rows.map((row) => row.lot.id), [1, 3]);
 });
 
 test('dedupe preserves condition, cost ordering, and independent bid/hidden/filtered cards', () => {

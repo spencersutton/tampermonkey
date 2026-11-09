@@ -1,7 +1,7 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes } from '../shared/filters';
 import { totalCost } from '../shared/cost';
-import { brandModelKey, groupItems, itemIdentity, type ItemDetails } from '../shared/names';
+import { brandModelKey, DEFAULT_NAME_MATCH, groupItems, itemIdentity, type ItemDetails } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
@@ -174,7 +174,6 @@ export interface Exclusions {
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
   customCategories: CustomCategory[];
-  nameMatch: number; // how alike titles must be to combine listings (% of words in common; see shared/names.ts)
 }
 
 /** Memoized sortKey() results by item type and title. */
@@ -327,7 +326,7 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       rows.push(row);
     }
   }
-  const { cards, groups } = combineDuplicates(rows, ex.nameMatch, details);
+  const { cards, groups } = combineDuplicates(rows, DEFAULT_NAME_MATCH, details);
   const sortIdentity = (lot: Lot) => {
     const identity = itemIdentity(lot, details);
     return brandModelKey(identity)

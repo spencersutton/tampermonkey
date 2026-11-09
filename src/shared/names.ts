@@ -2,13 +2,11 @@
 // history.py has the same rules (name_tokens, names_match, NameIndex) for
 // past closing prices; keep the two in step.
 //
-// How fuzzy is the `tlxNameMatch` setting: the share of words two titles must
-// have in common, 100 meaning the same words (ignoring case, punctuation and
-// word order). A number only one of them has never matches ("10 oz." vs
+// Title fallback requires 90% of words in common, ignoring case, punctuation
+// and word order. A number only one of them has never matches ("10 oz." vs
 // "29 oz.", "Qty 4" vs "Qty 6"), however many other words they share.
 
 export const DEFAULT_NAME_MATCH = 90;
-export const MIN_NAME_MATCH = 50;
 
 export interface ItemIdentity {
   title: string;
@@ -82,10 +80,6 @@ export function namesMatch(a: Set<string>, b: Set<string>, minPct: number): bool
   }
   return minPct < 100 && common * 100 >= minPct * (a.size + b.size - common);
 }
-
-/** The setting as a percentage, defaulted and clamped. */
-export const nameMatchPct = (v: unknown) =>
-  typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(MIN_NAME_MATCH, v)) : DEFAULT_NAME_MATCH;
 
 /**
  * Group titles whose names match, directly or through another title in the

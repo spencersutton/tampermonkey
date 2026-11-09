@@ -21,7 +21,7 @@ const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
 const now = Temporal.Now.instant();
 const ex = {
   words: [], filterOn: false, removeFiltered: false, hidden: {}, showHidden: false,
-  customCategories: [], nameMatch: 100,
+  customCategories: [],
 };
 const fixture = (patch = {}) => ({
   id: 1, title: 'Cordless drill', lotNumber: 'A-123', auctionPeriod: 'test',
