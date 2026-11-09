@@ -668,7 +668,7 @@ function SettingsSection({ pickup, accountPickup, locations }: { pickup: string;
           min={0}
           step={1}
         />
-        <label class="field" title="Used to combine duplicate listings into one card and to find what the same item closed at before. A number only one title has (size, pack count, Qty) never matches.">
+        <label class="field" title="Brand and model take precedence when both listings have both. Otherwise titles use this threshold for duplicates, relisted lots and past prices. In title matching, a number only one title has (size, pack count, Qty) never matches.">
           <span>Same item when titles share</span>
           <select value={pct} onChange={(e) => setNameMatch(Number(e.currentTarget.value))}>
             {[...new Set([...NAME_MATCH_CHOICES, pct])].sort((a, b) => b - a).map((n) => (

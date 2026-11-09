@@ -1,7 +1,7 @@
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes } from '../shared/filters';
 import { totalCost } from '../shared/cost';
-import { groupNames } from '../shared/names';
+import { brandModelKey, groupItems, itemIdentity, type ItemDetails } from '../shared/names';
 import { collator, sortKey } from '../shared/sortKey';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
@@ -29,6 +29,7 @@ export const SORTS = {
   'newly-listed': { label: 'Newly listed', compare: (a, b) => b.lot.id - a.lot.id },
   'title-asc': { label: 'Title A–Z', compare: (a, b) => collator.compare(titleKey(a.lot), titleKey(b.lot)) },
   'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot), titleKey(a.lot)) },
+  'brand-model-asc': { label: 'Brand + model A–Z', compare: () => 0 },
   'total-asc': { label: 'Total cost: low to high', compare: (a, b) => a.total - b.total },
   'total-desc': { label: 'Total cost: high to low', compare: (a, b) => b.total - a.total },
   'retail-pct-asc': {
@@ -94,11 +95,6 @@ export interface ViewState {
   ending: EndingId;
   mine: MineId;
   newSince: Temporal.Instant | null; // only lots first seen after this time (not saved with searches)
-}
-
-export interface SearchDetails {
-  brands: ReadonlyMap<number, string | null>;
-  models: ReadonlyMap<number, string | null>;
 }
 
 /** View with no filters, sorted by ending soonest. */
@@ -296,13 +292,12 @@ export interface ViewResult {
 }
 
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
-export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant, details?: SearchDetails): ViewResult {
+export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant, details?: ItemDetails): ViewResult {
   const matches = makeMatcher(view, now, details);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const titleMatches = titleMatcher(ex.words);
 
   const rows: Row[] = [];
-  const titles = new Set<string>();
   let open = 0;
   let removed = 0;
   let filteredOut = 0;
@@ -311,7 +306,6 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       continue;
     }
     open++;
-    titles.add(lot.title);
     for (const word of titleMatches(lot.title)) {
       matchCounts.set(word, matchCounts.get(word)! + 1);
     }
@@ -325,8 +319,19 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       rows.push(row);
     }
   }
-  const { cards, groups } = combineDuplicates(rows, nameGroups(titles, ex.nameMatch));
-  const compare: Compare = SORTS[view.sort].compare;
+  const { cards, groups } = combineDuplicates(rows, ex.nameMatch, details);
+  const sortIdentity = (lot: Lot) => {
+    const identity = itemIdentity(lot, details);
+    return brandModelKey(identity)
+      ? [identity.brand!.trim().replace(/\s+/g, ' '), identity.model!.trim().replace(/\s+/g, ' ')]
+      : [lot.title, ''];
+  };
+  const compare: Compare = view.sort === 'brand-model-asc'
+    ? (a, b) => {
+      const left = sortIdentity(a.lot), right = sortIdentity(b.lot);
+      return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
+    }
+    : SORTS[view.sort].compare;
   cards.sort((a, b) => compare(a, b) || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id);
   return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
 }
@@ -339,30 +344,32 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
 const byCost = (a: Row, b: Row) =>
   +a.pickupOnly - +b.pickupOnly || a.total - b.total || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id;
 
-/** groupNames() of the open lots' titles, kept until they or the setting change. */
-let nameCache: { pct: number; groups: Map<string, string> } | null = null;
-function nameGroups(titles: Set<string>, pct: number): Map<string, string> {
-  const c = nameCache;
-  if (!c || c.pct !== pct || c.groups.size !== titles.size || !titles.values().every((t) => c.groups.has(t))) {
-    nameCache = { pct, groups: groupNames(titles, pct) };
+let groupCache: { key: string; groups: Map<number, number> } | undefined;
+function itemGroups(rows: Row[], pct: number, details?: ItemDetails): Map<number, number> {
+  const items = rows.map(({ lot }) => ({ id: lot.id, ...itemIdentity(lot, details), condition: lot.condition?.value ?? -1 }));
+  const key = JSON.stringify([pct, items]);
+  if (groupCache?.key !== key) {
+    const groups = new Map<number, number>();
+    for (const condition of Map.groupBy(items, (item) => item.condition).values()) {
+      for (const [id, group] of groupItems(condition, pct)) groups.set(id, group);
+    }
+    groupCache = { key, groups };
   }
-  return nameCache!.groups;
+  return groupCache.groups;
 }
 
 /**
- * Fold listings with the same condition and the same or nearly the same title
- * (by the name-matching setting), at any location, into one card showing the
+ * Fold matching items with the same condition, at any location, into one card showing the
  * cheapest by total cost (ties: ending soonest). Lots you've bid on, hidden
  * lots and regex-filtered lots keep their own card.
  */
-function combineDuplicates(rows: Row[], names: Map<string, string>): { cards: Row[]; groups: Map<number, Row[]> } {
+function combineDuplicates(rows: Row[], pct: number, details?: ItemDetails): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
-  const buckets = Map.groupBy(
-    rows.filter((row) => !ownCard(row)),
-    ({ lot }) => `${names.get(lot.title) ?? lot.title}\u0000${lot.condition?.value ?? ''}`,
-  );
+  const candidates = rows.filter((row) => !ownCard(row));
+  const names = itemGroups(candidates, pct, details);
+  const buckets = Map.groupBy(candidates, ({ lot }) => names.get(lot.id)!);
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {
       cards.push(bucket[0]!);
@@ -400,7 +407,7 @@ export function searchRegexOf(v: ViewState): RegExp | null {
 }
 
 /** Predicate for the view's own filters (not hide / regex exclusions). */
-export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: SearchDetails): (row: Row) => boolean {
+export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: ItemDetails): (row: Row) => boolean {
   const terms = v.searchRegex ? [] : Array.from(
     v.search.toLowerCase().matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("[^"]*"(?=\s|$)|\S+)/g),
     ([, field, value = '']) => ({ field, value: value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value }),
@@ -414,11 +421,9 @@ export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: Searc
   const location = oneOf(v.locations);
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
   const searchMatches = (lot: Lot) => {
-    // Detail caches can be newer than the lot's price-versioned catalog entry.
-    const cachedBrand = details?.brands.get(lot.id);
-    const cachedModel = details?.models.get(lot.id);
-    const brand = (cachedBrand === undefined ? lot.brand : cachedBrand) ?? '';
-    const model = (cachedModel === undefined ? lot.model : cachedModel) ?? '';
+    const identity = itemIdentity(lot, details);
+    const brand = identity.brand ?? '';
+    const model = identity.model ?? '';
     const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
     if (re) return re.test(hay);
     return terms.every(({ field, value }) =>
@@ -526,7 +531,7 @@ export function savedSearchStats(
   pickup: string,
   ex: Exclusions,
   now: Temporal.Instant,
-  details?: SearchDetails,
+  details?: ItemDetails,
 ): Map<string, SavedSearchStats> {
   const matchers = searches.map((s) => ({
     s,

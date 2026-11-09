@@ -173,10 +173,7 @@ class Catalog:
                     if i not in pulled and (lot.get("endsAt") or 0) > now:
                         pulled[i] = lot
 
-            types = self.store.item_types(lot["title"] for lot in pulled.values())
-            for lot in pulled.values():
-                if lot["title"] in types:
-                    lot["itemType"] = types[lot["title"]]
+            self.store.annotate_items(pulled.values())
             self.history.annotate(pulled.values())
 
             seq = self.store.replace_all(pulled.values(), fetchedAt=now_ms(), count=count, authed=token is not None)

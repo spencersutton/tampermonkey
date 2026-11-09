@@ -270,10 +270,11 @@ function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen:
   );
 }
 
-/** What earlier lots with this name closed at, fetched in full when the popup opens. */
+/** What earlier matching items closed at, refreshed when the matched listings change. */
 function PastCloses({ lot }: { lot: Lot }) {
   const [closes, setCloses] = useState<PastCloseDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const matchedIds = lot.pastCloses?.recent.map((close) => close.id).join(',');
   useEffect(() => {
     let live = true;
     setCloses(null);
@@ -283,7 +284,7 @@ function PastCloses({ lot }: { lot: Lot }) {
       (e) => live && setError((e as Error).message),
     );
     return () => void (live = false);
-  }, [lot.id, lot.pastCloses?.n]);
+  }, [lot.id, lot.pastCloses?.n, matchedIds]);
   const p = pastPrice(lot);
   return (
     <div>

@@ -1,5 +1,4 @@
-"""Past closing prices: what earlier lots with the same (or nearly the same)
-name closed at.
+"""Past closing prices: what earlier matching items closed at.
 
 When a lot leaves the catalog, the store keeps a slim row of it in
 `closed_lots` with the last price a pull saw. Lots get most of their bids in
@@ -12,8 +11,9 @@ Each open lot gets `pastCloses`: how many closed lots match its name and the
 most recent few of them, so a card can show what the item usually goes for.
 GET /api/history?id=N lists every match for the lot popup.
 
-Names match fuzzily, by `names_match`, which src/shared/names.ts mirrors for
-combining duplicate listings in the app. How fuzzy is the synced
+Brand and model match exactly, ignoring case and whitespace, when both lots
+have both fields. Otherwise names match fuzzily, by `names_match`, which
+src/shared/names.ts mirrors for combining duplicate listings in the app. How fuzzy is the synced
 `tlxNameMatch` setting: the share of words two titles must have in common,
 100 meaning the same words (ignoring case, punctuation and word order).
 """
@@ -29,6 +29,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable
 from typing import Any
 
+from .identity import brand_model_key
 from .site import ApiError, get, normalize_detail, normalize_lot
 from .store import Store
 
@@ -119,59 +120,72 @@ def _close(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class ItemIndex:
+    """Exact brand/model matches plus title fallbacks for incomplete identities."""
+
+    def __init__(self, rows: Iterable[dict[str, Any]], min_pct: float) -> None:
+        self.by_title: dict[frozenset[str], list[dict[str, Any]]] = defaultdict(list)
+        self.by_identity: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            self.by_title[name_tokens(row["title"])].append(row)
+            if identity := brand_model_key(row):
+                self.by_identity[identity].append(row)
+        self.names = NameIndex(self.by_title, min_pct)
+
+    def matches(self, lot: dict[str, Any]) -> list[dict[str, Any]]:
+        identity = brand_model_key(lot)
+        rows = list(self.by_identity.get(identity, ())) if identity else []
+        rows.extend(
+            row
+            for key in self.names.matches(name_tokens(lot["title"]))
+            for row in self.by_title[key]
+            if not identity or not brand_model_key(row)
+        )
+        return sorted((row for row in rows if row["id"] != lot["id"]), key=lambda row: -(row["endsAt"] or 0))
+
+
 class History:
     def __init__(self, store: Store) -> None:
         self.store = store
         self._wake = threading.Event()
-        self._cache: tuple[tuple[int, float], NameIndex, dict[frozenset[str], list[dict[str, Any]]]] | None = None
+        self._cache: tuple[tuple[int, float], ItemIndex] | None = None
         self._cache_lock = threading.Lock()
 
     # -- matching ---------------------------------------------------------------
-    def _index(self) -> tuple[NameIndex, dict[frozenset[str], list[dict[str, Any]]]]:
-        """The index of closed lot names and the closed lots under each, rebuilt when either changed."""
+    def _index(self) -> ItemIndex:
+        """Rebuild when closed lots, cached identities, or title matching settings change."""
         version = (self.store.closed_rev(), name_match_pct(self.store.setting(NAME_MATCH_KEY)))
         with self._cache_lock:
             if self._cache and self._cache[0] == version:
-                return self._cache[1], self._cache[2]
-            by_key: dict[frozenset[str], list[dict[str, Any]]] = defaultdict(list)
-            for row in self.store.closed_lots():
-                by_key[name_tokens(row["title"])].append(row)
-            for rows in by_key.values():
-                rows.sort(key=lambda r: -(r["endsAt"] or 0))
-            index = NameIndex(by_key, version[1])
-            self._cache = (version, index, by_key)
-            return index, by_key
+                return self._cache[1]
+            index = ItemIndex(self.store.closed_lots(), version[1])
+            self._cache = (version, index)
+            return index
 
     def closes_for(self, lot: dict[str, Any]) -> list[dict[str, Any]]:
         """Closed lots matching this lot's name, most recent first."""
-        return self._closes_for(lot, *self._index())
-
-    @staticmethod
-    def _closes_for(lot: dict[str, Any], index: NameIndex, by_key: dict[frozenset[str], list[dict[str, Any]]]) -> list[dict[str, Any]]:
-        rows = [r for m in index.matches(name_tokens(lot["title"])) for r in by_key[m] if r["id"] != lot["id"]]
-        rows.sort(key=lambda r: -(r["endsAt"] or 0))
-        return rows
+        return self._index().matches(lot)
 
     def annotate(self, lots: Iterable[dict[str, Any]]) -> None:
         """Set (or drop) `pastCloses` on each lot."""
-        index, by_key = self._index()
+        index = self._index()
         for lot in lots:
-            self._annotate(lot, index, by_key)
+            self._annotate(lot, index)
 
-    @classmethod
-    def _annotate(cls, lot: dict[str, Any], index: NameIndex, by_key: dict[frozenset[str], list[dict[str, Any]]]) -> None:
-        if rows := cls._closes_for(lot, index, by_key):
+    @staticmethod
+    def _annotate(lot: dict[str, Any], index: ItemIndex) -> None:
+        if rows := index.matches(lot):
             lot["pastCloses"] = {"n": len(rows), "recent": [_close(r) for r in rows[:RECENT]]}
         else:
             lot.pop("pastCloses", None)
 
     def refresh(self) -> None:
         """Re-annotate the stored lots (after closes were added or the setting changed)."""
-        index, by_key = self._index()  # outside the store lock, which update_lots holds
+        index = self._index()  # outside the store lock, which update_lots holds
 
         def update(lot: dict[str, Any]) -> dict[str, Any]:
             out = dict(lot)
-            self._annotate(out, index, by_key)
+            self._annotate(out, index)
             return out
 
         if n := self.store.update_lots(update):

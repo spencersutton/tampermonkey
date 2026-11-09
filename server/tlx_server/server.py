@@ -21,7 +21,7 @@ site:
     GET  /api/settings?since=N  settings changed after revision N
     PUT  /api/settings/<key>    {"value": ...}; last write wins
     PUT  /api/item-type         {"lotId", "itemType"}; correct every listing with this exact title
-    GET  /api/history?id=N      closed lots whose name matches lot N's, most recent first
+    GET  /api/history?id=N      closed lots matching item N, most recent first
     GET  /api/health
 
 Because the server is logged in to your account (and can bid), every request
@@ -335,8 +335,9 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not lot:
                 self._error(HTTPStatus.NOT_FOUND, "No such catalog lot")
                 return
-            api.store.save_item_types({lot["title"]: (item_type, (lot.get("category") or {}).get("value"))}, manual=True)
-            self._json(HTTPStatus.OK, {"title": lot["title"], "itemType": item_type, "seq": api.store.seq()})
+            api.store.save_lot_types([(lot, item_type)], manual=True)
+            identity = {key: lot[key] for key in ("title", "brand", "model") if key in lot}
+            self._json(HTTPStatus.OK, {**identity, "itemType": item_type, "seq": api.store.seq()})
 
         # -- the site's API ---------------------------------------------------
         def _proxy(self, method: str) -> None:
@@ -370,8 +371,17 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if method == "GET" and status == HTTPStatus.OK and LOT_DETAIL_PATH.fullmatch(urlsplit(self.path).path):
                 try:
                     api.store.save_lot_detail(normalize_detail(json.loads(data)))
+                    api.catalog.history.wake()
                 except ValueError, KeyError, TypeError, AttributeError, sqlite3.Error:
                     log.warning("couldn't keep the detail of %s", self.path, exc_info=True)
+            if (
+                method == "GET"
+                and status == HTTPStatus.OK
+                and re.fullmatch(r"/backend/v1/auctions/control-panel/closed/(won|lost)/", urlsplit(self.path).path)
+            ):
+                payload = json.loads(data)
+                api.store.annotate_identities(payload["results"], "lot_id")
+                data = json.dumps(payload).encode()
             self._send(status, data, ctype)
 
         def _relay_ws(self) -> None:

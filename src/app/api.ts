@@ -84,6 +84,8 @@ interface RawClosedLot {
   location_name: string;
   final_price: number;
   hero_image: string | null;
+  brand?: string | null;
+  model?: string | null;
 }
 
 interface RawBidResponse {
@@ -184,6 +186,8 @@ function normalizeClosed(r: RawClosedLot): ClosedLot {
     locationName: r.location_name ?? null,
     finalPrice: Number(r.final_price ?? 0),
     heroImage: r.hero_image ?? null,
+    ...(r.brand !== undefined ? { brand: r.brand } : {}),
+    ...(r.model !== undefined ? { model: r.model } : {}),
   };
 }
 

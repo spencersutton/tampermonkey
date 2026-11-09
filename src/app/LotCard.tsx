@@ -245,7 +245,7 @@ function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void
   const { n, recent } = lot.pastCloses!;
   const p = pastPrice(lot);
   const more = n > recent.length ? `\n…and ${n - recent.length} more` : '';
-  const title = `${plural(n, 'earlier lot')} with this name closed:\n${recent.map(pastCloseText).join('\n')}${more}`;
+  const title = `${plural(n, 'earlier matching lot')} closed:\n${recent.map(pastCloseText).join('\n')}${more}`;
   return (
     <button type="button" class="card-past" title={title} onClick={onOpen}>
       {p ? (

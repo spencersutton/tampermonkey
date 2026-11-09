@@ -1,14 +1,14 @@
 // The site's "Closed Auctions" pages (Won / Lost), shown in place of the grid.
-// Each lot opens in the usual popup; lots listed again under the same name
+// Each lot opens in the usual popup; matching items listed again
 // (matched like duplicate listings) are offered right under the lot, so a
 // lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { namesMatch, nameTokens } from '../shared/names';
+import { itemIdentity, itemsMatch } from '../shared/names';
 import { CDN, fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
-import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
+import { getLot, loadDetail, lotBrands, lotModels, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
 import { LocationText, TimeLeft } from './LotCard';
 import { LotModal } from './LotModal';
@@ -68,23 +68,24 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   const [modalLot, setModalLot] = useState<Lot | null>(null);
   const now = clock(30_000);
 
-  // Open lots by their title words, to find the ones listed again.
+  const brands = lotBrands.value;
+  const models = lotModels.value;
   const open = useMemo(
     () =>
       catalogLots.value
         .values()
         .filter((l) => Temporal.Instant.compare(l.endsAt, now) > 0)
-        .map((l) => ({ lot: l, words: nameTokens(l.title) }))
+        .map((l) => ({ lot: l, identity: itemIdentity(l, { brands, models }) }))
         .toArray(),
-    [catalogLots.value, rev.value, now],
+    [catalogLots.value, rev.value, now, brands, models],
   );
   const pct = exclusions.nameMatch;
   const relisted = useMemo(() => {
     const out = new Map<string, Row[]>();
     for (const c of data?.lots ?? []) {
-      const words = nameTokens(c.title);
+      const identity = itemIdentity({ ...c, id: c.lotId }, { brands, models });
       const rows = open
-        .filter((o) => o.lot.id !== c.lotId && namesMatch(words, o.words, pct))
+        .filter((o) => o.lot.id !== c.lotId && itemsMatch(identity, o.identity, pct))
         .map((o) => makeRow(o.lot, pickup, exclusions))
         .sort((a, b) => a.total - b.total);
       if (rows.length) {
@@ -92,7 +93,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
       }
     }
     return out;
-  }, [data?.lots, open, pct, pickup, exclusions]);
+  }, [data?.lots, open, pct, pickup, exclusions, brands, models]);
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const lots = (data?.lots ?? []).filter((c) => {

@@ -9,7 +9,8 @@
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
 import { batch } from '@preact/signals';
-import { error, fetchedAt, inUse, loaded, lotBrands, lotModels, lots, progress, trackActivity, updateTitleItemType } from './catalog';
+import { error, fetchedAt, inUse, loaded, lotBrands, lotModels, lots, progress, trackActivity, updateItemType } from './catalog';
+import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
 import { applySetting, getSetting, setSaveHook, type Key } from './settings';
 import { DEFAULTS, KEYS, SYNCED_KEYS } from '../shared/keys';
 import type { Lot, PastClose, PastCloseDetail } from './types';
@@ -101,7 +102,7 @@ let seq = 0;
 /** When the server allows the next pull, in our clock. */
 let nextAt: Temporal.Instant | null = null;
 /** Local corrections not yet included in a catalog poll; protect them from an older in-flight reply. */
-const typeEdits = new Map<string, { itemType: string; seq: number }>();
+const typeEdits = new Map<number, { identity: ItemIdentity; itemType: string; seq: number }>();
 
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
@@ -129,8 +130,8 @@ export function applyCatalog(r: CatalogReply) {
     }
     lotBrands.value = brands;
     lotModels.value = models;
-    for (const [title, edit] of typeEdits) {
-      if (r.seq >= edit.seq) typeEdits.delete(title);
+    for (const [id, edit] of typeEdits) {
+      if (r.seq >= edit.seq) typeEdits.delete(id);
     }
     const cur = lots.peek();
     if (r.full || r.lots.length || (r.ids && r.ids.length !== cur.size)) {
@@ -143,12 +144,15 @@ export function applyCatalog(r: CatalogReply) {
         const mine = cur.get(fresh.id);
         // Keep newer live prices, but take server-owned metadata from the poll.
         next.set(fresh.id, mine && mine.version > fresh.version
-          ? { ...mine, firstSeenAt: fresh.firstSeenAt, itemType: fresh.itemType }
+          ? { ...mine, firstSeenAt: fresh.firstSeenAt, itemType: fresh.itemType, pastCloses: fresh.pastCloses }
           : fresh);
       }
       for (const [id, lot] of next) {
-        const edit = typeEdits.get(lot.title);
-        if (edit) next.set(id, { ...lot, itemType: edit.itemType });
+        for (const edit of typeEdits.values()) {
+          if (sameItemType(itemIdentity(lot, { brands, models }), edit.identity)) {
+            next.set(id, { ...lot, itemType: edit.itemType });
+          }
+        }
       }
       lots.value = next;
     }
@@ -204,15 +208,17 @@ export async function pullCatalog() {
 /** When the next full pull is allowed. */
 export const nextPullAt = () => nextAt ?? Temporal.Instant.from('1970-01-01T00:00:00Z');
 
-/** Every closed lot whose name matches this open lot's, most recent first. */
+/** Every closed lot matching this item's identity or title fallback, most recent first. */
 export const fetchPastCloses = (id: number) =>
   call<{ closes: ServerPastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes.map(normalizePastClose));
 
-/** Persist a title-based correction and update cards, sorting and category matching immediately. */
+/** Persist an item correction and update cards, sorting and category matching immediately. */
 export async function setItemType(lotId: number, itemType: string): Promise<string> {
-  const reply = await call<{ title: string; itemType: string; seq: number }>('PUT', '/api/item-type', { lotId, itemType });
-  typeEdits.set(reply.title, { itemType: reply.itemType, seq: reply.seq });
-  updateTitleItemType(reply.title, reply.itemType);
+  const reply = await call<ItemIdentity & { itemType: string; seq: number }>('PUT', '/api/item-type', { lotId, itemType });
+  const identity = { title: reply.title, brand: reply.brand, model: reply.model };
+  typeEdits.delete(lotId);
+  typeEdits.set(lotId, { identity, itemType: reply.itemType, seq: reply.seq });
+  updateItemType(identity, reply.itemType);
   return reply.itemType;
 }
 

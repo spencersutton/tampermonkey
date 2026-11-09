@@ -3,8 +3,9 @@
 in a click.
 
 An LLM behind any OpenAI-compatible chat completions API names them (by
-default Ministral 3 14B on nano-gpt.com). Types are stored by title, so a
-relisted lot costs nothing, and labelling runs on its own thread after each
+default Ministral 3 14B on nano-gpt.com). Types are stored by brand/model,
+with exact-title fallback when either identity is missing, so a relisted lot
+costs nothing, and labelling runs on its own thread after each
 pull. Titles go in batches from one site category at a time, alphabetically,
 with the types that category already uses, so the same kind of item gets the
 same name. A failed request leaves the rest for the next run; lots without a
@@ -32,6 +33,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from .identity import brand_model_key
 from .site import USER_AGENT
 from .store import Store
 
@@ -103,31 +105,35 @@ class Labeller:
             self._wake.clear()
 
     def label_all(self) -> None:
-        """Give every stored lot without an item type one: from an earlier title match if there is one, else from the model."""
-        pending = self.store.untyped_lots()
+        """Label items not covered by a saved identity or title fallback."""
+        pending = self.store.untyped_items()
         if not pending:
             return
-        known = self.store.item_types(pending)
-        self.store.save_item_types({t: (known[t], (pending[t] or {}).get("value")) for t in known})
-        by_category: dict[str | None, list[str]] = defaultdict(list)
+        by_category: dict[str | None, list[dict[str, Any]]] = defaultdict(list)
         labels: dict[str | None, str] = {}
-        for title, cat in pending.items():
-            if title not in known:
-                value = (cat or {}).get("value")
-                by_category[value].append(title)
-                labels[value] = (cat or {}).get("label") or "Other"
+        seen: set[tuple[str, ...]] = set()
+        for lot in pending:
+            identity = brand_model_key(lot)
+            key = ("identity", *identity) if identity else ("title", lot["title"])
+            if key in seen:
+                continue
+            seen.add(key)
+            cat = lot.get("category") or {}
+            value = cat.get("value")
+            by_category[value].append(lot)
+            labels[value] = cat.get("label") or "Other"
         total = sum(map(len, by_category.values()))
         if not total:
             return
         log.info("labelling item types for %d titles", total)
         done = 0
         try:
-            for value, titles in by_category.items():
-                titles.sort(key=str.lower)  # similar items in the same batch
-                for start in range(0, len(titles), BATCH):
-                    batch = titles[start : start + BATCH]
-                    types = self.ask(labels[value], batch, self.store.common_types(value, VOCAB))
-                    self.store.save_item_types({batch[i - 1]: (t, value) for i, t in types.items()})
+            for value, items in by_category.items():
+                items.sort(key=lambda lot: lot["title"].lower())
+                for start in range(0, len(items), BATCH):
+                    batch = items[start : start + BATCH]
+                    types = self.ask(labels[value], [lot["title"] for lot in batch], self.store.common_types(value, VOCAB))
+                    self.store.save_lot_types([(batch[i - 1], t) for i, t in types.items()])
                     done += len(types)
         except LabelError as e:
             log.warning("item type labelling stopped after %d of %d titles: %s", done, total, e)

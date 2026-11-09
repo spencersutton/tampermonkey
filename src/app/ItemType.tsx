@@ -95,8 +95,9 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
             </datalist>
           </label>
           <p id="item-type-help" class="muted small">
-            Pick an existing type or enter a short, singular name, like "drill driver". Saved in lowercase for all listings with this exact title,
-            including future relistings. Automatic labelling will not replace your correction.
+            Pick an existing type or enter a short, singular name, like "drill driver". Saved in lowercase for matching brands and models,
+            falling back to the exact title if either listing lacks brand or model, including future relistings.
+            Automatic labelling will not replace your correction.
           </p>
           {(error || validation) && <p id="item-type-error" class="error" role="alert">{error || validation}</p>}
         </div>

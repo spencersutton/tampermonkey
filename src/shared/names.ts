@@ -10,6 +10,50 @@
 export const DEFAULT_NAME_MATCH = 90;
 export const MIN_NAME_MATCH = 50;
 
+export interface ItemIdentity {
+  title: string;
+  brand?: string | null | undefined;
+  model?: string | null | undefined;
+}
+
+export interface ItemDetails {
+  brands: ReadonlyMap<number, string | null>;
+  models: ReadonlyMap<number, string | null>;
+}
+
+const normalizeIdentity = (value: string | null | undefined) => (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Model punctuation and word order are significant; this is not fuzzy title matching. */
+export function brandModelKey(item: ItemIdentity): string | null {
+  const brand = normalizeIdentity(item.brand);
+  const model = normalizeIdentity(item.model);
+  return brand && model ? JSON.stringify([brand, model]) : null;
+}
+
+/** Detail caches can be newer than the price-versioned catalog entry. */
+export function itemIdentity(item: ItemIdentity & { id: number }, details?: ItemDetails): ItemIdentity {
+  const brand = details?.brands.get(item.id);
+  const model = details?.models.get(item.id);
+  return {
+    title: item.title,
+    brand: brand === undefined ? item.brand : brand,
+    model: model === undefined ? item.model : model,
+  };
+}
+
+export function itemsMatch(a: ItemIdentity, b: ItemIdentity, minPct: number): boolean {
+  const left = brandModelKey(a);
+  const right = brandModelKey(b);
+  return left && right ? left === right : namesMatch(nameTokens(a.title), nameTokens(b.title), minPct);
+}
+
+/** Item types retain exact-title fallback rather than fuzzy title matching. */
+export function sameItemType(a: ItemIdentity, b: ItemIdentity): boolean {
+  const left = brandModelKey(a);
+  const right = brandModelKey(b);
+  return left && right ? left === right : a.title === b.title;
+}
+
 const QTY = /\bqty\.?\s*([0-9]+)/g;
 const TOKEN = /qty[0-9]+|[0-9]+(?:[./][0-9]+)*|[a-z]+/g;
 
@@ -52,55 +96,63 @@ export const nameMatchPct = (v: unknown) =>
  * words in common share one of the first |x| - ceil(t·|x|) + 1 words of each.
  */
 export function groupNames(titles: Iterable<string>, minPct: number): Map<string, string> {
-  const byKey = new Map<string, { words: Set<string>; titles: string[] }>();
-  for (const title of titles) {
-    const words = nameTokens(title);
-    const key = words.size ? [...words].sort().join(' ') : `\u0000${title.trim().toLowerCase()}`;
-    const entry = byKey.get(key);
-    if (entry) {
-      entry.titles.push(title);
-    } else {
-      byKey.set(key, { words, titles: [title] });
-    }
-  }
-  const entries = [...byKey.values()];
-  const parent = entries.map((_, i) => i);
-  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i]!)));
+  const items = [...new Set(titles)].map((title, id) => ({ title, id }));
+  const groups = groupItems(items, minPct);
+  return new Map(items.map(({ title, id }) => [title, items[groups.get(id)!]!.title]));
+}
 
-  if (minPct < 100) {
-    const freq = new Map<string, number>();
-    for (const { words } of entries) {
-      for (const t of words) {
-        freq.set(t, (freq.get(t) ?? 0) + 1);
-      }
-    }
-    const postings = new Map<string, number[]>();
-    entries.forEach(({ words }, i) => {
-      const ordered = [...words].sort((x, y) => freq.get(x)! - freq.get(y)! || (x < y ? -1 : x > y ? 1 : 0));
-      const seen = new Set<number>();
-      for (const t of ordered.slice(0, words.size - Math.ceil((words.size * minPct) / 100) + 1)) {
-        const list = postings.get(t) ?? [];
-        for (const j of list) {
-          if (seen.has(j)) {
-            continue;
-          }
-          seen.add(j);
-          if (find(i) !== find(j) && namesMatch(words, entries[j]!.words, minPct)) {
-            parent[find(i)] = find(j);
-          }
-        }
-        list.push(i);
-        postings.set(t, list);
-      }
-    });
+/** Group identity matches first, then title fallbacks without bridging conflicting known models. */
+export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: number): Map<number, number> {
+  const entries = new Map<string, { item: ItemIdentity & { id: number }; ids: number[] }>();
+  for (const item of lots) {
+    const words = [...nameTokens(item.title)].sort();
+    const key = JSON.stringify([brandModelKey(item), words.length ? words : item.title.trim().toLowerCase()]);
+    const entry = entries.get(key);
+    if (entry) entry.ids.push(item.id);
+    else entries.set(key, { item, ids: [item.id] });
   }
-
-  const out = new Map<string, string>();
-  entries.forEach(({ titles: ts }, i) => {
-    const head = entries[find(i)]!.titles[0]!;
-    for (const t of ts) {
-      out.set(t, head);
+  const members = [...entries.values()];
+  const items = members.map(({ item }) => item);
+  const parents = items.map((_, i) => i);
+  const identities = items.map(brandModelKey);
+  const find = (i: number): number => parents[i] === i ? i : (parents[i] = find(parents[i]!));
+  const join = (i: number, j: number) => {
+    const a = find(i), b = find(j);
+    if (a === b || (identities[a] && identities[b] && identities[a] !== identities[b])) return;
+    parents[b] = a;
+    identities[a] ||= identities[b] ?? null;
+  };
+  const known = new Map<string, number>();
+  items.forEach((item, i) => {
+    const key = brandModelKey(item);
+    if (key) {
+      const previous = known.get(key);
+      if (previous !== undefined) join(previous, i);
+      else known.set(key, i);
     }
   });
-  return out;
+
+  const words = items.map((item) => nameTokens(item.title));
+  const freq = new Map<string, number>();
+  for (const tokens of words) {
+    for (const token of tokens) freq.set(token, (freq.get(token) ?? 0) + 1);
+  }
+  const postings = new Map<string, number[]>();
+  words.forEach((tokens, i) => {
+    const ordered = [...tokens].sort((a, b) => freq.get(a)! - freq.get(b)! || (a < b ? -1 : a > b ? 1 : 0));
+    const prefix = ordered.slice(0, tokens.size - Math.ceil(tokens.size * minPct / 100) + 1);
+    if (!prefix.length) prefix.push(`\u0000${items[i]!.title.trim().toLowerCase()}`);
+    const seen = new Set<number>();
+    for (const token of prefix) {
+      const list = postings.get(token) ?? [];
+      for (const j of list) {
+        if (seen.has(j) || find(i) === find(j)) continue;
+        seen.add(j);
+        if ((tokens.size === 0 && words[j]!.size === 0) || itemsMatch(items[i]!, items[j]!, minPct)) join(j, i);
+      }
+      list.push(i);
+      postings.set(token, list);
+    }
+  });
+  return new Map(members.flatMap(({ ids }, i) => ids.map((id): [number, number] => [id, items[find(i)]!.id])));
 }

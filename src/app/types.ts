@@ -91,4 +91,6 @@ export interface ClosedLot {
   locationName: string | null;
   finalPrice: number;
   heroImage: string | null; // path on the CDN
+  brand?: string | null | undefined;
+  model?: string | null | undefined;
 }

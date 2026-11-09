@@ -8,7 +8,7 @@ const originalFetch = globalThis.fetch;
 const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
 after(() => vite.close());
 afterEach(() => { globalThis.fetch = originalFetch; applyCatalog(reply(1000, [])); });
-const { lots, updateTitleItemType } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { lots, updateItemType } = await vite.ssrLoadModule('/src/app/catalog.ts');
 const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/source.ts');
 const { categoryOf, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
 
@@ -29,7 +29,7 @@ const reply = (seq, rows, fields = {}) => ({
 test('title corrections replace the catalog Map and update category matching and counts immediately', () => {
   lots.value = new Map([catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery'), catalogLot(3, 'Saw', 'saw'), catalogLot(4, 'DRILL', 'battery')].map((l) => [l.id, l]));
   const previous = lots.peek();
-  updateTitleItemType('Drill', 'drill driver');
+  updateItemType({ title: 'Drill' }, 'drill driver');
   assert.notEqual(lots.peek(), previous);
   assert.deepEqual([...lots.peek().values()].map((l) => l.itemType), ['drill driver', 'drill driver', 'saw', 'battery']);
   assert.equal(previous.get(1).itemType, 'battery');
