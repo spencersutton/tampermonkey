@@ -117,6 +117,31 @@ test('item-type corrections use latest cached identity with exact-title fallback
   assert.equal(lots.value.get(23).itemType, 'driver');
 });
 
+test('item-type sort groups types case-insensitively, uses ending time for ties, and puts unassigned lots last', () => {
+  const items = [
+    lot(1, { itemType: 'Saw' }),
+    lot(2, { itemType: 'drill', endsAt: now.add({ hours: 3 }) }),
+    lot(3, { itemType: 'Drill', endsAt: now.add({ hours: 1 }) }),
+    lot(4, { endsAt: now.add({ minutes: 1 }) }),
+    lot(5, { itemType: '', endsAt: now.add({ minutes: 2 }) }),
+  ].map((item) => ({ ...item, model: `D-${item.id}` }));
+  const settings = { sort: 'item-type-asc' };
+  assert.deepEqual(view(items, settings).rows.map((row) => row.lot.id), [3, 2, 1, 4, 5]);
+  assert.equal(normalizeView(savedFilters({ ...DEFAULT_VIEW, ...settings })).sort, settings.sort);
+  assert.equal(navFromUrl('?sort=item-type-asc').view.sort, settings.sort);
+});
+
+test('item-type corrections immediately reorder the grid when sorting by item type', () => {
+  lots.value = new Map([
+    [60, lot(60, { itemType: 'saw' })],
+    [61, lot(61, { itemType: 'drill', model: 'D-200' })],
+  ]);
+  setView({ ...DEFAULT_VIEW, sort: 'item-type-asc' });
+  assert.deepEqual(gridView.value.rows.map((row) => row.lot.id), [61, 60]);
+  updateItemType(lot(60), 'battery');
+  assert.deepEqual(gridView.value.rows.map((row) => row.lot.id), [60, 61]);
+});
+
 test('identity correction survives stale polls without leaking to another model', async (t) => {
   const items = [lot(30), lot(31, { title: 'Another listing' }), lot(32, { model: 'D-200' })];
   lots.value = new Map(items.map((item) => [item.id, item]));

@@ -29,6 +29,10 @@ export const SORTS = {
   'newly-listed': { label: 'Newly listed', compare: (a, b) => b.lot.id - a.lot.id },
   'title-asc': { label: 'Title A–Z', compare: (a, b) => collator.compare(titleKey(a.lot), titleKey(b.lot)) },
   'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot), titleKey(a.lot)) },
+  'item-type-asc': {
+    label: 'Item type A–Z',
+    compare: (a, b) => +!a.lot.itemType - +!b.lot.itemType || collator.compare(a.lot.itemType ?? '', b.lot.itemType ?? ''),
+  },
   'brand-model-asc': { label: 'Brand + model A–Z', compare: () => 0 },
   'total-asc': { label: 'Total cost: low to high', compare: (a, b) => a.total - b.total },
   'total-desc': { label: 'Total cost: high to low', compare: (a, b) => b.total - a.total },
