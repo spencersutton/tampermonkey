@@ -201,8 +201,12 @@ export interface ConditionInfo {
 
 /** The site's condition descriptions (public; the same for everyone). */
 export async function fetchConditions(): Promise<ConditionInfo[]> {
-  const d = await get<{ conditions?: { value: number; label?: string | null; description?: string | null }[] | null }>('/v1/auctions/filter-config/');
-  return (d.conditions ?? []).map((c) => ({ value: c.value, label: c.label ?? '', description: c.description ?? '' }));
+  interface CriteriaDescriptor {
+    conditions?: ConditionInfo[] | null;
+  }
+
+  const d = await get<CriteriaDescriptor>('/v1/auctions/filter-config/');
+  return (d.conditions ?? []).map((c) => ({ value: c.value, label: c.label, description: c.description }));
 }
 
 export interface PickupLocation {
@@ -212,7 +216,11 @@ export interface PickupLocation {
 
 /** The pickup location set on the logged-in account, or null if none. */
 export async function fetchPickupLocation(): Promise<PickupLocation | null> {
-  const p = (await get<{ pickup_location: { id?: number | null; name: string } | null }>('/v1/auth/me/')).pickup_location;
+  interface PickupLocationInfo {
+    pickup_location: PickupLocation | null;
+  }
+
+  const p = (await get<PickupLocationInfo>('/v1/auth/me/')).pickup_location;
   return p ? { id: p.id ?? null, name: p.name || null } : null;
 }
 
