@@ -102,6 +102,23 @@ test('dialog refs own opening, focus and cleanup without component effects', (t)
   assert.equal(content.focused, 1, 'explicit autofocus is left to the browser');
 });
 
+test('closing a category dialog restores focus without scrolling to the updated lot', (t) => {
+  const { root, previous, update } = mountDialog(t);
+  let scrollY = 1800;
+  let lotTop = 1900;
+  previous.focus = (options) => {
+    previous.focused++;
+    if (!options?.preventScroll) scrollY = lotTop;
+  };
+  update({ onClose: () => {}, children: h('form', { tabIndex: -1 }) });
+
+  // Saving can change category labels and the position of the original button.
+  lotTop = 2050;
+  render(null, root);
+  assert.equal(previous.focused, 1);
+  assert.equal(scrollY, 1800);
+});
+
 test('dialog events use the current callback and ignore close events after removal', (t) => {
   const { update } = mountDialog(t);
   let first = 0;

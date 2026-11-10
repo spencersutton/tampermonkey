@@ -19,11 +19,11 @@ function showDialog(dialog: HTMLDialogElement | null) {
   const previous = document.activeElement;
   dialog.showModal();
   if (!dialog.querySelector('[autofocus]') && dialog.firstElementChild instanceof HTMLElement) {
-    dialog.firstElementChild.focus();
+    dialog.firstElementChild.focus({ preventScroll: true });
   }
   return () => {
     dialog.close();
-    if (previous instanceof HTMLElement) previous.focus();
+    if (previous instanceof HTMLElement) previous.focus({ preventScroll: true });
   };
 }
 
