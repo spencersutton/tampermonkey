@@ -10,7 +10,7 @@ import { CDN, fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { getLot, loadDetail, lotBrands, lotModels, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
-import { LocationText, TimeLeft } from './LotCard';
+import { ListingRow } from './ListingRow';
 import { LotModal } from './LotModal';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
@@ -237,18 +237,7 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | und
       {showRelisted && relisted && (
         <ol class="dupes closed-relisted">
           {relisted.map((r) => (
-            <li>
-              <button type="button" onClick={() => openLot(r.lot)}>
-                <span class="price" title={costBreakdown(r.lot.currentPrice, r.transferFee)}>
-                  {dollars(r.lot.currentPrice)} <span class="muted small">≈ {money(r.total)}</span>
-                </span>
-                <span class="muted small">
-                  {r.lot.title !== c.title && <span class="dupe-title">{r.lot.title}</span>}
-                  {r.lot.condition?.label ?? 'Unknown'} · <LocationText row={r} /> · {plural(r.lot.bidCount, 'bid')}
-                </span>
-                <TimeLeft endsAt={r.lot.endsAt} />
-              </button>
-            </li>
+            <ListingRow key={r.lot.id} row={r} currentTitle={c.title} showCondition onOpen={openLot} />
           ))}
         </ol>
       )}

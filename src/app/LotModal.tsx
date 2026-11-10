@@ -10,6 +10,7 @@ import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { BrandModel } from './brands';
+import { ListingRow } from './ListingRow';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
@@ -210,18 +211,7 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; 
       <h3>{fmtCount(group.length)} listings of this item</h3>
       <ol class="dupes">
         {group.map((r) => (
-          <li>
-            <button type="button" class={r.lot.id === current.id ? 'on' : ''} aria-current={r.lot.id === current.id ? 'true' : undefined} onClick={() => onOpen(r.lot)}>
-              <span class="price" title={costBreakdown(r.lot.currentPrice, r.transferFee)}>
-                {dollars(r.lot.currentPrice)} <span class="muted small">≈ {money(r.total)}</span>
-              </span>
-              <span class="muted small">
-                {r.lot.title !== current.title && <span class="dupe-title">{r.lot.title}</span>}
-                <LocationText row={r} /> · {plural(r.lot.bidCount, 'bid')}
-              </span>
-              <TimeLeft endsAt={r.lot.endsAt} />
-            </button>
-          </li>
+          <ListingRow key={r.lot.id} row={r} currentTitle={current.title} selected={r.lot.id === current.id} onOpen={onOpen} />
         ))}
       </ol>
     </div>
