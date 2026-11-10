@@ -1,4 +1,5 @@
 {
+    "ignorePatterns": ["tests/**"],
     "options": {
         "typeAware": true
     },
@@ -11,6 +12,7 @@
                 "number": false,
                 "string": false
             }
-        ]
+        ],
+        "no-empty": "error"
     }
 }

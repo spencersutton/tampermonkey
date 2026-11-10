@@ -103,6 +103,8 @@ npm run dev       # web app with hot reload; API calls go to a tlx server on 127
 The type check also validates declaration files and enables additional checks for
 optional properties, indexed access, unused code, and control flow.
 
+Oxlint excludes files under `tests/`.
+
 Python is formatted with [ruff](https://docs.astral.sh/ruff/) (`pipx install ruff`). A
 pre-commit hook in `githooks/` runs `ruff format` on the Python files being committed and
 re-stages them; enable it once per clone:
