@@ -66,7 +66,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const near = (c: CustomCategory) => site != null && c.name.startsWith(`${site.label} - `);
   const choices = cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
-  const [mode, setMode] = useState<'new' | 'add'>('new');
+  const [mode, setMode] = useState<'new' | 'add'>(() => cats.length ? 'add' : 'new');
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
   const [categorySearch, setCategorySearch] = useState('');
   const filteredChoices = choices.filter((c) => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()));
@@ -138,8 +138,17 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   };
 
   return (
-    <Dialog onClose={onClose} aria-labelledby="type-cat-title">
-      <div class="confirm type-cat" tabIndex={-1}>
+    <Dialog
+      onClose={onClose}
+      aria-labelledby="type-cat-title"
+      onKeyDownCapture={(e) => {
+        if (e.key !== 'Enter' || e.isComposing) return;
+        if (!(e.target instanceof HTMLElement) || !e.target.matches('dialog, form, input[type="text"], input[type="search"]')) return;
+        e.preventDefault();
+        if (!e.repeat) save();
+      }}
+    >
+      <form class="confirm type-cat" tabIndex={-1} onSubmit={(e) => { e.preventDefault(); save(); }}>
         <h2 id="type-cat-title">Make a category of “{type}”</h2>
         <div class="confirm-body">
           <div class="type-cat-mode" role="radiogroup" aria-label="New or existing category">
@@ -186,7 +195,6 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
                 type="text"
                 value={name}
                 onInput={(e) => setName(e.currentTarget.value)}
-                onKeyDown={(e) => e.key === 'Enter' && save()}
               />
             </label>
           )}
@@ -214,11 +222,11 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
           <button type="button" class="btn btn-outline" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" class="btn" onClick={save} aria-disabled={error ? 'true' : undefined}>
+          <button type="submit" class="btn" aria-disabled={error ? 'true' : undefined}>
             {mode === 'add' ? 'Add' : 'Create'}
           </button>
         </div>
-      </div>
+      </form>
     </Dialog>
   );
 }
