@@ -30,7 +30,7 @@ export async function toggleWatch(lotId: number) {
     await setWatchlisted(lot.auctionPeriod, lotId, on);
   } catch (e) {
     updateLot(lotId, { isWatchlisted: !on }, { force: true });
-    toast('bad', (e as Error).message);
+    toast('bad', (e instanceof Error) ? e.message : String(e));
   } finally {
     pending.delete(lotId);
   }

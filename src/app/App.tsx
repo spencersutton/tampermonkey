@@ -1,3 +1,4 @@
+// oxlint-disable typescript/no-unsafe-type-assertion
 import { batch } from '@preact/signals';
 import { useRef } from 'preact/hooks';
 import { KEYS } from '../shared/keys';

@@ -144,7 +144,7 @@ function FormCard({ title, intro, fields, submit, onSubmit, onCancel }: {
     try {
       await onSubmit();
     } catch (err) {
-      setError((err as Error).message);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }

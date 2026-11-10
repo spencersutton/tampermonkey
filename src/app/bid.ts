@@ -88,7 +88,7 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
     }
     return true;
   } catch (e) {
-    const err = e instanceof BidError ? e : new BidError((e as Error).message || String(e), 0);
+    const err = e instanceof BidError ? e : new BidError((e instanceof Error) ? e.message : String(e) || String(e), 0);
     if (err.status === 409) {
       updateLot(lotId, { status: 'closed' }, { force: true });
     }

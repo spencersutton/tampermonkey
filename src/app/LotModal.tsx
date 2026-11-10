@@ -281,7 +281,7 @@ function PastCloses({ lot }: { lot: Lot }) {
     setError(null);
     fetchPastCloses(lot.id).then(
       (c) => live && setCloses(c),
-      (e) => live && setError((e as Error).message),
+      (e) => live && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => void (live = false);
   }, [lot.id, lot.pastCloses?.n, matchedIds]);

@@ -5,6 +5,10 @@
     "options": {
         "typeAware": true
     },
+    "categories": {
+        "correctness": "warn",
+        "suspicious": "warn"
+    },
     "rules": {
         "typescript/no-unnecessary-condition": "error",
         "no-implicit-coercion": [
@@ -18,6 +22,9 @@
         "import/default": "error",
         "typescript/dot-notation": "warn",
         "typescript/no-unnecessary-type-assertion": "warn",
-        "unicorn/no-array-sort": "warn"
+        "unicorn/no-array-sort": "warn",
+        "no-shadow": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "typescript/consistent-return": "off"
     }
 }

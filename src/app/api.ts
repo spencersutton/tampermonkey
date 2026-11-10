@@ -17,6 +17,7 @@ async function get<T>(path: string, signal?: AbortSignal, prefix = BASE): Promis
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText || 'error'} for ${path}`);
   }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return res.json() as Promise<T>;
 }
 
@@ -109,8 +110,8 @@ export function normalizeLot(r: RawLot): Lot {
   return {
     id: r.id,
     auctionPeriod: r.auction_period,
-    title: String(r.title ?? ''),
-    lotNumber: String(r.lot_number ?? ''),
+    title: r.title ?? '',
+    lotNumber: r.lot_number ?? '',
     category: r.category ? { value: r.category.value, label: r.category.label } : null,
     condition: r.condition ? { value: r.condition.value, label: r.condition.display_name } : null,
     location: r.location ? { id: r.location.id, name: r.location.name } : null,
@@ -137,7 +138,7 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
   const r = await get<RawLotDetail>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
   return {
     ...normalizeLot(r),
-    description: String(r.description ?? ''),
+    description: r.description ?? '',
     brand: r.brand || null,
     model: r.model || null,
     lotFee: r.lot_fee ?? null,
@@ -179,12 +180,12 @@ export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedL
 
 function normalizeClosed(r: RawClosedLot): ClosedLot {
   return {
-    lotId: Number(r.lot_id),
-    auctionPeriod: String(r.auction_period ?? ''),
-    title: String(r.title ?? ''),
-    lotNumber: String(r.lot_number ?? ''),
+    lotId: r.lot_id,
+    auctionPeriod: r.auction_period ?? '',
+    title: r.title ?? '',
+    lotNumber: r.lot_number ?? '',
     locationName: r.location_name ?? null,
-    finalPrice: Number(r.final_price ?? 0),
+    finalPrice: r.final_price ?? 0,
     heroImage: r.hero_image ?? null,
     ...(r.brand !== undefined ? { brand: r.brand } : {}),
     ...(r.model !== undefined ? { model: r.model } : {}),
@@ -201,7 +202,7 @@ export interface ConditionInfo {
 /** The site's condition descriptions (public; the same for everyone). */
 export async function fetchConditions(): Promise<ConditionInfo[]> {
   const d = await get<{ conditions?: { value: number; label?: string | null; description?: string | null }[] | null }>('/v1/auctions/filter-config/');
-  return (d.conditions ?? []).map((c) => ({ value: c.value, label: String(c.label ?? ''), description: String(c.description ?? '') }));
+  return (d.conditions ?? []).map((c) => ({ value: c.value, label: c.label ?? '', description: c.description ?? '' }));
 }
 
 export interface PickupLocation {
@@ -233,7 +234,7 @@ export async function setWatchlisted(auctionPeriod: string, lotId: number, on: b
     throw new Error(LOGGED_OUT);
   }
   const data: RawBidResponse = await res.json().catch(() => ({}));
-  const message = data.code === 'lot_already_bid' && data.error ? String(data.error) : 'Couldn’t update your watchlist. Please try again.';
+  const message = data.code === 'lot_already_bid' && data.error ? data.error : 'Couldn’t update your watchlist. Please try again.';
   throw new Error(message);
 }
 
@@ -285,7 +286,7 @@ export async function placeBid(lotId: number, amount: number, type: BidType): Pr
   if (!res.ok) {
     const details = data.details ?? {};
     const message = (Array.isArray(details.amount) && details.amount[0]) || data.error || bidFailure(res.status);
-    throw new BidError(String(message), res.status, data.code ?? null, details.min_next_bid ?? null);
+    throw new BidError(message, res.status, data.code ?? null, details.min_next_bid ?? null);
   }
   return {
     isLeading: Boolean(data.is_leading),

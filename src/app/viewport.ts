@@ -10,6 +10,7 @@ export function observeLot(element: HTMLElement | null) {
   cards ??= new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (!entry.target.isConnected) continue;
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const id = Number((entry.target as HTMLElement).dataset['lot']);
       if (entry.isIntersecting) {
         nearby.add(id);

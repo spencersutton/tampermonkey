@@ -1,3 +1,4 @@
+// oxlint-disable typescript/no-unsafe-type-assertion
 import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 import { compileFilter } from '../shared/filters';

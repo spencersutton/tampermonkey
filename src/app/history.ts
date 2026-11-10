@@ -96,7 +96,7 @@ export function navFromUrl(search = location.search): NavState | null {
 }
 
 const isEntry = (s: unknown): s is Entry => s !== null && typeof s === 'object' && 'tlx' in s && s.tlx === true;
-const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed, Boolean(n.filteredOnly)]);
+const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed, n.filteredOnly]);
 /** Same view on the same page (the grid, or one of the closed-lot pages). */
 const sameView = (a: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }, b: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }) =>
   a.closed === b.closed && a.filteredOnly === b.filteredOnly && JSON.stringify(a.view) === JSON.stringify(b.view);

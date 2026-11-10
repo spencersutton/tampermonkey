@@ -49,6 +49,7 @@ async function call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unkn
   if (!res.ok || !data) {
     throw new Error(data?.error || `tlx server replied ${res.status}`);
   }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return data as T;
 }
 
@@ -288,6 +289,7 @@ async function loadSettings() {
   const values = SERVER_KEYS.map((key) => [key, decodeSetting(key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key])] as const);
   batch(() => {
     for (const [key, value] of values) {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       applySetting(key, value as never);
     }
     settingsLoaded.value = true;

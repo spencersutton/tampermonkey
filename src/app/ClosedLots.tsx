@@ -51,7 +51,7 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
     };
     fetchClosed(section, (lots, count) => put({ lots, count, done: false, at: Date.now() }), ac.signal).then(
       (lots) => put({ lots, count: lots.length, done: true, at: Date.now() }),
-      (e) => !ac.signal.aborted && put({ lots: hit?.lots ?? [], count: 0, done: true, at: 0, error: (e as Error).message || String(e) }),
+      (e) => !ac.signal.aborted && put({ lots: hit?.lots ?? [], count: 0, done: true, at: 0, error: e instanceof Error ? e.message : String(e) || String(e) }),
     );
     return () => ac.abort();
   }, [section, authed]);
@@ -116,7 +116,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
       },
       (e) => {
         setOpening(null);
-        toast('bad', `Couldn’t load the lot: ${(e as Error).message || e}`);
+        toast('bad', `Couldn’t load the lot: ${e instanceof Error ? e.message : String(e) || e}`);
       },
     );
   };

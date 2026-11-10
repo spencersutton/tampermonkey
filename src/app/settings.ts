@@ -43,6 +43,7 @@ function setting(key: Key): Signal<unknown> {
 
 /** Read a setting (or its default). Read in a component or computed, it re-runs them when the setting changes in this tab. */
 export function getSetting<K extends Key>(key: K): Value<K> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return setting(key).value as Value<K>;
 }
 
