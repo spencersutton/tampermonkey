@@ -96,7 +96,7 @@ Source is in `src/` (TypeScript + Preact, bundled with Vite). The build goes to
 npm install
 npm run build     # lint, typecheck, then build the web app
 npm run typecheck # check TypeScript and included JavaScript with strict compiler options
-npm run lint      # disallow explicit TypeScript any types
+npm run lint      # Oxlint with type-aware checks for unnecessary conditions and optional chaining
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
 ```
 
