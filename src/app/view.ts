@@ -6,7 +6,7 @@ import { collator, sortKey } from '../shared/sortKey';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
-import { HOUR, memoize } from './util';
+import { HOUR, memoize, memoLast } from './util';
 
 /** A lot with everything the grid needs computed once. */
 export interface Row {
@@ -178,12 +178,6 @@ export interface Exclusions {
 
 
 const titleKey = memoize((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
-
-/** `fn`, recomputed only when its argument changes (by identity), e.g. to compile a settings list once. */
-function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {
-  let last: { arg: A; result: R } | null = null;
-  return (arg) => (last?.arg === arg ? last : (last = { arg, result: fn(arg) })).result;
-}
 
 /**
  * The filter words whose regex matches a title (in filter order), cached by

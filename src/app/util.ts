@@ -67,7 +67,7 @@ export function openHandler(open: () => void) {
   };
 }
 
-export function memoize<T, R>(f: (arg1: T) => R): (arg1: T) => R {
+export function memoize<T, R>(fn: (arg: T) => R): (arg: T) => R {
   const cache = new Map<T, R>();
 
   return function (arg1: T) {
@@ -75,8 +75,21 @@ export function memoize<T, R>(f: (arg1: T) => R): (arg1: T) => R {
       return cache.get(arg1)!;
     }
 
-    const result = f(arg1);
+    const result = fn(arg1);
     cache.set(arg1, result);
     return result;
   }
+}
+
+/** `fn`, recomputed only when its argument changes (by identity), e.g. to compile a settings list once. */
+export function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {
+  let last: { arg: A; result: R } | null = null;
+  return function (arg) {
+    if (last?.arg === arg) {
+      return last.result;
+    } else {
+      last = { arg, result: fn(arg) };
+      return last.result;
+    }
+  };
 }
