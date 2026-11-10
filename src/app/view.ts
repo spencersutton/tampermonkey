@@ -186,15 +186,7 @@ const titleKey = memoize((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`
  */
 const titleMatcher = memoLast((words: string[]) => {
   const compiled = buildRegexes(words);
-  const byTitle = new Map<string, string[]>();
-  return (title: string) => {
-    let matched = byTitle.get(title);
-    if (matched === undefined) {
-      matched = compiled.filter(({ re }) => re?.test(title)).map(({ word }) => word);
-      byTitle.set(title, matched);
-    }
-    return matched;
-  };
+  return memoize((title: string) => compiled.filter(({ re }) => re?.test(title)).map(({ word }) => word));
 });
 
 /** Prefix that keeps custom category values apart from the site's. */
