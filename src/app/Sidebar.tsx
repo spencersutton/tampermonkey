@@ -310,7 +310,7 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
           }}
         >
           {Object.entries(MINE).map(([k, { label }]) => (
-            <option value={k} disabled={!!k && !authed}>
+            <option value={k} disabled={Boolean(k) && !authed}>
               {label}
             </option>
           ))}
@@ -491,7 +491,7 @@ interface FilterRowProps {
 function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
   const edit = useInlineEdit();
   const editing = edit.editing != null;
-  const ok = !!compileFilter(pattern);
+  const ok = compileFilter(pattern) != null;
   const save: SaveFn = (next) => {
     if (next === pattern) {
       return;

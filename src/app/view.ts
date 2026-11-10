@@ -77,7 +77,7 @@ export type EndingId = keyof typeof ENDING;
 export const MINE = {
   '': { label: 'All lots', test: () => true },
   bid: { label: 'Lots I bid on', test: hasBidOn },
-  leading: { label: 'I’m winning', test: (l) => !!l.yourStanding?.isLeading },
+  leading: { label: 'I’m winning', test: (l) => Boolean(l.yourStanding?.isLeading) },
   outbid: { label: 'I’m outbid', test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading },
   watch: { label: 'Watchlist', test: (l) => l.isWatchlisted },
 } satisfies Record<string, { label: string; test: (lot: Lot) => boolean }>;
@@ -148,7 +148,7 @@ export function initialView(stored: unknown, defaults: DefaultFilters): ViewStat
 /** Compare category and condition selections without depending on their order. */
 export function sameDefaultFilters(view: DefaultFilters, defaults: DefaultFilters): boolean {
   const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every((v) => b.includes(v));
-  return !!view.noCategories === !!defaults.noCategories && same(view.categories, defaults.categories) && same(view.conditions, defaults.conditions);
+  return Boolean(view.noCategories) === Boolean(defaults.noCategories) && same(view.categories, defaults.categories) && same(view.conditions, defaults.conditions);
 }
 
 /** How many filters the view has turned on (shown on the "Clear" button). */
@@ -242,7 +242,7 @@ export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
 
 /** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
-  const elsewhere = !!lot.location && lot.location.name !== pickup;
+  const elsewhere = lot.location != null && lot.location.name !== pickup;
   const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
   return {
     lot,
@@ -252,7 +252,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     total: totalCost(lot.currentPrice, transferFee),
     retailPct: lot.estimatedRetailPrice ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100 : null,
     matched: ex.filterOn ? (titleMatcher(ex.words)(lot.title)[0] ?? null) : null,
-    hidden: !!ex.hidden[lot.id],
+    hidden: Boolean(ex.hidden[lot.id]),
     others: [],
   };
 }
@@ -344,7 +344,7 @@ function itemGroups(rows: Row[], pct: number, details?: ItemDetails): Map<number
  * lots and regex-filtered lots keep their own card.
  */
 function combineDuplicates(rows: Row[], pct: number, details?: ItemDetails): { cards: Row[]; groups: Map<number, Row[]> } {
-  const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || !!row.matched;
+  const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
   const candidates = rows.filter((row) => !ownCard(row));
@@ -407,7 +407,7 @@ export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: ItemD
     const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
     if (re) return re.test(hay);
     return terms.every(({ field, value }) =>
-      !!value && (field === 'brand' ? brand : field === 'model' ? model : hay).toLowerCase().includes(value),
+      Boolean(value) && (field === 'brand' ? brand : field === 'model' ? model : hay).toLowerCase().includes(value),
     );
   };
   return ({ lot, category: cat, total, pickupOnly }) =>

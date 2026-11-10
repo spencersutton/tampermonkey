@@ -102,7 +102,7 @@ export function App() {
   // Lots that are new since the previous visit get a badge; while a saved
   // search is open, since that search's previous visit instead.
   const hl = highlight.value;
-  const sinceSaved = !!hl && activeSaved?.id === hl.id;
+  const sinceSaved = hl != null && activeSaved?.id === hl.id;
   const newSince = view.newSince ?? (sinceSaved ? hl.since : visitSince.value);
   const isNew = (lot: Lot) => newSince != null && firstSeenAfter(lot, newSince);
 
@@ -141,7 +141,7 @@ export function App() {
   const openLotObj = curOpenId != null ? getLot(curOpenId) : undefined;
   const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
   const nFilters = activeFilterCount(view);
-  const badRegex = view.searchRegex && !!search.trim() && !searchRegexOf({ ...view, search });
+  const badRegex = view.searchRegex && search.trim() !== '' && !searchRegexOf({ ...view, search });
   // How many of the matches are new since the last visit (to the open saved search, if any).
   const freshMatches = view.newSince == null && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
 
@@ -208,7 +208,7 @@ export function App() {
           )}
           {curClosed && <ClosedLots section={curClosed} />}
           {/* Kept mounted under the Won / Lost page so its scroll observers keep working. */}
-          <div hidden={!!curClosed}>
+          <div hidden={curClosed != null}>
             {curFiltered && (
               <>
                 <div class="closed-head">
@@ -319,7 +319,7 @@ function StatusBar() {
       <button
         type="button"
         class="btn-text"
-        disabled={!loaded.value || !!pull || !due}
+        disabled={!loaded.value || pull != null || !due}
         onClick={() => void pullCatalog()}
         title={due ? 'Pull the full catalog now' : 'Full refreshes are rate-limited; change the interval in Settings'}
       >

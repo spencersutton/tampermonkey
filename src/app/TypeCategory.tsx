@@ -47,7 +47,7 @@ function categoryError(mode: 'new' | 'add', existing: CustomCategory | undefined
 const typeWords = (t: string) => t.split(/[\s/-]+/).filter((w) => w.length > 2 && !['and', 'for', 'with'].includes(w));
 
 /** Whether saving takes any of `types` from `c`. */
-const loses = (c: CustomCategory, types: string[]) => !!c.types?.some((t) => types.includes(t));
+const loses = (c: CustomCategory, types: string[]) => c.types.some((t) => types.includes(t));
 
 /** `c` without `types`, retaining empty parents of child categories. */
 function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
@@ -63,7 +63,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   // The lot's custom category is the default parent.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories nested under this lot's site category first, then A–Z.
-  const near = (c: CustomCategory) => !!site && c.name.startsWith(`${site.label} - `);
+  const near = (c: CustomCategory) => site != null && c.name.startsWith(`${site.label} - `);
   const choices = cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>('new');
@@ -199,7 +199,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
               <label>
                 <input
                   type="checkbox"
-                  checked={extra.includes(t) || !!existing?.types?.includes(t)}
+                  checked={extra.includes(t) || Boolean(existing?.types?.includes(t))}
                   disabled={existing?.types?.includes(t)}
                   onChange={(e) => setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter((x) => x !== t))}
                 />{' '}

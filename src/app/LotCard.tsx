@@ -114,7 +114,7 @@ interface Props {
 export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   const { lot, matched, hidden, category } = row;
   const href = lotHref(lot.auctionPeriod, lot.id);
-  const dim = !!matched || hidden;
+  const dim = Boolean(matched) || hidden;
   const img = lot.images[0];
   const open = openHandler(() => openLot(lot));
   const conditions = siteConditions();

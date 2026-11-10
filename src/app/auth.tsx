@@ -27,7 +27,7 @@ let markUnlocked: () => void;
 export const appUnlocked = new Promise<void>((resolve) => (markUnlocked = resolve));
 /** Whether the login form is open. */
 const loginOpen = signal(false);
-const authed = computed(() => !!me.value?.site?.loggedIn);
+const authed = computed(() => Boolean(me.value?.site?.loggedIn));
 
 /** Whether the server is logged in to the site. */
 export const isAuthenticated = () => authed.value;
@@ -236,7 +236,7 @@ export function AccountSettings() {
   const [busy, setBusy] = useState(false);
   const act = (fn: () => Promise<unknown>) => async () => {
     setBusy(true);
-    await fn().catch(() => {});
+    await fn().catch(() => { });
     setBusy(false);
   };
   return (

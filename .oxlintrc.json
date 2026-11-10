@@ -1,0 +1,12 @@
+{
+    "rules": {
+        "no-implicit-coercion": [
+            "error",
+            {
+                "boolean": true,
+                "number": false,
+                "string": false
+            }
+        ]
+    }
+}

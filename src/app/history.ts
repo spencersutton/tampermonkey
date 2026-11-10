@@ -95,11 +95,11 @@ export function navFromUrl(search = location.search): NavState | null {
   };
 }
 
-const isEntry = (s: unknown): s is Entry => !!s && typeof s === 'object' && (s as Entry).tlx === true;
-const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed, !!n.filteredOnly]);
+const isEntry = (s: unknown): s is Entry => Boolean(s) && typeof s === 'object' && (s as Entry).tlx === true;
+const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed, Boolean(n.filteredOnly)]);
 /** Same view on the same page (the grid, or one of the closed-lot pages). */
 const sameView = (a: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }, b: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }) =>
-  a.closed === b.closed && !!a.filteredOnly === !!b.filteredOnly && JSON.stringify(a.view) === JSON.stringify(b.view);
+  a.closed === b.closed && a.filteredOnly === b.filteredOnly && JSON.stringify(a.view) === JSON.stringify(b.view);
 
 /** Push a new entry for `nav`, or replace the current one when the change doesn't deserve its own. */
 function record(nav: NavState) {
@@ -143,7 +143,7 @@ function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
     page.value = nav.page;
     openId.value = nav.openId;
     closed.value = nav.closed;
-    filteredOnly.value = !!nav.filteredOnly;
+    filteredOnly.value = nav.filteredOnly;
   });
 }
 

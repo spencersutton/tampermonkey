@@ -27,7 +27,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   // The price can move while this is open; never send an amount the site would now reject.
   const min = isMax ? minMaxBid(lot) : quickBidAmount(lot);
   const stale = amount < min;
-  const disabled = pending || !!blocker || stale;
+  const disabled = pending || blocker != null || stale;
   // Only shown when the lot isn't at your pickup location.
   const elsewhere = lot.location?.name;
 

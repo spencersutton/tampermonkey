@@ -37,7 +37,7 @@ export interface RawStanding {
 
 /** 
  * @see Lot, which is the normalized version of this.
- */  
+ */
 interface RawLot {
   id: number;
   auction_period: string;
@@ -101,7 +101,7 @@ interface RawBidResponse {
 
 /** Convert the API's `your_standing` object (snake_case) into a Standing. */
 export function normalizeStanding(s: RawStanding | null | undefined): Standing | null {
-  return s ? { isLeading: !!s.is_leading, yourMaxBid: s.your_max_bid ?? null } : null;
+  return s ? { isLeading: s.is_leading, yourMaxBid: s.your_max_bid ?? null } : null;
 }
 
 /** Convert a raw API lot (snake_case) into a Lot. */
@@ -114,7 +114,7 @@ export function normalizeLot(r: RawLot): Lot {
     category: r.category ? { value: r.category.value, label: r.category.label } : null,
     condition: r.condition ? { value: r.condition.value, label: r.condition.display_name } : null,
     location: r.location ? { id: r.location.id, name: r.location.name } : null,
-    isTransferable: !!r.is_transferable,
+    isTransferable: r.is_transferable,
     transferFee: r.transfer_fee ?? 0,
     currentPrice: r.current_price ?? 0,
     estimatedRetailPrice: r.estimated_retail_price ?? null,
@@ -124,8 +124,8 @@ export function normalizeLot(r: RawLot): Lot {
     bidCount: r.bid_count ?? 0,
     nextMinIncrement: r.next_min_increment ?? 0,
     yourStanding: normalizeStanding(r.your_standing),
-    isWatchlisted: !!r.is_watchlisted,
-    hasBid: !!r.has_bid,
+    isWatchlisted: r.is_watchlisted,
+    hasBid: r.has_bid,
     images: (r.images ?? [])
       .toSorted((a, b) => a.position - b.position)
       .map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large })),
@@ -141,7 +141,7 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
     brand: r.brand || null,
     model: r.model || null,
     lotFee: r.lot_fee ?? null,
-    bidHistory: (r.bid_history ?? []).map((b) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: !!b.is_you })),
+    bidHistory: (r.bid_history ?? []).map((b) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: b.is_you })),
     similar: (r.similar ?? []).map(normalizeLot),
   };
 }
@@ -288,8 +288,8 @@ export async function placeBid(lotId: number, amount: number, type: BidType): Pr
     throw new BidError(String(message), res.status, data.code ?? null, details.min_next_bid ?? null);
   }
   return {
-    isLeading: !!data.is_leading,
-    isMaxCollision: !!data.is_max_collision,
+    isLeading: Boolean(data.is_leading),
+    isMaxCollision: Boolean(data.is_max_collision),
     currentPrice: data.current_price ?? null,
     minNextBid: data.min_next_bid ?? null,
     version: data.version ?? null,

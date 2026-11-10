@@ -87,7 +87,7 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
               list="item-type-options"
               disabled={saving}
               aria-describedby={`item-type-help${error || validation ? ' item-type-error' : ''}`}
-              aria-invalid={!!validation}
+              aria-invalid={Boolean(validation)}
               onInput={(e) => { setName(e.currentTarget.value); setError(null); }}
             />
             <datalist id="item-type-options">
@@ -103,7 +103,7 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
         </div>
         <div class="confirm-actions">
           <button type="button" class="btn btn-outline" disabled={saving} onClick={close}>Cancel</button>
-          <button type="submit" class="btn" disabled={saving || !!validation}>{saving ? 'Saving...' : 'Save item type'}</button>
+          <button type="submit" class="btn" disabled={saving || Boolean(validation)}>{saving ? 'Saving...' : 'Save item type'}</button>
         </div>
       </form>
     </Dialog>

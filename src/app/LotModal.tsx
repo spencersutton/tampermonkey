@@ -91,115 +91,115 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
     }
   };
   return (
-      <div class="modal" tabIndex={-1} ref={focusContent} onKeyDown={onKeyDown}>
-        <button type="button" class="icon-btn modal-close" aria-label="Close" onClick={onClose}>
-          <Icon name="close" size={22} />
-        </button>
-        <div class="modal-grid">
-          <div class="gallery">
-            <div class="gallery-main">
-              {img ? <img src={`${CDN}/${img.large}`} alt="" /> : <span class="noimg">No image</span>}
-              {images.length > 1 && (
-                <>
-                  <button type="button" class="icon-btn gal-prev" aria-label="Previous image" onClick={() => step(-1)}>
-                    <Icon name="chevronLeft" size={24} />
-                  </button>
-                  <button type="button" class="icon-btn gal-next" aria-label="Next image" onClick={() => step(1)}>
-                    <Icon name="chevronRight" size={24} />
-                  </button>
-                </>
-              )}
-            </div>
+    <div class="modal" tabIndex={-1} ref={focusContent} onKeyDown={onKeyDown}>
+      <button type="button" class="icon-btn modal-close" aria-label="Close" onClick={onClose}>
+        <Icon name="close" size={22} />
+      </button>
+      <div class="modal-grid">
+        <div class="gallery">
+          <div class="gallery-main">
+            {img ? <img src={`${CDN}/${img.large}`} alt="" /> : <span class="noimg">No image</span>}
             {images.length > 1 && (
-              <div class="thumbs">
-                {images.map((im, i) => (
-                  <button type="button" class={i === imgIdx ? 'on' : ''} aria-label={`Image ${i + 1}`} onClick={() => setImgIdx(i)}>
-                    <img src={`${CDN}/${im.thumb}`} alt="" loading="lazy" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div class="modal-info">
-            <h2 id="lot-title">{lot.title}</h2>
-            {metadata && <BrandModel brand={metadata.brand} model={metadata.model} />}
-            <div class="card-meta">
-              <LocationText row={row} />
-              {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
-              {row.category && <span>{row.category.label}</span>}
-              <span>Lot #{lot.lotNumber}</span>
-            </div>
-            {getLot(lot.id) && <ItemTypeActions lot={lot} />}
-            <div class="modal-price">
-              <div>
-                <div class="price big">{dollars(lot.currentPrice)}</div>
-                <div class="muted small">Current bid · {plural(lot.bidCount, 'bid')}</div>
-              </div>
-              <div>
-                <div class="total big" title={costBreakdown(lot.currentPrice, row.transferFee)}>
-                  ≈ {money(row.total)}
-                </div>
-                <div class="muted small">Estimated total</div>
-              </div>
-              <div>
-                <div class="big">
-                  <TimeLeft endsAt={lot.endsAt} />
-                </div>
-                <div class="muted small">{shortTime(lot.endsAt)}</div>
-              </div>
-            </div>
-            <div class="row-gap">
-              <StandingBadge lot={lot} />
-              {lot.yourStanding?.yourMaxBid != null && <span class="muted small">Your max bid {dollars(lot.yourStanding.yourMaxBid)}</span>}
-              {lot.estimatedRetailPrice != null && (
-                <span class="muted small">
-                  Retail {dollars(lot.estimatedRetailPrice)}
-                  {row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`}
-                </span>
-              )}
-              <span class="muted small">Next min bid {dollars(lot.nextMinIncrement)}</span>
-            </div>
-            <BidPanel key={`${lot.id}:${lot.yourStanding?.yourMaxBid}`} row={row} />
-            <div class="row-gap">
-              <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
-                Open on Triangle Liquidators <Icon name="open" size={16} />
-              </a>
-              <WatchButton lot={lot} />
-              <button type="button" class="btn btn-text" onClick={() => toggleHide(lot)}>
-                <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} /> {row.hidden ? 'Unhide' : 'Hide'}
-              </button>
-            </div>
-
-            {group && group.length > 1 && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
-            {lot.pastCloses && <PastCloses lot={lot} />}
-
-            {metadataError && <p class="error">Couldn’t load saved item details: {metadataError}</p>}
-            {error && <p class="error">Couldn’t refresh auction data: {error}</p>}
-            {!metadata && !error && !metadataError && <p class="muted">Loading details…</p>}
-            {refreshing && metadata && <p class="muted">Refreshing auction data…</p>}
-            {metadata?.description && <div class="description">{metadata.description}</div>}
-            {auction && (
               <>
-                {auction.bidHistory.length > 0 && (
-                  <div>
-                    <h3>Bid history</h3>
-                    <ol class="bids">
-                      {auction.bidHistory.map((b) => (
-                        <li class={b.isYou ? 'you' : ''}>
-                          <span>{b.isYou ? 'You' : b.bidderLabel}</span>
-                          <span>{dollars(b.amount)}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-                {auction.similar.length > 0 && <Similar lots={auction.similar} current={lot} onOpen={onOpenLot} />}
+                <button type="button" class="icon-btn gal-prev" aria-label="Previous image" onClick={() => step(-1)}>
+                  <Icon name="chevronLeft" size={24} />
+                </button>
+                <button type="button" class="icon-btn gal-next" aria-label="Next image" onClick={() => step(1)}>
+                  <Icon name="chevronRight" size={24} />
+                </button>
               </>
             )}
           </div>
+          {images.length > 1 && (
+            <div class="thumbs">
+              {images.map((im, i) => (
+                <button type="button" class={i === imgIdx ? 'on' : ''} aria-label={`Image ${i + 1}`} onClick={() => setImgIdx(i)}>
+                  <img src={`${CDN}/${im.thumb}`} alt="" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div class="modal-info">
+          <h2 id="lot-title">{lot.title}</h2>
+          {metadata && <BrandModel brand={metadata.brand} model={metadata.model} />}
+          <div class="card-meta">
+            <LocationText row={row} />
+            {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
+            {row.category && <span>{row.category.label}</span>}
+            <span>Lot #{lot.lotNumber}</span>
+          </div>
+          {getLot(lot.id) && <ItemTypeActions lot={lot} />}
+          <div class="modal-price">
+            <div>
+              <div class="price big">{dollars(lot.currentPrice)}</div>
+              <div class="muted small">Current bid · {plural(lot.bidCount, 'bid')}</div>
+            </div>
+            <div>
+              <div class="total big" title={costBreakdown(lot.currentPrice, row.transferFee)}>
+                ≈ {money(row.total)}
+              </div>
+              <div class="muted small">Estimated total</div>
+            </div>
+            <div>
+              <div class="big">
+                <TimeLeft endsAt={lot.endsAt} />
+              </div>
+              <div class="muted small">{shortTime(lot.endsAt)}</div>
+            </div>
+          </div>
+          <div class="row-gap">
+            <StandingBadge lot={lot} />
+            {lot.yourStanding?.yourMaxBid != null && <span class="muted small">Your max bid {dollars(lot.yourStanding.yourMaxBid)}</span>}
+            {lot.estimatedRetailPrice != null && (
+              <span class="muted small">
+                Retail {dollars(lot.estimatedRetailPrice)}
+                {row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`}
+              </span>
+            )}
+            <span class="muted small">Next min bid {dollars(lot.nextMinIncrement)}</span>
+          </div>
+          <BidPanel key={`${lot.id}:${lot.yourStanding?.yourMaxBid}`} row={row} />
+          <div class="row-gap">
+            <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
+              Open on Triangle Liquidators <Icon name="open" size={16} />
+            </a>
+            <WatchButton lot={lot} />
+            <button type="button" class="btn btn-text" onClick={() => toggleHide(lot)}>
+              <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} /> {row.hidden ? 'Unhide' : 'Hide'}
+            </button>
+          </div>
+
+          {group && group.length > 1 && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
+          {lot.pastCloses && <PastCloses lot={lot} />}
+
+          {metadataError && <p class="error">Couldn’t load saved item details: {metadataError}</p>}
+          {error && <p class="error">Couldn’t refresh auction data: {error}</p>}
+          {!metadata && !error && !metadataError && <p class="muted">Loading details…</p>}
+          {refreshing && metadata && <p class="muted">Refreshing auction data…</p>}
+          {metadata?.description && <div class="description">{metadata.description}</div>}
+          {auction && (
+            <>
+              {auction.bidHistory.length > 0 && (
+                <div>
+                  <h3>Bid history</h3>
+                  <ol class="bids">
+                    {auction.bidHistory.map((b) => (
+                      <li class={b.isYou ? 'you' : ''}>
+                        <span>{b.isYou ? 'You' : b.bidderLabel}</span>
+                        <span>{dollars(b.amount)}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              {auction.similar.length > 0 && <Similar lots={auction.similar} current={lot} onOpen={onOpenLot} />}
+            </>
+          )}
         </div>
       </div>
+    </div>
   );
 }
 
@@ -245,7 +245,7 @@ function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen:
       <ol class="similar">
         {open.map((l) => {
           const img = l.images[0];
-          const inCatalog = !!getLot(l.id);
+          const inCatalog = getLot(l.id) != null;
           return (
             <li>
               <a
@@ -379,7 +379,7 @@ function BidPanel({ row }: { row: Row }) {
             onInput={(e) => setValue(e.currentTarget.value)}
           />
         </label>
-        <button type="submit" class="btn" aria-disabled={n == null || !!error || pending ? 'true' : undefined}>
+        <button type="submit" class="btn" aria-disabled={n == null || error || pending ? 'true' : undefined}>
           {leading ? 'Raise max bid' : 'Set max bid'}
         </button>
         {!leading && (
@@ -398,9 +398,9 @@ function BidPanel({ row }: { row: Row }) {
         {pending
           ? 'Placing bid…'
           : error ||
-            (leading
-              ? `You’re winning. Raise your max to ${dollars(min)} or more.`
-              : 'A max bid bids for you automatically, only as much as needed to keep you winning.')}
+          (leading
+            ? `You’re winning. Raise your max to ${dollars(min)} or more.`
+            : 'A max bid bids for you automatically, only as much as needed to keep you winning.')}
       </div>
     </form>
   );

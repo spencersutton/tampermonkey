@@ -18,9 +18,9 @@ export interface BidRequest {
 /** Whether the lot can no longer be bid on. */
 export const isClosed = (lot: Lot, now = Temporal.Now.instant()) => lot.status !== 'live' || Temporal.Instant.compare(lot.endsAt, now) <= 0;
 /** Whether you have bid on the lot (winning or not). */
-export const hasBidOn = (lot: Lot) => lot.hasBid || !!lot.yourStanding;
+export const hasBidOn = (lot: Lot) => lot.hasBid || lot.yourStanding != null;
 /** Whether you are currently the high bidder (and the price is still within your max). */
-export const isLeading = (lot: Lot) => !!lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
+export const isLeading = (lot: Lot) => lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
 
 /** Amount of a straight bid at the next increment (the API's next minimum bid). */
 export const quickBidAmount = (lot: Lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
