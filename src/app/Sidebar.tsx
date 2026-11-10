@@ -92,7 +92,7 @@ const SUB = ' - ';
 /** Nest custom categories under the longest matching site or custom category name. */
 function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
   const all = new Map([...siteCategories.map((f) => ({ ...f, count: 0 })), ...categories].map((f) => [f.value, f]));
-  const parents = [...all.values()].sort((a, b) => b.label.length - a.label.length);
+  const parents = [...all.values()].toSorted((a, b) => b.label.length - a.label.length);
   const groups = new Map([...all].map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]));
   const top: CategoryGroup[] = [];
   for (const f of categories) {
@@ -113,7 +113,7 @@ function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[
     }
   }
   const sort = (rows: CategoryGroup[]): CategoryGroup[] =>
-    rows.sort((a, b) => collator.compare(a.facet.label, b.facet.label)).map((g) => ({ ...g, subs: sort(g.subs) }));
+    rows.toSorted((a, b) => collator.compare(a.facet.label, b.facet.label)).map((g) => ({ ...g, subs: sort(g.subs) }));
   return sort(top);
 }
 
@@ -569,7 +569,7 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
     const { [id]: _, ...rest } = hiddenLots;
     setHiddenLots(rest);
   };
-  const hidden = Object.entries(hiddenLots).sort((a, b) => b[1].ts - a[1].ts);
+  const hidden = Object.entries(hiddenLots).toSorted((a, b) => b[1].ts - a[1].ts);
 
   return (
     <section class="panel">
@@ -596,7 +596,7 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
 
       <Collapsible id="words" title={`Filter patterns (${words.length})`}>
         <ul class="filter-list">
-          {words.sort().map((w) => (
+          {words.toSorted().map((w) => (
             <FilterRow
               key={w}
               pattern={w}

@@ -238,7 +238,7 @@ export function App() {
               )}
               {freshMatches > 0 && (
                 <span class="new-line">
-                  {fmtCount(freshMatches)} new since your last {sinceSaved ? `look at “${activeSaved!.name}”` : 'visit'}
+                  {fmtCount(freshMatches)} new since your last {sinceSaved ? `look at “${activeSaved.name}”` : 'visit'}
                   <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
                     Show only new
                   </button>

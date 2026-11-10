@@ -30,11 +30,12 @@ function showDialog(dialog: HTMLDialogElement | null) {
 export function Dialog({ onClose, children, class: cls, ...rest }: Props) {
   // Preact stores ref cleanup on the callback, so each dialog needs its own.
   const ref = useCallback((dialog: HTMLDialogElement | null) => showDialog(dialog), []);
+  const className = typeof cls === 'object' ? cls.value : cls;
   return (
     <dialog
       {...rest}
       ref={ref}
-      class={`backdrop ${cls ?? ''}`}
+      class={`backdrop ${className ?? ''}`}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       onCancel={(e) => {
         e.preventDefault();

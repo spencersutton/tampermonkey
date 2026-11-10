@@ -108,9 +108,11 @@ export function startAuth() {
  * refreshes and retries it). A 401 means a login ended somewhere, so the
  * state is checked again.
  */
-export async function authedFetch(url: string, init: RequestInit & { headers?: Record<string, string> } = {}): Promise<Response> {
+export async function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   await authReady();
-  const res = await fetch(url, { ...init, credentials: 'same-origin', headers: { ...init.headers, 'X-TLX-Client': '1' } });
+  const headers = new Headers(init.headers);
+  headers.set('X-TLX-Client', '1');
+  const res = await fetch(url, { ...init, credentials: 'same-origin', headers });
   if (res.status === 401) {
     void refreshSession();
   }

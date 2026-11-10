@@ -126,7 +126,7 @@ export function normalizeView(v: unknown): ViewState {
   const rawNewSince: unknown = view.newSince;
   return {
     ...view,
-    noCategories: !view.categories.length && view.noCategories === true,
+    noCategories: !view.categories.length &&  view.noCategories,
     newSince: typeof rawNewSince === 'string' ? Temporal.Instant.from(rawNewSince)
       : rawNewSince instanceof Temporal.Instant ? rawNewSince : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -212,7 +212,7 @@ export function compareCategoryNames(a: string, b: string): number {
 /** Custom categories ready for categoryIndex(). */
 export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const byType = new Map<string, number>();
-  const ordered = cats.map((category, index) => ({ category, index })).sort((a, b) => compareCategoryNames(a.category.name, b.category.name));
+  const ordered = cats.map((category, index) => ({ category, index })).toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
   for (const { category: c, index: i } of ordered) {
     for (const t of c.types) {
       if (!byType.has(t)) {
@@ -460,10 +460,10 @@ export function computeFacets(lots: Iterable<Lot>, now: Temporal.Instant, custom
     }
   }
   return {
-    categories: categories.sort((a, b) => a.label.localeCompare(b.label)),
+    categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map((l) => l.category)),
-    conditions: tally(open.map((l) => l.condition)).sort((a, b) => a.value - b.value),
-    locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).sort((a, b) => b.count - a.count),
+    conditions: tally(open.map((l) => l.condition)).toSorted((a, b) => a.value - b.value),
+    locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).toSorted((a, b) => b.count - a.count),
   };
 }
 

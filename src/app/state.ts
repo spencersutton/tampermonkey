@@ -68,20 +68,20 @@ export type Modal =
 export const modal = signal<Modal | null>(null);
 
 export const modalActions = {
-    startBid(req: BidRequest) {
+    startBid: (req: BidRequest) => {
         modal.value = { kind: 'bid', req };
     },
-    addType(lot: Lot) {
+    addType: (lot: Lot) => {
         modal.value = { kind: 'typeCategory', lot };
     },
-    editType(lot: Lot) {
+    editType: (lot: Lot) => {
         modal.value = { kind: 'itemType', lot };
     },
-    editCategories() {
+    editCategories: () => {
         modal.value = { kind: 'categories' };
     },
     /** Close `m` if it is still the open popup (a late close mustn't close a newer one). */
-    close(m: Modal) {
+    close: (m: Modal) => {
         if (modal.peek() === m) {
             modal.value = null;
         }

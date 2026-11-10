@@ -51,7 +51,7 @@ const loses = (c: CustomCategory, types: string[]) => c.types.some((t) => types.
 
 /** `c` without `types`, retaining empty parents of child categories. */
 function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
-  const rest = c.types!.filter((t) => !types.includes(t));
+  const rest = c.types.filter((t) => !types.includes(t));
   return rest.length || names.some((name) => name.startsWith(`${c.name} - `)) ? [{ ...c, types: rest }] : [];
 }
 
@@ -90,7 +90,7 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     );
     return [...counts]
       .map(([t, ls]) => ({ t, count: ls.length, head: typeWords(t).at(-1) === head }))
-      .sort((a, b) => +b.head - +a.head || b.count - a.count || a.t.localeCompare(b.t))
+      .toSorted((a, b) => +b.head - +a.head || b.count - a.count || a.t.localeCompare(b.t))
       .slice(0, SIMILAR_LIMIT);
   }, [lots, type]);
 

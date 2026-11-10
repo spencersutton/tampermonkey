@@ -97,7 +97,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
     return by;
   }, [lots]);
-  const typeSuggestions = useMemo(() => [...typeCounts].sort((a, b) => b[1] - a[1]), [typeCounts]);
+  const typeSuggestions = useMemo(() => [...typeCounts].toSorted((a, b) => b[1] - a[1]), [typeCounts]);
 
   const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const add = () => {
@@ -156,7 +156,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <p class="muted">No custom categories yet.</p>
           ) : (
             <ol class="cat-list">
-              {[...drafts].sort((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
+              {[...drafts].toSorted((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
                 const err = errors.get(d.key);
                 const count = taken.get(d.key)!.length;
                 const label = d.name.trim() || 'New category';

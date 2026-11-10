@@ -99,7 +99,7 @@ export function groupNames(titles: Iterable<string>, minPct: number): Map<string
 export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: number): Map<number, number> {
   const entries = new Map<string, { item: ItemIdentity & { id: number }; ids: number[] }>();
   for (const item of lots) {
-    const words = [...nameTokens(item.title)].sort();
+    const words = [...nameTokens(item.title)].toSorted();
     const key = JSON.stringify([brandModelKey(item), words.length ? words : item.title.trim().toLowerCase()]);
     const entry = entries.get(key);
     if (entry) entry.ids.push(item.id);
@@ -133,7 +133,7 @@ export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: numb
   }
   const postings = new Map<string, number[]>();
   words.forEach((tokens, i) => {
-    const ordered = [...tokens].sort((a, b) => freq.get(a)! - freq.get(b)! || (a < b ? -1 : a > b ? 1 : 0));
+    const ordered = [...tokens].toSorted((a, b) => freq.get(a)! - freq.get(b)! || (a < b ? -1 : a > b ? 1 : 0));
     const prefix = ordered.slice(0, tokens.size - Math.ceil(tokens.size * minPct / 100) + 1);
     if (!prefix.length) prefix.push(`\u0000${items[i]!.title.trim().toLowerCase()}`);
     const seen = new Set<number>();

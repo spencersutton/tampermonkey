@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { h, render, options } from 'preact';
+import { signal } from '@preact/signals';
 import { createServer } from 'vite';
 
 const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
@@ -66,6 +67,15 @@ function mountDialog(t) {
     },
   };
 }
+
+test('dialog combines the backdrop class with plain and signal class values', (t) => {
+  const { update } = mountDialog(t);
+  const props = { onClose: () => {}, children: null };
+  assert.equal(update(props).props.class, 'backdrop ');
+  assert.equal(update({ ...props, class: 'custom' }).props.class, 'backdrop custom');
+  assert.equal(update({ ...props, class: signal('custom') }).props.class, 'backdrop custom');
+  assert.equal(update({ ...props, class: signal(undefined) }).props.class, 'backdrop ');
+});
 
 test('dialog refs own opening, focus and cleanup without component effects', (t) => {
   const { previous, update } = mountDialog(t);

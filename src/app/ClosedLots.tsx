@@ -86,7 +86,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
       const rows = open
         .filter((o) => o.lot.id !== c.lotId && itemsMatch(identity, o.identity, DEFAULT_NAME_MATCH))
         .map((o) => makeRow(o.lot, pickup, exclusions))
-        .sort((a, b) => a.total - b.total);
+        .toSorted((a, b) => a.total - b.total);
       if (rows.length) {
         out.set(key(c), rows);
       }

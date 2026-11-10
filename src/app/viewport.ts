@@ -29,7 +29,7 @@ export function observeLot(element: HTMLElement | null) {
 
 function publish() {
   clearTimeout(timer);
-  timer = setTimeout(() => { onScreen.value = [...nearby].sort((first, second) => first - second); }, 150);
+  timer = setTimeout(() => { onScreen.value = [...nearby].toSorted((first, second) => first - second); }, 150);
 }
 
 const nearEnd = signal(false);

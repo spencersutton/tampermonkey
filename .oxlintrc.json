@@ -1,5 +1,7 @@
 {
-    "ignorePatterns": ["tests/**"],
+    "ignorePatterns": [
+        "tests/**"
+    ],
     "options": {
         "typeAware": true
     },
@@ -13,6 +15,9 @@
                 "string": false
             }
         ],
-        "no-empty": "error"
+        "import/default": "error",
+        "typescript/dot-notation": "warn",
+        "typescript/no-unnecessary-type-assertion": "warn",
+        "unicorn/no-array-sort": "warn"
     }
 }
