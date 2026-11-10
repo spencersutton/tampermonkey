@@ -2,7 +2,7 @@
 import { buildRegexes } from '../shared/filters';
 import { totalCost } from '../shared/cost';
 import { brandModelKey, DEFAULT_NAME_MATCH, groupItems, itemIdentity, type ItemDetails } from '../shared/names';
-import { collator, sortKey } from '../shared/sortKey';
+import { collator } from '../shared/sortKey';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
