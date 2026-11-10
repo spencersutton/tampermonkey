@@ -6,7 +6,7 @@ import { collator, sortKey } from '../shared/sortKey';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
-import { HOUR } from './util';
+import { HOUR, memoize } from './util';
 
 /** A lot with everything the grid needs computed once. */
 export interface Row {
@@ -176,21 +176,8 @@ export interface Exclusions {
   customCategories: CustomCategory[];
 }
 
-/** Memoized sortKey() results by item type and title. */
-const sortKeys = new Map<string, string>();
-// Debugging: `tlxSortKeys` in the dev console shows what each title sorts on.
-Object.assign(globalThis, { tlxSortKeys: sortKeys });
 
-/** sortKey() for a lot, cached. */
-function titleKey(lot: Lot) {
-  const id = `${lot.itemType ?? ''}\u0000${lot.title}`;
-  let key = sortKeys.get(id);
-  if (key === undefined) {
-    key = sortKey(lot.title, lot.itemType);
-    sortKeys.set(id, key);
-  }
-  return key;
-}
+const titleKey = memoize((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
 
 /** `fn`, recomputed only when its argument changes (by identity), e.g. to compile a settings list once. */
 function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {

@@ -66,3 +66,17 @@ export function openHandler(open: () => void) {
     open();
   };
 }
+
+export function memoize<T, R>(f: (arg1: T) => R): (arg1: T) => R {
+  const cache = new Map<T, R>();
+
+  return function (arg1: T) {
+    if (cache.has(arg1)) {
+      return cache.get(arg1)!;
+    }
+
+    const result = f(arg1);
+    cache.set(arg1, result);
+    return result;
+  }
+}
