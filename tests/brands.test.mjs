@@ -103,6 +103,7 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
 test('mounted cards retain independent viewport observers and fetch brands without clicking', async (t) => {
   class Element {
     childNodes = [];
+    /** @type {Element | null} */
     parentNode = null;
     attributes = [];
     dataset = {};

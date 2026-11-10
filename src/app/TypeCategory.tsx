@@ -99,12 +99,12 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     const types = [type, ...extra];
     const losing = cats.filter((c) => c !== existing && loses(c, types));
     const names = [
-      ...cats.filter((c) => !losing.includes(c) || c.types?.some((t) => !types.includes(t))).map((c) => c.name),
+      ...cats.filter((c) => !losing.includes(c) || c.types.some((t) => !types.includes(t))).map((c) => c.name),
       ...(mode === 'new' ? [name.trim()] : []),
     ];
     const next = cats.flatMap((c) => {
       if (c === existing) {
-        return [{ ...c, types: [...new Set([...(c.types ?? []), ...types])] }];
+        return [{ ...c, types: [...new Set([...c.types, ...types])] }];
       }
       return losing.includes(c) ? without(c, types, names) : [c];
     });
@@ -199,8 +199,8 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
               <label>
                 <input
                   type="checkbox"
-                  checked={extra.includes(t) || Boolean(existing?.types?.includes(t))}
-                  disabled={existing?.types?.includes(t)}
+                  checked={extra.includes(t) || Boolean(existing?.types.includes(t))}
+                  disabled={existing?.types.includes(t)}
                   onChange={(e) => setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter((x) => x !== t))}
                 />{' '}
                 {t} <span class="muted small">{fmtCount(count)}</span>

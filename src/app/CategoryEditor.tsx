@@ -25,7 +25,7 @@ export const toDraft = (c: CustomCategory): Draft => ({
   key: nextKey++,
   from: c.name,
   name: c.name,
-  types: c.types ?? [],
+  types: c.types,
 });
 
 /** The category a draft saves as. */
@@ -308,7 +308,7 @@ function TypeChips({ types, counts, listId, category, onChange }: {
           onInput={(e) => {
             const v = e.currentTarget.value;
             // Picking a suggestion fills in a whole known type: add it straight away.
-            if (v.includes(',') || (counts.has(v) && !(e as InputEvent).inputType?.startsWith('insertText'))) {
+            if (v.includes(',') || (counts.has(v) && !('inputType' in e && typeof e.inputType === 'string' && e.inputType.startsWith('insertText')))) {
               add(v);
             } else {
               setText(v);

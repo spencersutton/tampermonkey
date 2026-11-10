@@ -214,7 +214,7 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const byType = new Map<string, number>();
   const ordered = cats.map((category, index) => ({ category, index })).sort((a, b) => compareCategoryNames(a.category.name, b.category.name));
   for (const { category: c, index: i } of ordered) {
-    for (const t of c.types ?? []) {
+    for (const t of c.types) {
       if (!byType.has(t)) {
         byType.set(t, i);
       }

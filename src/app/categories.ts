@@ -49,6 +49,6 @@ export function saveCustomCategories(categories: CustomCategory[], renames: Read
   const searches = getSetting(KEYS.savedSearches);
   setSetting(
     KEYS.savedSearches,
-    searches.map((s) => ({ ...s, view: { ...s.view, categories: fix(s.view.categories ?? []) } })),
+    searches.map((s) => ({ ...s, view: { ...s.view, categories: fix(normalizeView(s.view).categories) } })),
   );
 }

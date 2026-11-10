@@ -314,7 +314,7 @@ function PastCloses({ lot }: { lot: Lot }) {
                     {c.title}
                   </a>
                 )}
-                {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} · {plural(c.bidCount ?? 0, 'bid')}
+                {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} · {plural(c.bidCount, 'bid')}
               </span>
               <a class="muted small" href={lotHref(c.auctionPeriod, c.id)} target="_blank" rel="noopener" title="Open on Triangle Liquidators">
                 {shortDate(c.endsAt)}

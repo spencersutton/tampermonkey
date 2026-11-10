@@ -41,36 +41,36 @@ export interface RawStanding {
 interface RawLot {
   id: number;
   auction_period: string;
-  title: string;
-  lot_number: string;
+  title?: string | null;
+  lot_number?: string | null;
   category: { value: string; label: string } | null;
   condition: { value: number; display_name: string } | null;
   location: { id: number; name: string } | null;
   is_transferable: boolean;
-  transfer_fee: number;
-  current_price: number;
+  transfer_fee?: number | null;
+  current_price?: number | null;
   estimated_retail_price: number | null;
   ends_at: string;
   status: string;
-  version: number;
-  bid_count: number;
-  next_min_increment: number;
+  version?: number | null;
+  bid_count?: number | null;
+  next_min_increment?: number | null;
   your_standing: RawStanding | null;
   is_watchlisted: boolean;
   has_bid: boolean;
-  images: { position: number; image_thumb: string; image_card: string; image_large: string }[];
+  images?: { position: number; image_thumb: string; image_card: string; image_large: string }[] | null;
 }
 
 /**
  * @see LotDetail, which is the normalized version of this.
  */
 interface RawLotDetail extends RawLot {
-  description: string;
+  description?: string | null;
   brand: string | null;
   model: string | null;
   lot_fee: number | null;
-  bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
-  similar: RawLot[];
+  bid_history?: { bidder_label: string; amount: number; is_you: boolean }[] | null;
+  similar?: RawLot[] | null;
 }
 
 /**
@@ -78,11 +78,11 @@ interface RawLotDetail extends RawLot {
  */
 interface RawClosedLot {
   lot_id: number;
-  auction_period: string;
-  title: string;
-  lot_number: string;
-  location_name: string;
-  final_price: number;
+  auction_period?: string | null;
+  title?: string | null;
+  lot_number?: string | null;
+  location_name?: string | null;
+  final_price?: number | null;
   hero_image: string | null;
   brand?: string | null;
   model?: string | null;
@@ -200,7 +200,7 @@ export interface ConditionInfo {
 
 /** The site's condition descriptions (public; the same for everyone). */
 export async function fetchConditions(): Promise<ConditionInfo[]> {
-  const d = await get<{ conditions: { value: number; label: string; description: string }[] }>('/v1/auctions/filter-config/');
+  const d = await get<{ conditions?: { value: number; label?: string | null; description?: string | null }[] | null }>('/v1/auctions/filter-config/');
   return (d.conditions ?? []).map((c) => ({ value: c.value, label: String(c.label ?? ''), description: String(c.description ?? '') }));
 }
 
@@ -211,7 +211,7 @@ export interface PickupLocation {
 
 /** The pickup location set on the logged-in account, or null if none. */
 export async function fetchPickupLocation(): Promise<PickupLocation | null> {
-  const p = (await get<{ pickup_location: { id: number; name: string } | null }>('/v1/auth/me/')).pickup_location;
+  const p = (await get<{ pickup_location: { id?: number | null; name: string } | null }>('/v1/auth/me/')).pickup_location;
   return p ? { id: p.id ?? null, name: p.name || null } : null;
 }
 

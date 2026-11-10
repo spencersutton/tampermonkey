@@ -51,7 +51,7 @@ export function Sidebar(props: Props) {
 function Collapsible({ id, title, children }: { id: string; title: ComponentChildren; children: ComponentChildren }) {
   const collapsed = getSetting(KEYS.collapsed);
   const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) => setSetting(KEYS.collapsed, value);
-  const open = !collapsed?.[id];
+  const open = !collapsed[id];
   return (
     <div class="collapsible">
       <button type="button" class="collapse-head" aria-expanded={open} onClick={() => setCollapsed({ ...collapsed, [id]: open })}>
@@ -146,7 +146,7 @@ function CategoryList({ facets, selected, onChange }: { facets: Facets; selected
         </button>
       </div>
       {groups.map((group) => (
-        <CategoryGroupRow key={group.facet.value} group={group} selected={selected} onChange={onChange} collapsed={collapsed ?? {}} setCollapsed={setCollapsed} />
+        <CategoryGroupRow key={group.facet.value} group={group} selected={selected} onChange={onChange} collapsed={collapsed} setCollapsed={setCollapsed} />
       ))}
     </>
   );

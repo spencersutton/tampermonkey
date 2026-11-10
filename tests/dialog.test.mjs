@@ -10,6 +10,7 @@ const { Dialog } = await vite.ssrLoadModule('/src/app/Dialog.tsx');
 class Element {
   focused = 0;
   childNodes = [];
+  /** @type {Element | null} */
   parentNode = null;
   attributes = [];
   style = {};
