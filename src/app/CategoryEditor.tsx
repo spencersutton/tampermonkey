@@ -1,12 +1,13 @@
 // Full-size editor for custom categories: add, rename, edit item types,
 // and preview which open lots each one takes.
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
+
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
-import { getSetting, setSetting } from './settings';
-import { Icon } from './icons';
-import type { Lot } from './types';
 import { Dialog } from './Dialog';
+import { Icon } from './icons';
+import { getSetting, setSetting } from './settings';
+import type { Lot } from './types';
 import { fmtCount, plural } from './util';
 import { categoryIndex, compareCategoryNames, compileCategories } from './view';
 
@@ -53,7 +54,11 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const [baseline] = useState(() => JSON.stringify(drafts.map(clean)));
   const [selected, setSelected] = useState<number | null>(null);
   const focusKey = useRef<number | null>(null);
-  const editedName = useRef<{ input: HTMLInputElement; start: number | null; end: number | null } | null>(null);
+  const editedName = useRef<{
+    input: HTMLInputElement;
+    start: number | null;
+    end: number | null;
+  } | null>(null);
 
   const dirty = JSON.stringify(drafts.map(clean)) !== baseline;
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
@@ -97,9 +102,13 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
     return by;
   }, [lots]);
-  const typeSuggestions = useMemo(() => [...typeCounts].toSorted((a, b) => b[1] - a[1]), [typeCounts]);
+  const typeSuggestions = useMemo(
+    () => [...typeCounts].toSorted((a, b) => b[1] - a[1]),
+    [typeCounts],
+  );
 
-  const update = (key: number, patch: Partial<Draft>) => setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+  const update = (key: number, patch: Partial<Draft>) =>
+    setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   const add = () => {
     const d: Draft = { key: nextKey++, from: null, name: '', types: [] };
     setDrafts((ds) => [...ds, d]);
@@ -141,9 +150,10 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
           <div>
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
-              Lots of a listed item type move into the category, regardless of site category. The first matching category alphabetically wins.
-              Select a row to preview its lots. Name it “Parent - Name” to
-              nest it under a site or custom category, e.g. “Tools - Drills - Cordless”.
+              Lots of a listed item type move into the category, regardless of site category. The
+              first matching category alphabetically wins. Select a row to preview its lots. Name it
+              “Parent - Name” to nest it under a site or custom category, e.g. “Tools - Drills -
+              Cordless”.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -156,59 +166,69 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <p class="muted">No custom categories yet.</p>
           ) : (
             <ol class="cat-list">
-              {[...drafts].toSorted((a, b) => compareCategoryNames(a.name, b.name)).map((d) => {
-                const err = errors.get(d.key);
-                const count = taken.get(d.key)!.length;
-                const label = d.name.trim() || 'New category';
-                return (
-                  <li
-                    key={d.key}
-                    data-key={d.key}
-                    class={[
-                      'cat-row',
-                      err && 'has-error',
-                      d.key === selected && 'selected',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onFocusIn={() => setSelected(d.key)}
-                    onMouseDown={() => setSelected(d.key)}
-                  >
-                    <input
-                      ref={(input) => {
-                        if (input && focusKey.current === d.key) {
-                          focusKey.current = null;
-                          input.focus();
+              {[...drafts]
+                .toSorted((a, b) => compareCategoryNames(a.name, b.name))
+                .map((d) => {
+                  const err = errors.get(d.key);
+                  const count = taken.get(d.key)!.length;
+                  const label = d.name.trim() || 'New category';
+                  return (
+                    <li
+                      key={d.key}
+                      data-key={d.key}
+                      class={['cat-row', err && 'has-error', d.key === selected && 'selected']
+                        .filter(Boolean)
+                        .join(' ')}
+                      onFocusIn={() => setSelected(d.key)}
+                      onMouseDown={() => setSelected(d.key)}
+                    >
+                      <input
+                        ref={(input) => {
+                          if (input && focusKey.current === d.key) {
+                            focusKey.current = null;
+                            input.focus();
+                          }
+                        }}
+                        class="cat-name"
+                        type="text"
+                        value={d.name}
+                        placeholder="Category name"
+                        aria-label={`Name of ${label}`}
+                        aria-invalid={err ? 'true' : undefined}
+                        aria-describedby={
+                          err && d.key === selected ? 'cat-editor-error' : undefined
                         }
-                      }}
-                      class="cat-name"
-                      type="text"
-                      value={d.name}
-                      placeholder="Category name"
-                      aria-label={`Name of ${label}`}
-                      aria-invalid={err ? 'true' : undefined}
-                      aria-describedby={err && d.key === selected ? 'cat-editor-error' : undefined}
-                      title={err ?? undefined}
-                      onInput={(e) => {
-                        const input = e.currentTarget;
-                        editedName.current = { input, start: input.selectionStart, end: input.selectionEnd };
-                        update(d.key, { name: input.value });
-                      }}
-                    />
-                    <TypeChips
-                      types={d.types}
-                      counts={typeCounts}
-                      listId={`cat-types-${d.key}`}
-                      category={label}
-                      onChange={(patch) => update(d.key, patch)}
-                    />
-                    <span class="cat-count">{plural(count, 'lot')}</span>
-                    <button type="button" class="icon-btn cat-delete" aria-label={`Delete ${label}`} title="Delete category" onClick={() => remove(d)}>
-                      <Icon name="delete" size={18} />
-                    </button>
-                  </li>
-                );
-              })}
+                        title={err ?? undefined}
+                        onInput={(e) => {
+                          const input = e.currentTarget;
+                          editedName.current = {
+                            input,
+                            start: input.selectionStart,
+                            end: input.selectionEnd,
+                          };
+                          update(d.key, { name: input.value });
+                        }}
+                      />
+                      <TypeChips
+                        types={d.types}
+                        counts={typeCounts}
+                        listId={`cat-types-${d.key}`}
+                        category={label}
+                        onChange={(patch) => update(d.key, patch)}
+                      />
+                      <span class="cat-count">{plural(count, 'lot')}</span>
+                      <button
+                        type="button"
+                        class="icon-btn cat-delete"
+                        aria-label={`Delete ${label}`}
+                        title="Delete category"
+                        onClick={() => remove(d)}
+                      >
+                        <Icon name="delete" size={18} />
+                      </button>
+                    </li>
+                  );
+                })}
             </ol>
           )}
           <button type="button" class="btn btn-outline btn-small cat-add" onClick={add}>
@@ -229,7 +249,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                     {l.category && <span class="muted small">{l.category.label}</span>}
                   </li>
                 ))}
-                {selLots.length > PREVIEW_LIMIT && <li class="muted small">…and {fmtCount(selLots.length - PREVIEW_LIMIT)} more</li>}
+                {selLots.length > PREVIEW_LIMIT && (
+                  <li class="muted small">…and {fmtCount(selLots.length - PREVIEW_LIMIT)} more</li>
+                )}
               </ul>
             ) : (
               <p class="muted small">No open lots match.</p>
@@ -240,18 +262,29 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
         {/* Only the selected row needs suggestions; duplicating them for every row is expensive. */}
         {sel && (
           <datalist id={`cat-types-${sel.key}`}>
-            {typeSuggestions.filter(([type]) => !selectedTypes.has(normalizeType(type))).map(([type, count]) => (
-              <option value={type}>{plural(count, 'open lot')}</option>
-            ))}
+            {typeSuggestions
+              .filter(([type]) => !selectedTypes.has(normalizeType(type)))
+              .map(([type, count]) => (
+                <option value={type}>{plural(count, 'open lot')}</option>
+              ))}
           </datalist>
         )}
 
         <div class="cat-foot">
-          {!valid && <span id="cat-editor-error" class="error small">{(sel && errors.get(sel.key)) || 'Fix the highlighted rows to save.'}</span>}
+          {!valid && (
+            <span id="cat-editor-error" class="error small">
+              {(sel && errors.get(sel.key)) || 'Fix the highlighted rows to save.'}
+            </span>
+          )}
           <button type="button" class="btn btn-outline" onClick={close}>
             Cancel
           </button>
-          <button type="button" class="btn" onClick={save} aria-disabled={valid ? undefined : 'true'}>
+          <button
+            type="button"
+            class="btn"
+            onClick={save}
+            aria-disabled={valid ? undefined : 'true'}
+          >
             Save
           </button>
         </div>
@@ -261,13 +294,19 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
 }
 
 /**
- * The item types of a category as chips, each with how many open lots
- * have that type (flagged when none do), plus a box that suggests the
- * types lots really have. Enter, a comma or leaving the box adds what's typed.
+ * The item types of a category as chips, each with how many open lots have that type (flagged when
+ * none do), plus a box that suggests the types lots really have. Enter, a comma or leaving the box
+ * adds what's typed.
  */
 const normalizeType = (type: string) => type.trim().toLowerCase().replace(/\s+/g, ' ');
 
-function TypeChips({ types, counts, listId, category, onChange }: {
+function TypeChips({
+  types,
+  counts,
+  listId,
+  category,
+  onChange,
+}: {
   types: string[];
   counts: Map<string, number>;
   listId: string;
@@ -278,7 +317,10 @@ function TypeChips({ types, counts, listId, category, onChange }: {
   const existing = new Set(types.map(normalizeType));
   /** Add the comma-separated types in `raw`. */
   const add = (raw: string) => {
-    const fresh = raw.split(',').map(normalizeType).filter((t) => t && !existing.has(t));
+    const fresh = raw
+      .split(',')
+      .map(normalizeType)
+      .filter((t) => t && !existing.has(t));
     if (fresh.length) {
       onChange({ types: [...new Set([...types, ...fresh])] });
     }
@@ -290,9 +332,17 @@ function TypeChips({ types, counts, listId, category, onChange }: {
         {types.map((t) => {
           const n = counts.get(t) ?? 0;
           return (
-            <span class={`type-chip ${n ? '' : 'type-chip-none'}`} title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}>
+            <span
+              class={`type-chip ${n ? '' : 'type-chip-none'}`}
+              title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}
+            >
               {t} <span class="count">{n ? fmtCount(n) : 'none'}</span>
-              <button type="button" class="filter-remove" aria-label={`Remove ${t}`} onClick={() => onChange({ types: types.filter((x) => x !== t) })}>
+              <button
+                type="button"
+                class="filter-remove"
+                aria-label={`Remove ${t}`}
+                onClick={() => onChange({ types: types.filter((x) => x !== t) })}
+              >
                 <Icon name="cancel" size={14} />
               </button>
             </span>
@@ -308,7 +358,15 @@ function TypeChips({ types, counts, listId, category, onChange }: {
           onInput={(e) => {
             const v = e.currentTarget.value;
             // Picking a suggestion fills in a whole known type: add it straight away.
-            if (v.includes(',') || (counts.has(v) && !('inputType' in e && typeof e.inputType === 'string' && e.inputType.startsWith('insertText')))) {
+            if (
+              v.includes(',') ||
+              (counts.has(v) &&
+                !(
+                  'inputType' in e &&
+                  typeof e.inputType === 'string' &&
+                  e.inputType.startsWith('insertText')
+                ))
+            ) {
               add(v);
             } else {
               setText(v);

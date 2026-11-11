@@ -33,16 +33,16 @@ const SORT_LEAD = new RegExp(
       `${SORT_NUM}\\s*[x×](?=\\s*\\d)`, // multiplier: 2x180W
     ].join('|') +
     ')',
-  'iu'
+  'iu',
 );
 // "x" between measurements ("12 in. x 12 in."); only after a measurement was
 // moved, so model names like "X20" or "X2 Robotic Pool Vacuum" stay put.
 const SORT_SEP = /^[x×]\s*(?=\d)/i;
 
 /**
- * Title rearranged for sorting: the item type (if known) leads, so "1/3 HP
- * Continuous Feed Garbage Disposal" sorts with other garbage disposals, then
- * leading specs move to the end and leading punctuation is dropped.
+ * Title rearranged for sorting: the item type (if known) leads, so "1/3 HP Continuous Feed Garbage
+ * Disposal" sorts with other garbage disposals, then leading specs move to the end and leading
+ * punctuation is dropped.
  */
 export function sortKey(title: string, type = ''): string {
   let rest = title.trim();

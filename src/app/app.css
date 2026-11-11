@@ -51,7 +51,14 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font:
+    14px/1.45 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -265,7 +272,11 @@ h3 {
   border-radius: 6px;
   background: none;
   color: var(--muted);
-  font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    600 13px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   cursor: pointer;
 }
 
@@ -664,7 +675,12 @@ h3 {
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--paper);
-  font: 12.5px/18px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font:
+    12.5px/18px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
 }
 
 .filter-edit textarea:focus {
@@ -832,7 +848,7 @@ h3 {
   background: var(--primary-soft);
 }
 
-.progress>span {
+.progress > span {
   display: block;
   height: 100%;
   background: var(--primary);
@@ -895,7 +911,7 @@ h3 {
   background: #fff;
 }
 
-.card-media>a {
+.card-media > a {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1074,7 +1090,7 @@ h3 {
   margin: 0;
 }
 
-.card-identity .brand-model>div {
+.card-identity .brand-model > div {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
   padding: 0;
@@ -1100,7 +1116,7 @@ h3 {
   vertical-align: middle;
 }
 
-.card-identity>.btn-text {
+.card-identity > .btn-text {
   font-size: 12px;
   text-align: left;
 }
@@ -1136,7 +1152,7 @@ h3 {
   font-size: 12.5px;
 }
 
-.card-meta>span+span::before {
+.card-meta > span + span::before {
   content: '·';
   margin-right: 10px;
   margin-left: -6px;
@@ -1163,7 +1179,7 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-.card-category>span {
+.card-category > span {
   min-width: 0;
 }
 
@@ -1480,7 +1496,7 @@ h3 {
   margin: 8px 0 6px;
 }
 
-.brand-model>div {
+.brand-model > div {
   display: flex;
   align-items: baseline;
   gap: 6px;
@@ -2069,7 +2085,6 @@ h3 {
 }
 
 @media (prefers-color-scheme: dark) {
-
   .toast-good,
   .toast-bad {
     color: #111;
@@ -2376,7 +2391,6 @@ h3 {
 }
 
 @media (max-width: 720px) {
-
   .cat-head,
   .cat-body,
   .cat-preview,
@@ -2384,7 +2398,6 @@ h3 {
     padding-left: 16px;
     padding-right: 16px;
   }
-
 }
 
 @media (max-width: 520px) {
@@ -2406,7 +2419,7 @@ h3 {
     padding: 10px;
   }
 
-  .card-foot>.btn {
+  .card-foot > .btn {
     width: 100%;
   }
 

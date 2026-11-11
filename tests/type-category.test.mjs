@@ -1,13 +1,21 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+
 import 'temporal-polyfill/global';
-import { createServer } from 'vite';
 import { Component, h, options } from 'preact';
+import { createServer } from 'vite';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+const vite = await createServer({
+  configFile: false,
+  logLevel: 'silent',
+  server: { middlewareMode: true, watch: null },
+  appType: 'custom',
+});
 after(() => vite.close());
-const { categoryError, categoryName, TypeCategory } = await vite.ssrLoadModule('/src/app/TypeCategory.tsx');
+const { categoryError, categoryName, TypeCategory } = await vite.ssrLoadModule(
+  '/src/app/TypeCategory.tsx',
+);
 const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 
@@ -30,7 +38,10 @@ test('category validation checks the selected mode and trims new names', () => {
   assert.equal(categoryError('add', undefined, '', cats), 'Pick a category');
   assert.equal(categoryError('add', cats[0], '', cats), null);
   assert.equal(categoryError('new', undefined, '   ', cats), 'Name is required');
-  assert.equal(categoryError('new', undefined, '  dRilLs  ', cats), 'There’s already a category with this name – use “Add to existing”');
+  assert.equal(
+    categoryError('new', undefined, '  dRilLs  ', cats),
+    'There’s already a category with this name – use “Add to existing”',
+  );
   assert.equal(categoryError('new', undefined, ' Saws ', cats), null);
 });
 
@@ -45,7 +56,13 @@ function submit(rows, label) {
   assert.equal(buttons.length, 1);
   assert.equal(buttons[0].props.children, label);
   let prevented = false;
-  rows.find((n) => n.type === 'form').props.onSubmit({ preventDefault: () => { prevented = true; } });
+  rows
+    .find((n) => n.type === 'form')
+    .props.onSubmit({
+      preventDefault: () => {
+        prevented = true;
+      },
+    });
   assert.equal(prevented, true);
 }
 
@@ -61,11 +78,18 @@ function pressKey(rows, target, overrides = {}) {
   }
   globalThis.HTMLElement = Element;
   try {
-    rows.find((n) => n.props.onKeyDownCapture).props.onKeyDownCapture({
-      key: 'Enter', target: new Element(), repeat: false, isComposing: false,
-      preventDefault: () => { prevented = true; },
-      ...overrides,
-    });
+    rows
+      .find((n) => n.props.onKeyDownCapture)
+      .props.onKeyDownCapture({
+        key: 'Enter',
+        target: new Element(),
+        repeat: false,
+        isComposing: false,
+        preventDefault: () => {
+          prevented = true;
+        },
+        ...overrides,
+      });
   } finally {
     if (previous === undefined) delete globalThis.HTMLElement;
     else globalThis.HTMLElement = previous;
@@ -74,7 +98,10 @@ function pressKey(rows, target, overrides = {}) {
 }
 
 const lot = (itemType = 'cordless drill', category = { value: 'tools', label: 'Tools' }) => ({
-  itemType, category, title: 'Cordless drill kit', endsAt: Temporal.Now.instant().add({ seconds: 10 }),
+  itemType,
+  category,
+  title: 'Cordless drill kit',
+  endsAt: Temporal.Now.instant().add({ seconds: 10 }),
 });
 
 function dialog(t, categories, item = lot(), lots = [item]) {
@@ -85,7 +112,13 @@ function dialog(t, categories, item = lot(), lots = [item]) {
   const saves = [];
   setSaveHook((key, value) => saves.push([key, value]));
   let closed = false;
-  const vnode = h(TypeCategory, { lot: item, lots, onClose: () => { closed = true; } });
+  const vnode = h(TypeCategory, {
+    lot: item,
+    lots,
+    onClose: () => {
+      closed = true;
+    },
+  });
   // Exercise real hooks and event handlers without mounting the surrounding Dialog.
   vnode.__c = new Component(vnode.props);
   vnode.__c.setState = () => {};
@@ -104,14 +137,25 @@ function dialog(t, categories, item = lot(), lots = [item]) {
 test('a type without a site category defaults to an unrestricted new category', (t) => {
   const d = dialog(t, [], lot('cordless drill', null));
   const rows = d.render();
-  assert.equal(rows.find((n) => n.type === 'input' && n.props.type === 'text').props.value, 'Cordless Drills');
-  assert.equal(rows.some((n) => n.props?.class === 'switch-row'), false);
+  assert.equal(
+    rows.find((n) => n.type === 'input' && n.props.type === 'text').props.value,
+    'Cordless Drills',
+  );
+  assert.equal(
+    rows.some((n) => n.props?.class === 'switch-row'),
+    false,
+  );
   submit(rows, 'Create');
-  assert.deepEqual(getSetting(KEYS.customCategories), [{ name: 'Cordless Drills', types: ['cordless drill'] }]);
+  assert.deepEqual(getSetting(KEYS.customCategories), [
+    { name: 'Cordless Drills', types: ['cordless drill'] },
+  ]);
 });
 
 test('existing categories default to add mode and retain the preferred category', (t) => {
-  const categories = [{ name: 'Tools - Drills', types: ['drill'] }, { name: 'Workshop', types: ['saw'] }];
+  const categories = [
+    { name: 'Tools - Drills', types: ['drill'] },
+    { name: 'Workshop', types: ['saw'] },
+  ];
   const d = dialog(t, categories);
   applySetting(KEYS.lastCategory, 'Workshop');
   const rows = d.render();
@@ -130,7 +174,9 @@ test('existing categories default to add mode and retain the preferred category'
 test('default form submission does not save when the category search has no selection', (t) => {
   const categories = [{ name: 'Workshop', types: ['saw'] }];
   const d = dialog(t, categories);
-  d.render().find((n) => n.type === 'input' && n.props.type === 'search').props.onInput({ currentTarget: { value: 'no matches' } });
+  d.render()
+    .find((n) => n.type === 'input' && n.props.type === 'search')
+    .props.onInput({ currentTarget: { value: 'no matches' } });
   const rows = d.render();
   assert.equal(rows.find((n) => n.type === 'select').props.value, '');
   assert.equal(pressKey(rows, { tagName: 'INPUT', type: 'search' }), true);
@@ -142,7 +188,9 @@ test('default form submission does not save when the category search has no sele
 
 test('default form submission does not create a category with an empty name', (t) => {
   const d = dialog(t, []);
-  d.render().find((n) => n.type === 'input' && n.props.type === 'text').props.onInput({ currentTarget: { value: ' ' } });
+  d.render()
+    .find((n) => n.type === 'input' && n.props.type === 'text')
+    .props.onInput({ currentTarget: { value: ' ' } });
   const rows = d.render();
   assert.equal(pressKey(rows, { tagName: 'INPUT', type: 'text' }), true);
   submit(rows, 'Create');
@@ -162,9 +210,12 @@ for (const mode of ['add', 'new']) {
       const categories = mode === 'add' ? [{ name: 'Workshop', types: ['saw'] }] : [];
       const d = dialog(t, categories);
       assert.equal(pressKey(d.render(), target), true);
-      assert.deepEqual(getSetting(KEYS.customCategories), mode === 'add'
-        ? [{ name: 'Workshop', types: ['saw', 'cordless drill'] }]
-        : [{ name: 'Tools - Cordless Drills', types: ['cordless drill'] }]);
+      assert.deepEqual(
+        getSetting(KEYS.customCategories),
+        mode === 'add'
+          ? [{ name: 'Workshop', types: ['saw', 'cordless drill'] }]
+          : [{ name: 'Tools - Cordless Drills', types: ['cordless drill'] }],
+      );
       assert.equal(d.saves.filter(([key]) => key === KEYS.customCategories).length, 1);
       assert.equal(d.closed(), true);
     });

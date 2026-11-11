@@ -3,6 +3,7 @@
 // the server also pushes this account's outbid/winning events.
 import { computed, effect, signal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
+
 import { fetchWsToken, normalizeStanding, type RawStanding } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';
@@ -10,8 +11,8 @@ import { onScreen, openId } from './state';
 import type { Lot } from './types';
 
 /**
- * The tlx server's relay to the site's Centrifugo websocket, which only
- * accepts the site's own Origin.
+ * The tlx server's relay to the site's Centrifugo websocket, which only accepts the site's own
+ * Origin.
  */
 const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 
@@ -51,7 +52,7 @@ onAuthChange(() => {
     oldSubs.forEach((sub) => drop(c, sub));
     c.disconnect();
   });
-  void watchLots(watched).catch(() => { });
+  void watchLots(watched).catch(() => {});
 });
 
 /** Create and connect a websocket client; with a login, it also receives this account's bid events. */
@@ -73,14 +74,21 @@ async function open(): Promise<Centrifuge> {
 }
 
 /** Apply this account's outbid/winning event to the lot it is about. */
-function onUserPublication(d: { lot_id?: number | string; type?: string; relationship?: RawStanding | null }) {
+function onUserPublication(d: {
+  lot_id?: number | string;
+  type?: string;
+  relationship?: RawStanding | null;
+}) {
   const lotId = Number(d.lot_id);
   const lot = getLot(lotId);
   if (!lot) {
     return;
   }
   const yourMaxBid = lot.yourStanding?.yourMaxBid ?? null;
-  const fallback = d.type === 'outbid' || d.type === 'winning' ? { isLeading: d.type === 'winning', yourMaxBid } : null;
+  const fallback =
+    d.type === 'outbid' || d.type === 'winning'
+      ? { isLeading: d.type === 'winning', yourMaxBid }
+      : null;
   const standing = normalizeStanding(d.relationship) ?? fallback;
   if (standing) {
     updateLot(lotId, { yourStanding: standing, hasBid: true }, { force: true });
@@ -88,15 +96,20 @@ function onUserPublication(d: { lot_id?: number | string; type?: string; relatio
 }
 
 /** Apply a lot channel update (price, bids, end time, status) to the catalog. */
-function onLotPublication(data: {
-  id?: number;
-  current_price?: number;
-  bid_count?: number;
-  next_min_increment?: number;
-  ends_at?: string;
-  status?: string;
-  version?: number;
-} | null | undefined) {
+function onLotPublication(
+  data:
+    | {
+        id?: number;
+        current_price?: number;
+        bid_count?: number;
+        next_min_increment?: number;
+        ends_at?: string;
+        status?: string;
+        version?: number;
+      }
+    | null
+    | undefined,
+) {
   if (typeof data?.id !== 'number') {
     return;
   }
@@ -133,7 +146,10 @@ async function watchLots(ids: number[]) {
   }
 }
 
-/** Lots to watch: those on screen plus the open one, as a key so an unchanged list doesn't resubscribe. */
+/**
+ * Lots to watch: those on screen plus the open one, as a key so an unchanged list doesn't
+ * resubscribe.
+ */
 const watchKey = computed(() => {
   const ids = onScreen.value;
   const id = openId.value;
@@ -148,7 +164,7 @@ export function startLiveWatch() {
       return;
     }
     const ids = key ? key.split(',').map(Number) : [];
-    const t = setTimeout(() => void watchLots(ids).catch(() => { }), 300);
+    const t = setTimeout(() => void watchLots(ids).catch(() => {}), 300);
     return () => clearTimeout(t);
   });
 }
@@ -186,7 +202,7 @@ function pump() {
     fetching++;
     // loadDetail updates the catalog entry; failures just leave the old copy.
     void loadDetail(lot)
-      .catch(() => { })
+      .catch(() => {})
       .finally(() => {
         fetching--;
         pump();

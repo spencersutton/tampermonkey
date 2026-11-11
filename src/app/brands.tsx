@@ -1,4 +1,5 @@
 import { effect, signal } from '@preact/signals';
+
 import { loadDetail, lotBrands, lotModels, lots } from './catalog';
 import { Icon } from './icons';
 import { onScreen } from './state';
@@ -16,14 +17,25 @@ export function startBrandWatch() {
     for (const id of onScreen.peek()) {
       if (pending.size >= CONCURRENCY) break;
       const lot = lots.peek().get(id);
-      if (!lot || pending.has(id) || (lotBrands.peek().has(id) && lotModels.peek().has(id)) || errors.peek().has(id)) continue;
+      if (
+        !lot ||
+        pending.has(id) ||
+        (lotBrands.peek().has(id) && lotModels.peek().has(id)) ||
+        errors.peek().has(id)
+      )
+        continue;
       pending.add(id);
-      void loadDetail(lot).catch((err: unknown) => {
-        errors.value = new Map(errors.peek()).set(id, err instanceof Error ? err.message : String(err));
-      }).finally(() => {
-        pending.delete(id);
-        pump();
-      });
+      void loadDetail(lot)
+        .catch((err: unknown) => {
+          errors.value = new Map(errors.peek()).set(
+            id,
+            err instanceof Error ? err.message : String(err),
+          );
+        })
+        .finally(() => {
+          pending.delete(id);
+          pump();
+        });
     }
   }
 
@@ -51,11 +63,16 @@ export function CardBrandModel({ id }: { id: number }) {
     <div class="card-identity">
       <BrandModel brand={brand ?? null} model={model ?? null} />
       {failed && (
-        <button type="button" class="btn-text" title={error} onClick={() => {
-          const next = new Map(errors.peek());
-          next.delete(id);
-          errors.value = next;
-        }}>
+        <button
+          type="button"
+          class="btn-text"
+          title={error}
+          onClick={() => {
+            const next = new Map(errors.peek());
+            next.delete(id);
+            errors.value = next;
+          }}
+        >
           Item details unavailable - Retry
         </button>
       )}
@@ -68,7 +85,12 @@ export function BrandModel({ brand, model }: { brand: string | null; model: stri
   if (!brand && !model) return null;
   const query = [brand, model].filter(Boolean).join(' ');
   const search = (text: string) => (
-    <a href={`https://www.google.com/search?q=${encodeURIComponent(query)}`} target="_blank" rel="noopener" title={`Search Google for “${query}”`}>
+    <a
+      href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
+      target="_blank"
+      rel="noopener"
+      title={`Search Google for “${query}”`}
+    >
       {text} <Icon name="open" size={14} />
     </a>
   );

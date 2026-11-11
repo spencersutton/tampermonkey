@@ -4,6 +4,7 @@
 // written into the URL (/tlx?search=foo&sort=price-low&page=2&lot=123) so a
 // view can be bookmarked or shared; only values that differ from the defaults appear.
 import { batch, computed, effect } from '@preact/signals';
+
 import { KEYS } from '../shared/keys';
 import type { ClosedSection } from './api';
 import { setSetting } from './settings';
@@ -20,9 +21,9 @@ interface NavState {
 }
 
 /**
- * A history entry. `kind` says what made it: 'lot' opened a lot over the list
- * (so closing the lot can just go back), 'search' typed in the search box (so
- * further typing replaces it rather than adding an entry per pause).
+ * A history entry. `kind` says what made it: 'lot' opened a lot over the list (so closing the lot
+ * can just go back), 'search' typed in the search box (so further typing replaces it rather than
+ * adding an entry per pause).
  */
 interface Entry extends Omit<NavState, 'view'> {
   view: Omit<ViewState, 'newSince'> & { newSince: string | null };
@@ -34,12 +35,17 @@ interface Entry extends Omit<NavState, 'view'> {
 const LISTS = ['categories', 'conditions', 'locations'] as const;
 const NUMBERS = ['priceMin', 'priceMax', 'totalMax', 'retailMin'] as const;
 /** URL parameter for each list field. */
-const LIST_PARAM = { categories: 'category', conditions: 'condition', locations: 'location' } as const;
+const LIST_PARAM = {
+  categories: 'category',
+  conditions: 'condition',
+  locations: 'location',
+} as const;
 
 /** The URL (path and query) that shows `nav`. */
 function navToUrl({ view, page, openId, closed, filteredOnly }: NavState): string {
   const q = new URLSearchParams();
-  const put = (k: string, v: string | number | null | undefined, def?: unknown) => v != null && v !== '' && v !== def && q.append(k, String(v));
+  const put = (k: string, v: string | number | null | undefined, def?: unknown) =>
+    v != null && v !== '' && v !== def && q.append(k, String(v));
   put('search', view.search.trim());
   put('regex', view.searchRegex ? 1 : null);
   put('noCategories', view.noCategories ? 1 : null);
@@ -95,16 +101,28 @@ export function navFromUrl(search = location.search): NavState | null {
   };
 }
 
-const isEntry = (s: unknown): s is Entry => s !== null && typeof s === 'object' && 'tlx' in s && s.tlx === true;
-const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) => JSON.stringify([n.view, n.page, n.openId, n.closed, n.filteredOnly]);
+const isEntry = (s: unknown): s is Entry =>
+  s !== null && typeof s === 'object' && 'tlx' in s && s.tlx === true;
+const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) =>
+  JSON.stringify([n.view, n.page, n.openId, n.closed, n.filteredOnly]);
 /** Same view on the same page (the grid, or one of the closed-lot pages). */
-const sameView = (a: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }, b: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown }) =>
-  a.closed === b.closed && a.filteredOnly === b.filteredOnly && JSON.stringify(a.view) === JSON.stringify(b.view);
+const sameView = (
+  a: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown },
+  b: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown },
+) =>
+  a.closed === b.closed &&
+  a.filteredOnly === b.filteredOnly &&
+  JSON.stringify(a.view) === JSON.stringify(b.view);
 
 /** Push a new entry for `nav`, or replace the current one when the change doesn't deserve its own. */
 function record(nav: NavState) {
   const prev: unknown = history.state;
-  const entry: Entry = { tlx: true, ...nav, view: { ...nav.view, newSince: nav.view.newSince?.toString() ?? null }, kind: 'other' };
+  const entry: Entry = {
+    tlx: true,
+    ...nav,
+    view: { ...nav.view, newSince: nav.view.newSince?.toString() ?? null },
+    kind: 'other',
+  };
   if (!isEntry(prev)) {
     history.replaceState(entry, '', navToUrl(nav));
     return;
@@ -124,7 +142,10 @@ function record(nav: NavState) {
   } else if (
     prev.openId === nav.openId &&
     prev.view.search !== nav.view.search &&
-    sameView({ ...prev, view: { ...prev.view, search: '' } }, { ...nav, view: { ...nav.view, search: '' } })
+    sameView(
+      { ...prev, view: { ...prev.view, search: '' } },
+      { ...nav, view: { ...nav.view, search: '' } },
+    )
   ) {
     entry.kind = 'search';
     if (prev.kind === 'search') {
@@ -135,7 +156,13 @@ function record(nav: NavState) {
   history.pushState(entry, '', navToUrl(nav));
 }
 
-const current = computed((): NavState => ({ view: storedView.value, page: page.value, openId: openId.value, closed: closed.value, filteredOnly: filteredOnly.value }));
+const current = computed((): NavState => ({
+  view: storedView.value,
+  page: page.value,
+  openId: openId.value,
+  closed: closed.value,
+  filteredOnly: filteredOnly.value,
+}));
 
 function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
   batch(() => {
@@ -148,9 +175,8 @@ function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
 }
 
 /**
- * Keep browser history in step with the view, page, open lot and closed page:
- * changes are recorded, and back / forward restore the entry's state and put
- * the scroll position back. Call once.
+ * Keep browser history in step with the view, page, open lot and closed page: changes are recorded,
+ * and back / forward restore the entry's state and put the scroll position back. Call once.
  */
 export function startHistory() {
   history.scrollRestoration = 'manual';
@@ -192,7 +218,10 @@ export function startHistory() {
   );
 }
 
-/** Close the open lot, by going back when opening it made the current entry, so back after closing doesn't reopen it. */
+/**
+ * Close the open lot, by going back when opening it made the current entry, so back after closing
+ * doesn't reopen it.
+ */
 export function closeLot() {
   const cur: unknown = history.state;
   if (isEntry(cur) && cur.kind === 'lot' && cur.openId === openId.peek()) {

@@ -1,8 +1,8 @@
+import { BidError, placeBid, type BidType } from './api';
 // Placing bids from /tlx. Every bid goes through BidConfirm first; this
 // module sends it and folds the result back into the catalog, the same way
 // the site's own bid buttons update their state.
 import { isAuthenticated } from './auth';
-import { BidError, placeBid, type BidType } from './api';
 import { getLot, invalidateDetail, updateLot } from './catalog';
 import { toast } from './toast';
 import type { Lot } from './types';
@@ -16,11 +16,13 @@ export interface BidRequest {
 }
 
 /** Whether the lot can no longer be bid on. */
-export const isClosed = (lot: Lot, now = Temporal.Now.instant()) => lot.status !== 'live' || Temporal.Instant.compare(lot.endsAt, now) <= 0;
+export const isClosed = (lot: Lot, now = Temporal.Now.instant()) =>
+  lot.status !== 'live' || Temporal.Instant.compare(lot.endsAt, now) <= 0;
 /** Whether you have bid on the lot (winning or not). */
 export const hasBidOn = (lot: Lot) => lot.hasBid || lot.yourStanding != null;
 /** Whether you are currently the high bidder (and the price is still within your max). */
-export const isLeading = (lot: Lot) => lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
+export const isLeading = (lot: Lot) =>
+  lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
 
 /** Amount of a straight bid at the next increment (the API's next minimum bid). */
 export const quickBidAmount = (lot: Lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
@@ -69,7 +71,10 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
   try {
     const r = await placeBid(lotId, amount, type);
     const cur = getLot(lotId) ?? lot;
-    const patch: Partial<Lot> = { hasBid: true, yourStanding: { isLeading: r.isLeading, yourMaxBid: amount } };
+    const patch: Partial<Lot> = {
+      hasBid: true,
+      yourStanding: { isLeading: r.isLeading, yourMaxBid: amount },
+    };
     // Take the new price only if the response is newer than what we have.
     if (r.version != null && r.version > cur.version) {
       patch.version = r.version;
@@ -88,7 +93,10 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
     }
     return true;
   } catch (e) {
-    const err = e instanceof BidError ? e : new BidError((e instanceof Error) ? e.message : String(e) || String(e), 0);
+    const err =
+      e instanceof BidError
+        ? e
+        : new BidError(e instanceof Error ? e.message : String(e) || String(e), 0);
     if (err.status === 409) {
       updateLot(lotId, { status: 'closed' }, { force: true });
     }

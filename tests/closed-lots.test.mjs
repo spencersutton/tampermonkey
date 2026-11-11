@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
-const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+const vite = await createServer({
+  configFile: false,
+  logLevel: 'silent',
+  server: { middlewareMode: true, watch: null },
+  appType: 'custom',
+});
 after(() => vite.close());
 const { fetchClosed } = await vite.ssrLoadModule('/src/app/api.ts');
 const { loadDetail, lots: catalogLots } = await vite.ssrLoadModule('/src/app/catalog.ts');
@@ -26,10 +32,22 @@ function text(node) {
 }
 
 test('shared listing rows preserve prices, location, countdown and caller navigation', () => {
-  const lot = { id: 1, title: 'Drill kit', currentPrice: 100, bidCount: 2, endsAt: Temporal.Instant.from('2026-12-01T00:00:00Z') };
+  const lot = {
+    id: 1,
+    title: 'Drill kit',
+    currentPrice: 100,
+    bidCount: 2,
+    endsAt: Temporal.Instant.from('2026-12-01T00:00:00Z'),
+  };
   const row = { lot, transferFee: 8, total: totalCost(100, 8) };
   let opened;
-  const tree = ListingRow({ row, currentTitle: 'Drill', onOpen: (value) => { opened = value; } });
+  const tree = ListingRow({
+    row,
+    currentTitle: 'Drill',
+    onOpen: (value) => {
+      opened = value;
+    },
+  });
   const all = nodes(tree);
   assert.equal(tree.type, 'li');
   const button = all.find((n) => n.type === 'button');
@@ -47,14 +65,21 @@ test('shared listing rows preserve prices, location, countdown and caller naviga
 });
 
 test('shared listing rows preserve selection and suppress identical titles', () => {
-  const row = { lot: { title: 'Drill', currentPrice: 1, bidCount: 1, condition: { label: 'New' } }, transferFee: 0, total: totalCost(1) };
+  const row = {
+    lot: { title: 'Drill', currentPrice: 1, bidCount: 1, condition: { label: 'New' } },
+    transferFee: 0,
+    total: totalCost(1),
+  };
   for (const selected of [true, false]) {
     const tree = ListingRow({ row, currentTitle: 'Drill', selected, onOpen: () => {} });
     const all = nodes(tree);
     const button = all.find((n) => n.type === 'button');
     assert.equal(button.props.class ?? '', selected ? 'on' : '');
     assert.equal(button.props['aria-current'], selected ? 'true' : undefined);
-    assert.equal(all.some((n) => n.props.class === 'dupe-title'), false);
+    assert.equal(
+      all.some((n) => n.props.class === 'dupe-title'),
+      false,
+    );
     assert.doesNotMatch(text(tree), /New/);
     assert.match(text(tree), /1 bid(?!s)/);
   }
@@ -62,14 +87,26 @@ test('shared listing rows preserve selection and suppress identical titles', () 
 
 test('relisted rows show condition text with an unknown fallback', () => {
   for (const condition of [{ label: 'New' }, null]) {
-    const row = { lot: { title: 'Drill', currentPrice: 1, bidCount: 0, condition }, transferFee: 0, total: totalCost(1) };
+    const row = {
+      lot: { title: 'Drill', currentPrice: 1, bidCount: 0, condition },
+      transferFee: 0,
+      total: totalCost(1),
+    };
     const tree = ListingRow({ row, currentTitle: 'Drill', showCondition: true, onOpen: () => {} });
     assert.ok(text(tree).includes(`${condition?.label ?? 'Unknown'} · `));
   }
 });
 
 test('closed lots are normalized, deduplicated and reported as pages arrive', async (t) => {
-  const first = { lot_id: 1, auction_period: 'a', title: 'Drill', lot_number: '10', location_name: 'Raleigh', final_price: 25, hero_image: null };
+  const first = {
+    lot_id: 1,
+    auction_period: 'a',
+    title: 'Drill',
+    lot_number: '10',
+    location_name: 'Raleigh',
+    final_price: 25,
+    hero_image: null,
+  };
   const second = { ...first, lot_id: 2, lot_number: '11', final_price: 30 };
   const pages = [
     { count: 2, results: [first] },
@@ -87,23 +124,60 @@ test('closed lots are normalized, deduplicated and reported as pages arrive', as
     '/backend/v1/auctions/control-panel/closed/won/?page=2&per_page=100',
   ]);
   assert.deepEqual(lots, [
-    { lotId: 1, auctionPeriod: 'a', title: 'Drill', lotNumber: '10', locationName: 'Raleigh', finalPrice: 25, heroImage: null },
-    { lotId: 2, auctionPeriod: 'a', title: 'Drill', lotNumber: '11', locationName: 'Raleigh', finalPrice: 30, heroImage: null },
+    {
+      lotId: 1,
+      auctionPeriod: 'a',
+      title: 'Drill',
+      lotNumber: '10',
+      locationName: 'Raleigh',
+      finalPrice: 25,
+      heroImage: null,
+    },
+    {
+      lotId: 2,
+      auctionPeriod: 'a',
+      title: 'Drill',
+      lotNumber: '11',
+      locationName: 'Raleigh',
+      finalPrice: 30,
+      heroImage: null,
+    },
   ]);
-  assert.deepEqual(updates, [{ items: [lots[0]], count: 2 }, { items: lots, count: 2 }]);
+  assert.deepEqual(updates, [
+    { items: [lots[0]], count: 2 },
+    { items: lots, count: 2 },
+  ]);
 });
 
 test('lot links open in-app only for unhandled, unmodified primary clicks', () => {
   let opened = 0;
   const handle = openHandler(() => opened++);
-  for (const change of [{ button: 1 }, { metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { defaultPrevented: true }]) {
+  for (const change of [
+    { button: 1 },
+    { metaKey: true },
+    { ctrlKey: true },
+    { shiftKey: true },
+    { altKey: true },
+    { defaultPrevented: true },
+  ]) {
     let prevented = false;
-    handle({ button: 0, ...change, preventDefault: () => { prevented = true; } });
+    handle({
+      button: 0,
+      ...change,
+      preventDefault: () => {
+        prevented = true;
+      },
+    });
     assert.equal(prevented, false);
   }
   assert.equal(opened, 0);
   let prevented = false;
-  handle({ button: 0, preventDefault: () => { prevented = true; } });
+  handle({
+    button: 0,
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
   assert.equal(prevented, true);
   assert.equal(opened, 1);
 });
@@ -117,11 +191,32 @@ test('estimated costs use the supplied transfer fee', () => {
 
 test('a fetched closed lot detail can be used as a row and reused by the modal', async (t) => {
   const raw = {
-    id: 4321, auction_period: 'a', title: 'Drill', lot_number: '10', category: null, condition: null,
-    location: { id: 1, name: 'Raleigh' }, is_transferable: false, transfer_fee: 0, current_price: 25,
-    estimated_retail_price: 50, ends_at: '2025-01-01T00:00:00Z', status: 'closed', version: 1,
-    bid_count: 2, next_min_increment: 1, your_standing: null, is_watchlisted: false, has_bid: true,
-    images: [], description: 'Details', brand: null, model: null, lot_fee: 1, bid_history: [], similar: [],
+    id: 4321,
+    auction_period: 'a',
+    title: 'Drill',
+    lot_number: '10',
+    category: null,
+    condition: null,
+    location: { id: 1, name: 'Raleigh' },
+    is_transferable: false,
+    transfer_fee: 0,
+    current_price: 25,
+    estimated_retail_price: 50,
+    ends_at: '2025-01-01T00:00:00Z',
+    status: 'closed',
+    version: 1,
+    bid_count: 2,
+    next_min_increment: 1,
+    your_standing: null,
+    is_watchlisted: false,
+    has_bid: true,
+    images: [],
+    description: 'Details',
+    brand: null,
+    model: null,
+    lot_fee: 1,
+    bid_history: [],
+    similar: [],
   };
   let requests = 0;
   t.mock.method(globalThis, 'fetch', async () => {
@@ -129,7 +224,14 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
     return new Response(JSON.stringify(raw), { status: 200 });
   });
   const detail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });
-  const row = makeRow(detail, 'Raleigh', { words: [], filterOn: false, removeFiltered: false, hidden: {}, showHidden: false, customCategories: [] });
+  const row = makeRow(detail, 'Raleigh', {
+    words: [],
+    filterOn: false,
+    removeFiltered: false,
+    hidden: {},
+    showHidden: false,
+    customCategories: [],
+  });
   assert.equal(row.lot, detail);
   assert.equal(row.lot.description, 'Details');
   assert.equal(row.transferFee, 0);
@@ -138,7 +240,15 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
   assert.equal(requests, 1);
   assert.equal(detail.lotFee, 1);
 
-  const { description, brand: _brand, model: _model, lotFee: _lotFee, bidHistory: _bidHistory, similar: _similar, ...base } = detail;
+  const {
+    description,
+    brand: _brand,
+    model: _model,
+    lotFee: _lotFee,
+    bidHistory: _bidHistory,
+    similar: _similar,
+    ...base
+  } = detail;
   raw.id++;
   catalogLots.value = new Map([[raw.id, { ...base, id: raw.id, version: 0 }]]);
   const updatedDetail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });

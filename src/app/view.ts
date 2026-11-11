@@ -1,9 +1,15 @@
+import { totalCost } from '../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes } from '../shared/filters';
-import { totalCost } from '../shared/cost';
-import { brandModelKey, DEFAULT_NAME_MATCH, groupItems, itemIdentity, type ItemDetails } from '../shared/names';
-import { collator } from '../shared/sortKey';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
+import {
+  brandModelKey,
+  DEFAULT_NAME_MATCH,
+  groupItems,
+  itemIdentity,
+  type ItemDetails,
+} from '../shared/names';
+import { collator } from '../shared/sortKey';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR, memoize, memoLast } from './util';
@@ -27,19 +33,33 @@ type Compare = (a: Row, b: Row) => number;
 export const SORTS = {
   'ending-soonest': { label: 'Ending soonest', compare: () => 0 },
   'newly-listed': { label: 'Newly listed', compare: (a, b) => b.lot.id - a.lot.id },
-  'title-asc': { label: 'Title A–Z', compare: (a, b) => collator.compare(titleKey(a.lot), titleKey(b.lot)) },
-  'title-desc': { label: 'Title Z–A', compare: (a, b) => collator.compare(titleKey(b.lot), titleKey(a.lot)) },
+  'title-asc': {
+    label: 'Title A–Z',
+    compare: (a, b) => collator.compare(titleKey(a.lot), titleKey(b.lot)),
+  },
+  'title-desc': {
+    label: 'Title Z–A',
+    compare: (a, b) => collator.compare(titleKey(b.lot), titleKey(a.lot)),
+  },
   'item-type-asc': {
     label: 'Item type A–Z',
-    compare: (a, b) => +!a.lot.itemType - +!b.lot.itemType || collator.compare(a.lot.itemType ?? '', b.lot.itemType ?? ''),
+    compare: (a, b) =>
+      +!a.lot.itemType - +!b.lot.itemType ||
+      collator.compare(a.lot.itemType ?? '', b.lot.itemType ?? ''),
   },
   'brand-model-asc': { label: 'Brand + model A–Z', compare: () => 0 },
   'total-asc': { label: 'Total cost: low to high', compare: (a, b) => a.total - b.total },
   'total-desc': { label: 'Total cost: high to low', compare: (a, b) => b.total - a.total },
   'retail-pct-asc': {
-    label: 'Best deal (% of retail)', compare: (a, b) => (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) || (b.lot.estimatedRetailPrice ?? 0) - (a.lot.estimatedRetailPrice ?? 0)
+    label: 'Best deal (% of retail)',
+    compare: (a, b) =>
+      (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) ||
+      (b.lot.estimatedRetailPrice ?? 0) - (a.lot.estimatedRetailPrice ?? 0),
   },
-  'retail-desc': { label: 'Retail price: high to low', compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1) },
+  'retail-desc': {
+    label: 'Retail price: high to low',
+    compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1),
+  },
   'bids-most': { label: 'Most bids', compare: (a, b) => b.lot.bidCount - a.lot.bidCount },
   'bids-fewest': { label: 'Fewest bids', compare: (a, b) => a.lot.bidCount - b.lot.bidCount },
 } satisfies Record<string, { label: string; compare: Compare }>;
@@ -122,13 +142,20 @@ export const DEFAULT_VIEW: ViewState = {
 
 /** Turn a stored (possibly old or invalid) view into a complete ViewState. */
 export function normalizeView(v: unknown): ViewState {
-  const view = { ...DEFAULT_VIEW, ...(v && typeof v === 'object' ? (v as Partial<ViewState>) : {}) };
+  const view = {
+    ...DEFAULT_VIEW,
+    ...(v && typeof v === 'object' ? (v as Partial<ViewState>) : {}),
+  };
   const rawNewSince: unknown = view.newSince;
   return {
     ...view,
-    noCategories: !view.categories.length &&  view.noCategories,
-    newSince: typeof rawNewSince === 'string' ? Temporal.Instant.from(rawNewSince)
-      : rawNewSince instanceof Temporal.Instant ? rawNewSince : null,
+    noCategories: !view.categories.length && view.noCategories,
+    newSince:
+      typeof rawNewSince === 'string'
+        ? Temporal.Instant.from(rawNewSince)
+        : rawNewSince instanceof Temporal.Instant
+          ? rawNewSince
+          : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
     ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
     mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine,
@@ -136,8 +163,17 @@ export function normalizeView(v: unknown): ViewState {
 }
 
 /** Reset all filters to the saved defaults while preserving the current sort. */
-export function defaultFilterView(defaults: DefaultFilters, sort: SortId = DEFAULT_VIEW.sort): ViewState {
-  return { ...DEFAULT_VIEW, sort, categories: [...defaults.categories], noCategories: !defaults.categories.length && defaults.noCategories === true, conditions: [...defaults.conditions] };
+export function defaultFilterView(
+  defaults: DefaultFilters,
+  sort: SortId = DEFAULT_VIEW.sort,
+): ViewState {
+  return {
+    ...DEFAULT_VIEW,
+    sort,
+    categories: [...defaults.categories],
+    noCategories: !defaults.categories.length && defaults.noCategories === true,
+    conditions: [...defaults.conditions],
+  };
 }
 
 /** Use saved defaults only when the browser has no view of its own. */
@@ -148,7 +184,11 @@ export function initialView(stored: unknown, defaults: DefaultFilters): ViewStat
 /** Compare category and condition selections without depending on their order. */
 export function sameDefaultFilters(view: DefaultFilters, defaults: DefaultFilters): boolean {
   const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every((v) => b.includes(v));
-  return Boolean(view.noCategories) === Boolean(defaults.noCategories) && same(view.categories, defaults.categories) && same(view.conditions, defaults.conditions);
+  return (
+    Boolean(view.noCategories) === Boolean(defaults.noCategories) &&
+    same(view.categories, defaults.categories) &&
+    same(view.conditions, defaults.conditions)
+  );
 }
 
 /** How many filters the view has turned on (shown on the "Clear" button). */
@@ -176,17 +216,17 @@ export interface Exclusions {
   customCategories: CustomCategory[];
 }
 
-
 const titleKey = memoize((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
 
 /**
- * The filter words whose regex matches a title (in filter order), cached by
- * title until the filter words change, so view changes don't re-run every
- * regex on every lot.
+ * The filter words whose regex matches a title (in filter order), cached by title until the filter
+ * words change, so view changes don't re-run every regex on every lot.
  */
 const titleMatcher = memoLast((words: string[]) => {
   const compiled = buildRegexes(words);
-  return memoize((title: string) => compiled.filter(({ re }) => re?.test(title)).map(({ word }) => word));
+  return memoize((title: string) =>
+    compiled.filter(({ re }) => re?.test(title)).map(({ word }) => word),
+  );
 });
 
 /** Prefix that keeps custom category values apart from the site's. */
@@ -212,7 +252,9 @@ export function compareCategoryNames(a: string, b: string): number {
 /** Custom categories ready for categoryIndex(). */
 export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const byType = new Map<string, number>();
-  const ordered = cats.map((category, index) => ({ category, index })).toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
+  const ordered = cats
+    .map((category, index) => ({ category, index }))
+    .toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
   for (const { category: c, index: i } of ordered) {
     for (const t of c.types) {
       if (!byType.has(t)) {
@@ -224,8 +266,8 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
 }
 
 /**
- * Index of the lot's custom category, or -1 for none. The alphabetically
- * first category listing the lot's item type wins.
+ * Index of the lot's custom category, or -1 for none. The alphabetically first category listing the
+ * lot's item type wins.
  */
 export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number {
   const t = lot.itemType;
@@ -240,7 +282,10 @@ export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
   return c ? { value: customCategoryValue(c.name), label: c.name } : lot.category;
 }
 
-/** Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden state. */
+/**
+ * Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden
+ * state.
+ */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const elsewhere = lot.location != null && lot.location.name !== pickup;
   const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
@@ -250,7 +295,9 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     transferFee,
     pickupOnly: elsewhere && !lot.isTransferable,
     total: totalCost(lot.currentPrice, transferFee),
-    retailPct: lot.estimatedRetailPrice ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100 : null,
+    retailPct: lot.estimatedRetailPrice
+      ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100
+      : null,
     matched: ex.filterOn ? (titleMatcher(ex.words)(lot.title)[0] ?? null) : null,
     hidden: Boolean(ex.hidden[lot.id]),
     others: [],
@@ -268,7 +315,15 @@ export interface ViewResult {
 }
 
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
-export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string, ex: Exclusions, now: Temporal.Instant, details?: ItemDetails, filteredOnly = false): ViewResult {
+export function computeView(
+  lots: Iterable<Lot>,
+  view: ViewState,
+  pickup: string,
+  ex: Exclusions,
+  now: Temporal.Instant,
+  details?: ItemDetails,
+  filteredOnly = false,
+): ViewResult {
   const matches = makeMatcher(view, now, details);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const titleMatches = titleMatcher(ex.words);
@@ -291,7 +346,11 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       continue;
     }
     // My lots views show every lot of mine, hidden or regex-filtered included.
-    if (!filteredOnly && !view.mine && ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))) {
+    if (
+      !filteredOnly &&
+      !view.mine &&
+      ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))
+    ) {
       removed++;
     } else if (!matches(row)) {
       filteredOut++;
@@ -306,27 +365,46 @@ export function computeView(lots: Iterable<Lot>, view: ViewState, pickup: string
       ? [identity.brand!.trim().replace(/\s+/g, ' '), identity.model!.trim().replace(/\s+/g, ' ')]
       : [lot.title, ''];
   };
-  const compare: Compare = view.sort === 'brand-model-asc'
-    ? (a, b) => {
-      const left = sortIdentity(a.lot), right = sortIdentity(b.lot);
-      return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
-    }
-    : SORTS[view.sort].compare;
-  cards.sort((a, b) => compare(a, b) || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id);
-  return { rows: cards, open, removed, filteredOut, matchCounts, combined: rows.length - cards.length, groups };
+  const compare: Compare =
+    view.sort === 'brand-model-asc'
+      ? (a, b) => {
+          const left = sortIdentity(a.lot),
+            right = sortIdentity(b.lot);
+          return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
+        }
+      : SORTS[view.sort].compare;
+  cards.sort(
+    (a, b) =>
+      compare(a, b) || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id,
+  );
+  return {
+    rows: cards,
+    open,
+    removed,
+    filteredOut,
+    matchCounts,
+    combined: rows.length - cards.length,
+    groups,
+  };
 }
 
 /**
- * Cheapest total cost first (so a transfer fee counts against a lot at another
- * location); ties go to the one ending soonest. Lots you can't get to your
- * pickup location come last.
+ * Cheapest total cost first (so a transfer fee counts against a lot at another location); ties go
+ * to the one ending soonest. Lots you can't get to your pickup location come last.
  */
 const byCost = (a: Row, b: Row) =>
-  +a.pickupOnly - +b.pickupOnly || a.total - b.total || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id;
+  +a.pickupOnly - +b.pickupOnly ||
+  a.total - b.total ||
+  Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) ||
+  a.lot.id - b.lot.id;
 
 let groupCache: { key: string; groups: Map<number, number> } | undefined;
 function itemGroups(rows: Row[], pct: number, details?: ItemDetails): Map<number, number> {
-  const items = rows.map(({ lot }) => ({ id: lot.id, ...itemIdentity(lot, details), condition: lot.condition?.value ?? -1 }));
+  const items = rows.map(({ lot }) => ({
+    id: lot.id,
+    ...itemIdentity(lot, details),
+    condition: lot.condition?.value ?? -1,
+  }));
   const key = JSON.stringify([pct, items]);
   if (groupCache?.key !== key) {
     const groups = new Map<number, number>();
@@ -339,11 +417,15 @@ function itemGroups(rows: Row[], pct: number, details?: ItemDetails): Map<number
 }
 
 /**
- * Fold matching items with the same condition, at any location, into one card showing the
- * cheapest by total cost (ties: ending soonest). Lots you've bid on, hidden
- * lots and regex-filtered lots keep their own card.
+ * Fold matching items with the same condition, at any location, into one card showing the cheapest
+ * by total cost (ties: ending soonest). Lots you've bid on, hidden lots and regex-filtered lots
+ * keep their own card.
  */
-function combineDuplicates(rows: Row[], pct: number, details?: ItemDetails): { cards: Row[]; groups: Map<number, Row[]> } {
+function combineDuplicates(
+  rows: Row[],
+  pct: number,
+  details?: ItemDetails,
+): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
@@ -370,7 +452,12 @@ function oneOf<T>(selected: T[]): (value: T) => boolean {
 
 /** Whether the lot was first seen strictly after the given instant. */
 export function firstSeenAfter(lot: Lot, since: Temporal.Instant): boolean {
-  return Temporal.Instant.compare(lot.firstSeenAt ?? Temporal.Instant.from('1970-01-01T00:00:00Z'), since) > 0;
+  return (
+    Temporal.Instant.compare(
+      lot.firstSeenAt ?? Temporal.Instant.from('1970-01-01T00:00:00Z'),
+      since,
+    ) > 0
+  );
 }
 
 /** The search box's regex in regex mode, or null when it's blank or invalid. */
@@ -387,11 +474,20 @@ export function searchRegexOf(v: ViewState): RegExp | null {
 }
 
 /** Predicate for the view's own filters (not hide / regex exclusions). */
-export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: ItemDetails): (row: Row) => boolean {
-  const terms = v.searchRegex ? [] : Array.from(
-    v.search.toLowerCase().matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("[^"]*"(?=\s|$)|\S+)/g),
-    ([, field, value = '']) => ({ field, value: value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value }),
-  );
+export function makeMatcher(
+  v: ViewState,
+  now: Temporal.Instant,
+  details?: ItemDetails,
+): (row: Row) => boolean {
+  const terms = v.searchRegex
+    ? []
+    : Array.from(
+        v.search.toLowerCase().matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("[^"]*"(?=\s|$)|\S+)/g),
+        ([, field, value = '']) => ({
+          field,
+          value: value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value,
+        }),
+      );
   // An invalid regex matches nothing, so the mistake is obvious.
   const re = v.searchRegex && v.search.trim() ? (searchRegexOf(v) ?? /$^/) : null;
   const win = ENDING[v.ending].window?.(now);
@@ -406,8 +502,10 @@ export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: ItemD
     const model = identity.model ?? '';
     const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
     if (re) return re.test(hay);
-    return terms.every(({ field, value }) =>
-      Boolean(value) && (field === 'brand' ? brand : field === 'model' ? model : hay).toLowerCase().includes(value),
+    return terms.every(
+      ({ field, value }) =>
+        Boolean(value) &&
+        (field === 'brand' ? brand : field === 'model' ? model : hay).toLowerCase().includes(value),
     );
   };
   return ({ lot, category: cat, total, pickupOnly }) =>
@@ -422,7 +520,9 @@ export function makeMatcher(v: ViewState, now: Temporal.Instant, details?: ItemD
     (v.priceMax == null || lot.currentPrice <= v.priceMax) &&
     (v.totalMax == null || total <= v.totalMax) &&
     (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) &&
-    (!win || (Temporal.Instant.compare(lot.endsAt, win[0]) >= 0 && Temporal.Instant.compare(lot.endsAt, win[1]) < 0)) &&
+    (!win ||
+      (Temporal.Instant.compare(lot.endsAt, win[0]) >= 0 &&
+        Temporal.Instant.compare(lot.endsAt, win[1]) < 0)) &&
     mine(lot);
 }
 
@@ -445,17 +545,31 @@ function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
     items.filter((i) => i != null),
     (i) => i.value,
   );
-  return Array.from(groups.values(), (g) => ({ value: g[0]!.value, label: g[0]!.label, count: g.length }));
+  return Array.from(groups.values(), (g) => ({
+    value: g[0]!.value,
+    label: g[0]!.label,
+    count: g.length,
+  }));
 }
 
-/** Categories (custom ones included), conditions and locations among open lots, with counts, for the filter lists. */
-export function computeFacets(lots: Iterable<Lot>, now: Temporal.Instant, customCategories: CustomCategory[]): Facets {
+/**
+ * Categories (custom ones included), conditions and locations among open lots, with counts, for the
+ * filter lists.
+ */
+export function computeFacets(
+  lots: Iterable<Lot>,
+  now: Temporal.Instant,
+  customCategories: CustomCategory[],
+): Facets {
   const open = Array.from(lots).filter((l) => Temporal.Instant.compare(l.endsAt, now) > 0);
   const categories = tally(open.map((l) => categoryOf(l, customCategories)));
   // Keep custom parents visible when all their open lots moved into descendants.
   for (const c of customCategories) {
     const value = customCategoryValue(c.name);
-    if (!categories.some((f) => f.value === value) && categories.some((f) => isCustomCategory(f.value) && f.label.startsWith(c.name + ' - '))) {
+    if (
+      !categories.some((f) => f.value === value) &&
+      categories.some((f) => isCustomCategory(f.value) && f.label.startsWith(c.name + ' - '))
+    ) {
       categories.push({ value, label: c.name, count: 0 });
     }
   }
@@ -463,7 +577,9 @@ export function computeFacets(lots: Iterable<Lot>, now: Temporal.Instant, custom
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map((l) => l.category)),
     conditions: tally(open.map((l) => l.condition)).toSorted((a, b) => a.value - b.value),
-    locations: tally(open.map((l) => l.location && { value: l.location.name, label: l.location.name })).toSorted((a, b) => b.count - a.count),
+    locations: tally(
+      open.map((l) => l.location && { value: l.location.name, label: l.location.name }),
+    ).toSorted((a, b) => b.count - a.count),
   };
 }
 
@@ -478,12 +594,17 @@ export interface SavedSearch {
 }
 
 /** The parts of a view that a saved search stores. */
-export const savedFilters = ({ newSince: _newSince, ...rest }: ViewState): Omit<ViewState, 'newSince'> => rest;
+export const savedFilters = ({
+  newSince: _newSince,
+  ...rest
+}: ViewState): Omit<ViewState, 'newSince'> => rest;
 
 /** Same filters (ignoring sort and the "new only" toggle)? */
 export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boolean {
   const strip = ({ sort: _sort, ...rest }: Omit<ViewState, 'newSince'>) => rest;
-  return JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))));
+  return (
+    JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))))
+  );
 }
 
 /** Default name for a new saved search, built from its filters. */

@@ -17,7 +17,12 @@ export function ListingRow({ row, currentTitle, selected, showCondition = false,
   const { lot } = row;
   return (
     <li>
-      <button type="button" class={selected == null ? undefined : selected ? 'on' : ''} aria-current={selected ? 'true' : undefined} onClick={() => onOpen(lot)}>
+      <button
+        type="button"
+        class={selected == null ? undefined : selected ? 'on' : ''}
+        aria-current={selected ? 'true' : undefined}
+        onClick={() => onOpen(lot)}
+      >
         <span class="price" title={costBreakdown(lot.currentPrice, row.transferFee)}>
           {dollars(lot.currentPrice)} <span class="muted small">≈ {money(row.total)}</span>
         </span>

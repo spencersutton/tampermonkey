@@ -19,7 +19,8 @@ export interface ItemDetails {
   models: ReadonlyMap<number, string | null>;
 }
 
-const normalizeIdentity = (value: string | null | undefined) => (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+const normalizeIdentity = (value: string | null | undefined) =>
+  (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** Model punctuation and word order are significant; this is not fuzzy title matching. */
 export function brandModelKey(item: ItemIdentity): string | null {
@@ -29,7 +30,10 @@ export function brandModelKey(item: ItemIdentity): string | null {
 }
 
 /** Detail caches can be newer than the price-versioned catalog entry. */
-export function itemIdentity(item: ItemIdentity & { id: number }, details?: ItemDetails): ItemIdentity {
+export function itemIdentity(
+  item: ItemIdentity & { id: number },
+  details?: ItemDetails,
+): ItemIdentity {
   const brand = details?.brands.get(item.id);
   const model = details?.models.get(item.id);
   return {
@@ -42,7 +46,9 @@ export function itemIdentity(item: ItemIdentity & { id: number }, details?: Item
 export function itemsMatch(a: ItemIdentity, b: ItemIdentity, minPct: number): boolean {
   const left = brandModelKey(a);
   const right = brandModelKey(b);
-  return left && right ? left === right : namesMatch(nameTokens(a.title), nameTokens(b.title), minPct);
+  return left && right
+    ? left === right
+    : namesMatch(nameTokens(a.title), nameTokens(b.title), minPct);
 }
 
 /** Item types retain exact-title fallback rather than fuzzy title matching. */
@@ -55,7 +61,10 @@ export function sameItemType(a: ItemIdentity, b: ItemIdentity): boolean {
 const QTY = /\bqty\.?\s*([0-9]+)/g;
 const TOKEN = /qty[0-9]+|[0-9]+(?:[./][0-9]+)*|[a-z]+/g;
 
-/** The words of a title for matching: lowercase letter runs and numbers ("4.0", "1/2"), with "Qty 3" as one word. */
+/**
+ * The words of a title for matching: lowercase letter runs and numbers ("4.0", "1/2"), with "Qty 3"
+ * as one word.
+ */
 export function nameTokens(title: string): Set<string> {
   return new Set(title.toLowerCase().replace(QTY, ' qty$1 ').match(TOKEN));
 }
@@ -82,12 +91,12 @@ export function namesMatch(a: Set<string>, b: Set<string>, minPct: number): bool
 }
 
 /**
- * Group titles whose names match, directly or through another title in the
- * group. Returns each title's group as the first title of it, for use as a key.
+ * Group titles whose names match, directly or through another title in the group. Returns each
+ * title's group as the first title of it, for use as a key.
  *
- * Prefix filtering keeps this from comparing every pair: with each title's
- * words in one fixed order (rarest first), two titles with at least t of their
- * words in common share one of the first |x| - ceil(t·|x|) + 1 words of each.
+ * Prefix filtering keeps this from comparing every pair: with each title's words in one fixed order
+ * (rarest first), two titles with at least t of their words in common share one of the first |x| -
+ * ceil(t·|x|) + 1 words of each.
  */
 export function groupNames(titles: Iterable<string>, minPct: number): Map<string, string> {
   const items = [...new Set(titles)].map((title, id) => ({ title, id }));
@@ -96,11 +105,17 @@ export function groupNames(titles: Iterable<string>, minPct: number): Map<string
 }
 
 /** Group identity matches first, then title fallbacks without bridging conflicting known models. */
-export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: number): Map<number, number> {
+export function groupItems(
+  lots: (ItemIdentity & { id: number })[],
+  minPct: number,
+): Map<number, number> {
   const entries = new Map<string, { item: ItemIdentity & { id: number }; ids: number[] }>();
   for (const item of lots) {
     const words = [...nameTokens(item.title)].toSorted();
-    const key = JSON.stringify([brandModelKey(item), words.length ? words : item.title.trim().toLowerCase()]);
+    const key = JSON.stringify([
+      brandModelKey(item),
+      words.length ? words : item.title.trim().toLowerCase(),
+    ]);
     const entry = entries.get(key);
     if (entry) entry.ids.push(item.id);
     else entries.set(key, { item, ids: [item.id] });
@@ -109,9 +124,10 @@ export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: numb
   const items = members.map(({ item }) => item);
   const parents = items.map((_, i) => i);
   const identities = items.map(brandModelKey);
-  const find = (i: number): number => parents[i] === i ? i : (parents[i] = find(parents[i]!));
+  const find = (i: number): number => (parents[i] === i ? i : (parents[i] = find(parents[i]!)));
   const join = (i: number, j: number) => {
-    const a = find(i), b = find(j);
+    const a = find(i),
+      b = find(j);
     if (a === b || (identities[a] && identities[b] && identities[a] !== identities[b])) return;
     parents[b] = a;
     identities[a] ||= identities[b] ?? null;
@@ -133,8 +149,10 @@ export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: numb
   }
   const postings = new Map<string, number[]>();
   words.forEach((tokens, i) => {
-    const ordered = [...tokens].toSorted((a, b) => freq.get(a)! - freq.get(b)! || (a < b ? -1 : a > b ? 1 : 0));
-    const prefix = ordered.slice(0, tokens.size - Math.ceil(tokens.size * minPct / 100) + 1);
+    const ordered = [...tokens].toSorted(
+      (a, b) => freq.get(a)! - freq.get(b)! || (a < b ? -1 : a > b ? 1 : 0),
+    );
+    const prefix = ordered.slice(0, tokens.size - Math.ceil((tokens.size * minPct) / 100) + 1);
     if (!prefix.length) prefix.push(`\u0000${items[i]!.title.trim().toLowerCase()}`);
     const seen = new Set<number>();
     for (const token of prefix) {
@@ -142,11 +160,14 @@ export function groupItems(lots: (ItemIdentity & { id: number })[], minPct: numb
       for (const j of list) {
         if (seen.has(j) || find(i) === find(j)) continue;
         seen.add(j);
-        if ((tokens.size === 0 && words[j]!.size === 0) || itemsMatch(items[i]!, items[j]!, minPct)) join(j, i);
+        if ((tokens.size === 0 && words[j]!.size === 0) || itemsMatch(items[i]!, items[j]!, minPct))
+          join(j, i);
       }
       list.push(i);
       postings.set(token, list);
     }
   });
-  return new Map(members.flatMap(({ ids }, i) => ids.map((id): [number, number] => [id, items[find(i)]!.id])));
+  return new Map(
+    members.flatMap(({ ids }, i) => ids.map((id): [number, number] => [id, items[find(i)]!.id])),
+  );
 }

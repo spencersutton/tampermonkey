@@ -1,3 +1,7 @@
+import { batch, signal } from '@preact/signals';
+
+import { DEFAULTS, KEYS, SERVER_KEYS } from '../shared/keys';
+import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
 // Catalog source for the web app, which the tlx server (server/, Python)
 // serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
@@ -8,11 +12,19 @@
 // some tab is, unless run with --background-minutes). Its pulls use its own
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
-import { batch, signal } from '@preact/signals';
-import { error, fetchedAt, inUse, loaded, lotBrands, lotModels, lots, progress, trackActivity, updateItemType } from './catalog';
-import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
+import {
+  error,
+  fetchedAt,
+  inUse,
+  loaded,
+  lotBrands,
+  lotModels,
+  lots,
+  progress,
+  trackActivity,
+  updateItemType,
+} from './catalog';
 import { applySetting, setSaveHook, type Key } from './settings';
-import { DEFAULTS, KEYS, SERVER_KEYS } from '../shared/keys';
 import { toast } from './toast';
 import type { Lot, PastClose, PastCloseDetail } from './types';
 
@@ -23,7 +35,12 @@ const POLL_HIDDEN = 60_000;
 const TIMEOUT = 30_000;
 
 /** Call the tlx server and parse its JSON reply. */
-async function call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {
+async function call<T>(
+  method: 'GET' | 'POST' | 'PUT',
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -86,7 +103,9 @@ function instantFromEpochMilliseconds(ms: number): Temporal.Instant {
   return Temporal.Instant.fromEpochMilliseconds(ms);
 }
 
-function normalizePastClose<T extends ServerPastClose>(close: T): Omit<T, 'endsAt'> & { endsAt: Temporal.Instant } {
+function normalizePastClose<T extends ServerPastClose>(
+  close: T,
+): Omit<T, 'endsAt'> & { endsAt: Temporal.Instant } {
   return { ...close, endsAt: instantFromEpochMilliseconds(close.endsAt) };
 }
 
@@ -94,8 +113,12 @@ function normalizeCatalogLot(lot: ServerLot): Lot {
   return {
     ...lot,
     endsAt: instantFromEpochMilliseconds(lot.endsAt),
-    firstSeenAt: lot.firstSeenAt == null ? undefined : instantFromEpochMilliseconds(lot.firstSeenAt),
-    pastCloses: lot.pastCloses && { ...lot.pastCloses, recent: lot.pastCloses.recent.map(normalizePastClose) },
+    firstSeenAt:
+      lot.firstSeenAt == null ? undefined : instantFromEpochMilliseconds(lot.firstSeenAt),
+    pastCloses: lot.pastCloses && {
+      ...lot.pastCloses,
+      recent: lot.pastCloses.recent.map(normalizePastClose),
+    },
   };
 }
 
@@ -145,9 +168,17 @@ export function applyCatalog(r: CatalogReply) {
       for (const fresh of pulled) {
         const mine = cur.get(fresh.id);
         // Keep newer live prices, but take server-owned metadata from the poll.
-        next.set(fresh.id, mine && mine.version > fresh.version
-          ? { ...mine, firstSeenAt: fresh.firstSeenAt, itemType: fresh.itemType, pastCloses: fresh.pastCloses }
-          : fresh);
+        next.set(
+          fresh.id,
+          mine && mine.version > fresh.version
+            ? {
+                ...mine,
+                firstSeenAt: fresh.firstSeenAt,
+                itemType: fresh.itemType,
+                pastCloses: fresh.pastCloses,
+              }
+            : fresh,
+        );
       }
       for (const [id, lot] of next) {
         for (const edit of typeEdits.values()) {
@@ -180,7 +211,9 @@ function poll(): Promise<void> {
     clearTimeout(pollTimer);
     try {
       await authReady();
-      const r = await call<CatalogReply>('GET', `/api/catalog?since=${seq}`, undefined, { 'X-TLX-Active': inUse() ? '1' : '0' });
+      const r = await call<CatalogReply>('GET', `/api/catalog?since=${seq}`, undefined, {
+        'X-TLX-Active': inUse() ? '1' : '0',
+      });
       applyCatalog(r);
       await loadSettings();
     } catch (err) {
@@ -212,11 +245,17 @@ export const nextPullAt = () => nextAt ?? Temporal.Instant.from('1970-01-01T00:0
 
 /** Every closed lot matching this item's identity or title fallback, most recent first. */
 export const fetchPastCloses = (id: number) =>
-  call<{ closes: ServerPastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes.map(normalizePastClose));
+  call<{ closes: ServerPastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) =>
+    r.closes.map(normalizePastClose),
+  );
 
 /** Persist an item correction and update cards, sorting and category matching immediately. */
 export async function setItemType(lotId: number, itemType: string): Promise<string> {
-  const reply = await call<ItemIdentity & { itemType: string; seq: number }>('PUT', '/api/item-type', { lotId, itemType });
+  const reply = await call<ItemIdentity & { itemType: string; seq: number }>(
+    'PUT',
+    '/api/item-type',
+    { lotId, itemType },
+  );
   const identity = { title: reply.title, brand: reply.brand, model: reply.model };
   typeEdits.delete(lotId);
   typeEdits.set(lotId, { identity, itemType: reply.itemType, seq: reply.seq });
@@ -243,7 +282,12 @@ function decodeSetting(key: Key, value: unknown): unknown {
   if (key === KEYS.savedSearches) {
     if (!Array.isArray(value)) throw new TypeError('Invalid saved searches from the tlx server');
     return value.map((search: unknown) => {
-      if (!search || typeof search !== 'object' || !('lastViewedAt' in search) || typeof search.lastViewedAt !== 'number') {
+      if (
+        !search ||
+        typeof search !== 'object' ||
+        !('lastViewedAt' in search) ||
+        typeof search.lastViewedAt !== 'number'
+      ) {
         throw new TypeError('Invalid saved search timestamp from the tlx server');
       }
       return { ...search, lastViewedAt: instantFromEpochMilliseconds(search.lastViewedAt) };
@@ -255,13 +299,19 @@ function decodeSetting(key: Key, value: unknown): unknown {
 function encodeSetting(key: Key, value: unknown): unknown {
   if (key === KEYS.lastVisit) {
     if (value == null) return null;
-    if (!(value instanceof Temporal.Instant)) throw new TypeError('Invalid last visit for the tlx server');
+    if (!(value instanceof Temporal.Instant))
+      throw new TypeError('Invalid last visit for the tlx server');
     return value.epochMilliseconds;
   }
   if (key === KEYS.savedSearches) {
     if (!Array.isArray(value)) throw new TypeError('Invalid saved searches for the tlx server');
     return value.map((search: unknown) => {
-      if (!search || typeof search !== 'object' || !('lastViewedAt' in search) || !(search.lastViewedAt instanceof Temporal.Instant)) {
+      if (
+        !search ||
+        typeof search !== 'object' ||
+        !('lastViewedAt' in search) ||
+        !(search.lastViewedAt instanceof Temporal.Instant)
+      ) {
         throw new TypeError('Invalid saved search timestamp for the tlx server');
       }
       return { ...search, lastViewedAt: search.lastViewedAt.epochMilliseconds };
@@ -276,7 +326,10 @@ async function sendSetting(key: Key, value: unknown) {
     const serverValue = encodeSetting(key, value);
     await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value: serverValue });
   } catch (err) {
-    toast('bad', `Couldn’t save ${key}: ${err instanceof Error ? err.message : String(err)}. This change has not been saved.`);
+    toast(
+      'bad',
+      `Couldn’t save ${key}: ${err instanceof Error ? err.message : String(err)}. This change has not been saved.`,
+    );
   }
 }
 
@@ -286,7 +339,13 @@ async function loadSettings() {
     return;
   }
   const r = await call<{ values: Record<string, unknown> }>('GET', '/api/settings');
-  const values = SERVER_KEYS.map((key) => [key, decodeSetting(key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key])] as const);
+  const values = SERVER_KEYS.map(
+    (key) =>
+      [
+        key,
+        decodeSetting(key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key]),
+      ] as const,
+  );
   batch(() => {
     for (const [key, value] of values) {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion

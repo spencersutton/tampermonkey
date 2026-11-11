@@ -1,10 +1,18 @@
 // Confirmation step for every bid: amount, estimated total cost if won, and a
 // warning when the lot isn't at your pickup location.
 import { useState } from 'preact/hooks';
+
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
-import { bidBlocker, minMaxBid, quickBidAmount, submitBid, bidPending, type BidRequest } from './bid';
-import { TimeLeft } from './LotCard';
+import {
+  bidBlocker,
+  minMaxBid,
+  quickBidAmount,
+  submitBid,
+  bidPending,
+  type BidRequest,
+} from './bid';
 import { Dialog } from './Dialog';
+import { TimeLeft } from './LotCard';
 import { clock, plural } from './util';
 import type { Row } from './view';
 
@@ -38,7 +46,12 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   };
 
   return (
-    <Dialog onClose={() => !pending && onClose()} role="alertdialog" aria-labelledby="bid-confirm-title" aria-describedby="bid-confirm-body">
+    <Dialog
+      onClose={() => !pending && onClose()}
+      role="alertdialog"
+      aria-labelledby="bid-confirm-title"
+      aria-describedby="bid-confirm-body"
+    >
       <div class="confirm">
         <h2 id="bid-confirm-title">{isMax ? 'Confirm max bid' : 'Confirm bid'}</h2>
         <div id="bid-confirm-body" class="confirm-body">
@@ -46,12 +59,16 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
           <div class="confirm-amount">
             <span class="big">{dollars(amount)}</span>
             <span class="muted small">
-              {isMax ? 'Max bid – the site bids for you, only as much as needed, up to this amount' : 'Bid at the next increment'}
+              {isMax
+                ? 'Max bid – the site bids for you, only as much as needed, up to this amount'
+                : 'Bid at the next increment'}
             </span>
           </div>
           <dl class="confirm-facts">
             <dt>{isMax ? 'Total if you win at your max' : 'Total if you win at this bid'}</dt>
-            <dd title={costBreakdown(amount, row.transferFee)}>≈ {money(totalCost(amount, row.transferFee))}</dd>
+            <dd title={costBreakdown(amount, row.transferFee)}>
+              ≈ {money(totalCost(amount, row.transferFee))}
+            </dd>
             <dt>Current bid</dt>
             <dd>
               {dollars(lot.currentPrice)} · {plural(lot.bidCount, 'bid')}
@@ -74,13 +91,15 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
           )}
           {!row.pickupOnly && row.transferFee > 0 && (
             <p class="confirm-warn">
-              This lot is at <b>{elsewhere}</b>. It will be transferred to {pickup} for {money(row.transferFee)} (included in the total).
+              This lot is at <b>{elsewhere}</b>. It will be transferred to {pickup} for{' '}
+              {money(row.transferFee)} (included in the total).
             </p>
           )}
           {blocker && <p class="error">{blocker}</p>}
           {!blocker && stale && (
             <p class="confirm-warn">
-              The price moved: the {isMax ? 'smallest max bid' : 'next bid'} is now <b>{dollars(min)}</b>.{' '}
+              The price moved: the {isMax ? 'smallest max bid' : 'next bid'} is now{' '}
+              <b>{dollars(min)}</b>.{' '}
               <button type="button" class="btn-text" onClick={() => setAmount(min)}>
                 Use {dollars(min)}
               </button>
@@ -91,7 +110,13 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
           <button type="button" class="btn btn-outline" onClick={onClose} disabled={pending}>
             Cancel
           </button>
-          <button type="button" class="btn" autofocus onClick={confirm} aria-disabled={disabled ? 'true' : undefined}>
+          <button
+            type="button"
+            class="btn"
+            autofocus
+            onClick={confirm}
+            aria-disabled={disabled ? 'true' : undefined}
+          >
             {pending ? 'Placing bid…' : `Place ${dollars(amount)} bid`}
           </button>
         </div>

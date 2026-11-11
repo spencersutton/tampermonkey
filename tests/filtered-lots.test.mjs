@@ -1,25 +1,42 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 globalThis.window = { scrollTo() {} };
-const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+const vite = await createServer({
+  configFile: false,
+  logLevel: 'silent',
+  server: { middlewareMode: true, watch: null },
+  appType: 'custom',
+});
 after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');
 const { DEFAULT_VIEW } = await vite.ssrLoadModule('/src/app/view.ts');
-const { filteredOnly, gridView, openFiltered, openClosed, closed, page, setView, sidebarOpen } = await vite.ssrLoadModule('/src/app/state.ts');
+const { filteredOnly, gridView, openFiltered, openClosed, closed, page, setView, sidebarOpen } =
+  await vite.ssrLoadModule('/src/app/state.ts');
 const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/history.ts');
 
 const now = Temporal.Now.instant();
 const lot = (id, title, extra = {}) => ({
-  id, title, lotNumber: `${id}`, auctionPeriod: 'test',
-  category: null, condition: null, location: null,
-  endsAt: now.add({ hours: 2 }), currentPrice: 10, estimatedRetailPrice: null,
-  transferFee: 0, isTransferable: false, images: [], bidCount: 0,
+  id,
+  title,
+  lotNumber: `${id}`,
+  auctionPeriod: 'test',
+  category: null,
+  condition: null,
+  location: null,
+  endsAt: now.add({ hours: 2 }),
+  currentPrice: 10,
+  estimatedRetailPrice: null,
+  transferFee: 0,
+  isTransferable: false,
+  images: [],
+  bidCount: 0,
   ...extra,
 });
 const ids = () => gridView.value.rows.map((row) => row.lot.id);
@@ -50,7 +67,10 @@ test('filtered page shows only rule matches, including removed and hidden lots, 
   assert.equal(page.value, 1);
   assert.equal(sidebarOpen.value, false);
   assert.deepEqual(ids(), [1, 3]);
-  assert.deepEqual(gridView.value.rows.map((row) => row.matched), ['drill', 'saw']);
+  assert.deepEqual(
+    gridView.value.rows.map((row) => row.matched),
+    ['drill', 'saw'],
+  );
   openFiltered(false);
   assert.deepEqual(ids(), [2]);
 });
@@ -89,10 +109,21 @@ test('filtered page round-trips through URLs and browser back/forward', () => {
   globalThis.location = { pathname: '/tlx' };
   globalThis.history = {
     state: null,
-    replaceState(state, _title, url) { this.state = state; entries.push({ state, url }); },
-    pushState(state, _title, url) { this.state = state; entries.push({ state, url }); },
+    replaceState(state, _title, url) {
+      this.state = state;
+      entries.push({ state, url });
+    },
+    pushState(state, _title, url) {
+      this.state = state;
+      entries.push({ state, url });
+    },
   };
-  globalThis.window = { scrollTo() {}, addEventListener(name, fn) { listeners[name] = fn; } };
+  globalThis.window = {
+    scrollTo() {},
+    addEventListener(name, fn) {
+      listeners[name] = fn;
+    },
+  };
   globalThis.requestAnimationFrame = (fn) => fn();
   startHistory();
   const catalog = history.state;

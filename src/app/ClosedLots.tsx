@@ -3,6 +3,7 @@
 // (matched like duplicate listings) are offered right under the lot, so a
 // lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
+
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { DEFAULT_NAME_MATCH, itemIdentity, itemsMatch } from '../shared/names';
@@ -49,9 +50,21 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
         setData(d);
       }
     };
-    fetchClosed(section, (lots, count) => put({ lots, count, done: false, at: Date.now() }), ac.signal).then(
+    fetchClosed(
+      section,
+      (lots, count) => put({ lots, count, done: false, at: Date.now() }),
+      ac.signal,
+    ).then(
       (lots) => put({ lots, count: lots.length, done: true, at: Date.now() }),
-      (e) => !ac.signal.aborted && put({ lots: hit?.lots ?? [], count: 0, done: true, at: 0, error: e instanceof Error ? e.message : String(e) || String(e) }),
+      (e) =>
+        !ac.signal.aborted &&
+        put({
+          lots: hit?.lots ?? [],
+          count: 0,
+          done: true,
+          at: 0,
+          error: e instanceof Error ? e.message : String(e) || String(e),
+        }),
     );
     return () => ac.abort();
   }, [section, authed]);
@@ -133,7 +146,13 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         {(['won', 'lost'] as const).map((s) => {
           const d = s === section ? data : cache.get(s);
           return (
-            <button type="button" role="tab" aria-selected={s === section} class={s === section ? 'on' : ''} onClick={() => openClosed(s)}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={s === section}
+              class={s === section ? 'on' : ''}
+              onClick={() => openClosed(s)}
+            >
               {TITLES[s]}
               {d?.done && !d.error && <span class="muted"> ({fmtCount(d.lots.length)})</span>}
             </button>
@@ -148,10 +167,18 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
       ) : (
         <>
           <div class="closed-tools">
-            <input type="search" placeholder={`Filter ${TITLES[section].toLowerCase()} lots`} aria-label="Filter lots" value={filter} onInput={(e) => setFilter(e.currentTarget.value)} />
+            <input
+              type="search"
+              placeholder={`Filter ${TITLES[section].toLowerCase()} lots`}
+              aria-label="Filter lots"
+              value={filter}
+              onInput={(e) => setFilter(e.currentTarget.value)}
+            />
             {data && !data.error && (
               <span class="muted small">
-                {data.done ? plural(lots.length, 'lot') : `Loading… ${fmtCount(data.lots.length)} of ${fmtCount(data.count)}`}
+                {data.done
+                  ? plural(lots.length, 'lot')
+                  : `Loading… ${fmtCount(data.lots.length)} of ${fmtCount(data.count)}`}
                 {section === 'won' && lots.length > 0 && (
                   <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax (transfer fees not included)">
                     {' '}
@@ -162,9 +189,17 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
               </span>
             )}
           </div>
-          {data?.error && <p class="error">Couldn’t load your {TITLES[section].toLowerCase()} lots: {data.error}</p>}
+          {data?.error && (
+            <p class="error">
+              Couldn’t load your {TITLES[section].toLowerCase()} lots: {data.error}
+            </p>
+          )}
           {!data && <p class="muted">Loading…</p>}
-          {data?.done && !data.error && !data.lots.length && <p class="muted">{section === 'won' ? 'No won lots.' : 'No lost lots in the last 14 days.'}</p>}
+          {data?.done && !data.error && !data.lots.length && (
+            <p class="muted">
+              {section === 'won' ? 'No won lots.' : 'No lost lots in the last 14 days.'}
+            </p>
+          )}
           <ol class="closed-list">
             {lots.map((c) => (
               <ClosedRow
@@ -196,7 +231,13 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
 
 const key = (c: ClosedLot) => `${c.auctionPeriod}:${c.lotId}`;
 
-function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | undefined; opening: boolean; onOpen: () => void }) {
+function ClosedRow(props: {
+  lot: ClosedLot;
+  won: boolean;
+  relisted?: Row[] | undefined;
+  opening: boolean;
+  onOpen: () => void;
+}) {
   const { lot: c, won, relisted, opening, onOpen } = props;
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auctionPeriod, c.lotId);
@@ -205,7 +246,11 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | und
     <li class={`closed-row ${opening ? 'opening' : ''}`}>
       <div class="closed-main">
         <a class="closed-img" href={href} onClick={click} tabIndex={-1} aria-hidden="true">
-          {c.heroImage ? <img src={`${CDN}/${c.heroImage}`} alt="" loading="lazy" /> : <span class="noimg" />}
+          {c.heroImage ? (
+            <img src={`${CDN}/${c.heroImage}`} alt="" loading="lazy" />
+          ) : (
+            <span class="noimg" />
+          )}
         </a>
         <div class="closed-what">
           <a class="closed-title" href={href} onClick={click}>
@@ -216,7 +261,12 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | und
             {relisted && (
               <>
                 {' · '}
-                <button type="button" class="link-button" aria-expanded={showRelisted} onClick={() => setShowRelisted(!showRelisted)}>
+                <button
+                  type="button"
+                  class="link-button"
+                  aria-expanded={showRelisted}
+                  onClick={() => setShowRelisted(!showRelisted)}
+                >
                   {plural(relisted.length, 'listing')} open now
                 </button>
               </>
@@ -237,7 +287,13 @@ function ClosedRow(props: { lot: ClosedLot; won: boolean; relisted?: Row[] | und
       {showRelisted && relisted && (
         <ol class="dupes closed-relisted">
           {relisted.map((r) => (
-            <ListingRow key={r.lot.id} row={r} currentTitle={c.title} showCondition onOpen={openLot} />
+            <ListingRow
+              key={r.lot.id}
+              row={r}
+              currentTitle={c.title}
+              showCondition
+              onOpen={openLot}
+            />
           ))}
         </ol>
       )}

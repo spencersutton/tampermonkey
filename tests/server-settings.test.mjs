@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
+
 import 'temporal-polyfill/global';
 import { Component, h, options } from 'preact';
 import { createServer } from 'vite';
@@ -13,21 +14,46 @@ const settle = async () => {
 async function setup(t, values = {}) {
   const storage = new Map([
     ['tlx:filterWords', JSON.stringify(['stale-local'])],
-    ['tlx:tlxSavedSearches', JSON.stringify([{ id: 'old', lastViewedAt: '1970-01-01T00:00:00.123Z' }])],
+    [
+      'tlx:tlxSavedSearches',
+      JSON.stringify([{ id: 'old', lastViewedAt: '1970-01-01T00:00:00.123Z' }]),
+    ],
     ['tlx:tlxCustomCategories', JSON.stringify([{ name: 'Stale', types: ['drill'] }])],
     ['tlx:tlxView', JSON.stringify({ search: 'local view' })],
   ]);
-  const reads = [], writes = [], requests = [], callbacks = [];
+  const reads = [],
+    writes = [],
+    requests = [],
+    callbacks = [];
   globalThis.localStorage = {
-    getItem(key) { reads.push(key); return storage.get(key) ?? null; },
-    setItem(key, value) { writes.push(key); storage.set(key, value); },
+    getItem(key) {
+      reads.push(key);
+      return storage.get(key) ?? null;
+    },
+    setItem(key, value) {
+      writes.push(key);
+      storage.set(key, value);
+    },
   };
-  globalThis.window = { addEventListener() {}, setTimeout(fn) { callbacks.push(fn); return 1; } };
+  globalThis.window = {
+    addEventListener() {},
+    setTimeout(fn) {
+      callbacks.push(fn);
+      return 1;
+    },
+  };
   globalThis.document = { visibilityState: 'visible', addEventListener() {} };
-  const status = { now: Date.now(), nextPullAt: Date.now(), meta: { fetchedAt: 0 }, progress: null, error: null };
+  const status = {
+    now: Date.now(),
+    nextPullAt: Date.now(),
+    meta: { fetchedAt: 0 },
+    progress: null,
+    error: null,
+  };
   t.mock.method(globalThis, 'fetch', async (path, init) => {
     requests.push({ path, method: init.method, body: init.body && JSON.parse(init.body) });
-    if (path.startsWith('/api/catalog?')) return Response.json({ ...status, seq: 1, full: true, ids: null, lots: [] });
+    if (path.startsWith('/api/catalog?'))
+      return Response.json({ ...status, seq: 1, full: true, ids: null, lots: [] });
     if (path === '/api/settings') return Response.json({ values });
     if (path.startsWith('/api/settings/')) {
       values[decodeURIComponent(path.slice('/api/settings/'.length))] = JSON.parse(init.body).value;
@@ -35,7 +61,12 @@ async function setup(t, values = {}) {
     }
     throw new Error(`Unexpected request: ${path}`);
   });
-  const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+  const vite = await createServer({
+    configFile: false,
+    logLevel: 'silent',
+    server: { middlewareMode: true, watch: null },
+    appType: 'custom',
+  });
   servers.push(vite);
   const settings = await vite.ssrLoadModule('/src/app/settings.ts');
   const keys = await vite.ssrLoadModule('/src/shared/keys.ts');
@@ -73,7 +104,13 @@ test('startup uses server values and defaults without uploading stale browser se
   assert.deepEqual(settings.getSetting(KEYS.view), { search: 'local view' });
   assert.deepEqual(reads, [`tlx:${KEYS.view}`]);
   assert.deepEqual(writes, []);
-  assert.deepEqual(requests.map(({ method, path }) => [method, path]), [['GET', '/api/catalog?since=0'], ['GET', '/api/settings']]);
+  assert.deepEqual(
+    requests.map(({ method, path }) => [method, path]),
+    [
+      ['GET', '/api/catalog?since=0'],
+      ['GET', '/api/settings'],
+    ],
+  );
 });
 
 test('edits save directly to the server with timestamps encoded and no local copy', async (t) => {
@@ -83,7 +120,9 @@ test('edits save directly to the server with timestamps encoded and no local cop
   await source.settingsReady;
   settings.setSetting(KEYS.words, ['drill']);
   settings.setSetting(KEYS.lastVisit, Temporal.Instant.fromEpochMilliseconds(123));
-  settings.setSetting(KEYS.savedSearches, [{ id: 'new', name: 'New', view: {}, lastViewedAt: Temporal.Instant.fromEpochMilliseconds(456) }]);
+  settings.setSetting(KEYS.savedSearches, [
+    { id: 'new', name: 'New', view: {}, lastViewedAt: Temporal.Instant.fromEpochMilliseconds(456) },
+  ]);
   await settle();
   assert.deepEqual(values.filterWords, ['drill']);
   assert.equal(values.tlxLastVisit, 123);
@@ -104,7 +143,16 @@ test('failed saves show an explicit error and are not silently queued or persist
       return Response.json({ error: 'Database unavailable' }, { status: 500 });
     }
     if (path.startsWith('/api/catalog?')) {
-      return Response.json({ now: Date.now(), nextPullAt: Date.now(), meta: { fetchedAt: 0 }, progress: null, error: null, seq: 1, full: true, lots: [] });
+      return Response.json({
+        now: Date.now(),
+        nextPullAt: Date.now(),
+        meta: { fetchedAt: 0 },
+        progress: null,
+        error: null,
+        seq: 1,
+        full: true,
+        lots: [],
+      });
     }
     throw new Error(`Unexpected request: ${path}`);
   });
@@ -117,7 +165,10 @@ test('failed saves show an explicit error and are not silently queued or persist
   vnode.__c.__h = [];
   options.__r(vnode);
   const tree = vnode.type(vnode.props);
-  assert.match(tree.props.children[0].props.children, /Couldn’t save filterWords: Database unavailable.*not been saved/);
+  assert.match(
+    tree.props.children[0].props.children,
+    /Couldn’t save filterWords: Database unavailable.*not been saved/,
+  );
   callbacks.shift()();
   await settle();
   assert.equal(saves, 1);
@@ -129,7 +180,16 @@ test('failed startup leaves settings unready and retries the server instead of u
   let attempts = 0;
   t.mock.method(globalThis, 'fetch', async (path) => {
     if (path.startsWith('/api/catalog?')) {
-      return Response.json({ now: Date.now(), nextPullAt: Date.now(), meta: { fetchedAt: 0 }, progress: null, error: null, seq: 1, full: true, lots: [] });
+      return Response.json({
+        now: Date.now(),
+        nextPullAt: Date.now(),
+        meta: { fetchedAt: 0 },
+        progress: null,
+        error: null,
+        seq: 1,
+        full: true,
+        lots: [],
+      });
     }
     if (path === '/api/settings') {
       attempts++;

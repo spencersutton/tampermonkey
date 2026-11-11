@@ -42,7 +42,13 @@ export function Toasts() {
   return (
     <div class="toasts" popover="manual" role="status" aria-live="polite" ref={box}>
       {list.map((t) => (
-        <button type="button" key={t.id} class={`toast toast-${t.kind}`} onClick={() => dismiss(t.id)} title="Dismiss">
+        <button
+          type="button"
+          key={t.id}
+          class={`toast toast-${t.kind}`}
+          onClick={() => dismiss(t.id)}
+          title="Dismiss"
+        >
           {t.text}
         </button>
       ))}

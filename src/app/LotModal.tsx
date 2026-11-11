@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'preact/hooks';
+
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending } from './bid';
+import { BrandModel } from './brands';
 import { cachedDetail, cachedMetadata, getLot, loadDetail, loadMetadata } from './catalog';
-import { Dialog } from './Dialog';
 import { siteConditions } from './conditions';
+import { Dialog } from './Dialog';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { BrandModel } from './brands';
 import { ListingRow } from './ListingRow';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
-import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Lot, LotDetail, LotMetadata, PastCloseDetail } from './types';
+import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
 
 interface Props {
@@ -39,7 +40,9 @@ export function LotModal(props: Props) {
 function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   const { lot } = row;
   const [detail, setDetail] = useState<LotDetail | null>(() => cachedDetail(lot.id) ?? null);
-  const [metadata, setMetadata] = useState<LotMetadata | null>(() => cachedMetadata(lot.id) ?? null);
+  const [metadata, setMetadata] = useState<LotMetadata | null>(
+    () => cachedMetadata(lot.id) ?? null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,8 +58,12 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
     setRefreshing(true);
     setDetail(cachedDetail(lot.id) ?? null);
     loadMetadata(lot).then(
-      (saved) => { if (active && !refreshed && saved) setMetadata(saved); },
-      (e) => { if (active && !refreshed) setMetadataError(e instanceof Error ? e.message : String(e)); },
+      (saved) => {
+        if (active && !refreshed && saved) setMetadata(saved);
+      },
+      (e) => {
+        if (active && !refreshed) setMetadataError(e instanceof Error ? e.message : String(e));
+      },
     );
     // The cache shares this request with other callers; only detach this reader.
     loadDetail(lot).then(
@@ -74,14 +81,17 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
         setRefreshing(false);
       },
     );
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [lot.id, lot.version, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading, authed]);
 
   const images = metadata?.images ?? lot.images;
   const auction = detail && detail.version >= lot.version ? detail : null;
   const img = images[Math.min(imgIdx, images.length - 1)];
   /** Move through the images by `delta`, wrapping around. */
-  const step = (delta: number) => setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
+  const step = (delta: number) =>
+    setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
 
   const onKeyDown = (e: KeyboardEvent) => {
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
@@ -102,10 +112,20 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
             {img ? <img src={`${CDN}/${img.large}`} alt="" /> : <span class="noimg">No image</span>}
             {images.length > 1 && (
               <>
-                <button type="button" class="icon-btn gal-prev" aria-label="Previous image" onClick={() => step(-1)}>
+                <button
+                  type="button"
+                  class="icon-btn gal-prev"
+                  aria-label="Previous image"
+                  onClick={() => step(-1)}
+                >
                   <Icon name="chevronLeft" size={24} />
                 </button>
-                <button type="button" class="icon-btn gal-next" aria-label="Next image" onClick={() => step(1)}>
+                <button
+                  type="button"
+                  class="icon-btn gal-next"
+                  aria-label="Next image"
+                  onClick={() => step(1)}
+                >
                   <Icon name="chevronRight" size={24} />
                 </button>
               </>
@@ -114,7 +134,12 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           {images.length > 1 && (
             <div class="thumbs">
               {images.map((im, i) => (
-                <button type="button" class={i === imgIdx ? 'on' : ''} aria-label={`Image ${i + 1}`} onClick={() => setImgIdx(i)}>
+                <button
+                  type="button"
+                  class={i === imgIdx ? 'on' : ''}
+                  aria-label={`Image ${i + 1}`}
+                  onClick={() => setImgIdx(i)}
+                >
                   <img src={`${CDN}/${im.thumb}`} alt="" loading="lazy" />
                 </button>
               ))}
@@ -127,7 +152,11 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           {metadata && <BrandModel brand={metadata.brand} model={metadata.model} />}
           <div class="card-meta">
             <LocationText row={row} />
-            {lot.condition && <span title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
+            {lot.condition && (
+              <span title={conditions.get(lot.condition.value)?.description}>
+                {lot.condition.label}
+              </span>
+            )}
             {row.category && <span>{row.category.label}</span>}
             <span>Lot #{lot.lotNumber}</span>
           </div>
@@ -152,7 +181,9 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           </div>
           <div class="row-gap">
             <StandingBadge lot={lot} />
-            {lot.yourStanding?.yourMaxBid != null && <span class="muted small">Your max bid {dollars(lot.yourStanding.yourMaxBid)}</span>}
+            {lot.yourStanding?.yourMaxBid != null && (
+              <span class="muted small">Your max bid {dollars(lot.yourStanding.yourMaxBid)}</span>
+            )}
             {lot.estimatedRetailPrice != null && (
               <span class="muted small">
                 Retail {dollars(lot.estimatedRetailPrice)}
@@ -163,16 +194,24 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           </div>
           <BidPanel key={`${lot.id}:${lot.yourStanding?.yourMaxBid}`} row={row} />
           <div class="row-gap">
-            <a class="btn btn-text" href={lotHref(lot.auctionPeriod, lot.id)} target="_blank" rel="noopener">
+            <a
+              class="btn btn-text"
+              href={lotHref(lot.auctionPeriod, lot.id)}
+              target="_blank"
+              rel="noopener"
+            >
               Open on Triangle Liquidators <Icon name="open" size={16} />
             </a>
             <WatchButton lot={lot} />
             <button type="button" class="btn btn-text" onClick={() => toggleHide(lot)}>
-              <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} /> {row.hidden ? 'Unhide' : 'Hide'}
+              <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} />{' '}
+              {row.hidden ? 'Unhide' : 'Hide'}
             </button>
           </div>
 
-          {group && group.length > 1 && <SameListings group={group} current={lot} onOpen={onOpenLot} />}
+          {group && group.length > 1 && (
+            <SameListings group={group} current={lot} onOpen={onOpenLot} />
+          )}
           {lot.pastCloses && <PastCloses lot={lot} />}
 
           {metadataError && <p class="error">Couldn’t load saved item details: {metadataError}</p>}
@@ -195,7 +234,9 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
                   </ol>
                 </div>
               )}
-              {auction.similar.length > 0 && <Similar lots={auction.similar} current={lot} onOpen={onOpenLot} />}
+              {auction.similar.length > 0 && (
+                <Similar lots={auction.similar} current={lot} onOpen={onOpenLot} />
+              )}
             </>
           )}
         </div>
@@ -204,14 +245,31 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   );
 }
 
-/** List of the listings in this lot's group (titles shown where they differ); click one to switch to it. */
-function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; onOpen: (lot: Lot) => void }) {
+/**
+ * List of the listings in this lot's group (titles shown where they differ); click one to switch to
+ * it.
+ */
+function SameListings({
+  group,
+  current,
+  onOpen,
+}: {
+  group: Row[];
+  current: Lot;
+  onOpen: (lot: Lot) => void;
+}) {
   return (
     <div>
       <h3>{fmtCount(group.length)} listings of this item</h3>
       <ol class="dupes">
         {group.map((r) => (
-          <ListingRow key={r.lot.id} row={r} currentTitle={current.title} selected={r.lot.id === current.id} onOpen={onOpen} />
+          <ListingRow
+            key={r.lot.id}
+            row={r}
+            currentTitle={current.title}
+            selected={r.lot.id === current.id}
+            onOpen={onOpen}
+          />
         ))}
       </ol>
     </div>
@@ -219,13 +277,22 @@ function SameListings({ group, current, onOpen }: { group: Row[]; current: Lot; 
 }
 
 /**
- * The site's "Similar Auctions" for this lot that are still open, with the
- * catalog's copy where it has one (fresher price). A lot in the catalog opens
- * here; any other opens on the site.
+ * The site's "Similar Auctions" for this lot that are still open, with the catalog's copy where it
+ * has one (fresher price). A lot in the catalog opens here; any other opens on the site.
  */
-function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen: (lot: Lot) => void }) {
+function Similar({
+  lots,
+  current,
+  onOpen,
+}: {
+  lots: Lot[];
+  current: Lot;
+  onOpen: (lot: Lot) => void;
+}) {
   const now = clock(30_000);
-  const open = lots.map((l) => getLot(l.id) ?? l).filter((l) => l.id !== current.id && Temporal.Instant.compare(l.endsAt, now) > 0);
+  const open = lots
+    .map((l) => getLot(l.id) ?? l)
+    .filter((l) => l.id !== current.id && Temporal.Instant.compare(l.endsAt, now) > 0);
   if (!open.length) {
     return null;
   }
@@ -245,7 +312,13 @@ function Similar({ lots, current, onOpen }: { lots: Lot[]; current: Lot; onOpen:
                 title={l.title}
                 onClick={inCatalog ? openHandler(() => onOpen(getLot(l.id)!)) : undefined}
               >
-                <span class="similar-img">{img ? <img src={`${CDN}/${img.thumb}`} alt="" loading="lazy" /> : <span class="noimg" />}</span>
+                <span class="similar-img">
+                  {img ? (
+                    <img src={`${CDN}/${img.thumb}`} alt="" loading="lazy" />
+                  ) : (
+                    <span class="noimg" />
+                  )}
+                </span>
                 <span class="similar-title">{l.title}</span>
                 <span class="similar-meta">
                   <span class="price">{dollars(l.currentPrice)}</span>
@@ -294,19 +367,37 @@ function PastCloses({ lot }: { lot: Lot }) {
         <ol class="past">
           {closes.map((c) => (
             <li>
-              <span class="price" title={c.final ? undefined : 'The last price seen before it closed; the site no longer has the lot'}>
+              <span
+                class="price"
+                title={
+                  c.final
+                    ? undefined
+                    : 'The last price seen before it closed; the site no longer has the lot'
+                }
+              >
                 {c.sold ? dollars(c.price) : 'No sale'}
                 {!c.final && '*'}
               </span>
               <span class="past-what muted small">
                 {c.title !== lot.title && (
-                  <a class="dupe-title" href={lotHref(c.auctionPeriod, c.id)} target="_blank" rel="noopener">
+                  <a
+                    class="dupe-title"
+                    href={lotHref(c.auctionPeriod, c.id)}
+                    target="_blank"
+                    rel="noopener"
+                  >
                     {c.title}
                   </a>
                 )}
                 {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} · {plural(c.bidCount, 'bid')}
               </span>
-              <a class="muted small" href={lotHref(c.auctionPeriod, c.id)} target="_blank" rel="noopener" title="Open on Triangle Liquidators">
+              <a
+                class="muted small"
+                href={lotHref(c.auctionPeriod, c.id)}
+                target="_blank"
+                rel="noopener"
+                title="Open on Triangle Liquidators"
+              >
                 {shortDate(c.endsAt)}
               </a>
             </li>
@@ -369,7 +460,11 @@ function BidPanel({ row }: { row: Row }) {
             onInput={(e) => setValue(e.currentTarget.value)}
           />
         </label>
-        <button type="submit" class="btn" aria-disabled={n == null || error || pending ? 'true' : undefined}>
+        <button
+          type="submit"
+          class="btn"
+          aria-disabled={n == null || error || pending ? 'true' : undefined}
+        >
           {leading ? 'Raise max bid' : 'Set max bid'}
         </button>
         {!leading && (
@@ -377,7 +472,9 @@ function BidPanel({ row }: { row: Row }) {
             type="button"
             class="btn btn-outline"
             disabled={pending}
-            onClick={() => modalActions.startBid({ lotId: lot.id, amount: quick, type: 'next_increment' })}
+            onClick={() =>
+              modalActions.startBid({ lotId: lot.id, amount: quick, type: 'next_increment' })
+            }
             title="Bid the next increment now"
           >
             Bid {dollars(quick)}
@@ -388,9 +485,9 @@ function BidPanel({ row }: { row: Row }) {
         {pending
           ? 'Placing bid…'
           : error ||
-          (leading
-            ? `You’re winning. Raise your max to ${dollars(min)} or more.`
-            : 'A max bid bids for you automatically, only as much as needed to keep you winning.')}
+            (leading
+              ? `You’re winning. Raise your max to ${dollars(min)} or more.`
+              : 'A max bid bids for you automatically, only as much as needed to keep you winning.')}
       </div>
     </form>
   );

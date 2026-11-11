@@ -1,30 +1,28 @@
 {
-    "ignorePatterns": [
-        "tests/**"
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn"
+  },
+  "ignorePatterns": ["tests/**"],
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "import/default": "error",
+    "no-implicit-coercion": [
+      "error",
+      {
+        "boolean": true,
+        "number": false,
+        "string": false
+      }
     ],
-    "options": {
-        "typeAware": true
-    },
-    "categories": {
-        "correctness": "warn",
-        "suspicious": "warn"
-    },
-    "rules": {
-        "typescript/no-unnecessary-condition": "error",
-        "no-implicit-coercion": [
-            "error",
-            {
-                "boolean": true,
-                "number": false,
-                "string": false
-            }
-        ],
-        "import/default": "error",
-        "typescript/dot-notation": "warn",
-        "typescript/no-unnecessary-type-assertion": "warn",
-        "unicorn/no-array-sort": "warn",
-        "no-shadow": "off",
-        "unicorn/consistent-function-scoping": "off",
-        "typescript/consistent-return": "off"
-    }
+    "no-shadow": "off",
+    "typescript/consistent-return": "off",
+    "typescript/dot-notation": "warn",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unnecessary-type-assertion": "warn",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/no-array-sort": "warn"
+  }
 }

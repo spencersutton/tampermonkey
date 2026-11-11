@@ -10,9 +10,9 @@ interface Props extends Omit<JSX.HTMLAttributes<HTMLDialogElement>, 'onClose'> {
 }
 
 /**
- * A modal dialog, open while mounted. The element covers the viewport and
- * centers `children` (the box). Focus goes to an `autofocus` element if there
- * is one, else to the box, and back to where it was on close.
+ * A modal dialog, open while mounted. The element covers the viewport and centers `children` (the
+ * box). Focus goes to an `autofocus` element if there is one, else to the box, and back to where it
+ * was on close.
  */
 function showDialog(dialog: HTMLDialogElement | null) {
   if (!dialog) return;

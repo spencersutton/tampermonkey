@@ -4,6 +4,7 @@
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
 import { batch, signal } from '@preact/signals';
+
 import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
@@ -23,8 +24,8 @@ export interface SyncProgress {
 /** First read from the server finished. */
 export const loaded = signal(false);
 /**
- * Every live lot, by id. A catalog reply that changes any lots replaces the
- * Map; websocket and lot detail updates change it in place and bump `rev`.
+ * Every live lot, by id. A catalog reply that changes any lots replaces the Map; websocket and lot
+ * detail updates change it in place and bump `rev`.
  */
 export const lots = signal(new Map<number, Lot>());
 /** Bumps on every in-place lot update; read it (or getLot) to follow live prices. */
@@ -58,7 +59,12 @@ export function updateLot(id: number, patch: Partial<Lot>, opts: { force?: boole
 export function updateItemType(identity: ItemIdentity, itemType: string) {
   const next = new Map(lots.peek());
   for (const [id, lot] of next) {
-    if (sameItemType(itemIdentity(lot, { brands: lotBrands.peek(), models: lotModels.peek() }), identity)) {
+    if (
+      sameItemType(
+        itemIdentity(lot, { brands: lotBrands.peek(), models: lotModels.peek() }),
+        identity,
+      )
+    ) {
       next.set(id, { ...lot, itemType });
     }
   }
@@ -80,13 +86,15 @@ export function loadMetadata(lot: Pick<Lot, 'id' | 'auctionPeriod'>): Promise<Lo
   if (hit) return Promise.resolve(hit);
   const pending = metadataRequests.get(lot.id);
   if (pending) return pending;
-  const promise = fetchLotMetadata(lot.auctionPeriod, lot.id).then((saved) => {
-    // A concurrent live response is newer than the saved copy.
-    const current = metadata.get(lot.id);
-    if (current) return current;
-    if (saved) metadata.set(lot.id, saved);
-    return saved;
-  }).finally(() => metadataRequests.delete(lot.id));
+  const promise = fetchLotMetadata(lot.auctionPeriod, lot.id)
+    .then((saved) => {
+      // A concurrent live response is newer than the saved copy.
+      const current = metadata.get(lot.id);
+      if (current) return current;
+      if (saved) metadata.set(lot.id, saved);
+      return saved;
+    })
+    .finally(() => metadataRequests.delete(lot.id));
   metadataRequests.set(lot.id, promise);
   return promise;
 }
@@ -96,7 +104,10 @@ export const lotBrands = signal(new Map<number, string | null>());
 export const lotModels = signal(new Map<number, string | null>());
 
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
-export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: AbortSignal): Promise<LotDetail> {
+export function loadDetail(
+  lot: Pick<Lot, 'id' | 'auctionPeriod'>,
+  signal?: AbortSignal,
+): Promise<LotDetail> {
   const hit = details.get(lot.id);
   if (hit?.promise) return hit.promise;
   const cached = cachedDetail(lot.id);
@@ -104,7 +115,13 @@ export function loadDetail(lot: Pick<Lot, 'id' | 'auctionPeriod'>, signal?: Abor
   const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
     (d) => {
       if (details.get(lot.id)?.promise !== promise) return d;
-      metadata.set(lot.id, { description: d.description, brand: d.brand, model: d.model, lotFee: d.lotFee, images: d.images });
+      metadata.set(lot.id, {
+        description: d.description,
+        brand: d.brand,
+        model: d.model,
+        lotFee: d.lotFee,
+        images: d.images,
+      });
       details.set(lot.id, { at: Date.now(), data: d });
       batch(() => {
         lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
@@ -135,7 +152,11 @@ export const invalidateDetail = (id: number) => void details.delete(id);
 export function cachedDetail(id: number): LotDetail | undefined {
   const hit = details.get(id);
   const current = lots.peek().get(id);
-  return hit?.data && Date.now() - hit.at < DETAIL_TTL && (!current || hit.data.version >= current.version) ? hit.data : undefined;
+  return hit?.data &&
+    Date.now() - hit.at < DETAIL_TTL &&
+    (!current || hit.data.version >= current.version)
+    ? hit.data
+    : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +166,8 @@ export function cachedDetail(id: number): LotDetail | undefined {
 let lastActivity = Date.now();
 
 /** Whether the tab is visible and was used within ACTIVE_WINDOW (auto pulls stop when it sits idle). */
-export const inUse = () => document.visibilityState === 'visible' && Date.now() - lastActivity <= ACTIVE_WINDOW;
+export const inUse = () =>
+  document.visibilityState === 'visible' && Date.now() - lastActivity <= ACTIVE_WINDOW;
 
 /** Track user activity; `onVisible` runs whenever the tab comes back into view. */
 export function trackActivity(onVisible: () => void) {

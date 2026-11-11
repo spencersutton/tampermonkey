@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
+
 import 'temporal-polyfill/global';
-import { createServer } from 'vite';
 import { Component, options } from 'preact';
+import { createServer } from 'vite';
 
 const storage = new Map();
 globalThis.localStorage = {
@@ -10,23 +11,49 @@ globalThis.localStorage = {
   setItem: (key, value) => storage.set(key, value),
 };
 
-const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+const vite = await createServer({
+  configFile: false,
+  logLevel: 'silent',
+  server: { middlewareMode: true, watch: null },
+  appType: 'custom',
+});
 after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { hideCategory, storedView, setView, page, rowOf, exclusionRules } = await vite.ssrLoadModule('/src/app/state.ts');
-const { DEFAULT_VIEW, normalizeView, computeView, activeFilterCount, savedFilters, savedSearchStats, initialView, sameDefaultFilters } = await vite.ssrLoadModule('/src/app/view.ts');
+const { hideCategory, storedView, setView, page, rowOf, exclusionRules } =
+  await vite.ssrLoadModule('/src/app/state.ts');
+const {
+  DEFAULT_VIEW,
+  normalizeView,
+  computeView,
+  activeFilterCount,
+  savedFilters,
+  savedSearchStats,
+  initialView,
+  sameDefaultFilters,
+} = await vite.ssrLoadModule('/src/app/view.ts');
 const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/history.ts');
 const { LotCard } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
 
 const now = Temporal.Now.instant();
 const custom = 'custom:Tools - Drills';
 const fixture = (id, value, label, itemType) => ({
-  id, title: `Fixture ${id}`, lotNumber: `${id}`, auctionPeriod: 'test',
-  category: { value, label }, condition: null, location: null, itemType,
-  endsAt: now.add({ hours: 2 }), currentPrice: 10, estimatedRetailPrice: null,
-  transferFee: 0, isTransferable: false, images: [], bidCount: 0,
+  id,
+  title: `Fixture ${id}`,
+  lotNumber: `${id}`,
+  auctionPeriod: 'test',
+  category: { value, label },
+  condition: null,
+  location: null,
+  itemType,
+  endsAt: now.add({ hours: 2 }),
+  currentPrice: 10,
+  estimatedRetailPrice: null,
+  transferFee: 0,
+  isTransferable: false,
+  images: [],
+  bidCount: 0,
 });
 const fixtures = [
   fixture(1, 'tools', 'Tools', 'hammer'),
@@ -43,7 +70,14 @@ beforeEach(() => {
   lots.value = new Map(fixtures.map((lot) => [lot.id, lot]));
 });
 
-const visibleIds = () => computeView(lots.peek().values(), storedView.value, 'Raleigh', exclusionRules.value, now).rows.map((r) => r.lot.id);
+const visibleIds = () =>
+  computeView(
+    lots.peek().values(),
+    storedView.value,
+    'Raleigh',
+    exclusionRules.value,
+    now,
+  ).rows.map((r) => r.lot.id);
 
 test('hiding from an unfiltered view selects all other assigned categories', () => {
   hideCategory(custom);
@@ -54,7 +88,14 @@ test('hiding from an unfiltered view selects all other assigned categories', () 
 });
 
 test('hiding a selected category preserves other filters and its descendants', () => {
-  const view = { ...DEFAULT_VIEW, categories: ['tools', custom, 'garden'], search: 'Fixture', sort: 'total-desc', priceMax: 20, mine: 'watch' };
+  const view = {
+    ...DEFAULT_VIEW,
+    categories: ['tools', custom, 'garden'],
+    search: 'Fixture',
+    sort: 'total-desc',
+    priceMax: 20,
+    mine: 'watch',
+  };
   applySetting(KEYS.view, view);
   page.value = 4;
   hideCategory('tools');
@@ -72,7 +113,13 @@ test('hiding the final selection matches nothing and survives storage, searches 
   assert.equal(activeFilterCount(storedView.value), 1);
   const restored = normalizeView(JSON.parse(storage.get(`tlx:${KEYS.view}`)));
   assert.equal(restored.noCategories, true);
-  const stats = savedSearchStats(fixtures, [{ id: 'empty', view: savedFilters(restored), lastViewedAt: now }], 'Raleigh', exclusionRules.value, now);
+  const stats = savedSearchStats(
+    fixtures,
+    [{ id: 'empty', view: savedFilters(restored), lastViewedAt: now }],
+    'Raleigh',
+    exclusionRules.value,
+    now,
+  );
   assert.deepEqual(stats.get('empty'), { total: 0, fresh: 0 });
   const defaults = { categories: [], conditions: [], noCategories: true };
   assert.equal(initialView(null, defaults).noCategories, true);
@@ -123,7 +170,10 @@ test('the card exposes a labeled category hide button targeting its assigned cus
   button.props.onClick();
   assert.deepEqual(visibleIds(), [1, 3]);
   const uncategorized = renderCard({ ...fixtures[0], category: null });
-  assert.equal(nodes(uncategorized).some((n) => n.props?.class === 'icon-btn category-hide'), false);
+  assert.equal(
+    nodes(uncategorized).some((n) => n.props?.class === 'icon-btn category-hide'),
+    false,
+  );
 });
 
 test('explicit empty categories round-trip through URLs and browser history', () => {
@@ -131,8 +181,14 @@ test('explicit empty categories round-trip through URLs and browser history', ()
   globalThis.location = { pathname: '/tlx' };
   globalThis.history = {
     state: null,
-    replaceState(state, _title, url) { this.state = state; entries.push({ state, url }); },
-    pushState(state, _title, url) { this.state = state; entries.push({ state, url }); },
+    replaceState(state, _title, url) {
+      this.state = state;
+      entries.push({ state, url });
+    },
+    pushState(state, _title, url) {
+      this.state = state;
+      entries.push({ state, url });
+    },
   };
   globalThis.window = { addEventListener() {} };
   startHistory();

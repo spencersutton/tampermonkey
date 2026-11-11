@@ -1,3 +1,4 @@
+import { computed, effect, signal, untracked } from '@preact/signals';
 // Login state for the web app.
 //
 // Two logins are involved, both held by the tlx server:
@@ -6,8 +7,8 @@
 //   server keeps the site's session cookies and adds the API token to every
 //   /backend request, so this page never sees a token at all.
 import type { ComponentChildren } from 'preact';
-import { computed, effect, signal, untracked } from '@preact/signals';
 import { useState } from 'preact/hooks';
+
 import { Dialog } from './Dialog';
 import { MINUTE } from './util';
 
@@ -44,7 +45,15 @@ export function onAuthChange(fn: () => void): () => void {
 }
 
 /** A link-styled button that opens the login form. */
-export function LoginLink({ class: cls = 'link-button', title, children }: { class?: string; title?: string; children: ComponentChildren }) {
+export function LoginLink({
+  class: cls = 'link-button',
+  title,
+  children,
+}: {
+  class?: string;
+  title?: string;
+  children: ComponentChildren;
+}) {
   return (
     <button type="button" class={cls} title={title} onClick={() => setLoginOpen(true)}>
       {children}
@@ -60,7 +69,11 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
     method: body === undefined ? 'GET' : 'POST',
     credentials: 'same-origin',
     cache: 'no-store',
-    headers: { Accept: 'application/json', 'X-TLX-Client': '1', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    headers: {
+      Accept: 'application/json',
+      'X-TLX-Client': '1',
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const data = await res.json().catch(() => ({ error: `Server replied ${res.status}` }));
@@ -104,9 +117,8 @@ export function startAuth() {
 }
 
 /**
- * fetch() for the site's API through the server, which adds the token (and
- * refreshes and retries it). A 401 means a login ended somewhere, so the
- * state is checked again.
+ * Fetch() for the site's API through the server, which adds the token (and refreshes and retries
+ * it). A 401 means a login ended somewhere, so the state is checked again.
  */
 export async function authedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   await authReady();
@@ -127,7 +139,14 @@ export const logoutSite = () => callMe('/api/site-logout', {});
 // UI
 // ---------------------------------------------------------------------------
 /** Small form card: a title, fields, an error line and one submit button. */
-function FormCard({ title, intro, fields, submit, onSubmit, onCancel }: {
+function FormCard({
+  title,
+  intro,
+  fields,
+  submit,
+  onSubmit,
+  onCancel,
+}: {
   title: string;
   intro: ComponentChildren;
   fields: ComponentChildren;
@@ -184,7 +203,13 @@ export function AppLock() {
         fields={
           <label class="field">
             <span>Password</span>
-            <input type="password" autocomplete="current-password" required value={password} onInput={(e) => setPassword(e.currentTarget.value)} />
+            <input
+              type="password"
+              autocomplete="current-password"
+              required
+              value={password}
+              onInput={(e) => setPassword(e.currentTarget.value)}
+            />
           </label>
         }
       />
@@ -218,11 +243,24 @@ function LoginForm() {
           <>
             <label class="field">
               <span>Email</span>
-              <input autofocus type="email" autocomplete="username" required value={email} onInput={(e) => setEmail(e.currentTarget.value)} />
+              <input
+                autofocus
+                type="email"
+                autocomplete="username"
+                required
+                value={email}
+                onInput={(e) => setEmail(e.currentTarget.value)}
+              />
             </label>
             <label class="field">
               <span>Password</span>
-              <input type="password" autocomplete="current-password" required value={password} onInput={(e) => setPassword(e.currentTarget.value)} />
+              <input
+                type="password"
+                autocomplete="current-password"
+                required
+                value={password}
+                onInput={(e) => setPassword(e.currentTarget.value)}
+              />
             </label>
           </>
         }
@@ -238,13 +276,15 @@ export function AccountSettings() {
   const [busy, setBusy] = useState(false);
   const act = (fn: () => Promise<unknown>) => async () => {
     setBusy(true);
-    await fn().catch(() => { });
+    await fn().catch(() => {});
     setBusy(false);
   };
   return (
     <div class="account">
       <span class="muted small">
-        {site?.loggedIn ? `Logged in as ${site.email ?? site.name ?? 'you'}` : 'Not logged in to Triangle Liquidators'}
+        {site?.loggedIn
+          ? `Logged in as ${site.email ?? site.name ?? 'you'}`
+          : 'Not logged in to Triangle Liquidators'}
       </span>
       <div class="row-gap">
         {site?.loggedIn ? (
@@ -255,7 +295,13 @@ export function AccountSettings() {
           <LoginLink class="btn-text">Log in</LoginLink>
         )}
         {state?.app.password && (
-          <button type="button" class="btn-text" disabled={busy} onClick={act(lockApp)} title="Forget this device’s server password">
+          <button
+            type="button"
+            class="btn-text"
+            disabled={busy}
+            onClick={act(lockApp)}
+            title="Forget this device’s server password"
+          >
             Lock app
           </button>
         )}

@@ -3,17 +3,18 @@
 // available from anywhere.
 import 'temporal-polyfill/global';
 import { render } from 'preact';
+
 import './app/app.css';
 import { App } from './app/App';
 import { AppLock, appUnlocked, LoginDialog, me, startAuth } from './app/auth';
+import { startBrandWatch } from './app/brands';
+import { error } from './app/catalog';
 import { navFromUrl, startHistory } from './app/history';
 import { startLiveWatch } from './app/live';
-import { startBrandWatch } from './app/brands';
 import { setSetting } from './app/settings';
-import { KEYS } from './shared/keys';
 import { settingsLoaded, settingsReady, startCatalog } from './app/source';
-import { error } from './app/catalog';
 import { closed, filteredOnly, openId, page, startApp } from './app/state';
+import { KEYS } from './shared/keys';
 
 // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
 const fromUrl = navFromUrl();

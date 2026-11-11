@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
+
 import { collator } from '../shared/sortKey';
 import { lots } from './catalog';
 import { Dialog } from './Dialog';
@@ -14,14 +15,21 @@ function itemTypeError(name: string): string | null {
   if (!name.trim()) {
     return 'Item type is required';
   }
-  return name.length > MAX_ITEM_TYPE_LENGTH ? `Use at most ${MAX_ITEM_TYPE_LENGTH} characters` : null;
+  return name.length > MAX_ITEM_TYPE_LENGTH
+    ? `Use at most ${MAX_ITEM_TYPE_LENGTH} characters`
+    : null;
 }
 
 export function ItemTypeActions({ lot }: { lot: Lot }) {
   return (
     <div class="item-type-row">
       {lot.itemType && (
-        <button type="button" class="item-type" title="Make a category of this item type" onClick={() => modalActions.addType(lot)}>
+        <button
+          type="button"
+          class="item-type"
+          title="Make a category of this item type"
+          onClick={() => modalActions.addType(lot)}
+        >
           <span>{lot.itemType}</span>
           <Icon name="add" size={14} />
         </button>
@@ -46,7 +54,10 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
   const [error, setError] = useState<string | null>(null);
   const catalog = lots.value;
   const suggestions = useMemo(
-    () => [...new Set([...catalog.values()].flatMap((l) => l.itemType ? [l.itemType] : []))].toSorted(collator.compare),
+    () =>
+      [...new Set([...catalog.values()].flatMap((l) => (l.itemType ? [l.itemType] : [])))].toSorted(
+        collator.compare,
+      ),
     [catalog],
   );
   const validation = itemTypeError(name);
@@ -72,7 +83,14 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
   };
   return (
     <Dialog onClose={close} aria-labelledby="item-type-title">
-      <form class="confirm" tabIndex={-1} onSubmit={(e) => { e.preventDefault(); void save(); }}>
+      <form
+        class="confirm"
+        tabIndex={-1}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
         <h2 id="item-type-title">Change item type</h2>
         <div class="confirm-body">
           <p class="confirm-lot">{lot.title}</p>
@@ -88,22 +106,36 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
               disabled={saving}
               aria-describedby={`item-type-help${error || validation ? ' item-type-error' : ''}`}
               aria-invalid={Boolean(validation)}
-              onInput={(e) => { setName(e.currentTarget.value); setError(null); }}
+              onInput={(e) => {
+                setName(e.currentTarget.value);
+                setError(null);
+              }}
             />
             <datalist id="item-type-options">
-              {suggestions.map((type) => <option key={type} value={type} />)}
+              {suggestions.map((type) => (
+                <option key={type} value={type} />
+              ))}
             </datalist>
           </label>
           <p id="item-type-help" class="muted small">
-            Pick an existing type or enter a short, singular name, like "drill driver". Saved in lowercase for matching brands and models,
-            falling back to the exact title if either listing lacks brand or model, including future relistings.
-            Automatic labelling will not replace your correction.
+            Pick an existing type or enter a short, singular name, like "drill driver". Saved in
+            lowercase for matching brands and models, falling back to the exact title if either
+            listing lacks brand or model, including future relistings. Automatic labelling will not
+            replace your correction.
           </p>
-          {(error || validation) && <p id="item-type-error" class="error" role="alert">{error || validation}</p>}
+          {(error || validation) && (
+            <p id="item-type-error" class="error" role="alert">
+              {error || validation}
+            </p>
+          )}
         </div>
         <div class="confirm-actions">
-          <button type="button" class="btn btn-outline" disabled={saving} onClick={close}>Cancel</button>
-          <button type="submit" class="btn" disabled={saving || Boolean(validation)}>{saving ? 'Saving...' : 'Save item type'}</button>
+          <button type="button" class="btn btn-outline" disabled={saving} onClick={close}>
+            Cancel
+          </button>
+          <button type="submit" class="btn" disabled={saving || Boolean(validation)}>
+            {saving ? 'Saving...' : 'Save item type'}
+          </button>
         </div>
       </form>
     </Dialog>

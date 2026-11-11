@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { h, render, options } from 'preact';
+
 import { signal } from '@preact/signals';
+import { h, render, options } from 'preact';
 import { createServer } from 'vite';
 
-const vite = await createServer({ configFile: false, logLevel: 'silent', server: { middlewareMode: true, watch: null }, appType: 'custom' });
+const vite = await createServer({
+  configFile: false,
+  logLevel: 'silent',
+  server: { middlewareMode: true, watch: null },
+  appType: 'custom',
+});
 after(() => vite.close());
 const { Dialog } = await vite.ssrLoadModule('/src/app/Dialog.tsx');
 
@@ -18,9 +24,15 @@ class Element {
   open = false;
   showCount = 0;
   closeCount = 0;
-  get firstChild() { return this.childNodes[0] ?? null; }
-  get firstElementChild() { return this.firstChild; }
-  get isConnected() { return this.parentNode != null; }
+  get firstChild() {
+    return this.childNodes[0] ?? null;
+  }
+  get firstElementChild() {
+    return this.firstChild;
+  }
+  get isConnected() {
+    return this.parentNode != null;
+  }
   insertBefore(child, before) {
     child.parentNode?.removeChild(child);
     const index = before ? this.childNodes.indexOf(before) : -1;
@@ -35,10 +47,20 @@ class Element {
   removeAttribute() {}
   addEventListener() {}
   removeEventListener() {}
-  querySelector() { return null; }
-  showModal() { this.open = true; this.showCount++; }
-  close() { this.open = false; this.closeCount++; }
-  focus() { this.focused++; }
+  querySelector() {
+    return null;
+  }
+  showModal() {
+    this.open = true;
+    this.showCount++;
+  }
+  close() {
+    this.open = false;
+    this.closeCount++;
+  }
+  focus() {
+    this.focused++;
+  }
 }
 
 function mountDialog(t) {
@@ -84,9 +106,13 @@ test('dialog refs own opening, focus and cleanup without component effects', (t)
   let autofocus = false;
   const element = {
     firstElementChild: content,
-    querySelector: () => autofocus ? new Element() : null,
-    showModal: () => { open = true; },
-    close: () => { open = false; },
+    querySelector: () => (autofocus ? new Element() : null),
+    showModal: () => {
+      open = true;
+    },
+    close: () => {
+      open = false;
+    },
   };
   const vnode = update({ onClose: () => {}, children: null });
   assert.equal(vnode.ref(null), undefined);
@@ -123,16 +149,35 @@ test('dialog events use the current callback and ignore close events after remov
   const { update } = mountDialog(t);
   let first = 0;
   let latest = 0;
-  const initial = update({ onClose: () => { first++; }, children: null });
-  const updated = update({ onClose: () => { latest++; }, children: null });
+  const initial = update({
+    onClose: () => {
+      first++;
+    },
+    children: null,
+  });
+  const updated = update({
+    onClose: () => {
+      latest++;
+    },
+    children: null,
+  });
   assert.equal(initial.ref, updated.ref, 'rerenders do not restart DOM setup');
   let prevented = false;
-  updated.props.onCancel({ preventDefault: () => { prevented = true; } });
+  updated.props.onCancel({
+    preventDefault: () => {
+      prevented = true;
+    },
+  });
   assert.equal(prevented, true);
   assert.equal(first, 0);
   assert.equal(latest, 1);
   let opened = 0;
-  const element = { isConnected: true, showModal: () => { opened++; } };
+  const element = {
+    isConnected: true,
+    showModal: () => {
+      opened++;
+    },
+  };
   updated.props.onMouseDown({ target: {}, currentTarget: element });
   assert.equal(latest, 1, 'clicks inside the box do not close it');
   updated.props.onMouseDown({ target: element, currentTarget: element });
@@ -149,7 +194,14 @@ test('dialog events use the current callback and ignore close events after remov
 test('stacked dialogs keep independent ref cleanup across rerenders and unmounts', (t) => {
   const { root } = mountDialog(t);
   let closed = 0;
-  const dialog = (key) => h(Dialog, { key, onClose: () => { closed++; }, children: null });
+  const dialog = (key) =>
+    h(Dialog, {
+      key,
+      onClose: () => {
+        closed++;
+      },
+      children: null,
+    });
   render([dialog('lot')], root);
   const lot = root.firstChild;
   assert.equal(lot.open, true);

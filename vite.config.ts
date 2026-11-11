@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+
 import { defineConfig } from 'vite';
 
 // The web app that the tlx server (server/) serves; the server pulls the
@@ -14,5 +15,9 @@ export default defineConfig({
       '/ws': { target: 'ws://127.0.0.1:8765', ws: true },
     },
   },
-  build: { outDir: fileURLToPath(new URL('server/tlx_server/static', import.meta.url)), emptyOutDir: true, target: 'es2023' },
+  build: {
+    outDir: fileURLToPath(new URL('server/tlx_server/static', import.meta.url)),
+    emptyOutDir: true,
+    target: 'es2023',
+  },
 });

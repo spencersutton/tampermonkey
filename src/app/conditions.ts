@@ -1,11 +1,15 @@
 // What each condition means, as the site explains it ("About conditions" on
 // its catalog). Fetched once per page load and shared.
 import { signal } from '@preact/signals';
+
 import { fetchConditions, type ConditionInfo } from './api';
 
 let loading = false;
 
-/** The conditions by value; fetched the first time something reads it (and again on a later read if that fails). */
+/**
+ * The conditions by value; fetched the first time something reads it (and again on a later read if
+ * that fails).
+ */
 const conditions = signal(new Map<number, ConditionInfo>(), {
   watched() {
     if (!loading && !this.peek().size) {

@@ -1,13 +1,14 @@
 // Dialog behind the item type button on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useState } from 'preact/hooks';
+
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { saveCustomCategories } from './categories';
+import { Dialog } from './Dialog';
 import { setSetting, getSetting } from './settings';
 import { toast } from './toast';
 import type { Lot } from './types';
-import { Dialog } from './Dialog';
 import { fmtCount, plural } from './util';
 import { categoryIndex, compileCategories } from './view';
 
@@ -29,7 +30,12 @@ function categoryName(type: string): string {
   return [...words, many].map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-function categoryError(mode: 'new' | 'add', existing: CustomCategory | undefined, name: string, cats: CustomCategory[]): string | null {
+function categoryError(
+  mode: 'new' | 'add',
+  existing: CustomCategory | undefined,
+  name: string,
+  cats: CustomCategory[],
+): string | null {
   if (mode === 'add') {
     return existing ? null : 'Pick a category';
   }
@@ -44,7 +50,8 @@ function categoryError(mode: 'new' | 'add', existing: CustomCategory | undefined
 }
 
 /** Words of a type worth comparing ("of", "and" and the like don't count). */
-const typeWords = (t: string) => t.split(/[\s/-]+/).filter((w) => w.length > 2 && !['and', 'for', 'with'].includes(w));
+const typeWords = (t: string) =>
+  t.split(/[\s/-]+/).filter((w) => w.length > 2 && !['and', 'for', 'with'].includes(w));
 
 /** Whether saving takes any of `types` from `c`. */
 const loses = (c: CustomCategory, types: string[]) => c.types.some((t) => types.includes(t));
@@ -52,10 +59,20 @@ const loses = (c: CustomCategory, types: string[]) => c.types.some((t) => types.
 /** `c` without `types`, retaining empty parents of child categories. */
 function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
   const rest = c.types.filter((t) => !types.includes(t));
-  return rest.length || names.some((name) => name.startsWith(`${c.name} - `)) ? [{ ...c, types: rest }] : [];
+  return rest.length || names.some((name) => name.startsWith(`${c.name} - `))
+    ? [{ ...c, types: rest }]
+    : [];
 }
 
-export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; onClose: () => void }) {
+export function TypeCategory({
+  lot,
+  lots,
+  onClose,
+}: {
+  lot: Lot;
+  lots: Lot[];
+  onClose: () => void;
+}) {
   const type = lot.itemType!;
   const site = lot.category;
   const cats = getSetting(KEYS.customCategories);
@@ -66,11 +83,15 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
   const near = (c: CustomCategory) => site != null && c.name.startsWith(`${site.label} - `);
   const choices = cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
-  const [mode, setMode] = useState<'new' | 'add'>(() => cats.length ? 'add' : 'new');
+  const [mode, setMode] = useState<'new' | 'add'>(() => (cats.length ? 'add' : 'new'));
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
   const [categorySearch, setCategorySearch] = useState('');
-  const filteredChoices = choices.filter((c) => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()));
-  const selected = cats.some((category) => category.name === selectedCategory) ? selectedCategory : preferred?.name ?? '';
+  const filteredChoices = choices.filter((c) =>
+    c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()),
+  );
+  const selected = cats.some((category) => category.name === selectedCategory)
+    ? selectedCategory
+    : (preferred?.name ?? '');
   const pick = filteredChoices.some((c) => c.name === selected) ? selected : '';
   const defaultName = () => {
     const parent = current?.name ?? site?.label;
@@ -85,7 +106,10 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     const words = typeWords(type);
     const head = words.at(-1);
     const counts = Map.groupBy(
-      lots.filter((l) => l.itemType && l.itemType !== type && typeWords(l.itemType).some((w) => words.includes(w))),
+      lots.filter(
+        (l) =>
+          l.itemType && l.itemType !== type && typeWords(l.itemType).some((w) => words.includes(w)),
+      ),
       (l) => l.itemType!,
     );
     return [...counts]
@@ -99,7 +123,9 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     const types = [type, ...extra];
     const losing = cats.filter((c) => c !== existing && loses(c, types));
     const names = [
-      ...cats.filter((c) => !losing.includes(c) || c.types.some((t) => !types.includes(t))).map((c) => c.name),
+      ...cats
+        .filter((c) => !losing.includes(c) || c.types.some((t) => !types.includes(t)))
+        .map((c) => c.name),
       ...(mode === 'new' ? [name.trim()] : []),
     ];
     const next = cats.flatMap((c) => {
@@ -133,7 +159,10 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
     }
     saveCustomCategories(next);
     setSetting(KEYS.lastCategory, category.name);
-    toast('good', `${existing ? 'Updated' : 'Created'} “${category.name}” · ${plural(taken.length, 'open lot')}`);
+    toast(
+      'good',
+      `${existing ? 'Updated' : 'Created'} “${category.name}” · ${plural(taken.length, 'open lot')}`,
+    );
     onClose();
   };
 
@@ -143,16 +172,32 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
       aria-labelledby="type-cat-title"
       onKeyDownCapture={(e) => {
         if (e.key !== 'Enter' || e.isComposing) return;
-        if (!(e.target instanceof HTMLElement) || !e.target.matches('dialog, form, input[type="text"], input[type="search"]')) return;
+        if (
+          !(e.target instanceof HTMLElement) ||
+          !e.target.matches('dialog, form, input[type="text"], input[type="search"]')
+        )
+          return;
         e.preventDefault();
         if (!e.repeat) save();
       }}
     >
-      <form class="confirm type-cat" tabIndex={-1} onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <form
+        class="confirm type-cat"
+        tabIndex={-1}
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+      >
         <h2 id="type-cat-title">Make a category of “{type}”</h2>
         <div class="confirm-body">
           <div class="type-cat-mode" role="radiogroup" aria-label="New or existing category">
-            <button type="button" role="radio" aria-checked={mode === 'new'} onClick={() => setMode('new')}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={mode === 'new'}
+              onClick={() => setMode('new')}
+            >
               New category
             </button>
             <button
@@ -179,23 +224,35 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
               </label>
               <label class="field">
                 <span id="type-cat-category-label">Category</span>
-                <select aria-labelledby="type-cat-category-label" class="type-cat-choices" size={6} value={pick} onChange={(e) => setPick(e.currentTarget.value)}>
-                  {!pick && <option value="" disabled>Pick a category</option>}
+                <select
+                  aria-labelledby="type-cat-category-label"
+                  class="type-cat-choices"
+                  size={6}
+                  value={pick}
+                  onChange={(e) => setPick(e.currentTarget.value)}
+                >
+                  {!pick && (
+                    <option value="" disabled>
+                      Pick a category
+                    </option>
+                  )}
                   {filteredChoices.map((c) => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </label>
-              {!filteredChoices.length && <p class="muted small" role="status">No categories match your search.</p>}
+              {!filteredChoices.length && (
+                <p class="muted small" role="status">
+                  No categories match your search.
+                </p>
+              )}
             </>
           ) : (
             <label class="field">
               <span>Name</span>
-              <input
-                type="text"
-                value={name}
-                onInput={(e) => setName(e.currentTarget.value)}
-              />
+              <input type="text" value={name} onInput={(e) => setName(e.currentTarget.value)} />
             </label>
           )}
           <fieldset class="type-cat-types">
@@ -209,13 +266,20 @@ export function TypeCategory({ lot, lots, onClose }: { lot: Lot; lots: Lot[]; on
                   type="checkbox"
                   checked={extra.includes(t) || Boolean(existing?.types.includes(t))}
                   disabled={existing?.types.includes(t)}
-                  onChange={(e) => setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter((x) => x !== t))}
+                  onChange={(e) =>
+                    setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter((x) => x !== t))
+                  }
                 />{' '}
                 {t} <span class="muted small">{fmtCount(count)}</span>
               </label>
             ))}
           </fieldset>
-          {losing.length > 0 && <p class="muted small">Moves {plural(types.length, 'type')} out of {losing.map((c) => `“${c.name}”`).join(', ')}.</p>}
+          {losing.length > 0 && (
+            <p class="muted small">
+              Moves {plural(types.length, 'type')} out of{' '}
+              {losing.map((c) => `“${c.name}”`).join(', ')}.
+            </p>
+          )}
           {error && <p class="error small">{error}</p>}
         </div>
         <div class="confirm-actions">

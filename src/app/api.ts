@@ -13,7 +13,10 @@ const LOGGED_OUT = 'You’re logged out. Log in, then try again.';
 
 /** GET a JSON endpoint. */
 async function get<T>(path: string, signal?: AbortSignal, prefix = BASE): Promise<T> {
-  const res = await authedFetch(prefix + path, { headers: { Accept: 'application/json' }, ...(signal === undefined ? {} : { signal }) });
+  const res = await authedFetch(prefix + path, {
+    headers: { Accept: 'application/json' },
+    ...(signal === undefined ? {} : { signal }),
+  });
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText || 'error'} for ${path}`);
   }
@@ -22,8 +25,14 @@ async function get<T>(path: string, signal?: AbortSignal, prefix = BASE): Promis
 }
 
 /** Send a state-changing request with the headers the site's own client uses. */
-function send(path: string, method: 'POST' | 'DELETE', body?: unknown, headers: Record<string, string> = {}) {
-  const json: Record<string, string> = body === undefined ? {} : { 'Content-Type': 'application/json' };
+function send(
+  path: string,
+  method: 'POST' | 'DELETE',
+  body?: unknown,
+  headers: Record<string, string> = {},
+) {
+  const json: Record<string, string> =
+    body === undefined ? {} : { 'Content-Type': 'application/json' };
   return authedFetch(`${BASE}${path}`, {
     method,
     headers: { Accept: 'application/json', ...json, 'X-CSRF-Protection': '1', ...headers },
@@ -36,9 +45,7 @@ export interface RawStanding {
   your_max_bid: number | null;
 }
 
-/** 
- * @see Lot, which is the normalized version of this.
- */
+/** @see Lot, which is the normalized version of this. */
 interface RawLot {
   id: number;
   auction_period: string;
@@ -59,12 +66,12 @@ interface RawLot {
   your_standing: RawStanding | null;
   is_watchlisted: boolean;
   has_bid: boolean;
-  images?: { position: number; image_thumb: string; image_card: string; image_large: string }[] | null;
+  images?:
+    | { position: number; image_thumb: string; image_card: string; image_large: string }[]
+    | null;
 }
 
-/**
- * @see LotDetail, which is the normalized version of this.
- */
+/** @see LotDetail, which is the normalized version of this. */
 interface RawLotDetail extends RawLot {
   description?: string | null;
   brand: string | null;
@@ -74,9 +81,7 @@ interface RawLotDetail extends RawLot {
   similar?: RawLot[] | null;
 }
 
-/**
- * @see ClosedLot, which is the normalized version of this.
- */
+/** @see ClosedLot, which is the normalized version of this. */
 interface RawClosedLot {
   lot_id: number;
   auction_period?: string | null;
@@ -134,7 +139,11 @@ export function normalizeLot(r: RawLot): Lot {
 }
 
 /** Fetch one lot's full detail: description, brand/model, bid history and the site's similar lots. */
-export async function fetchLotDetail(auctionPeriod: string, id: number, signal?: AbortSignal): Promise<LotDetail> {
+export async function fetchLotDetail(
+  auctionPeriod: string,
+  id: number,
+  signal?: AbortSignal,
+): Promise<LotDetail> {
   const r = await get<RawLotDetail>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
   return {
     ...normalizeLot(r),
@@ -142,27 +151,48 @@ export async function fetchLotDetail(auctionPeriod: string, id: number, signal?:
     brand: r.brand || null,
     model: r.model || null,
     lotFee: r.lot_fee ?? null,
-    bidHistory: (r.bid_history ?? []).map((b) => ({ bidderLabel: b.bidder_label, amount: b.amount, isYou: b.is_you })),
+    bidHistory: (r.bid_history ?? []).map((b) => ({
+      bidderLabel: b.bidder_label,
+      amount: b.amount,
+      isYou: b.is_you,
+    })),
     similar: (r.similar ?? []).map(normalizeLot),
   };
 }
 
 /** Read persisted item metadata without asking the site or returning stale auction state. */
-export async function fetchLotMetadata(auctionPeriod: string, id: number): Promise<LotMetadata | null> {
+export async function fetchLotMetadata(
+  auctionPeriod: string,
+  id: number,
+): Promise<LotMetadata | null> {
   const query = new URLSearchParams({ id: String(id), auctionPeriod });
-  const reply = await get<{ metadata: LotMetadata | null }>(`/api/lot-metadata?${query}`, undefined, '');
+  const reply = await get<{ metadata: LotMetadata | null }>(
+    `/api/lot-metadata?${query}`,
+    undefined,
+    '',
+  );
   return reply.metadata;
 }
 
 /** Closed lots you won or lost, as the site's control panel lists them. */
 export type ClosedSection = 'won' | 'lost';
 
-/** Fetch every closed lot in a section, most recent first, calling `onPage` with the list so far as pages arrive. */
-export async function fetchClosed(section: ClosedSection, onPage: (lots: ClosedLot[], count: number) => void, signal?: AbortSignal): Promise<ClosedLot[]> {
+/**
+ * Fetch every closed lot in a section, most recent first, calling `onPage` with the list so far as
+ * pages arrive.
+ */
+export async function fetchClosed(
+  section: ClosedSection,
+  onPage: (lots: ClosedLot[], count: number) => void,
+  signal?: AbortSignal,
+): Promise<ClosedLot[]> {
   const out: ClosedLot[] = [];
   const seen = new Set<string>();
   for (let page = 1; ; page++) {
-    const d = await get<{ count: number; results: RawClosedLot[] }>(`/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`, signal);
+    const d = await get<{ count: number; results: RawClosedLot[] }>(
+      `/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`,
+      signal,
+    );
     for (const r of d.results) {
       const lot = normalizeClosed(r);
       // Pages can shift while we walk them; the site dedupes the same way.
@@ -206,7 +236,11 @@ export async function fetchConditions(): Promise<ConditionInfo[]> {
   }
 
   const d = await get<CriteriaDescriptor>('/v1/auctions/filter-config/');
-  return (d.conditions ?? []).map((c) => ({ value: c.value, label: c.label, description: c.description }));
+  return (d.conditions ?? []).map((c) => ({
+    value: c.value,
+    label: c.label,
+    description: c.description,
+  }));
 }
 
 export interface PickupLocation {
@@ -230,11 +264,19 @@ export async function fetchWsToken(): Promise<string> {
 }
 
 /** Add or remove a lot from your watchlist, like the site's star button. */
-export async function setWatchlisted(auctionPeriod: string, lotId: number, on: boolean): Promise<void> {
+export async function setWatchlisted(
+  auctionPeriod: string,
+  lotId: number,
+  on: boolean,
+): Promise<void> {
   if (!isAuthenticated()) {
     throw new Error('Log in to use your watchlist.');
   }
-  const res = await send(`/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`, on ? 'POST' : 'DELETE', on ? {} : undefined);
+  const res = await send(
+    `/v1/auctions/control-panel/lots/${auctionPeriod}/${lotId}/watchlist/`,
+    on ? 'POST' : 'DELETE',
+    on ? {} : undefined,
+  );
   if (res.ok) {
     return;
   }
@@ -242,7 +284,10 @@ export async function setWatchlisted(auctionPeriod: string, lotId: number, on: b
     throw new Error(LOGGED_OUT);
   }
   const data: RawBidResponse = await res.json().catch(() => ({}));
-  const message = data.code === 'lot_already_bid' && data.error ? data.error : 'Couldn’t update your watchlist. Please try again.';
+  const message =
+    data.code === 'lot_already_bid' && data.error
+      ? data.error
+      : 'Couldn’t update your watchlist. Please try again.';
   throw new Error(message);
 }
 
@@ -286,14 +331,23 @@ export async function placeBid(lotId: number, amount: number, type: BidType): Pr
   }
   let res: Response;
   try {
-    res = await send(`/v1/auctions/lots/${lotId}/bids`, 'POST', { amount }, { 'X-Bid-Surface': 'other', 'X-Bid-Type': type });
+    res = await send(
+      `/v1/auctions/lots/${lotId}/bids`,
+      'POST',
+      { amount },
+      { 'X-Bid-Surface': 'other', 'X-Bid-Type': type },
+    );
   } catch {
-    throw new BidError('Network error – the bid may not have been placed. Check the lot before trying again.', 0);
+    throw new BidError(
+      'Network error – the bid may not have been placed. Check the lot before trying again.',
+      0,
+    );
   }
   const data: RawBidResponse = await res.json().catch(() => ({}));
   if (!res.ok) {
     const details = data.details ?? {};
-    const message = (Array.isArray(details.amount) && details.amount[0]) || data.error || bidFailure(res.status);
+    const message =
+      (Array.isArray(details.amount) && details.amount[0]) || data.error || bidFailure(res.status);
     throw new BidError(message, res.status, data.code ?? null, details.min_next_bid ?? null);
   }
   return {

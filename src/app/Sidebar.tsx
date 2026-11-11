@@ -1,15 +1,30 @@
 // oxlint-disable typescript/no-unsafe-type-assertion
 import type { ComponentChildren, InputHTMLAttributes } from 'preact';
 import { useRef, useState } from 'preact/hooks';
+
 import { compileFilter } from '../shared/filters';
-import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, KEYS, MIN_SYNC_MINUTES, siteUrl } from '../shared/keys';
+import {
+  DEFAULT_SYNC_MINUTES,
+  DEFAULT_TITLE_LINES,
+  KEYS,
+  MIN_SYNC_MINUTES,
+  siteUrl,
+} from '../shared/keys';
+import { collator } from '../shared/sortKey';
 import { AccountSettings } from './auth';
 import { siteConditions } from './conditions';
-import { getSetting, setSetting } from './settings';
-import { closed, filteredOnly, modalActions, openClosed, openFiltered, openHidden, setView } from './state';
 import { Icon } from './icons';
+import { getSetting, setSetting } from './settings';
+import {
+  closed,
+  filteredOnly,
+  modalActions,
+  openClosed,
+  openFiltered,
+  openHidden,
+  setView,
+} from './state';
 import { fmtCount, openHandler, parseNum, plural } from './util';
-import { collator } from '../shared/sortKey';
 import {
   activeFilterCount,
   defaultFilterView,
@@ -49,13 +64,27 @@ export function Sidebar(props: Props) {
 }
 
 /** Section whose open/closed state is remembered across sessions. */
-function Collapsible({ id, title, children }: { id: string; title: ComponentChildren; children: ComponentChildren }) {
+function Collapsible({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: ComponentChildren;
+  children: ComponentChildren;
+}) {
   const collapsed = getSetting(KEYS.collapsed);
-  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) => setSetting(KEYS.collapsed, value);
+  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) =>
+    setSetting(KEYS.collapsed, value);
   const open = !collapsed[id];
   return (
     <div class="collapsible">
-      <button type="button" class="collapse-head" aria-expanded={open} onClick={() => setCollapsed({ ...collapsed, [id]: open })}>
+      <button
+        type="button"
+        class="collapse-head"
+        aria-expanded={open}
+        onClick={() => setCollapsed({ ...collapsed, [id]: open })}
+      >
         <span>{title}</span>
         <Icon name="expandMore" size={20} />
       </button>
@@ -65,14 +94,24 @@ function Collapsible({ id, title, children }: { id: string; title: ComponentChil
 }
 
 /** A checkbox per facet value with its lot count; checking none means no filter. */
-function CheckList<T>(props: { facets: Facet<T>[]; selected: T[]; onChange: (next: T[]) => void; titleOf?: (v: T) => string | undefined }) {
+function CheckList<T>(props: {
+  facets: Facet<T>[];
+  selected: T[];
+  onChange: (next: T[]) => void;
+  titleOf?: (v: T) => string | undefined;
+}) {
   const { facets, selected, onChange, titleOf } = props;
-  const toggle = (v: T) => onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+  const toggle = (v: T) =>
+    onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
   return (
     <>
       {facets.map((f) => (
         <label class="check" title={titleOf?.(f.value)}>
-          <input type="checkbox" checked={selected.includes(f.value)} onChange={() => toggle(f.value)} />
+          <input
+            type="checkbox"
+            checked={selected.includes(f.value)}
+            onChange={() => toggle(f.value)}
+          />
           <span>{f.label}</span>
           <span class="count">{fmtCount(f.count)}</span>
         </label>
@@ -92,12 +131,18 @@ const SUB = ' - ';
 
 /** Nest custom categories under the longest matching site or custom category name. */
 function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
-  const all = new Map([...siteCategories.map((f) => ({ ...f, count: 0 })), ...categories].map((f) => [f.value, f]));
+  const all = new Map(
+    [...siteCategories.map((f) => ({ ...f, count: 0 })), ...categories].map((f) => [f.value, f]),
+  );
   const parents = [...all.values()].toSorted((a, b) => b.label.length - a.label.length);
-  const groups = new Map([...all].map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]));
+  const groups = new Map(
+    [...all].map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]),
+  );
   const top: CategoryGroup[] = [];
   for (const f of categories) {
-    const p = isCustomCategory(f.value) ? parents.find((s) => f.label.startsWith(s.label + SUB)) : undefined;
+    const p = isCustomCategory(f.value)
+      ? parents.find((s) => f.label.startsWith(s.label + SUB))
+      : undefined;
     const group = groups.get(f.value)!;
     if (p) {
       group.facet = { ...f, label: f.label.slice(p.label.length + SUB.length) };
@@ -114,19 +159,33 @@ function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[
     }
   }
   const sort = (rows: CategoryGroup[]): CategoryGroup[] =>
-    rows.toSorted((a, b) => collator.compare(a.facet.label, b.facet.label)).map((g) => ({ ...g, subs: sort(g.subs) }));
+    rows
+      .toSorted((a, b) => collator.compare(a.facet.label, b.facet.label))
+      .map((g) => ({ ...g, subs: sort(g.subs) }));
   return sort(top);
 }
 
-const groupFacets = (g: CategoryGroup): Facet<string>[] => [g.facet, ...g.subs.flatMap(groupFacets)];
+const groupFacets = (g: CategoryGroup): Facet<string>[] => [
+  g.facet,
+  ...g.subs.flatMap(groupFacets),
+];
 const categoryCollapseId = (value: string) => `cat:${value}`;
 const expandableCategories = (g: CategoryGroup): string[] =>
   g.subs.length ? [categoryCollapseId(g.facet.value), ...g.subs.flatMap(expandableCategories)] : [];
 
 /** Category checkboxes, with expandable site and custom category parents. */
-function CategoryList({ facets, selected, onChange }: { facets: Facets; selected: string[]; onChange: (next: string[]) => void }) {
+function CategoryList({
+  facets,
+  selected,
+  onChange,
+}: {
+  facets: Facets;
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
   const collapsed = getSetting(KEYS.collapsed);
-  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) => setSetting(KEYS.collapsed, value);
+  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) =>
+    setSetting(KEYS.collapsed, value);
   const groups = groupCategories(facets);
   const ids = groups.flatMap(expandableCategories);
   const setAllCollapsed = (value: boolean) => {
@@ -139,21 +198,44 @@ function CategoryList({ facets, selected, onChange }: { facets: Facets; selected
   return (
     <>
       <div class="category-expand-actions">
-        <button type="button" class="btn-text" disabled={!ids.length} onClick={() => setAllCollapsed(false)}>
+        <button
+          type="button"
+          class="btn-text"
+          disabled={!ids.length}
+          onClick={() => setAllCollapsed(false)}
+        >
           Expand all
         </button>
-        <button type="button" class="btn-text" disabled={!ids.length} onClick={() => setAllCollapsed(true)}>
+        <button
+          type="button"
+          class="btn-text"
+          disabled={!ids.length}
+          onClick={() => setAllCollapsed(true)}
+        >
           Collapse all
         </button>
       </div>
       {groups.map((group) => (
-        <CategoryGroupRow key={group.facet.value} group={group} selected={selected} onChange={onChange} collapsed={collapsed} setCollapsed={setCollapsed} />
+        <CategoryGroupRow
+          key={group.facet.value}
+          group={group}
+          selected={selected}
+          onChange={onChange}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+        />
       ))}
     </>
   );
 }
 
-function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }: {
+function CategoryGroupRow({
+  group,
+  selected,
+  onChange,
+  collapsed,
+  setCollapsed,
+}: {
   group: CategoryGroup;
   selected: string[];
   onChange: (next: string[]) => void;
@@ -161,9 +243,21 @@ function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }
   setCollapsed: (next: Record<string, boolean>) => void;
 }) {
   const { facet, subs } = group;
-  const toggle = () => onChange(selected.includes(facet.value) ? selected.filter((v) => v !== facet.value) : [...selected, facet.value]);
+  const toggle = () =>
+    onChange(
+      selected.includes(facet.value)
+        ? selected.filter((v) => v !== facet.value)
+        : [...selected, facet.value],
+    );
   if (!subs.length) {
-    return <CheckRow facet={facet} checked={selected.includes(facet.value)} onChange={toggle} onOnly={() => onChange([facet.value])} />;
+    return (
+      <CheckRow
+        facet={facet}
+        checked={selected.includes(facet.value)}
+        onChange={toggle}
+        onOnly={() => onChange([facet.value])}
+      />
+    );
   }
   const rows = groupFacets(group);
   const values = rows.map((r) => r.value);
@@ -182,7 +276,13 @@ function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }
             type="checkbox"
             checked={all}
             indeterminate={some && !all}
-            onChange={() => onChange(all ? selected.filter((v) => !values.includes(v)) : [...new Set([...selected, ...values])])}
+            onChange={() =>
+              onChange(
+                all
+                  ? selected.filter((v) => !values.includes(v))
+                  : [...new Set([...selected, ...values])],
+              )
+            }
           />
           <span>{facet.label}</span>
         </label>
@@ -196,7 +296,13 @@ function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }
           <Icon name="expandMore" size={18} />
           <span class="count">{fmtCount(total)}</span>
         </button>
-        <button type="button" class="icon-btn check-only" title={onlyLabel} aria-label={onlyLabel} onClick={() => onChange(values)}>
+        <button
+          type="button"
+          class="icon-btn check-only"
+          title={onlyLabel}
+          aria-label={onlyLabel}
+          onClick={() => onChange(values)}
+        >
           <Icon name="focus" size={16} />
         </button>
       </div>
@@ -210,7 +316,14 @@ function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }
             onlyLabel={`Show only lots directly in ${facet.label}`}
           />
           {subs.map((sub) => (
-            <CategoryGroupRow key={sub.facet.value} group={sub} selected={selected} onChange={onChange} collapsed={collapsed} setCollapsed={setCollapsed} />
+            <CategoryGroupRow
+              key={sub.facet.value}
+              group={sub}
+              selected={selected}
+              onChange={onChange}
+              collapsed={collapsed}
+              setCollapsed={setCollapsed}
+            />
           ))}
         </div>
       )}
@@ -218,7 +331,13 @@ function CategoryGroupRow({ group, selected, onChange, collapsed, setCollapsed }
   );
 }
 
-function CheckRow({ facet, checked, onChange, onOnly, onlyLabel }: {
+function CheckRow({
+  facet,
+  checked,
+  onChange,
+  onOnly,
+  onlyLabel,
+}: {
   facet: Facet<string>;
   checked: boolean;
   onChange: () => void;
@@ -233,7 +352,13 @@ function CheckRow({ facet, checked, onChange, onOnly, onlyLabel }: {
         <span>{facet.label}</span>
         <span class="count">{fmtCount(facet.count)}</span>
       </label>
-      <button type="button" class="icon-btn check-only" title={label} aria-label={label} onClick={onOnly}>
+      <button
+        type="button"
+        class="icon-btn check-only"
+        title={label}
+        aria-label={label}
+        onClick={onOnly}
+      >
         <Icon name="focus" size={16} />
       </button>
     </div>
@@ -252,7 +377,13 @@ function NumberInput<T extends number | null>(props: NumberInputProps<T>) {
   return <NumberInputDraft key={String(props.value)} {...props} />;
 }
 
-function NumberInputDraft<T extends number | null>({ label, value, parse, onChange, ...input }: NumberInputProps<T>) {
+function NumberInputDraft<T extends number | null>({
+  label,
+  value,
+  parse,
+  onChange,
+  ...input
+}: NumberInputProps<T>) {
   const format = (v: T) => (v == null ? '' : String(v));
   const [text, setText] = useState(format(value));
   const commit = () => {
@@ -265,24 +396,47 @@ function NumberInputDraft<T extends number | null>({ label, value, parse, onChan
   return (
     <label class="field">
       <span>{label}</span>
-      <input {...input} value={text} onInput={(e) => setText(e.currentTarget.value)} onBlur={commit} onKeyDown={(e) => e.key === 'Enter' && commit()} />
+      <input
+        {...input}
+        value={text}
+        onInput={(e) => setText(e.currentTarget.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && commit()}
+      />
     </label>
   );
 }
 
 /** Dollar amount; empty means no limit (null). */
-function PriceField(props: { label: string; value: number | null; onChange: (v: number | null) => void }) {
-  return <NumberInput {...props} parse={parseNum} type="text" inputMode="decimal" placeholder="$" />;
+function PriceField(props: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <NumberInput {...props} parse={parseNum} type="text" inputMode="decimal" placeholder="$" />
+  );
 }
 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
 function FiltersSection({ view, facets, pickup, authed }: Props) {
   const n = activeFilterCount(view);
   const defaults = getSetting(KEYS.defaultFilters);
-  const setDefaults = (value: ReturnType<typeof getSetting<typeof KEYS.defaultFilters>>) => setSetting(KEYS.defaultFilters, value);
+  const setDefaults = (value: ReturnType<typeof getSetting<typeof KEYS.defaultFilters>>) =>
+    setSetting(KEYS.defaultFilters, value);
   const reset = defaultFilterView(defaults, view.sort);
   const canDefault =
-    view.newSince != null || !sameDefaultFilters(view, defaults) || !sameFilters({ ...view, categories: reset.categories, noCategories: reset.noCategories, conditions: reset.conditions }, reset);
+    view.newSince != null ||
+    !sameDefaultFilters(view, defaults) ||
+    !sameFilters(
+      {
+        ...view,
+        categories: reset.categories,
+        noCategories: reset.noCategories,
+        conditions: reset.conditions,
+      },
+      reset,
+    );
   const conditions = siteConditions();
   const custom = getSetting(KEYS.customCategories);
   const customCount = custom.length;
@@ -320,7 +474,13 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
       <div class="closed-links">
         <span class="muted">Closed:</span>
         {(['won', 'lost'] as const).map((s) => (
-          <button type="button" class={`btn-text ${closed.value === s ? 'on' : ''}`} aria-pressed={closed.value === s} disabled={!authed} onClick={() => openClosed(s)}>
+          <button
+            type="button"
+            class={`btn-text ${closed.value === s ? 'on' : ''}`}
+            aria-pressed={closed.value === s}
+            disabled={!authed}
+            onClick={() => openClosed(s)}
+          >
             {s === 'won' ? 'Won' : 'Lost'}
           </button>
         ))}
@@ -328,7 +488,10 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
 
       <label class="field">
         <span>Ending</span>
-        <select value={view.ending} onChange={(e) => setView({ ending: e.currentTarget.value as ViewState['ending'] })}>
+        <select
+          value={view.ending}
+          onChange={(e) => setView({ ending: e.currentTarget.value as ViewState['ending'] })}
+        >
           {Object.entries(ENDING).map(([k, { label }]) => (
             <option value={k}>{label}</option>
           ))}
@@ -336,9 +499,17 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
       </label>
 
       <Collapsible id="f-location" title="Location">
-        <CheckList facets={facets.locations} selected={view.locations} onChange={(locations) => setView({ locations })} />
+        <CheckList
+          facets={facets.locations}
+          selected={view.locations}
+          onChange={(locations) => setView({ locations })}
+        />
         <label class="check">
-          <input type="checkbox" checked={view.reachable} onChange={() => setView({ reachable: !view.reachable })} />
+          <input
+            type="checkbox"
+            checked={view.reachable}
+            onChange={() => setView({ reachable: !view.reachable })}
+          />
           <span>Available at {pickup} (incl. transfers)</span>
         </label>
       </Collapsible>
@@ -347,14 +518,23 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
         {view.noCategories && (
           <div>
             <p class="muted">No categories selected.</p>
-            <button type="button" class="btn-text" onClick={() => setView({ categories: [], noCategories: false })}>
+            <button
+              type="button"
+              class="btn-text"
+              onClick={() => setView({ categories: [], noCategories: false })}
+            >
               Show all categories
             </button>
           </div>
         )}
-        <CategoryList facets={facets} selected={view.categories} onChange={(categories) => setView({ categories, noCategories: false })} />
+        <CategoryList
+          facets={facets}
+          selected={view.categories}
+          onChange={(categories) => setView({ categories, noCategories: false })}
+        />
         <button type="button" class="btn-text cat-edit-btn" onClick={modalActions.editCategories}>
-          <Icon name="edit" size={16} /> {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
+          <Icon name="edit" size={16} />{' '}
+          {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
         </button>
       </Collapsible>
 
@@ -384,7 +564,13 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
         type="button"
         class="btn-text default-filters-btn"
         disabled={sameDefaultFilters(view, defaults)}
-        onClick={() => setDefaults({ categories: [...view.categories], conditions: [...view.conditions], ...(view.noCategories ? { noCategories: true } : {}) })}
+        onClick={() =>
+          setDefaults({
+            categories: [...view.categories],
+            conditions: [...view.conditions],
+            ...(view.noCategories ? { noCategories: true } : {}),
+          })
+        }
         title="Save the current category and condition selections as defaults"
       >
         Save category &amp; condition defaults
@@ -392,12 +578,28 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
 
       <Collapsible id="f-price" title="Price">
         <div class="field-row">
-          <PriceField label="Bid min" value={view.priceMin} onChange={(priceMin) => setView({ priceMin })} />
-          <PriceField label="Bid max" value={view.priceMax} onChange={(priceMax) => setView({ priceMax })} />
+          <PriceField
+            label="Bid min"
+            value={view.priceMin}
+            onChange={(priceMin) => setView({ priceMin })}
+          />
+          <PriceField
+            label="Bid max"
+            value={view.priceMax}
+            onChange={(priceMax) => setView({ priceMax })}
+          />
         </div>
         <div class="field-row">
-          <PriceField label="Max est. total" value={view.totalMax} onChange={(totalMax) => setView({ totalMax })} />
-          <PriceField label="Min retail" value={view.retailMin} onChange={(retailMin) => setView({ retailMin })} />
+          <PriceField
+            label="Max est. total"
+            value={view.totalMax}
+            onChange={(totalMax) => setView({ totalMax })}
+          />
+          <PriceField
+            label="Min retail"
+            value={view.retailMin}
+            onChange={(retailMin) => setView({ retailMin })}
+          />
         </div>
       </Collapsible>
     </section>
@@ -410,8 +612,8 @@ type SaveFn = (text: string) => string | void;
 const selectText = (box: HTMLInputElement | HTMLTextAreaElement | null) => box?.select();
 
 /**
- * Inline text editors, one open at a time (identified by an id). Enter or
- * blur saves the trimmed text (empty just closes), Escape cancels.
+ * Inline text editors, one open at a time (identified by an id). Enter or blur saves the trimmed
+ * text (empty just closes), Escape cancels.
  */
 function useInlineEdit() {
   const [editing, setEditing] = useState<string | null>(null);
@@ -506,7 +708,13 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
 
   return (
     <li class={`filter-row ${ok ? '' : 'filter-error'}`}>
-      <button type="button" class="filter-remove" aria-label={`Remove ${pattern}`} title="Remove filter" onClick={onRemove}>
+      <button
+        type="button"
+        class="filter-remove"
+        aria-label={`Remove ${pattern}`}
+        title="Remove filter"
+        onClick={onRemove}
+      >
         <Icon name="cancel" size={16} />
       </button>
       {editing ? (
@@ -518,33 +726,48 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
             rows={Math.min(6, Math.max(1, Math.ceil(edit.text.length / 26)))}
             {...edit.boxProps('pattern', save)}
           />
-          <span class={edit.error ? 'error small' : 'muted small'}>{edit.error ?? 'Enter to save · Esc to cancel'}</span>
+          <span class={edit.error ? 'error small' : 'muted small'}>
+            {edit.error ?? 'Enter to save · Esc to cancel'}
+          </span>
         </div>
       ) : (
         <button
           type="button"
           class="filter-pattern"
-          title={ok ? `/\\b(?:${pattern})\\b/i – click to edit` : 'Invalid regex – ignored. Click to edit'}
+          title={
+            ok
+              ? `/\\b(?:${pattern})\\b/i – click to edit`
+              : 'Invalid regex – ignored. Click to edit'
+          }
           onClick={() => edit.start('pattern', pattern)}
         >
           <PatternText pattern={pattern} />
         </button>
       )}
-      {ok && !editing && (
-        <span class="count">
-          {fmtCount(count)}
-        </span>
-      )}
+      {ok && !editing && <span class="count">{fmtCount(count)}</span>}
     </li>
   );
 }
 
 /** Labeled on/off switch. */
-function Switch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Switch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <label class="switch-row">
       <span>{label}</span>
-      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.currentTarget.checked)} />
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onChange(e.currentTarget.checked)}
+      />
     </label>
   );
 }
@@ -552,15 +775,20 @@ function Switch({ label, checked, onChange }: { label: string; checked: boolean;
 /** Regex title filters and the list of manually hidden lots. */
 function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }) {
   const words = getSetting(KEYS.words);
-  const setWords = (value: ReturnType<typeof getSetting<typeof KEYS.words>>) => setSetting(KEYS.words, value);
+  const setWords = (value: ReturnType<typeof getSetting<typeof KEYS.words>>) =>
+    setSetting(KEYS.words, value);
   const filterOn = getSetting(KEYS.filterOn);
-  const setFilterOn = (value: ReturnType<typeof getSetting<typeof KEYS.filterOn>>) => setSetting(KEYS.filterOn, value);
+  const setFilterOn = (value: ReturnType<typeof getSetting<typeof KEYS.filterOn>>) =>
+    setSetting(KEYS.filterOn, value);
   const removeFiltered = getSetting(KEYS.removeFiltered);
-  const setRemoveFiltered = (value: ReturnType<typeof getSetting<typeof KEYS.removeFiltered>>) => setSetting(KEYS.removeFiltered, value);
+  const setRemoveFiltered = (value: ReturnType<typeof getSetting<typeof KEYS.removeFiltered>>) =>
+    setSetting(KEYS.removeFiltered, value);
   const showHidden = getSetting(KEYS.showHidden);
-  const setShowHidden = (value: ReturnType<typeof getSetting<typeof KEYS.showHidden>>) => setSetting(KEYS.showHidden, value);
+  const setShowHidden = (value: ReturnType<typeof getSetting<typeof KEYS.showHidden>>) =>
+    setSetting(KEYS.showHidden, value);
   const hiddenLots = getSetting(KEYS.hidden);
-  const setHiddenLots = (value: ReturnType<typeof getSetting<typeof KEYS.hidden>>) => setSetting(KEYS.hidden, value);
+  const setHiddenLots = (value: ReturnType<typeof getSetting<typeof KEYS.hidden>>) =>
+    setSetting(KEYS.hidden, value);
   const [input, setInput] = useState('');
   const add = () => {
     setWords([...new Set([...words, input])]);
@@ -575,7 +803,12 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
   return (
     <section class="panel">
       <h2>Hide &amp; filter</h2>
-      <button type="button" class={`btn-text ${filteredOnly.value ? 'on' : ''}`} aria-pressed={filteredOnly.value} onClick={() => openFiltered()}>
+      <button
+        type="button"
+        class={`btn-text ${filteredOnly.value ? 'on' : ''}`}
+        aria-pressed={filteredOnly.value}
+        onClick={() => openFiltered()}
+      >
         View filtered lots
       </button>
       <div class="add-filter">
@@ -610,24 +843,42 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
       </Collapsible>
 
       <Switch label="Apply filters" checked={filterOn} onChange={setFilterOn} />
-      <Switch label="Remove filtered lots instead of graying out" checked={removeFiltered} onChange={setRemoveFiltered} />
+      <Switch
+        label="Remove filtered lots instead of graying out"
+        checked={removeFiltered}
+        onChange={setRemoveFiltered}
+      />
       <Switch label="Show hidden lots" checked={showHidden} onChange={setShowHidden} />
 
       <Collapsible id="hidden" title={`Hidden lots (${hidden.length})`}>
         <ul class="hidden-list">
           {hidden.map(([id, info]) => (
             <li>
-              <a href={siteUrl(info.href)} title={info.title} onClick={openHandler(() => openHidden(Number(id)))}>
+              <a
+                href={siteUrl(info.href)}
+                title={info.title}
+                onClick={openHandler(() => openHidden(Number(id)))}
+              >
                 {info.title || `Lot ${id}`}
               </a>
-              <button type="button" class="icon-btn" title="Unhide" aria-label={`Unhide ${info.title}`} onClick={() => unhide(id)}>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Unhide"
+                aria-label={`Unhide ${info.title}`}
+                onClick={() => unhide(id)}
+              >
                 <Icon name="visibility" size={18} />
               </button>
             </li>
           ))}
         </ul>
         {hidden.length > 0 && (
-          <button type="button" class="btn-text" onClick={() => confirm('Unhide all hidden lots?') && setHiddenLots({})}>
+          <button
+            type="button"
+            class="btn-text"
+            onClick={() => confirm('Unhide all hidden lots?') && setHiddenLots({})}
+          >
             Unhide all
           </button>
         )}
@@ -639,16 +890,20 @@ function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }
 /** Pickup location, full-refresh interval, title lines and the account. */
 function SettingsSection() {
   const minutes = getSetting(KEYS.syncMinutes);
-  const setMinutes = (value: ReturnType<typeof getSetting<typeof KEYS.syncMinutes>>) => setSetting(KEYS.syncMinutes, value);
+  const setMinutes = (value: ReturnType<typeof getSetting<typeof KEYS.syncMinutes>>) =>
+    setSetting(KEYS.syncMinutes, value);
   const titleLines = getSetting(KEYS.titleLines);
-  const setTitleLines = (value: ReturnType<typeof getSetting<typeof KEYS.titleLines>>) => setSetting(KEYS.titleLines, value);
+  const setTitleLines = (value: ReturnType<typeof getSetting<typeof KEYS.titleLines>>) =>
+    setSetting(KEYS.titleLines, value);
   return (
     <section class="panel">
       <Collapsible id="settings" title={<h2>Settings</h2>}>
         <NumberInput
           label={`Full catalog refresh at most every (minutes, min ${MIN_SYNC_MINUTES})`}
           value={minutes}
-          parse={(text) => Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? DEFAULT_SYNC_MINUTES))}
+          parse={(text) =>
+            Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? DEFAULT_SYNC_MINUTES))
+          }
           onChange={setMinutes}
           type="number"
           min={MIN_SYNC_MINUTES}
@@ -682,7 +937,17 @@ interface SavedSearchesProps {
 }
 
 /** Saved searches with total/new counts, plus save, rename and delete. */
-function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedName, onSave, onOpen, onDelete, onRename }: SavedSearchesProps) {
+function SavedSearchesSection({
+  searches,
+  stats,
+  activeId,
+  canSave,
+  suggestedName,
+  onSave,
+  onOpen,
+  onDelete,
+  onRename,
+}: SavedSearchesProps) {
   // Editor ids: 'new' names a new saved search; otherwise it's the id being renamed.
   const edit = useInlineEdit();
   const naming = edit.editing === 'new';
@@ -698,7 +963,11 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
             class="btn-text"
             disabled={!canSave}
             onClick={() => edit.start('new', suggestedName)}
-            title={canSave ? 'Save the current filters' : 'Set some filters first, or this search is already saved'}
+            title={
+              canSave
+                ? 'Save the current filters'
+                : 'Set some filters first, or this search is already saved'
+            }
           >
             Save current
           </button>
@@ -706,14 +975,26 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
       </div>
       {naming && (
         <div class="add-filter">
-          <input type="text" aria-label="Name for saved search" {...edit.boxProps('new', saveNew)} />
-          <button type="button" class="btn-text" onMouseDown={(e) => e.preventDefault()} onClick={() => edit.save('new', saveNew)}>
+          <input
+            type="text"
+            aria-label="Name for saved search"
+            {...edit.boxProps('new', saveNew)}
+          />
+          <button
+            type="button"
+            class="btn-text"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => edit.save('new', saveNew)}
+          >
             Save
           </button>
         </div>
       )}
       {searches.length === 0 && !naming && (
-        <p class="muted small">Set filters or a search, then save them here. New listings that match show up as a count after each catalog refresh.</p>
+        <p class="muted small">
+          Set filters or a search, then save them here. New listings that match show up as a count
+          after each catalog refresh.
+        </p>
       )}
       <ul class="filter-list">
         {searches.map((s) => {
@@ -730,7 +1011,12 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
                 <Icon name="cancel" size={16} />
               </button>
               {edit.editing === s.id ? (
-                <input class="rename" type="text" aria-label="Rename saved search" {...edit.boxProps(s.id, (name) => onRename(s.id, name))} />
+                <input
+                  class="rename"
+                  type="text"
+                  aria-label="Rename saved search"
+                  {...edit.boxProps(s.id, (name) => onRename(s.id, name))}
+                />
               ) : (
                 <button
                   type="button"
@@ -743,11 +1029,19 @@ function SavedSearchesSection({ searches, stats, activeId, canSave, suggestedNam
                 </button>
               )}
               {st.fresh > 0 && (
-                <button type="button" class="pill pill-new" title="Show only the new matches" onClick={() => onOpen(s, true)}>
+                <button
+                  type="button"
+                  class="pill pill-new"
+                  title="Show only the new matches"
+                  onClick={() => onOpen(s, true)}
+                >
                   {fmtCount(st.fresh)} new
                 </button>
               )}
-              <span class="count" title="Open lots matching, not counting hidden or regex-filtered lots">
+              <span
+                class="count"
+                title="Open lots matching, not counting hidden or regex-filtered lots"
+              >
                 {fmtCount(st.total)}
               </span>
             </li>

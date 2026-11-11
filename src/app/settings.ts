@@ -1,6 +1,7 @@
 // Reactive access to settings. Shared settings live only on the server;
 // browser-only UI settings use localStorage.
 import { signal, type Signal } from '@preact/signals';
+
 import { DEFAULTS, SERVER_KEYS } from '../shared/keys';
 
 export type Key = keyof typeof DEFAULTS;
@@ -41,14 +42,17 @@ function setting(key: Key): Signal<unknown> {
   return s;
 }
 
-/** Read a setting (or its default). Read in a component or computed, it re-runs them when the setting changes in this tab. */
+/**
+ * Read a setting (or its default). Read in a component or computed, it re-runs them when the
+ * setting changes in this tab.
+ */
 export function getSetting<K extends Key>(key: K): Value<K> {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return setting(key).value as Value<K>;
 }
 
 /** Called with every setting saved here (source.ts persists shared ones to the server). */
-let onSave: (key: Key, value: unknown) => void = () => { };
+let onSave: (key: Key, value: unknown) => void = () => {};
 export const setSaveHook = (fn: (key: Key, value: unknown) => void) => void (onSave = fn);
 
 /** Store a setting without calling the save hook (for values from the server). */

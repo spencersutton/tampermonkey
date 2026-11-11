@@ -1,22 +1,26 @@
 import { memo } from 'preact/compat';
 import { useCallback } from 'preact/hooks';
-import { observeLot } from './viewport';
+
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
-import { canWatch, toggleWatch, watchPending } from './watch';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './bid';
+import { CardBrandModel } from './brands';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { CardBrandModel } from './brands';
 import { hideCategory, modalActions, openLot, toggleHide } from './state';
+import type { Lot, PastClose } from './types';
 import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
-import type { Lot, PastClose } from './types';
+import { observeLot } from './viewport';
+import { canWatch, toggleWatch, watchPending } from './watch';
 
-/** Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within the last hour. */
+/**
+ * Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within
+ * the last hour.
+ */
 function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
   const ms = endsAt.epochMilliseconds - now.epochMilliseconds;
   if (ms <= 0) {
@@ -61,12 +65,19 @@ export function LocationText({ row }: { row: Row }) {
     return <span title="Not transferable – pick up at this location">{name} only</span>;
   }
   if (row.transferFee) {
-    return <span title={`Transfer to your pickup location for ${money(row.transferFee)}`}>{name} · transfer</span>;
+    return (
+      <span title={`Transfer to your pickup location for ${money(row.transferFee)}`}>
+        {name} · transfer
+      </span>
+    );
   }
   return <span>{name}</span>;
 }
 
-/** Watchlist toggle on the card image; a plain marker once you've bid (the site doesn't allow toggling then). */
+/**
+ * Watchlist toggle on the card image; a plain marker once you've bid (the site doesn't allow
+ * toggling then).
+ */
 function WatchStar({ lot }: { lot: Lot }) {
   const pending = watchPending(lot.id);
   if (!canWatch(lot)) {
@@ -99,8 +110,15 @@ export function WatchButton({ lot }: { lot: Lot }) {
     return null;
   }
   return (
-    <button type="button" class="btn btn-text" aria-pressed={lot.isWatchlisted} disabled={pending} onClick={() => void toggleWatch(lot.id)}>
-      <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} /> {lot.isWatchlisted ? 'On watchlist' : 'Add to watchlist'}
+    <button
+      type="button"
+      class="btn btn-text"
+      aria-pressed={lot.isWatchlisted}
+      disabled={pending}
+      onClick={() => void toggleWatch(lot.id)}
+    >
+      <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} />{' '}
+      {lot.isWatchlisted ? 'On watchlist' : 'Add to watchlist'}
     </button>
   );
 }
@@ -124,7 +142,11 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
     <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id} ref={observe}>
       <div class="card-media">
         <a href={href} onClick={open} tabIndex={-1} aria-hidden="true">
-          {img ? <img src={`${CDN}/${img.card}`} alt="" loading="lazy" decoding="async" /> : <span class="noimg">No image</span>}
+          {img ? (
+            <img src={`${CDN}/${img.card}`} alt="" loading="lazy" decoding="async" />
+          ) : (
+            <span class="noimg">No image</span>
+          )}
         </a>
         <button
           type="button"
@@ -141,13 +163,19 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
         </div>
-        {(hidden || matched) && <span class="media-badge" title={hidden ? 'Hidden' : `Filtered: ${matched}`}>
-          {hidden ? 'Hidden' : `Filtered: ${matched}`}
-        </span>}
+        {(hidden || matched) && (
+          <span class="media-badge" title={hidden ? 'Hidden' : `Filtered: ${matched}`}>
+            {hidden ? 'Hidden' : `Filtered: ${matched}`}
+          </span>
+        )}
       </div>
       <div class="card-body">
         <div class="card-kicker">
-          {lot.condition && <span class="card-condition" title={conditions.get(lot.condition.value)?.description}>{lot.condition.label}</span>}
+          {lot.condition && (
+            <span class="card-condition" title={conditions.get(lot.condition.value)?.description}>
+              {lot.condition.label}
+            </span>
+          )}
           {lot.lotNumber && <span class="card-lot-number">Lot #{lot.lotNumber}</span>}
         </div>
         <a class="card-title" href={href} title={lot.title} onClick={open}>
@@ -155,7 +183,10 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         </a>
         <CardBrandModel id={lot.id} />
         <div class="card-meta">
-          <div class="card-location"><span class="card-label">Location</span><LocationText row={row} /></div>
+          <div class="card-location">
+            <span class="card-label">Location</span>
+            <LocationText row={row} />
+          </div>
           {category && (
             <div class="card-category">
               <span>{category.label}</span>
@@ -187,7 +218,11 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
             {lot.estimatedRetailPrice ? (
               <span>
                 Retail {dollars(lot.estimatedRetailPrice)}
-                {row.retailPct != null && <span class="card-retail-pct">Bid is {Math.round(row.retailPct * 100)}% of retail</span>}
+                {row.retailPct != null && (
+                  <span class="card-retail-pct">
+                    Bid is {Math.round(row.retailPct * 100)}% of retail
+                  </span>
+                )}
               </span>
             ) : (
               <span class="muted">No retail estimate</span>
@@ -208,11 +243,24 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   );
 });
 
-/** "+N" badge for listings of the same item folded into this card; opens the cheapest's popup, which lists them all. */
+/**
+ * "+N" badge for listings of the same item folded into this card; opens the cheapest's popup, which
+ * lists them all.
+ */
 function DupeCount({ row }: { row: Row }) {
-  const list = row.others.map((r) => `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(r.lot.endsAt)}`).join('\n');
+  const list = row.others
+    .map(
+      (r) =>
+        `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(r.lot.endsAt)}`,
+    )
+    .join('\n');
   return (
-    <button type="button" class="pill pill-dupes" title={`${plural(row.others.length, 'more listing')} of this item:\n${list}`} onClick={() => openLot(row.lot)}>
+    <button
+      type="button"
+      class="pill pill-dupes"
+      title={`${plural(row.others.length, 'more listing')} of this item:\n${list}`}
+      onClick={() => openLot(row.lot)}
+    >
       +{row.others.length} more
     </button>
   );
@@ -226,21 +274,28 @@ const median = (xs: number[]) => {
 };
 
 /**
- * What a lot's past closes say it usually goes for: the median of the recent
- * ones that sold, counting only those in the same condition when there are any.
+ * What a lot's past closes say it usually goes for: the median of the recent ones that sold,
+ * counting only those in the same condition when there are any.
  */
-export function pastPrice(lot: Lot): { median: number; count: number; sameCondition: boolean } | null {
+export function pastPrice(
+  lot: Lot,
+): { median: number; count: number; sameCondition: boolean } | null {
   const sold = lot.pastCloses?.recent.filter((c) => c.sold) ?? [];
   const same = sold.filter((c) => c.condition === (lot.condition?.label ?? null));
   const use = same.length ? same : sold;
-  return use.length ? { median: median(use.map((c) => c.price)), count: use.length, sameCondition: same.length > 0 } : null;
+  return use.length
+    ? { median: median(use.map((c) => c.price)), count: use.length, sameCondition: same.length > 0 }
+    : null;
 }
 
 /** One past close as a line of text. */
 const pastCloseText = (c: PastClose) =>
   `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${shortDate(c.endsAt)}`;
 
-/** "Sold before for $12 (median of 4)", with the recent closes on hover; opens the popup, which lists them all. */
+/**
+ * "Sold before for $12 (median of 4)", with the recent closes on hover; opens the popup, which
+ * lists them all.
+ */
 function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void }) {
   const { n, recent } = lot.pastCloses!;
   const p = pastPrice(lot);
@@ -284,14 +339,24 @@ function CardBidButton({ row }: { row: Row }) {
   // While winning, a quick bid would only raise your own price; raising the max happens in the popup.
   if (isLeading(lot)) {
     return (
-      <button type="button" class="btn btn-small btn-outline" onClick={() => openLot(lot)} title="Raise your max bid">
+      <button
+        type="button"
+        class="btn btn-small btn-outline"
+        onClick={() => openLot(lot)}
+        title="Raise your max bid"
+      >
         Raise max
       </button>
     );
   }
   const amount = quickBidAmount(lot);
   return (
-    <button type="button" class="btn btn-small" onClick={() => modalActions.startBid({ lotId: lot.id, amount, type: 'next_increment' })} title="Bid the next increment (asks to confirm)">
+    <button
+      type="button"
+      class="btn btn-small"
+      onClick={() => modalActions.startBid({ lotId: lot.id, amount, type: 'next_increment' })}
+      title="Bid the next increment (asks to confirm)"
+    >
       Bid {dollars(amount)}
     </button>
   );

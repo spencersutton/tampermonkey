@@ -19,7 +19,10 @@ export const KEYS = {
   lastVisit: 'tlxLastVisit', // Instant | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
 } as const;
 
-/** Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay per browser. */
+/**
+ * Settings the web app keeps on the tlx server, so every device using it shares them. The rest stay
+ * per browser.
+ */
 export const SERVER_KEYS = [
   KEYS.hidden,
   KEYS.words,
@@ -40,9 +43,8 @@ export interface HiddenLot {
 }
 
 /**
- * A category of my own: lots whose item type is one of `types` go in it
- * instead of their site category. A category without matches can head a group
- * of child categories.
+ * A category of my own: lots whose item type is one of `types` go in it instead of their site
+ * category. A category without matches can head a group of child categories.
  */
 export interface CustomCategory {
   name: string;
@@ -82,7 +84,8 @@ export const DEFAULTS = {
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
-export const lotHref = (auctionPeriod: string, id: number) => `https://triangleliquidators.com/lots/${auctionPeriod}/${id}`;
+export const lotHref = (auctionPeriod: string, id: number) =>
+  `https://triangleliquidators.com/lots/${auctionPeriod}/${id}`;
 
 /** A link saved with a hidden lot as an absolute URL on the site (older ones were saved as paths). */
 export const siteUrl = (href: string) => new URL(href, 'https://triangleliquidators.com/').href;
