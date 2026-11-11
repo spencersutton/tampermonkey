@@ -149,9 +149,12 @@ export function groupItems(
   }
   const postings = new Map<string, number[]>();
   words.forEach((tokens, i) => {
-    const ordered = [...tokens].toSorted(
-      (a, b) => freq.get(a)! - freq.get(b)! || (a < b ? -1 : a > b ? 1 : 0),
-    );
+    const ordered = [...tokens].toSorted((a, b) => {
+      const frequency = freq.get(a)! - freq.get(b)!;
+      if (frequency) return frequency;
+      if (a < b) return -1;
+      return a > b ? 1 : 0;
+    });
     const prefix = ordered.slice(0, tokens.size - Math.ceil((tokens.size * minPct) / 100) + 1);
     if (!prefix.length) prefix.push(`\u0000${items[i]!.title.trim().toLowerCase()}`);
     const seen = new Set<number>();

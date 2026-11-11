@@ -3,7 +3,9 @@
     "correctness": "warn",
     "suspicious": "warn"
   },
-  "ignorePatterns": ["tests/**"],
+  "ignorePatterns": [
+    "tests/**"
+  ],
   "options": {
     "typeAware": true
   },
@@ -23,6 +25,7 @@
     "typescript/no-unnecessary-condition": "error",
     "typescript/no-unnecessary-type-assertion": "warn",
     "unicorn/consistent-function-scoping": "off",
-    "unicorn/no-array-sort": "warn"
+    "unicorn/no-array-sort": "warn",
+    "no-nested-ternary": "warn"
   }
 }

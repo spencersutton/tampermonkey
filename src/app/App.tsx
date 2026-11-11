@@ -156,6 +156,13 @@ export function App() {
   const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
   const nFilters = activeFilterCount(view);
   const badRegex = view.searchRegex && search.trim() !== '' && !searchRegexOf({ ...view, search });
+  let searchTitle =
+    'Search title, lot number, and known brand/model details. Narrow with brand:dewalt model:dcd791; quote multi-word values, e.g. brand:"Black & Decker". All terms must match. Uncached details become searchable when loaded.';
+  if (badRegex) {
+    searchTitle = 'Invalid regex';
+  } else if (view.searchRegex) {
+    searchTitle = 'Case-insensitive regex across title, lot number, and known brand/model details';
+  }
   // How many of the matches are new since the last visit (to the open saved search, if any).
   const freshMatches =
     view.newSince == null && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
@@ -177,13 +184,7 @@ export function App() {
             }
             aria-label="Search lots"
             aria-invalid={badRegex}
-            title={
-              badRegex
-                ? 'Invalid regex'
-                : view.searchRegex
-                  ? 'Case-insensitive regex across title, lot number, and known brand/model details'
-                  : 'Search title, lot number, and known brand/model details. Narrow with brand:dewalt model:dcd791; quote multi-word values, e.g. brand:"Black & Decker". All terms must match. Uncached details become searchable when loaded.'
-            }
+            title={searchTitle}
             spellcheck={!view.searchRegex}
             value={search}
             onInput={(e) => setSearchDraft(e.currentTarget.value)}

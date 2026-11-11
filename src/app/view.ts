@@ -147,15 +147,16 @@ export function normalizeView(v: unknown): ViewState {
     ...(v && typeof v === 'object' ? (v as Partial<ViewState>) : {}),
   };
   const rawNewSince: unknown = view.newSince;
+  let newSince: Temporal.Instant | null = null;
+  if (typeof rawNewSince === 'string') {
+    newSince = Temporal.Instant.from(rawNewSince);
+  } else if (rawNewSince instanceof Temporal.Instant) {
+    newSince = rawNewSince;
+  }
   return {
     ...view,
     noCategories: !view.categories.length && view.noCategories,
-    newSince:
-      typeof rawNewSince === 'string'
-        ? Temporal.Instant.from(rawNewSince)
-        : rawNewSince instanceof Temporal.Instant
-          ? rawNewSince
-          : null,
+    newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
     ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
     mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine,
@@ -246,7 +247,10 @@ export interface CompiledCategories {
 export function compareCategoryNames(a: string, b: string): number {
   const left = a.trim();
   const right = b.trim();
-  return collator.compare(left, right) || (left < right ? -1 : left > right ? 1 : 0);
+  const order = collator.compare(left, right);
+  if (order) return order;
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
 }
 
 /** Custom categories ready for categoryIndex(). */
@@ -502,11 +506,12 @@ export function makeMatcher(
     const model = identity.model ?? '';
     const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
     if (re) return re.test(hay);
-    return terms.every(
-      ({ field, value }) =>
-        Boolean(value) &&
-        (field === 'brand' ? brand : field === 'model' ? model : hay).toLowerCase().includes(value),
-    );
+    return terms.every(({ field, value }) => {
+      let target = hay;
+      if (field === 'brand') target = brand;
+      else if (field === 'model') target = model;
+      return Boolean(value) && target.toLowerCase().includes(value);
+    });
   };
   return ({ lot, category: cat, total, pickupOnly }) =>
     !v.noCategories &&

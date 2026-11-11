@@ -15,11 +15,12 @@ interface Props {
 /** A matching listing in a lot's group or a closed lot's relisted items. */
 export function ListingRow({ row, currentTitle, selected, showCondition = false, onOpen }: Props) {
   const { lot } = row;
+  const selectedClass = selected ? 'on' : '';
   return (
     <li>
       <button
         type="button"
-        class={selected == null ? undefined : selected ? 'on' : ''}
+        class={selected == null ? undefined : selectedClass}
         aria-current={selected ? 'true' : undefined}
         onClick={() => onOpen(lot)}
       >
