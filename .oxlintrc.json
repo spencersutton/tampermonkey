@@ -19,6 +19,7 @@
         "string": false
       }
     ],
+    "no-nested-ternary": "warn",
     "no-shadow": "off",
     "typescript/consistent-return": "off",
     "typescript/dot-notation": "warn",
@@ -26,6 +27,5 @@
     "typescript/no-unnecessary-type-assertion": "warn",
     "unicorn/consistent-function-scoping": "off",
     "unicorn/no-array-sort": "warn",
-    "no-nested-ternary": "warn"
   }
 }
