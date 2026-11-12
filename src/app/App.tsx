@@ -8,6 +8,7 @@ import { BidConfirm } from './BidConfirm';
 import { error, fetchedAt, getLot, loaded, lots, progress } from './catalog';
 import { CategoryEditor } from './CategoryEditor';
 import { ClosedLots } from './ClosedLots';
+import { Dialog } from './Dialog';
 import { closeLot } from './history';
 import { Icon } from './icons';
 import { ItemTypeEditor } from './ItemType';
@@ -365,6 +366,46 @@ export function App() {
           lot={getLot(curModal.lot.id) ?? curModal.lot}
           onClose={() => modalActions.close(curModal)}
         />
+      )}
+      {curModal?.kind === 'shortcuts' && (
+        <Dialog onClose={() => modalActions.close(curModal)} aria-labelledby="shortcuts-title">
+          <div class="confirm" tabIndex={-1}>
+            <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+            <div class="confirm-body">
+              <dl class="shortcut-guide">
+                <dt>
+                  <kbd>Alt+Shift+D</kbd>
+                </dt>
+                <dd>Save category &amp; condition defaults</dd>
+                <dt>
+                  <kbd>Alt+Shift+E</kbd>
+                </dt>
+                <dd>Expand all categories</dd>
+                <dt>
+                  <kbd>Alt+Shift+C</kbd>
+                </dt>
+                <dd>Collapse all categories</dd>
+                <dt>
+                  <kbd>?</kbd> (Shift+/)
+                </dt>
+                <dd>Show this guide (outside text fields)</dd>
+                <dt>
+                  <kbd>Esc</kbd>
+                </dt>
+                <dd>Close the current popup</dd>
+              </dl>
+              <p class="muted small">
+                On Mac, use Option instead of Alt. Catalog shortcuts are inactive while a popup
+                is open.
+              </p>
+            </div>
+            <div class="confirm-actions">
+              <button type="button" class="btn" onClick={() => modalActions.close(curModal)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </Dialog>
       )}
       <Toasts />
     </div>

@@ -17,12 +17,16 @@ import { Icon } from './icons';
 import { getSetting, setSetting } from './settings';
 import {
   closed,
+  filterFacets,
   filteredOnly,
+  modal,
   modalActions,
   openClosed,
   openFiltered,
   openHidden,
+  openId,
   setView,
+  storedView,
 } from './state';
 import { fmtCount, openHandler, parseNum, plural } from './util';
 import {
@@ -54,11 +58,20 @@ interface Props {
 /** Left sidebar: saved searches, filters, hide/regex filters and settings. */
 export function Sidebar(props: Props) {
   return (
-    <div class="sidebar-inner">
+    <div class="sidebar-inner" ref={filterShortcuts}>
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
       <HideFilterSection matchCounts={props.matchCounts} />
       <SettingsSection />
+      <button
+        type="button"
+        class="btn-text"
+        onClick={modalActions.showShortcuts}
+        title="Keyboard shortcuts (?)"
+        aria-keyshortcuts="Shift+/"
+      >
+        Keyboard shortcuts (?)
+      </button>
     </div>
   );
 }
@@ -173,6 +186,15 @@ const categoryCollapseId = (value: string) => `cat:${value}`;
 const expandableCategories = (g: CategoryGroup): string[] =>
   g.subs.length ? [categoryCollapseId(g.facet.value), ...g.subs.flatMap(expandableCategories)] : [];
 
+function setAllCategoriesCollapsed(facets: Facets, value: boolean) {
+  const next = { ...getSetting(KEYS.collapsed) };
+  for (const id of groupCategories(facets).flatMap(expandableCategories)) {
+    next[id] = value;
+  }
+  if (!value) next['f-category'] = false;
+  setSetting(KEYS.collapsed, next);
+}
+
 /** Category checkboxes, with expandable site and custom category parents. */
 function CategoryList({
   facets,
@@ -188,13 +210,6 @@ function CategoryList({
     setSetting(KEYS.collapsed, value);
   const groups = groupCategories(facets);
   const ids = groups.flatMap(expandableCategories);
-  const setAllCollapsed = (value: boolean) => {
-    const next = { ...collapsed };
-    for (const id of ids) {
-      next[id] = value;
-    }
-    setCollapsed(next);
-  };
   return (
     <>
       <div class="category-expand-actions">
@@ -202,7 +217,9 @@ function CategoryList({
           type="button"
           class="btn-text"
           disabled={!ids.length}
-          onClick={() => setAllCollapsed(false)}
+          title="Expand all categories (Alt+Shift+E)"
+          aria-keyshortcuts="Alt+Shift+E"
+          onClick={() => setAllCategoriesCollapsed(facets, false)}
         >
           Expand all
         </button>
@@ -210,7 +227,9 @@ function CategoryList({
           type="button"
           class="btn-text"
           disabled={!ids.length}
-          onClick={() => setAllCollapsed(true)}
+          title="Collapse all categories (Alt+Shift+C)"
+          aria-keyshortcuts="Alt+Shift+C"
+          onClick={() => setAllCategoriesCollapsed(facets, true)}
         >
           Collapse all
         </button>
@@ -418,12 +437,60 @@ function PriceField(props: {
   );
 }
 
+function saveFilterDefaults() {
+  const view = storedView.value;
+  if (sameDefaultFilters(view, getSetting(KEYS.defaultFilters))) return;
+  setSetting(KEYS.defaultFilters, {
+    categories: [...view.categories],
+    conditions: [...view.conditions],
+    ...(view.noCategories ? { noCategories: true } : {}),
+  });
+}
+
+function filterShortcuts(element: HTMLDivElement | null) {
+  if (!element) return;
+  const doc = element.ownerDocument;
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.repeat ||
+      event.isComposing ||
+      event.defaultPrevented ||
+      modal.peek() ||
+      openId.peek() != null
+    ) {
+      return;
+    }
+    if (!event.altKey && (event.key === '?' || (event.shiftKey && event.code === 'Slash'))) {
+      if (
+        doc.activeElement?.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+        )
+      ) {
+        return;
+      }
+      event.preventDefault();
+      modalActions.showShortcuts();
+      return;
+    }
+    if (!event.altKey || !event.shiftKey) return;
+    if (!['KeyD', 'KeyE', 'KeyC'].includes(event.code)) return;
+    event.preventDefault();
+    if (event.code === 'KeyD') {
+      saveFilterDefaults();
+    } else {
+      setAllCategoriesCollapsed(filterFacets.value, event.code === 'KeyC');
+    }
+  };
+  doc.addEventListener('keydown', onKeyDown);
+  return () => doc.removeEventListener('keydown', onKeyDown);
+}
+
 /** Search, category, condition, location, price, ending and "my lots" filters. */
 function FiltersSection({ view, facets, pickup, authed }: Props) {
   const n = activeFilterCount(view);
   const defaults = getSetting(KEYS.defaultFilters);
-  const setDefaults = (value: ReturnType<typeof getSetting<typeof KEYS.defaultFilters>>) =>
-    setSetting(KEYS.defaultFilters, value);
   const reset = defaultFilterView(defaults, view.sort);
   const canDefault =
     view.newSince != null ||
@@ -563,15 +630,10 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
       <button
         type="button"
         class="btn-text default-filters-btn"
+        aria-keyshortcuts="Alt+Shift+D"
         disabled={sameDefaultFilters(view, defaults)}
-        onClick={() =>
-          setDefaults({
-            categories: [...view.categories],
-            conditions: [...view.conditions],
-            ...(view.noCategories ? { noCategories: true } : {}),
-          })
-        }
-        title="Save the current category and condition selections as defaults"
+        onClick={saveFilterDefaults}
+        title="Save the current category and condition selections as defaults (Alt+Shift+D)"
       >
         Save category &amp; condition defaults
       </button>

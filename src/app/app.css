@@ -1179,8 +1179,12 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-.card-category > span {
+.card-category > .category-only {
   min-width: 0;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .category-hide {
@@ -1907,6 +1911,16 @@ h3 {
 
 .btn-outline:disabled {
   background: transparent;
+}
+
+.shortcut-guide {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px 16px;
+}
+
+.shortcut-guide dd {
+  margin: 0;
 }
 
 .confirm {

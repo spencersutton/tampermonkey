@@ -10,7 +10,7 @@ import { CardBrandModel } from './brands';
 import { siteConditions } from './conditions';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { hideCategory, modalActions, openLot, toggleHide } from './state';
+import { hideCategory, modalActions, openLot, setView, toggleHide } from './state';
 import type { Lot, PastClose } from './types';
 import { clock, HOUR, openHandler, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
@@ -187,7 +187,15 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           </div>
           {category && (
             <div class="card-category">
-              <span>{category.label}</span>
+              <button
+                type="button"
+                class="btn-text category-only"
+                title={`Show only ${category.label}`}
+                aria-label={`Show only ${category.label}`}
+                onClick={() => setView({ categories: [category.value], noCategories: false })}
+              >
+                {category.label}
+              </button>
               <button
                 type="button"
                 class="icon-btn category-hide"

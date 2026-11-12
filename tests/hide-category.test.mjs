@@ -153,15 +153,16 @@ function nodes(node) {
   return [node, ...nodes(node.props?.children)];
 }
 
+function renderCard(lot) {
+  const vnode = LotCard.call({}, { row: rowOf(lot) });
+  vnode.__c = new Component(vnode.props);
+  options.__r(vnode);
+  const tree = vnode.type(vnode.props);
+  options.diffed(vnode);
+  return tree;
+}
+
 test('the card exposes a labeled category hide button targeting its assigned custom category', () => {
-  const renderCard = (lot) => {
-    const vnode = LotCard.call({}, { row: rowOf(lot) });
-    vnode.__c = new Component(vnode.props);
-    options.__r(vnode);
-    const tree = vnode.type(vnode.props);
-    options.diffed(vnode);
-    return tree;
-  };
   const tree = renderCard(fixtures[1]);
   const button = nodes(tree).find((n) => n.props?.class === 'icon-btn category-hide');
   assert.equal(button.props.type, 'button');
@@ -172,6 +173,39 @@ test('the card exposes a labeled category hide button targeting its assigned cus
   const uncategorized = renderCard({ ...fixtures[0], category: null });
   assert.equal(
     nodes(uncategorized).some((n) => n.props?.class === 'icon-btn category-hide'),
+    false,
+  );
+});
+
+test('clicking a card category selects only its assigned category and preserves other filters', () => {
+  for (const [lot, category, expected] of [
+    [fixtures[0], 'tools', [1]],
+    [fixtures[1], custom, [2]],
+  ]) {
+    const view = { ...DEFAULT_VIEW, search: 'Fixture', sort: 'total-desc', priceMax: 20 };
+    applySetting(KEYS.view, { ...view, categories: ['garden'] });
+    page.value = 4;
+    const button = nodes(renderCard(lot)).find(
+      (n) => n.props?.class === 'btn-text category-only',
+    );
+    assert.equal(button.type, 'button');
+    assert.equal(button.props.type, 'button');
+    assert.equal(button.props['aria-label'], `Show only ${rowOf(lot).category.label}`);
+    button.props.onClick();
+    assert.deepEqual(storedView.value, { ...view, categories: [category] });
+    assert.equal(page.value, 1);
+    assert.deepEqual(visibleIds(), expected);
+    assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.view}`)), storedView.value);
+    hideCategory(category);
+    assert.equal(storedView.value.noCategories, true);
+    button.props.onClick();
+    assert.equal(storedView.value.noCategories, false);
+    assert.deepEqual(visibleIds(), expected);
+  }
+  assert.equal(
+    nodes(renderCard({ ...fixtures[0], category: null })).some(
+      (n) => n.props?.class === 'btn-text category-only',
+    ),
     false,
   );
 });

@@ -78,6 +78,7 @@ export function toggleHide(lot: Lot) {
 export type Modal =
   | { kind: 'bid'; req: BidRequest }
   | { kind: 'categories' }
+  | { kind: 'shortcuts' }
   | { kind: 'typeCategory'; lot: Lot } // making the lot's item type a category
   | { kind: 'itemType'; lot: Lot };
 /** The popup over everything else, including the lot popup. */
@@ -95,6 +96,9 @@ export const modalActions = {
   },
   editCategories: () => {
     modal.value = { kind: 'categories' };
+  },
+  showShortcuts: () => {
+    modal.value = { kind: 'shortcuts' };
   },
   /** Close `m` if it is still the open popup (a late close mustn't close a newer one). */
   close: (m: Modal) => {
