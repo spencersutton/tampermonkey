@@ -15,7 +15,7 @@ const vite = await createServer({
 after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting } = await vite.ssrLoadModule('/src/app/settings.ts');
-const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { lots, updateLot } = await vite.ssrLoadModule('/src/app/catalog.ts');
 const { DEFAULT_VIEW } = await vite.ssrLoadModule('/src/app/view.ts');
 const { filteredOnly, gridView, openFiltered, openClosed, closed, page, setView, sidebarOpen } =
   await vite.ssrLoadModule('/src/app/state.ts');
@@ -98,6 +98,35 @@ test('search and sort stay on the filtered page and My lots never admits nonmatc
   assert.equal(closed.value, 'won');
   openFiltered();
   assert.equal(closed.value, null);
+});
+
+test('watchlist excludes bid-on lots even when the site watchlist flag remains set', () => {
+  lots.value = new Map([
+    [1, lot(1, 'Watched drill', { isWatchlisted: true, bidCount: 3 })],
+    [2, lot(2, 'Bid-on rake', { isWatchlisted: true, hasBid: true })],
+    [
+      3,
+      lot(3, 'Winning saw', {
+        isWatchlisted: true,
+        yourStanding: { isLeading: true, yourMaxBid: 20 },
+      }),
+    ],
+    [
+      4,
+      lot(4, 'Outbid wrench', {
+        isWatchlisted: true,
+        yourStanding: { isLeading: false, yourMaxBid: 15 },
+      }),
+    ],
+    [5, lot(5, 'Unwatched hammer', { isWatchlisted: false })],
+  ]);
+  setView({ mine: 'watch' });
+  assert.deepEqual(ids(), [1]);
+
+  updateLot(1, { hasBid: true });
+  assert.deepEqual(ids(), [], 'a newly placed bid immediately leaves the watchlist');
+  setView({ mine: 'bid' });
+  assert.deepEqual(ids().toSorted(), [1, 2, 3, 4]);
 });
 
 test('filtered page round-trips through URLs and browser back/forward', () => {

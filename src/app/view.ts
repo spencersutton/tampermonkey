@@ -99,7 +99,7 @@ export const MINE = {
   bid: { label: 'Lots I bid on', test: hasBidOn },
   leading: { label: 'I’m winning', test: (l) => Boolean(l.yourStanding?.isLeading) },
   outbid: { label: 'I’m outbid', test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading },
-  watch: { label: 'Watchlist', test: (l) => l.isWatchlisted },
+  watch: { label: 'Watchlist', test: (l) => l.isWatchlisted && !hasBidOn(l) },
 } satisfies Record<string, { label: string; test: (lot: Lot) => boolean }>;
 export type MineId = keyof typeof MINE;
 
@@ -486,10 +486,15 @@ export function makeMatcher(
   const terms = v.searchRegex
     ? []
     : Array.from(
-        v.search.toLowerCase().matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("[^"]*"(?=\s|$)|\S+)/g),
+        v.search
+          .toLowerCase()
+          .matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g),
         ([, field, value = '']) => ({
           field,
-          value: value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value,
+          value:
+            value.startsWith('"') && value.endsWith('"')
+              ? value.slice(1, -1).replace(/\\(["\\])/g, '$1')
+              : value,
         }),
       );
   // An invalid regex matches nothing, so the mistake is obvious.

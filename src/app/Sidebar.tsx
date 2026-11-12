@@ -929,24 +929,28 @@ interface SavedSearchesProps {
   stats: Map<string, SavedSearchStats>;
   activeId: string | null;
   canSave: boolean; // current view has filters and isn't already saved
+  canUpdate: (s: SavedSearch) => boolean;
   suggestedName: string;
   onSave: (name: string) => void;
   onOpen: (s: SavedSearch, newOnly: boolean) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
+  onUpdate: (id: string) => void;
 }
 
-/** Saved searches with total/new counts, plus save, rename and delete. */
+/** Saved searches with total/new counts, plus save, update, rename and delete. */
 function SavedSearchesSection({
   searches,
   stats,
   activeId,
   canSave,
+  canUpdate,
   suggestedName,
   onSave,
   onOpen,
   onDelete,
   onRename,
+  onUpdate,
 }: SavedSearchesProps) {
   // Editor ids: 'new' names a new saved search; otherwise it's the id being renamed.
   const edit = useInlineEdit();
@@ -1028,6 +1032,16 @@ function SavedSearchesSection({
                   {s.name}
                 </button>
               )}
+              <button
+                type="button"
+                class="btn-text"
+                aria-label={`Update saved search ${s.name}`}
+                title="Replace this saved search with the current filters and sort"
+                disabled={!canUpdate(s)}
+                onClick={() => onUpdate(s.id)}
+              >
+                Update
+              </button>
               {st.fresh > 0 && (
                 <button
                   type="button"

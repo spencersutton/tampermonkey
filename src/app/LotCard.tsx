@@ -74,12 +74,10 @@ export function LocationText({ row }: { row: Row }) {
   return <span>{name}</span>;
 }
 
-/**
- * Watchlist toggle on the card image; a plain marker once you've bid (the site doesn't allow
- * toggling then).
- */
+/** Watchlist toggle on the card image; hidden once you've bid, like the site. */
 function WatchStar({ lot }: { lot: Lot }) {
   const pending = watchPending(lot.id);
+  if (hasBidOn(lot)) return null;
   if (!canWatch(lot)) {
     return lot.isWatchlisted ? (
       <span class="pill pill-watch" title="On your watchlist">

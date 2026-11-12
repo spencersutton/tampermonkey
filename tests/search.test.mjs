@@ -137,6 +137,15 @@ test('regex searches known details and retains invalid-pattern and literal-quali
   );
 });
 
+test('quoted search values support literal quotes and backslashes', () => {
+  const item = fixture({ brand: 'Acme "Tools"', model: 'D\\80 XL' });
+  assert.equal(matches('brand:"Acme \\"Tools\\"" model:"D\\\\80 XL"', item), true);
+  assert.equal(matches('brand:"Other \\"Tools\\"" model:"D\\\\80 XL"', item), false);
+  assert.equal(matches('model:"D\\\\80 XL"', fixture({ title: 'D\\80 XL', model: null })), false);
+  assert.equal(matches('"Acme \\"Tools\\""', item), true);
+  assert.equal(matches('model:"D\\80 XL"', item), true, 'unrecognized escapes remain literal');
+});
+
 test('search still intersects with category and price filters', () => {
   assert.equal(matches('brand:black', fixture(), { categories: ['tools'], priceMax: 20 }), true);
   assert.equal(matches('brand:black', fixture(), { categories: ['garden'] }), false);

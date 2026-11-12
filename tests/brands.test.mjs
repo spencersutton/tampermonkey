@@ -19,7 +19,7 @@ const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/state.ts');
 const { applyCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
 const { BrandModel, CardBrandModel, startBrandWatch } =
   await vite.ssrLoadModule('/src/app/brands.tsx');
-const { LocationText, LotCard } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
+const { LocationText, LotCard, WatchButton } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
 
 const raw = (id, brand, model = null) => ({
   id,
@@ -66,6 +66,35 @@ function card(row) {
     return tree;
   };
 }
+
+test('card and popup watchlist controls disappear after bidding, without a stale star', async (t) => {
+  const { me } = await vite.ssrLoadModule('/src/app/auth.tsx');
+  const previous = me.peek();
+  t.after(() => {
+    me.value = previous;
+  });
+  me.value = { site: { loggedIn: true } };
+  const star = (item) => {
+    const node = nodes(card(rowOf(item))()).find((node) => node.type.name === 'WatchStar');
+    assert.ok(node);
+    return node.type(node.props);
+  };
+
+  for (const isWatchlisted of [false, true]) {
+    const item = { ...lot(90), isWatchlisted, bidCount: 3 };
+    assert.equal(star(item).type, 'button', 'other bidders do not hide the control');
+    assert.equal(WatchButton({ lot: item }).props['aria-pressed'], isWatchlisted);
+    for (const bid of [
+      { hasBid: true },
+      { yourStanding: { isLeading: true, yourMaxBid: 30 } },
+      { yourStanding: { isLeading: false, yourMaxBid: 15 } },
+    ]) {
+      const bidOn = { ...item, ...bid };
+      assert.equal(star(bidOn), null);
+      assert.equal(WatchButton({ lot: bidOn }), null);
+    }
+  }
+});
 
 test('visible cards load brands with bounded concurrency, caching, and no price regression', async (t) => {
   const requests = [];
@@ -372,7 +401,7 @@ test('queued cards that leave the viewport are skipped; failures are visible and
   assert.deepEqual(identity(10), { brand: 'Recovered', model: 'R-10' });
 });
 
-test('model-only cards render and search the model; brand-only cards retain brand search', () => {
+test('brand and model names link to the catalog and a separate Google icon retains web search', () => {
   lotBrands.value = new Map(lotBrands.peek()).set(80, null);
   lotModels.value = new Map(lotModels.peek()).set(80, 'D/80 & XL');
   assert.deepEqual(identity(80), { brand: null, model: 'D/80 & XL' });
@@ -382,9 +411,22 @@ test('model-only cards render and search the model; brand-only cards retain bran
     ['Acme', 'D-80', 'Acme D-80'],
   ]) {
     const tree = BrandModel({ brand, model });
-    const link = nodes(tree).find((node) => node.type === 'a');
+    const links = nodes(tree).filter((node) => node.type === 'a');
+    const link = links.find((node) => node.props.target === '_blank');
     assert.equal(link.props.href, `https://www.google.com/search?q=${encodeURIComponent(query)}`);
-    assert.equal(text(link).trim(), model ?? brand);
+    assert.equal(text(link).trim(), '');
+    assert.equal(link.props['aria-label'], `Search Google for “${query}”`);
+    assert.equal(link.props.rel, 'noopener');
+    assert.equal(link.props.children.props.name, 'google');
+    const catalog = links.filter((node) => !node.props.target);
+    assert.deepEqual(catalog.map(text), [brand, model].filter(Boolean));
+    assert.deepEqual(
+      catalog.map((node) => new URLSearchParams(node.props.href.slice(1)).get('search')),
+      [
+        brand && `brand:"${brand}"`,
+        model && [brand && `brand:"${brand}"`, `model:"${model}"`].filter(Boolean).join(' '),
+      ].filter(Boolean),
+    );
     assert.deepEqual(
       nodes(tree)
         .filter((node) => node.type === 'dt')
@@ -393,6 +435,63 @@ test('model-only cards render and search the model; brand-only cards retain bran
     );
   }
   assert.equal(BrandModel({ brand: null, model: null }), null);
+});
+
+test('brand/model navigation clears filters and the popup, with quoted field-specific searches', async (t) => {
+  const { DEFAULT_VIEW, makeMatcher } = await vite.ssrLoadModule('/src/app/view.ts');
+  const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
+  const { setView, storedView, searchDraft, openId, closed, filteredOnly, page, sidebarOpen } =
+    await vite.ssrLoadModule('/src/app/state.ts');
+  const previousWindow = globalThis.window;
+  let scrolls = 0;
+  globalThis.window = { scrollTo: () => { scrolls++; } };
+  t.after(() => { globalThis.window = previousWindow; });
+  const brand = 'Black & "Decker" \\ Tools';
+  const model = 'D\\80 "XL" kit';
+  for (const label of [brand, model]) {
+    setView({
+      ...DEFAULT_VIEW,
+      search: 'unrelated',
+      searchRegex: true,
+      categories: ['garden'],
+      priceMax: 1,
+      mine: 'watch',
+      newSince: Temporal.Now.instant(),
+      sort: 'total-desc',
+    });
+    openId.value = 90;
+    closed.value = 'won';
+    filteredOnly.value = true;
+    sidebarOpen.value = true;
+    page.value = 3;
+    const link = nodes(BrandModel({ brand, model })).find(
+      (node) => node.type === 'a' && text(node) === label,
+    );
+    const nav = navFromUrl(link.props.href);
+    const before = storedView.value;
+    link.props.onClick({ button: 0, ctrlKey: true });
+    assert.equal(storedView.value, before, 'modified clicks use the catalog URL in a new tab');
+    let prevented = false;
+    link.props.onClick({ button: 0, preventDefault: () => { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.deepEqual(storedView.value, {
+      ...DEFAULT_VIEW,
+      sort: 'total-desc',
+      search: nav.view.search,
+    });
+    assert.deepEqual(storedView.value, nav.view, 'normal clicks and new-tab URLs agree');
+    assert.equal(searchDraft.value, nav.view.search);
+    assert.equal(openId.value, null);
+    assert.equal(closed.value, null);
+    assert.equal(filteredOnly.value, false);
+    assert.equal(sidebarOpen.value, false);
+    assert.equal(page.value, 1);
+    const matches = makeMatcher(storedView.value, Temporal.Now.instant());
+    assert.equal(matches(rowOf({ ...lot(90), brand, model })), true);
+    assert.equal(matches(rowOf({ ...lot(91), brand, model: 'Different model' })), label === brand);
+    assert.equal(matches(rowOf({ ...lot(92), brand: 'Other brand', model })), false);
+  }
+  assert.equal(scrolls, 2);
 });
 
 test('a known brand without a cached model still loads its model', async (t) => {

@@ -117,6 +117,10 @@ export function App() {
     stats: savedStats,
     activeId: activeSaved?.id ?? null,
     canSave: !curFiltered && activeFilterCount({ ...view, newSince: null }) > 0 && !activeSaved,
+    canUpdate: (s: SavedSearch) =>
+      !curFiltered &&
+      !curClosed &&
+      (!sameFilters({ ...view, search }, s.view) || view.sort !== normalizeView(s.view).sort),
     suggestedName: suggestName(view, facets),
     onSave: (name: string) => {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -147,6 +151,13 @@ export function App() {
     onDelete: (id: string) => updateSaved((l) => l.filter((x) => x.id !== id)),
     onRename: (id: string, name: string) =>
       updateSaved((l) => l.map((x) => (x.id === id ? { ...x, name } : x))),
+    onUpdate: (id: string) => {
+      // Include text typed just before clicking, without waiting for the search debounce.
+      setView({ search: searchDraft.value });
+      updateSaved((l) =>
+        l.map((x) => (x.id === id ? { ...x, view: savedFilters(storedView.value) } : x)),
+      );
+    },
   };
 
   const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));

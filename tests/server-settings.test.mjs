@@ -11,6 +11,36 @@ const settle = async () => {
   for (let i = 0; i < 5; i++) await new Promise(setImmediate);
 };
 
+function nodes(node) {
+  if (node == null || typeof node !== 'object') return [];
+  if (Array.isArray(node)) return node.flatMap(nodes);
+  return [node, ...nodes(node.props?.children)];
+}
+
+function renderComponent(type, props = {}) {
+  const vnode = h(type, props);
+  vnode.__c = new Component(vnode.props);
+  vnode.__c.__h = [];
+  options.__r(vnode);
+  const tree = vnode.type(vnode.props);
+  options.diffed(vnode);
+  options.unmount?.(vnode);
+  return tree;
+}
+
+async function savedSearchControls(vite) {
+  const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
+  const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
+  return () => {
+    const sidebar = nodes(renderComponent(App)).find((node) => node.type === Sidebar);
+    const section = Sidebar(sidebar.props).props.children[0];
+    const buttons = nodes(renderComponent(section.type, section.props)).filter(
+      (node) => node.type === 'button' && node.props['aria-label']?.startsWith('Update saved search '),
+    );
+    return { saved: sidebar.props.saved, buttons };
+  };
+}
+
 async function setup(t, values = {}) {
   const storage = new Map([
     ['tlx:filterWords', JSON.stringify(['stale-local'])],
@@ -37,12 +67,14 @@ async function setup(t, values = {}) {
   };
   globalThis.window = {
     addEventListener() {},
+    setInterval: () => 0,
     setTimeout(fn) {
       callbacks.push(fn);
       return 1;
     },
   };
   globalThis.document = { visibilityState: 'visible', addEventListener() {} };
+  globalThis.location = { protocol: 'http:', host: 'localhost' };
   const status = {
     now: Date.now(),
     nextPullAt: Date.now(),
@@ -129,6 +161,83 @@ test('edits save directly to the server with timestamps encoded and no local cop
   assert.equal(values.tlxSavedSearches[0].lastViewedAt, 456);
   assert.equal(requests.filter(({ method }) => method === 'PUT').length, 3);
   assert.deepEqual(writes, []);
+});
+
+test('Update replaces only the chosen saved search and persists the latest draft and filters', async (t) => {
+  const values = {
+    tlxSavedSearches: [
+      { id: 'drills', name: 'Drills', view: { search: 'drill' }, lastViewedAt: 123 },
+      { id: 'saws', name: 'Saws', view: { search: 'saw' }, lastViewedAt: 456 },
+    ],
+  };
+  const { source, settings, KEYS, vite, requests } = await setup(t, values);
+  source.startCatalog();
+  await source.settingsReady;
+  const controls = await savedSearchControls(vite);
+  const { setView, setSearchDraft, storedView } = await vite.ssrLoadModule('/src/app/state.ts');
+  controls().saved.onOpen(settings.getSetting(KEYS.savedSearches)[0], false);
+  await settle();
+  const before = settings.getSetting(KEYS.savedSearches);
+  setView({
+    categories: ['tools'],
+    priceMax: 50,
+    sort: 'total-asc',
+    newSince: Temporal.Instant.fromEpochMilliseconds(100),
+  });
+  setSearchDraft('brand:dewalt drill');
+  assert.equal(storedView.value.search, 'drill', 'the typed search is still debounced');
+  const update = controls().buttons.find(
+    (node) => node.props['aria-label'] === 'Update saved search Drills',
+  );
+  assert.equal(update.props.disabled, false);
+  update.props.onClick();
+  await settle();
+
+  const saved = settings.getSetting(KEYS.savedSearches);
+  assert.equal(saved.length, 2);
+  assert.equal(saved[0].id, before[0].id);
+  assert.equal(saved[0].name, before[0].name);
+  assert.equal(saved[0].lastViewedAt, before[0].lastViewedAt);
+  assert.equal(saved[1], before[1]);
+  const { newSince: _newSince, ...expected } = storedView.value;
+  assert.deepEqual(saved[0].view, expected);
+  assert.equal(saved[0].view.search, 'brand:dewalt drill');
+  assert.equal(controls().buttons[0].props.disabled, true);
+  const request = requests.findLast(({ path }) => path === '/api/settings/tlxSavedSearches');
+  assert.deepEqual(request.body.value[0].view, expected);
+  assert.equal(request.body.value[0].lastViewedAt, before[0].lastViewedAt.epochMilliseconds);
+  assert.deepEqual(values.tlxSavedSearches, request.body.value);
+});
+
+test('Update detects sort-only and draft changes but ignores new-only and unavailable catalog modes', async (t) => {
+  const { source, settings, KEYS, vite } = await setup(t, {
+    tlxSavedSearches: [
+      { id: 'drills', name: 'Drills', view: { search: 'drill' }, lastViewedAt: 123 },
+    ],
+  });
+  source.startCatalog();
+  await source.settingsReady;
+  const controls = await savedSearchControls(vite);
+  const { setView, setSearchDraft, resetSearch, storedView, closed, filteredOnly } =
+    await vite.ssrLoadModule('/src/app/state.ts');
+  controls().saved.onOpen(settings.getSetting(KEYS.savedSearches)[0], false);
+  assert.equal(controls().buttons[0].props.disabled, true);
+  const sort = storedView.value.sort;
+  setView({ sort: 'total-asc' });
+  assert.equal(controls().buttons[0].props.disabled, false);
+  setView({ sort, newSince: Temporal.Instant.fromEpochMilliseconds(100) });
+  assert.equal(controls().buttons[0].props.disabled, true);
+  setSearchDraft('drill kit');
+  assert.equal(controls().buttons[0].props.disabled, false);
+  resetSearch('drill');
+  setView({ priceMax: 25 });
+  filteredOnly.value = true;
+  assert.equal(controls().buttons[0].props.disabled, true);
+  filteredOnly.value = false;
+  closed.value = 'won';
+  assert.equal(controls().buttons[0].props.disabled, true);
+  closed.value = null;
+  assert.equal(controls().buttons[0].props.disabled, false);
 });
 
 test('failed saves show an explicit error and are not silently queued or persisted locally', async (t) => {

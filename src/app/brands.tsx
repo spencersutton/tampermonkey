@@ -1,8 +1,10 @@
-import { effect, signal } from '@preact/signals';
+import { batch, effect, signal } from '@preact/signals';
 
 import { loadDetail, lotBrands, lotModels, lots } from './catalog';
 import { Icon } from './icons';
-import { onScreen } from './state';
+import { filteredOnly, highlight, onScreen, openId, setView, sidebarOpen, storedView } from './state';
+import { openHandler } from './util';
+import { DEFAULT_VIEW } from './view';
 
 const errors = signal(new Map<number, string>());
 const CONCURRENCY = 2;
@@ -80,18 +82,41 @@ export function CardBrandModel({ id }: { id: number }) {
   );
 }
 
-/** Search by brand and model together, or by brand alone when no model is provided. */
+/** Search the catalog by brand/model, with a separate link to Google. */
 export function BrandModel({ brand, model }: { brand: string | null; model: string | null }) {
   if (!brand && !model) return null;
+  const sort = storedView.value.sort;
+  const term = (field: string, value: string) =>
+    `${field}:"${value.replace(/["\\]/g, '\\$&')}"`;
+  const brandQuery = brand ? term('brand', brand) : '';
+  const catalogLink = (text: string, search: string) => (
+    <a
+      href={`?${new URLSearchParams({ search, sort })}`}
+      title={`Search catalog for ${search}`}
+      onClick={openHandler(() => {
+        batch(() => {
+          setView({ ...DEFAULT_VIEW, sort, search });
+          openId.value = null;
+          filteredOnly.value = false;
+          highlight.value = null;
+          sidebarOpen.value = false;
+        });
+        window.scrollTo(0, 0);
+      })}
+    >
+      {text}
+    </a>
+  );
   const query = [brand, model].filter(Boolean).join(' ');
-  const search = (text: string) => (
+  const googleLink = (
     <a
       href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
       target="_blank"
       rel="noopener"
       title={`Search Google for “${query}”`}
+      aria-label={`Search Google for “${query}”`}
     >
-      {text} <Icon name="open" size={14} />
+      <Icon name="google" size={14} />
     </a>
   );
   return (
@@ -99,13 +124,18 @@ export function BrandModel({ brand, model }: { brand: string | null; model: stri
       {brand && (
         <div>
           <dt>Brand</dt>
-          <dd>{model ? brand : search(brand)}</dd>
+          <dd>
+            {catalogLink(brand, brandQuery)} {!model && googleLink}
+          </dd>
         </div>
       )}
       {model && (
         <div>
           <dt>Model</dt>
-          <dd>{search(model)}</dd>
+          <dd>
+            {catalogLink(model, [brandQuery, term('model', model)].filter(Boolean).join(' '))}{' '}
+            {googleLink}
+          </dd>
         </div>
       )}
     </dl>
