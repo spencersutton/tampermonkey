@@ -185,9 +185,7 @@ test('clicking a card category selects only its assigned category and preserves 
     const view = { ...DEFAULT_VIEW, search: 'Fixture', sort: 'total-desc', priceMax: 20 };
     applySetting(KEYS.view, { ...view, categories: ['garden'] });
     page.value = 4;
-    const button = nodes(renderCard(lot)).find(
-      (n) => n.props?.class === 'btn-text category-only',
-    );
+    const button = nodes(renderCard(lot)).find((n) => n.props?.class === 'btn-text category-only');
     assert.equal(button.type, 'button');
     assert.equal(button.props.type, 'button');
     assert.equal(button.props['aria-label'], `Show only ${rowOf(lot).category.label}`);

@@ -2,7 +2,15 @@ import { batch, effect, signal } from '@preact/signals';
 
 import { loadDetail, lotBrands, lotModels, lots } from './catalog';
 import { Icon } from './icons';
-import { filteredOnly, highlight, onScreen, openId, setView, sidebarOpen, storedView } from './state';
+import {
+  filteredOnly,
+  highlight,
+  onScreen,
+  openId,
+  setView,
+  sidebarOpen,
+  storedView,
+} from './state';
 import { openHandler } from './util';
 import { DEFAULT_VIEW } from './view';
 
@@ -86,8 +94,7 @@ export function CardBrandModel({ id }: { id: number }) {
 export function BrandModel({ brand, model }: { brand: string | null; model: string | null }) {
   if (!brand && !model) return null;
   const sort = storedView.value.sort;
-  const term = (field: string, value: string) =>
-    `${field}:"${value.replace(/["\\]/g, '\\$&')}"`;
+  const term = (field: string, value: string) => `${field}:"${value.replace(/["\\]/g, '\\$&')}"`;
   const brandQuery = brand ? term('brand', brand) : '';
   const catalogLink = (text: string, search: string) => (
     <a

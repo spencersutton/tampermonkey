@@ -444,8 +444,14 @@ test('brand/model navigation clears filters and the popup, with quoted field-spe
     await vite.ssrLoadModule('/src/app/state.ts');
   const previousWindow = globalThis.window;
   let scrolls = 0;
-  globalThis.window = { scrollTo: () => { scrolls++; } };
-  t.after(() => { globalThis.window = previousWindow; });
+  globalThis.window = {
+    scrollTo: () => {
+      scrolls++;
+    },
+  };
+  t.after(() => {
+    globalThis.window = previousWindow;
+  });
   const brand = 'Black & "Decker" \\ Tools';
   const model = 'D\\80 "XL" kit';
   for (const label of [brand, model]) {
@@ -472,7 +478,12 @@ test('brand/model navigation clears filters and the popup, with quoted field-spe
     link.props.onClick({ button: 0, ctrlKey: true });
     assert.equal(storedView.value, before, 'modified clicks use the catalog URL in a new tab');
     let prevented = false;
-    link.props.onClick({ button: 0, preventDefault: () => { prevented = true; } });
+    link.props.onClick({
+      button: 0,
+      preventDefault: () => {
+        prevented = true;
+      },
+    });
     assert.equal(prevented, true);
     assert.deepEqual(storedView.value, {
       ...DEFAULT_VIEW,

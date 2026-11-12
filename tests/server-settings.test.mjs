@@ -35,7 +35,8 @@ async function savedSearchControls(vite) {
     const sidebar = nodes(renderComponent(App)).find((node) => node.type === Sidebar);
     const section = Sidebar(sidebar.props).props.children[0];
     const buttons = nodes(renderComponent(section.type, section.props)).filter(
-      (node) => node.type === 'button' && node.props['aria-label']?.startsWith('Update saved search '),
+      (node) =>
+        node.type === 'button' && node.props['aria-label']?.startsWith('Update saved search '),
     );
     return { saved: sidebar.props.saved, buttons };
   };

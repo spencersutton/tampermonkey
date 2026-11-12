@@ -395,8 +395,8 @@ export function App() {
                 <dd>Close the current popup</dd>
               </dl>
               <p class="muted small">
-                On Mac, use Option instead of Alt. Catalog shortcuts are inactive while a popup
-                is open.
+                On Mac, use Option instead of Alt. Catalog shortcuts are inactive while a popup is
+                open.
               </p>
             </div>
             <div class="confirm-actions">

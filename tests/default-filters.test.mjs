@@ -179,12 +179,17 @@ test('category shortcuts expand and collapse all nested groups without changing 
     { name: 'Tools - Drills', types: [] },
     { name: 'Tools - Drills - Cordless', types: ['drill'] },
   ]);
-  lots.value = new Map([[1, {
-    id: 1,
-    endsAt: Temporal.Now.instant().add({ hours: 1 }),
-    category: { value: 'tools', label: 'Tools' },
-    itemType: 'drill',
-  }]]);
+  lots.value = new Map([
+    [
+      1,
+      {
+        id: 1,
+        endsAt: Temporal.Now.instant().add({ hours: 1 }),
+        category: { value: 'tools', label: 'Tools' },
+        itemType: 'drill',
+      },
+    ],
+  ]);
   t.after(() => {
     lots.value = new Map();
     applySetting(KEYS.customCategories, []);
@@ -248,7 +253,9 @@ test('question mark opens a dismissible guide but leaves text entry and popups a
   options.unmount?.(vnode);
   const guide = nodes(tree).find((n) => n.props?.['aria-labelledby'] === 'shortcuts-title');
   assert.ok(guide);
-  const labels = nodes(guide).filter((n) => n.type === 'kbd').map((n) => n.props.children);
+  const labels = nodes(guide)
+    .filter((n) => n.type === 'kbd')
+    .map((n) => n.props.children);
   assert.deepEqual(labels, ['Alt+Shift+D', 'Alt+Shift+E', 'Alt+Shift+C', '?', 'Esc']);
   guide.props.onClose();
   assert.equal(modal.value, null);
