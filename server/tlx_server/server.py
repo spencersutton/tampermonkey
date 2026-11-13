@@ -263,7 +263,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             elif route == ("POST", "/api/pull"):
                 self._json(HTTPStatus.OK, {"result": api.catalog.request_pull(), **api.status()})
             elif route == ("GET", "/api/settings"):
-                rev, values = api.store.settings(self._since(query))
+                rev, values = api.store.settings()
                 self._json(HTTPStatus.OK, {"rev": rev, "values": values})
             elif route == ("GET", "/api/history"):
                 lot = api.store.lot(int(query["id"][0]))
