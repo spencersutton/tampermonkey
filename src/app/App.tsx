@@ -6,7 +6,6 @@ import { KEYS } from '../shared/keys';
 import { isAuthenticated, LoginLink } from './auth';
 import { BidConfirm } from './BidConfirm';
 import { error, fetchedAt, getLot, loaded, lots, progress } from './catalog';
-import { CategoryEditor } from './CategoryEditor';
 import { ClosedLots } from './ClosedLots';
 import { Dialog } from './Dialog';
 import { closeLot } from './history';
@@ -374,15 +373,6 @@ function AppDialogs() {
           req={curModal.req}
           row={rowOf(bidLot)}
           pickup={pickup}
-          onClose={() => modalActions.close(curModal)}
-        />
-      )}
-      {curModal?.kind === 'categories' && (
-        <CategoryEditor
-          lots={lots.value
-            .values()
-            .filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0)
-            .toArray()}
           onClose={() => modalActions.close(curModal)}
         />
       )}
