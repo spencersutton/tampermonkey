@@ -251,7 +251,10 @@ test('question mark opens a dismissible guide but leaves text entry and popups a
   const tree = App(vnode.props);
   options.diffed(vnode);
   options.unmount?.(vnode);
-  const guide = nodes(tree).find((n) => n.props?.['aria-labelledby'] === 'shortcuts-title');
+  const dialogs = nodes(tree).find((n) => n.type?.name === 'AppDialogs');
+  const guide = nodes(dialogs.type(dialogs.props)).find(
+    (n) => n.props?.['aria-labelledby'] === 'shortcuts-title',
+  );
   assert.ok(guide);
   const labels = nodes(guide)
     .filter((n) => n.type === 'kbd')

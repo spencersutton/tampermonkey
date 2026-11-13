@@ -32,7 +32,10 @@ async function savedSearchControls(vite) {
   const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
   const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
   return () => {
-    const sidebar = nodes(renderComponent(App)).find((node) => node.type === Sidebar);
+    const appSidebar = nodes(renderComponent(App)).find((node) => node.type?.name === 'AppSidebar');
+    const sidebar = nodes(renderComponent(appSidebar.type, appSidebar.props)).find(
+      (node) => node.type === Sidebar,
+    );
     const section = Sidebar(sidebar.props).props.children[0];
     const buttons = nodes(renderComponent(section.type, section.props)).filter(
       (node) =>
