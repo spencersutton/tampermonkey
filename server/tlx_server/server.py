@@ -232,50 +232,50 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
         # -- this server's API ------------------------------------------------
         def _api(self, method: str, path: str, query: dict[str, list[str]]) -> None:
-            route = (method, path)
-            if route == ("GET", "/api/health"):
-                self._json(HTTPStatus.OK, {"ok": True, "version": __version__})
-            elif route == ("GET", "/api/me"):
-                self._json(HTTPStatus.OK, self._me())
-            elif route == ("POST", "/api/app-login"):
-                self._app_login()
-            elif route == ("POST", "/api/app-logout"):
-                if sid := self._session_id():
-                    api.store.drop_session(sid)
-                self._json(HTTPStatus.OK, self._me(locked=bool(api.password)), headers={"Set-Cookie": self._cookie("", 0)})
-            elif route == ("POST", "/api/site-login"):
-                d = self._json_body()
-                error = api.session.login(str(d.get("email", "")).strip(), str(d.get("password", "")))
-                if not error:
-                    api.catalog.request_pull()  # pick up your standings and watchlist when allowed
-                self._json(HTTPStatus.OK, {"error": error, **self._me()})
-            elif route == ("POST", "/api/site-logout"):
-                api.session.logout()
-                self._json(HTTPStatus.OK, self._me())
-            elif route == ("GET", "/api/catalog"):
-                self._catalog(self._since(query))
-            elif route == ("GET", "/api/lot-metadata"):
-                lot_id = int(query.get("id", ["0"])[0])
-                period = query.get("auctionPeriod", [""])[0]
-                if not 0 < lot_id <= 2**53 - 1 or not period:
-                    raise ValueError("Expected a positive lot id and auctionPeriod")
-                self._json(HTTPStatus.OK, {"metadata": api.store.lot_metadata(lot_id, period)})
-            elif route == ("POST", "/api/pull"):
-                self._json(HTTPStatus.OK, {"result": api.catalog.request_pull(), **api.status()})
-            elif route == ("GET", "/api/settings"):
-                rev, values = api.store.settings()
-                self._json(HTTPStatus.OK, {"rev": rev, "values": values})
-            elif route == ("GET", "/api/history"):
-                lot = api.store.lot(int(query["id"][0]))
-                if not lot:
-                    raise ValueError("No such open lot")
-                self._json(HTTPStatus.OK, {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]})
-            elif method == "PUT" and path.startswith("/api/settings/"):
-                self._put_setting(path.removeprefix("/api/settings/"))
-            elif route == ("PUT", "/api/item-type"):
-                self._put_item_type()
-            else:
-                self._error(HTTPStatus.NOT_FOUND, "Not found")
+            match (method, path):
+                case ("GET", "/api/health"):
+                    self._json(HTTPStatus.OK, {"ok": True, "version": __version__})
+                case ("GET", "/api/me"):
+                    self._json(HTTPStatus.OK, self._me())
+                case ("POST", "/api/app-login"):
+                    self._app_login()
+                case ("POST", "/api/app-logout"):
+                    if sid := self._session_id():
+                        api.store.drop_session(sid)
+                    self._json(HTTPStatus.OK, self._me(locked=bool(api.password)), headers={"Set-Cookie": self._cookie("", 0)})
+                case ("POST", "/api/site-login"):
+                    d = self._json_body()
+                    error = api.session.login(str(d.get("email", "")).strip(), str(d.get("password", "")))
+                    if not error:
+                        api.catalog.request_pull()  # pick up your standings and watchlist when allowed
+                    self._json(HTTPStatus.OK, {"error": error, **self._me()})
+                case ("POST", "/api/site-logout"):
+                    api.session.logout()
+                    self._json(HTTPStatus.OK, self._me())
+                case ("GET", "/api/catalog"):
+                    self._catalog(self._since(query))
+                case ("GET", "/api/lot-metadata"):
+                    lot_id = int(query.get("id", ["0"])[0])
+                    period = query.get("auctionPeriod", [""])[0]
+                    if not 0 < lot_id <= 2**53 - 1 or not period:
+                        raise ValueError("Expected a positive lot id and auctionPeriod")
+                    self._json(HTTPStatus.OK, {"metadata": api.store.lot_metadata(lot_id, period)})
+                case ("POST", "/api/pull"):
+                    self._json(HTTPStatus.OK, {"result": api.catalog.request_pull(), **api.status()})
+                case ("GET", "/api/settings"):
+                    rev, values = api.store.settings()
+                    self._json(HTTPStatus.OK, {"rev": rev, "values": values})
+                case ("GET", "/api/history"):
+                    lot = api.store.lot(int(query["id"][0]))
+                    if not lot:
+                        raise ValueError("No such open lot")
+                    self._json(HTTPStatus.OK, {"closes": api.catalog.history.closes_for(lot)[:HISTORY_LIMIT]})
+                case ("PUT", _) if path.startswith("/api/settings/"):
+                    self._put_setting(path.removeprefix("/api/settings/"))
+                case ("PUT", "/api/item-type"):
+                    self._put_item_type()
+                case _:
+                    self._error(HTTPStatus.NOT_FOUND, "Not found")
 
         def _me(self, locked: bool | None = None) -> dict[str, Any]:
             locked = not self._unlocked() if locked is None else locked
