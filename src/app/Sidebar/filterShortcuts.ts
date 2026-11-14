@@ -16,7 +16,6 @@ export function saveFilterDefaults() {
 
 export function filterShortcuts(element: HTMLDivElement | null) {
   if (!element) return;
-  const doc = element.ownerDocument;
   const onKeyDown = (event: KeyboardEvent) => {
     if (
       event.ctrlKey ||
@@ -31,7 +30,7 @@ export function filterShortcuts(element: HTMLDivElement | null) {
     }
     if (!event.altKey && (event.key === '?' || (event.shiftKey && event.code === 'Slash'))) {
       if (
-        doc.activeElement?.closest(
+        element.ownerDocument.activeElement?.closest(
           'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
         )
       ) {
@@ -50,6 +49,6 @@ export function filterShortcuts(element: HTMLDivElement | null) {
       setAllCategoriesCollapsed(filterFacets.value, event.code === 'KeyC');
     }
   };
-  doc.addEventListener('keydown', onKeyDown);
-  return () => doc.removeEventListener('keydown', onKeyDown);
+  element.ownerDocument.addEventListener('keydown', onKeyDown);
+  return () => element.ownerDocument.removeEventListener('keydown', onKeyDown);
 }
