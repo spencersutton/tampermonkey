@@ -505,6 +505,8 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
       reset,
     );
   const conditions = siteConditions();
+  const custom = getSetting(KEYS.customCategories);
+  const customCount = custom.length;
   return (
     <section class="panel">
       <div class="panel-head">
@@ -597,6 +599,10 @@ function FiltersSection({ view, facets, pickup, authed }: Props) {
           selected={view.categories}
           onChange={(categories) => setView({ categories, noCategories: false })}
         />
+        <button type="button" class="btn-text cat-edit-btn" onClick={modalActions.editCategories}>
+          <Icon name="edit" size={16} />{' '}
+          {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
+        </button>
       </Collapsible>
 
       <Collapsible id="f-condition" title="Condition">
