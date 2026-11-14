@@ -38,8 +38,8 @@ export function itemIdentity(
   const model = details?.models.get(item.id);
   return {
     title: item.title,
-    brand: brand == null ? item.brand : brand,
-    model: model == null ? item.model : model,
+    brand: brand ?? item.brand,
+    model: model ?? item.model,
   };
 }
 
