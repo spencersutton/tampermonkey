@@ -248,8 +248,12 @@ export function compareCategoryNames(a: string, b: string): number {
   const left = a.trim();
   const right = b.trim();
   const order = collator.compare(left, right);
-  if (order) return order;
-  if (left < right) return -1;
+  if (order) {
+    return order;
+  }
+  if (left < right) {
+    return -1;
+  }
   return left > right ? 1 : 0;
 }
 
@@ -413,7 +417,9 @@ function itemGroups(rows: Row[], pct: number, details?: ItemDetails): Map<number
   if (groupCache?.key !== key) {
     const groups = new Map<number, number>();
     for (const condition of Map.groupBy(items, (item) => item.condition).values()) {
-      for (const [id, group] of groupItems(condition, pct)) groups.set(id, group);
+      for (const [id, group] of groupItems(condition, pct)) {
+        groups.set(id, group);
+      }
     }
     groupCache = { key, groups };
   }
@@ -510,11 +516,16 @@ export function makeMatcher(
     const brand = identity.brand ?? '';
     const model = identity.model ?? '';
     const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
-    if (re) return re.test(hay);
+    if (re) {
+      return re.test(hay);
+    }
     return terms.every(({ field, value }) => {
       let target = hay;
-      if (field === 'brand') target = brand;
-      else if (field === 'model') target = model;
+      if (field === 'brand') {
+        target = brand;
+      } else if (field === 'model') {
+        target = model;
+      }
       return Boolean(value) && target.toLowerCase().includes(value);
     });
   };

@@ -77,7 +77,9 @@ export function LocationText({ row }: { row: Row }) {
 /** Watchlist toggle on the card image; hidden once you've bid, like the site. */
 function WatchStar({ lot }: { lot: Lot }) {
   const pending = watchPending(lot.id);
-  if (hasBidOn(lot)) return null;
+  if (hasBidOn(lot)) {
+    return null;
+  }
   if (!canWatch(lot)) {
     return lot.isWatchlisted ? (
       <span class="pill pill-watch" title="On your watchlist">

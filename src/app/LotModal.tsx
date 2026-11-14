@@ -59,16 +59,22 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
     setDetail(cachedDetail(lot.id) ?? null);
     loadMetadata(lot).then(
       (saved) => {
-        if (active && !refreshed && saved) setMetadata(saved);
+        if (active && !refreshed && saved) {
+          setMetadata(saved);
+        }
       },
       (e) => {
-        if (active && !refreshed) setMetadataError(e instanceof Error ? e.message : String(e));
+        if (active && !refreshed) {
+          setMetadataError(e instanceof Error ? e.message : String(e));
+        }
       },
     );
     // The cache shares this request with other callers; only detach this reader.
     loadDetail(lot).then(
       (data) => {
-        if (!active) return;
+        if (!active) {
+          return;
+        }
         refreshed = true;
         setDetail(data);
         setMetadata(cachedMetadata(lot.id) ?? null);
@@ -76,7 +82,9 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
         setRefreshing(false);
       },
       (e) => {
-        if (!active) return;
+        if (!active) {
+          return;
+        }
         setError(e instanceof Error ? e.message : String(e));
         setRefreshing(false);
       },

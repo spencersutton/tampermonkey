@@ -150,13 +150,19 @@ export function applyCatalog(r: CatalogReply) {
     const brands = new Map(lotBrands.peek());
     const models = new Map(lotModels.peek());
     for (const lot of pulled) {
-      if (lot.brand !== undefined) brands.set(lot.id, lot.brand?.trim() || null);
-      if (lot.model !== undefined) models.set(lot.id, lot.model?.trim() || null);
+      if (lot.brand !== undefined) {
+        brands.set(lot.id, lot.brand?.trim() || null);
+      }
+      if (lot.model !== undefined) {
+        models.set(lot.id, lot.model?.trim() || null);
+      }
     }
     lotBrands.value = brands;
     lotModels.value = models;
     for (const [id, edit] of typeEdits) {
-      if (r.seq >= edit.seq) typeEdits.delete(id);
+      if (r.seq >= edit.seq) {
+        typeEdits.delete(id);
+      }
     }
     const cur = lots.peek();
     if (r.full || r.lots.length || (r.ids && r.ids.length !== cur.size)) {
@@ -275,12 +281,18 @@ export const settingsReady = new Promise<void>((resolve) => (markSettingsReady =
 
 function decodeSetting(key: Key, value: unknown): unknown {
   if (key === KEYS.lastVisit) {
-    if (value == null) return null;
-    if (typeof value !== 'number') throw new TypeError('Invalid last visit from the tlx server');
+    if (value == null) {
+      return null;
+    }
+    if (typeof value !== 'number') {
+      throw new TypeError('Invalid last visit from the tlx server');
+    }
     return instantFromEpochMilliseconds(value);
   }
   if (key === KEYS.savedSearches) {
-    if (!Array.isArray(value)) throw new TypeError('Invalid saved searches from the tlx server');
+    if (!Array.isArray(value)) {
+      throw new TypeError('Invalid saved searches from the tlx server');
+    }
     return value.map((search: unknown) => {
       if (
         !search ||
@@ -298,13 +310,18 @@ function decodeSetting(key: Key, value: unknown): unknown {
 
 function encodeSetting(key: Key, value: unknown): unknown {
   if (key === KEYS.lastVisit) {
-    if (value == null) return null;
-    if (!(value instanceof Temporal.Instant))
+    if (value == null) {
+      return null;
+    }
+    if (!(value instanceof Temporal.Instant)) {
       throw new TypeError('Invalid last visit for the tlx server');
+    }
     return value.epochMilliseconds;
   }
   if (key === KEYS.savedSearches) {
-    if (!Array.isArray(value)) throw new TypeError('Invalid saved searches for the tlx server');
+    if (!Array.isArray(value)) {
+      throw new TypeError('Invalid saved searches for the tlx server');
+    }
     return value.map((search: unknown) => {
       if (
         !search ||

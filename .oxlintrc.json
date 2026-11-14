@@ -8,6 +8,7 @@
     "typeAware": true
   },
   "rules": {
+    "curly": ["error", "all"],
     "import/default": "error",
     "no-implicit-coercion": [
       "error",

@@ -79,7 +79,9 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
   const data = await res.json().catch(() => ({ error: `Server replied ${res.status}` }));
   if (data?.app) {
     me.value = data;
-    if (!data.app.locked) markUnlocked();
+    if (!data.app.locked) {
+      markUnlocked();
+    }
   }
   if (!res.ok) {
     throw new Error(data?.error || `Server replied ${res.status}`);

@@ -117,8 +117,11 @@ export function groupItems(
       words.length ? words : item.title.trim().toLowerCase(),
     ]);
     const entry = entries.get(key);
-    if (entry) entry.ids.push(item.id);
-    else entries.set(key, { item, ids: [item.id] });
+    if (entry) {
+      entry.ids.push(item.id);
+    } else {
+      entries.set(key, { item, ids: [item.id] });
+    }
   }
   const members = [...entries.values()];
   const items = members.map(({ item }) => item);
@@ -128,7 +131,9 @@ export function groupItems(
   const join = (i: number, j: number) => {
     const a = find(i),
       b = find(j);
-    if (a === b || (identities[a] && identities[b] && identities[a] !== identities[b])) return;
+    if (a === b || (identities[a] && identities[b] && identities[a] !== identities[b])) {
+      return;
+    }
     parents[b] = a;
     identities[a] ||= identities[b] ?? null;
   };
@@ -137,34 +142,51 @@ export function groupItems(
     const key = brandModelKey(item);
     if (key) {
       const previous = known.get(key);
-      if (previous !== undefined) join(previous, i);
-      else known.set(key, i);
+      if (previous !== undefined) {
+        join(previous, i);
+      } else {
+        known.set(key, i);
+      }
     }
   });
 
   const words = items.map((item) => nameTokens(item.title));
   const freq = new Map<string, number>();
   for (const tokens of words) {
-    for (const token of tokens) freq.set(token, (freq.get(token) ?? 0) + 1);
+    for (const token of tokens) {
+      freq.set(token, (freq.get(token) ?? 0) + 1);
+    }
   }
   const postings = new Map<string, number[]>();
   words.forEach((tokens, i) => {
     const ordered = [...tokens].toSorted((a, b) => {
       const frequency = freq.get(a)! - freq.get(b)!;
-      if (frequency) return frequency;
-      if (a < b) return -1;
+      if (frequency) {
+        return frequency;
+      }
+      if (a < b) {
+        return -1;
+      }
       return a > b ? 1 : 0;
     });
     const prefix = ordered.slice(0, tokens.size - Math.ceil((tokens.size * minPct) / 100) + 1);
-    if (!prefix.length) prefix.push(`\u0000${items[i]!.title.trim().toLowerCase()}`);
+    if (!prefix.length) {
+      prefix.push(`\u0000${items[i]!.title.trim().toLowerCase()}`);
+    }
     const seen = new Set<number>();
     for (const token of prefix) {
       const list = postings.get(token) ?? [];
       for (const j of list) {
-        if (seen.has(j) || find(i) === find(j)) continue;
+        if (seen.has(j) || find(i) === find(j)) {
+          continue;
+        }
         seen.add(j);
-        if ((tokens.size === 0 && words[j]!.size === 0) || itemsMatch(items[i]!, items[j]!, minPct))
+        if (
+          (tokens.size === 0 && words[j]!.size === 0) ||
+          itemsMatch(items[i]!, items[j]!, minPct)
+        ) {
           join(j, i);
+        }
       }
       list.push(i);
       postings.set(token, list);

@@ -6,7 +6,9 @@ import { setAllCategoriesCollapsed } from './CategoryList';
 
 export function saveFilterDefaults() {
   const view = storedView.value;
-  if (sameDefaultFilters(view, getSetting(KEYS.defaultFilters))) return;
+  if (sameDefaultFilters(view, getSetting(KEYS.defaultFilters))) {
+    return;
+  }
   setSetting(KEYS.defaultFilters, {
     categories: [...view.categories],
     conditions: [...view.conditions],
@@ -15,7 +17,9 @@ export function saveFilterDefaults() {
 }
 
 export function filterShortcuts(element: HTMLDivElement | null) {
-  if (!element) return;
+  if (!element) {
+    return;
+  }
   const onKeyDown = (event: KeyboardEvent) => {
     if (
       event.ctrlKey ||
@@ -40,8 +44,12 @@ export function filterShortcuts(element: HTMLDivElement | null) {
       modalActions.showShortcuts();
       return;
     }
-    if (!event.altKey || !event.shiftKey) return;
-    if (!['KeyD', 'KeyE', 'KeyC'].includes(event.code)) return;
+    if (!event.altKey || !event.shiftKey) {
+      return;
+    }
+    if (!['KeyD', 'KeyE', 'KeyC'].includes(event.code)) {
+      return;
+    }
     event.preventDefault();
     if (event.code === 'KeyD') {
       saveFilterDefaults();

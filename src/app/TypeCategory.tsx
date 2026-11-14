@@ -171,14 +171,19 @@ export function TypeCategory({
       onClose={onClose}
       aria-labelledby="type-cat-title"
       onKeyDownCapture={(e) => {
-        if (e.key !== 'Enter' || e.isComposing) return;
+        if (e.key !== 'Enter' || e.isComposing) {
+          return;
+        }
         if (
           !(e.target instanceof HTMLElement) ||
           !e.target.matches('dialog, form, input[type="text"], input[type="search"]')
-        )
+        ) {
           return;
+        }
         e.preventDefault();
-        if (!e.repeat) save();
+        if (!e.repeat) {
+          save();
+        }
       }}
     >
       <form

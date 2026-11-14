@@ -7,11 +7,15 @@ let cards: IntersectionObserver | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 export function observeLot(element: HTMLElement | null) {
-  if (!element) return;
+  if (!element) {
+    return;
+  }
   cards ??= new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (!entry.target.isConnected) continue;
+        if (!entry.target.isConnected) {
+          continue;
+        }
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         const id = Number((entry.target as HTMLElement).dataset['lot']);
         if (entry.isIntersecting) {
@@ -43,7 +47,9 @@ const nearEnd = signal(false);
 let endObserver: IntersectionObserver | undefined;
 
 export function observeEnd(element: HTMLElement | null) {
-  if (!element) return;
+  if (!element) {
+    return;
+  }
   endObserver ??= new IntersectionObserver(
     (entries) => {
       nearEnd.value = entries.some((entry) => entry.isIntersecting);
@@ -53,7 +59,9 @@ export function observeEnd(element: HTMLElement | null) {
   endObserver.observe(element);
   const dispose = effect(() => {
     const current = page.value;
-    if (!nearEnd.value || current * PAGE_SIZE >= gridView.value.rows.length) return;
+    if (!nearEnd.value || current * PAGE_SIZE >= gridView.value.rows.length) {
+      return;
+    }
     const frame = requestAnimationFrame(() => {
       page.value = current + 1;
     });

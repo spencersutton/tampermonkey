@@ -83,15 +83,23 @@ export const cachedMetadata = (id: number) => metadata.get(id);
 /** Reuse the server's item metadata even after the price cache expires or a bid invalidates it. */
 export function loadMetadata(lot: Pick<Lot, 'id' | 'auctionPeriod'>): Promise<LotMetadata | null> {
   const hit = metadata.get(lot.id);
-  if (hit) return Promise.resolve(hit);
+  if (hit) {
+    return Promise.resolve(hit);
+  }
   const pending = metadataRequests.get(lot.id);
-  if (pending) return pending;
+  if (pending) {
+    return pending;
+  }
   const promise = fetchLotMetadata(lot.auctionPeriod, lot.id)
     .then((saved) => {
       // A concurrent live response is newer than the saved copy.
       const current = metadata.get(lot.id);
-      if (current) return current;
-      if (saved) metadata.set(lot.id, saved);
+      if (current) {
+        return current;
+      }
+      if (saved) {
+        metadata.set(lot.id, saved);
+      }
       return saved;
     })
     .finally(() => metadataRequests.delete(lot.id));
@@ -109,12 +117,18 @@ export function loadDetail(
   signal?: AbortSignal,
 ): Promise<LotDetail> {
   const hit = details.get(lot.id);
-  if (hit?.promise) return hit.promise;
+  if (hit?.promise) {
+    return hit.promise;
+  }
   const cached = cachedDetail(lot.id);
-  if (cached) return Promise.resolve(cached);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
   const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
     (d) => {
-      if (details.get(lot.id)?.promise !== promise) return d;
+      if (details.get(lot.id)?.promise !== promise) {
+        return d;
+      }
       metadata.set(lot.id, {
         description: d.description,
         brand: d.brand,
@@ -137,7 +151,9 @@ export function loadDetail(
       return d;
     },
     (err) => {
-      if (details.get(lot.id)?.promise === promise) details.delete(lot.id);
+      if (details.get(lot.id)?.promise === promise) {
+        details.delete(lot.id);
+      }
       throw err;
     },
   );

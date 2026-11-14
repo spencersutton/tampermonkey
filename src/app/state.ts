@@ -143,7 +143,9 @@ export function resetSearch(text: string) {
 
 export function setView(patch: Partial<ViewState>) {
   batch(() => {
-    if (patch.search != null) resetSearch(patch.search);
+    if (patch.search != null) {
+      resetSearch(patch.search);
+    }
     setSetting(KEYS.view, { ...storedView.value, ...patch });
     page.value = 1;
     closed.value = null; // changing the filters goes back to the grid
@@ -265,7 +267,9 @@ function firstVisitSince(now: Temporal.Instant): Temporal.Instant {
       const seen = l.firstSeenAt ?? epoch;
       return min == null || Temporal.Instant.compare(seen, min) < 0 ? seen : min;
     }, null);
-  if (first == null) return now;
+  if (first == null) {
+    return now;
+  }
   return Temporal.Instant.compare(first, epoch) <= 0 ? epoch : first.subtract({ milliseconds: 1 });
 }
 

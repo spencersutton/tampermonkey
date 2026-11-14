@@ -11,10 +11,14 @@ const PREFIX = 'tlx:';
 const serverKeys = new Set<Key>(SERVER_KEYS);
 
 function load(key: Key): unknown {
-  if (serverKeys.has(key)) return DEFAULTS[key];
+  if (serverKeys.has(key)) {
+    return DEFAULTS[key];
+  }
   try {
     const raw = localStorage.getItem(PREFIX + key);
-    if (raw == null) return DEFAULTS[key];
+    if (raw == null) {
+      return DEFAULTS[key];
+    }
     return JSON.parse(raw);
   } catch {
     return DEFAULTS[key]; // storage blocked (private mode) or a corrupt value
@@ -22,7 +26,9 @@ function load(key: Key): unknown {
 }
 
 function store(key: Key, value: unknown) {
-  if (serverKeys.has(key)) return;
+  if (serverKeys.has(key)) {
+    return;
+  }
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value));
   } catch {

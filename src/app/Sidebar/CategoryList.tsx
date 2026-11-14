@@ -63,7 +63,9 @@ export function setAllCategoriesCollapsed(facets: Facets, value: boolean) {
   for (const id of groupCategories(facets).flatMap(expandableCategories)) {
     next[id] = value;
   }
-  if (!value) next['f-category'] = false;
+  if (!value) {
+    next['f-category'] = false;
+  }
   setSetting(KEYS.collapsed, next);
 }
 
