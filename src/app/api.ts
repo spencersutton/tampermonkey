@@ -15,7 +15,7 @@ const LOGGED_OUT = 'You’re logged out. Log in, then try again.';
 async function get<T>(path: string, signal?: AbortSignal, prefix = BASE): Promise<T> {
   const res = await authedFetch(prefix + path, {
     headers: { Accept: 'application/json' },
-    ...(signal === undefined ? {} : { signal }),
+    ...(signal == null ? {} : { signal }),
   });
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText || 'error'} for ${path}`);
@@ -32,11 +32,11 @@ function send(
   headers: Record<string, string> = {},
 ) {
   const json: Record<string, string> =
-    body === undefined ? {} : { 'Content-Type': 'application/json' };
+    body == null ? {} : { 'Content-Type': 'application/json' };
   return authedFetch(`${BASE}${path}`, {
     method,
     headers: { Accept: 'application/json', ...json, 'X-CSRF-Protection': '1', ...headers },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body == null ? {} : { body: JSON.stringify(body) }),
   });
 }
 

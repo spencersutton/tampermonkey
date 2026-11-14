@@ -66,15 +66,15 @@ const setLoginOpen = (open: boolean) => void (loginOpen.value = open);
 /** Call one of the server's /api endpoints and take the login state from its reply. */
 async function callMe(path: string, body?: unknown): Promise<Me & { error?: string | null }> {
   const res = await fetch(path, {
-    method: body === undefined ? 'GET' : 'POST',
+    method: body == null ? 'GET' : 'POST',
     credentials: 'same-origin',
     cache: 'no-store',
     headers: {
       Accept: 'application/json',
       'X-TLX-Client': '1',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(body == null ? {} : { 'Content-Type': 'application/json' }),
     },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    ...(body == null ? {} : { body: JSON.stringify(body) }),
   });
   const data = await res.json().catch(() => ({ error: `Server replied ${res.status}` }));
   if (data?.app) {

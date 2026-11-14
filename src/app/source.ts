@@ -51,10 +51,10 @@ async function call<T>(
       headers: {
         Accept: 'application/json',
         'X-TLX-Client': '1',
-        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body == null ? {} : { 'Content-Type': 'application/json' }),
         ...headers,
       },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      ...(body == null ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
     throw new Error('Can’t reach the tlx server. Check your connection.');

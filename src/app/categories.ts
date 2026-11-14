@@ -44,7 +44,7 @@ export function saveCustomCategories(
   const fix = (cats: string[]) =>
     cats.flatMap((v) => {
       const next = byValue.get(v);
-      if (next === undefined) {
+      if (next == null) {
         return [v];
       }
       return next === null ? [] : [next];
