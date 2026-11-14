@@ -30,7 +30,7 @@ function renderComponent(type, props = {}) {
 
 async function savedSearchControls(vite) {
   const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
-  const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
+  const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar/index.tsx');
   return () => {
     const appSidebar = nodes(renderComponent(App)).find((node) => node.type?.name === 'AppSidebar');
     const sidebar = nodes(renderComponent(appSidebar.type, appSidebar.props)).find(

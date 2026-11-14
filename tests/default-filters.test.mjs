@@ -22,7 +22,7 @@ const { DEFAULT_VIEW, defaultFilterView, initialView, sameDefaultFilters } =
   await vite.ssrLoadModule('/src/app/view.ts');
 const { KEYS, SERVER_KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
-const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
+const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar/index.tsx');
 const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { modal, openId } = await vite.ssrLoadModule('/src/app/state.ts');
 const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');

@@ -21,7 +21,9 @@ const { saveCustomCategories } = await vite.ssrLoadModule('/src/app/categories.t
 const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { DEFAULT_VIEW, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
-const { groupCategories, CategoryGroupRow } = await vite.ssrLoadModule('/src/app/Sidebar.tsx');
+const { groupCategories, CategoryGroupRow } = await vite.ssrLoadModule(
+  '/src/app/Sidebar/CategoryList.tsx',
+);
 
 function setup(categories, selected) {
   storage.clear();
