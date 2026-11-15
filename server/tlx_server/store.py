@@ -7,7 +7,9 @@ brand/model, bid history), kept after the lot closes.
 A lot is a row of `lots` with its site category, condition and location in
 lookup tables, its images in `lot_images`, its item type joined from
 `identity_item_types` by brand/model (or `item_types` by title when identity
-is missing), and its most recent past closes in `lot_past_closes`,
+is missing), its tags joined the same way from `item_tags` (brand and model
+are '' for a title-only row) plus those of every `tag_rules` pattern its title
+matches, and its most recent past closes in `lot_past_closes`,
 pointing at `closed_lots`. The store hands lots out, and takes them in, as one
 dict each, in the shape the app gets them (Lot in src/app/types.ts).
 
@@ -21,9 +23,11 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import sqlite3
 import threading
 import time
+from collections import Counter
 from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
@@ -63,6 +67,13 @@ CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
 CREATE TABLE IF NOT EXISTS identity_item_types (
   brand TEXT NOT NULL, model TEXT NOT NULL, title TEXT NOT NULL, type TEXT NOT NULL, category TEXT,
   at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (brand, model, title)
+);
+CREATE TABLE IF NOT EXISTS item_tags (
+  brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL, tags TEXT NOT NULL,
+  at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (brand, model, title)
+);
+CREATE TABLE IF NOT EXISTS tag_rules (
+  id INTEGER PRIMARY KEY, pattern TEXT NOT NULL, tags TEXT NOT NULL, at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS closed_lots (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at INTEGER, price REAL, bid_count INTEGER,
@@ -139,6 +150,119 @@ def closed_row(lot: dict[str, Any], final: int) -> tuple[Any, ...]:
         (lot.get("category") or {}).get("value"),
         lot.get("estimatedRetailPrice"),
     )
+
+
+MAX_TAG_PART = 60
+MAX_TAG_PATTERN = 300
+MAX_RULE_TAGS = 20
+
+
+def clean_tag(text: str) -> str | None:
+    """A tag tidied: lowercase, single spaces, and "name: value" for an attribute ("Finish:Satin  Nickel" →
+    "finish: satin nickel"). None when nothing is left."""
+
+    def tidy(part: str) -> str:
+        return " ".join(part.lower().split()).strip(" \"'`.,;")[:MAX_TAG_PART]
+
+    name, sep, value = text.partition(":")
+    if sep and tidy(name) and tidy(value):
+        return f"{tidy(name)}: {tidy(value)}"
+    return tidy(text.replace(":", " ")) or None
+
+
+def clean_tags(tags: Iterable[str]) -> list[str]:
+    """Tidied tags without blanks or repeats, in their original order."""
+    return list(dict.fromkeys(t for tag in tags if (t := clean_tag(tag))))
+
+
+@dataclass(frozen=True)
+class TagRule:
+    """Tags given to every lot whose title matches a regular expression (case-insensitive, anywhere in the title).
+    A tag can use what the pattern captured: $1 for the first group, ${name} for (?P<name>...), $0 for the whole
+    match, $$ for a dollar sign."""
+
+    id: int
+    pattern: str
+    tags: list[str]
+
+
+class PatternError(ValueError):
+    """A rule's pattern is blank, too long or not a valid regular expression."""
+
+
+class TagTemplateError(ValueError):
+    """A rule's tag refers to a group its pattern doesn't have."""
+
+
+def compile_tag_pattern(pattern: str) -> re.Pattern[str]:
+    """The compiled rule pattern; raises PatternError for a blank or invalid one."""
+    if not pattern.strip():
+        raise PatternError("empty pattern")
+    if len(pattern) > MAX_TAG_PATTERN:
+        raise PatternError(f"pattern is over {MAX_TAG_PATTERN} characters")
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        raise PatternError(f"invalid pattern {pattern!r}: {e}") from e
+
+
+TAG_REF = re.compile(r"\$(?:(\$)|(\d+)|\{(\w+)\})")
+
+
+class CompiledRule:
+    """A rule ready to apply: its pattern compiled and each tag's group references checked (tags are stored tidied,
+    so lowercase, and group names are looked up ignoring case)."""
+
+    def __init__(self, pattern: str, tags: Iterable[str]) -> None:
+        self.rx = compile_tag_pattern(pattern)
+        names = {name.lower(): i for name, i in self.rx.groupindex.items()}
+        # Each tag as (literal parts, group numbers): parts[0] g[0] parts[1] g[1] ... parts[-1].
+        self.templates: list[tuple[list[str], list[int]]] = []
+        for tag in tags:
+            parts, groups, at = [], [], 0
+            for ref in TAG_REF.finditer(tag):
+                if ref[1]:  # $$: a literal dollar sign, kept in the literal text
+                    continue
+                if ref[2] is not None:
+                    group = int(ref[2])
+                    if group > self.rx.groups:
+                        have = f"only {self.rx.groups} group{'s' if self.rx.groups != 1 else ''}" if self.rx.groups else "no groups"
+                        raise TagTemplateError(f"{tag!r} uses ${group}, but the pattern has {have}")
+                elif (group := names.get(ref[3].lower(), -1)) < 0:
+                    raise TagTemplateError(f"{tag!r} uses ${{{ref[3]}}}, but the pattern has no group named {ref[3]!r}")
+                parts.append(tag[at : ref.start()])
+                groups.append(group)
+                at = ref.end()
+            parts.append(tag[at:])
+            self.templates.append(([part.replace("$$", "$") for part in parts], groups))
+
+    def tags_for(self, title: str) -> list[str] | None:
+        """The tags this rule gives a title, or None when the pattern doesn't match it. A tag whose groups captured
+        nothing is left out."""
+        m = self.rx.search(title)
+        if not m:
+            return None
+        out = []
+        for parts, groups in self.templates:
+            values = [m.group(g) for g in groups]
+            if not all(values):
+                continue
+            text = parts[0] + "".join(v + part for v, part in zip(values, parts[1:], strict=True))
+            if tag := clean_tag(text):
+                out.append(tag)
+        return out
+
+
+def rule_tags(pattern: str, tags: Iterable[str]) -> list[str]:
+    """A rule's tags tidied, after checking the rule; raises ValueError for a bad pattern, a reference to a missing
+    group, or no (or too many) tags."""
+    cleaned = clean_tags(tags)
+    CompiledRule(pattern, cleaned)
+    if not cleaned:
+        raise ValueError("no tags given")
+    if len(cleaned) > MAX_RULE_TAGS:
+        raise ValueError(f"at most {MAX_RULE_TAGS} tags per rule")
+    return cleaned
 
 
 def dumps(v: object) -> str:
@@ -306,6 +430,18 @@ class Store:
         )
         return ItemTypeIndex(dict(zip(("title", "type", "category", "at", "manual", "brand", "model"), row, strict=True)) for row in rows)
 
+    def _tag_index(self) -> ItemTypeIndex:
+        # The index ranks records by "type"; the JSON tag list stands in for it.
+        rows = self._db.execute("SELECT title, tags, at, manual, brand, model FROM item_tags")
+        return ItemTypeIndex(
+            {"title": title, "type": tags, "at": at, "manual": manual, "brand": brand or None, "model": model or None}
+            for title, tags, at, manual, brand, model in rows
+        )
+
+    def _tag_rules(self) -> list[TagRule]:
+        rows = self._db.execute("SELECT id, pattern, tags FROM tag_rules ORDER BY id")
+        return [TagRule(i, pattern, json.loads(tags)) for i, pattern, tags in rows]
+
     def _annotate_identities(self, lots: Iterable[dict[str, Any]], id_field: str = "id") -> None:
         identities = {i: (brand, model) for i, brand, model in self._db.execute("SELECT lot_id, brand, model FROM lot_details")}
         for lot in lots:
@@ -321,11 +457,20 @@ class Store:
         lots = list(lots)
         self._annotate_identities(lots)
         index = self._type_index()
+        tag_index = self._tag_index()
+        rules = [CompiledRule(r.pattern, r.tags) for r in self._tag_rules()]
         for lot in lots:
             if record := index.match(lot):
                 lot["itemType"] = record["type"]
             else:
                 lot.pop("itemType", None)
+            tags: list[str] = json.loads(record["type"]) if (record := tag_index.match(lot)) else []
+            for rule in rules:
+                tags.extend(rule.tags_for(lot["title"]) or [])
+            if tags:
+                lot["tags"] = list(dict.fromkeys(tags))
+            else:
+                lot.pop("tags", None)
 
     def annotate_items(self, lots: Iterable[dict[str, Any]]) -> None:
         """Attach cached identities and resolve item types before comparing a catalog pull."""
@@ -337,9 +482,18 @@ class Store:
         self._annotate_items(items)
         return {lot["id"]: lot.get("itemType") for lot in items}
 
+    def _tag_assignments(self) -> dict[int, list[str] | None]:
+        items = [{"id": i, "title": title} for i, title in self._db.execute("SELECT id, title FROM lots")]
+        self._annotate_items(items)
+        return {lot["id"]: lot.get("tags") for lot in items}
+
     def _touch_type_changes(self, previous: dict[int, str | None]) -> dict[int, str | None]:
         """Give lots whose item type changed a new sequence; returns their new types, by lot id."""
-        changed = {i: label for i, label in self._type_assignments().items() if previous.get(i) != label}
+        return self._touch_changes(previous, self._type_assignments())
+
+    def _touch_changes(self, previous: dict[int, Any], current: dict[int, Any]) -> dict[int, Any]:
+        """Give lots whose assignment changed a new sequence; returns their new values, by lot id."""
+        changed = {i: value for i, value in current.items() if previous.get(i) != value}
         if changed:
             seq = self._get_int("seq") + 1
             self._db.executemany("UPDATE lots SET seq = ? WHERE id = ?", [(seq, i) for i in changed])
@@ -612,6 +766,109 @@ class Store:
             self._db.execute("DELETE FROM identity_item_types")
             self._touch_type_changes(previous)
             return n + identities
+
+    # -- tags -----------------------------------------------------------------
+    def save_lot_tags(self, labels: Iterable[tuple[dict[str, Any], list[str]]], *, manual: bool = False) -> dict[int, list[str] | None]:
+        """Store each lot's tags (tidied with clean_tags), by brand/model when both are known, else by exact title, so
+        relistings keep them. Automatic tags never replace manual ones. Returns the new tags of the lots whose tags
+        changed, by lot id."""
+        with self._lock, self._tx():
+            previous = self._tag_assignments()
+            index = self._tag_index()
+            for lot, tags in labels:
+                record = index.match(lot)
+                if not manual and record and record["manual"]:
+                    continue
+                brand, model = brand_model_key(lot) or ("", "")
+                self._db.execute(
+                    "INSERT OR REPLACE INTO item_tags (brand, model, title, tags, at, manual) VALUES (?, ?, ?, ?, ?, ?)",
+                    (brand, model, lot["title"], dumps(clean_tags(tags)), time.time(), int(manual)),
+                )
+            return self._touch_changes(previous, self._tag_assignments())
+
+    def reset_tags(self) -> int:
+        """Forget every stored tag, giving the lots that had some a new sequence. Returns how many rows there were."""
+        with self._lock, self._tx():
+            previous = self._tag_assignments()
+            (n,) = self._db.execute("SELECT count(*) FROM item_tags").fetchone()
+            self._db.execute("DELETE FROM item_tags")
+            self._touch_changes(previous, self._tag_assignments())
+            return n
+
+    def tag_rules(self) -> list[TagRule]:
+        """Every tag rule, oldest first."""
+        with self._lock:
+            return self._tag_rules()
+
+    def add_tag_rule(self, pattern: str, tags: Iterable[str]) -> tuple[TagRule, dict[int, list[str] | None]]:
+        """Tag every lot whose title matches `pattern` (a case-insensitive regular expression), now and in future pulls.
+        Raises ValueError for an invalid pattern or no tags. Returns the rule and the new tags of the lots that changed."""
+        cleaned = rule_tags(pattern, tags)
+        with self._lock, self._tx():
+            previous = self._tag_assignments()
+            cur = self._db.execute("INSERT INTO tag_rules (pattern, tags, at) VALUES (?, ?, ?)", (pattern, dumps(cleaned), time.time()))
+            rule = TagRule(cur.lastrowid or 0, pattern, cleaned)
+            return rule, self._touch_changes(previous, self._tag_assignments())
+
+    def update_tag_rule(self, rule_id: int, pattern: str, tags: Iterable[str]) -> tuple[TagRule, dict[int, list[str] | None]] | None:
+        """Change a tag rule's pattern and tags (validated as for add_tag_rule). None when there is no such rule."""
+        cleaned = rule_tags(pattern, tags)
+        with self._lock, self._tx():
+            previous = self._tag_assignments()
+            cur = self._db.execute("UPDATE tag_rules SET pattern = ?, tags = ? WHERE id = ?", (pattern, dumps(cleaned), rule_id))
+            if not cur.rowcount:
+                return None
+            return TagRule(rule_id, pattern, cleaned), self._touch_changes(previous, self._tag_assignments())
+
+    def _tagged_titles(self) -> list[dict[str, Any]]:
+        items = [{"id": i, "title": title} for i, title in self._db.execute("SELECT id, title FROM lots")]
+        self._annotate_items(items)
+        return items
+
+    def tag_overview(self) -> tuple[list[tuple[TagRule, int]], list[tuple[str, int]]]:
+        """Every rule with how many current lots it matches, and every tag in use with its lot count, commonest first."""
+        with self._lock:
+            items = self._tagged_titles()
+            rules = self._tag_rules()
+        titles = Counter(lot["title"] for lot in items)
+        counted = []
+        for rule in rules:
+            pattern = compile_tag_pattern(rule.pattern)
+            counted.append((rule, sum(n for title, n in titles.items() if pattern.search(title))))
+        in_use = Counter(tag for lot in items for tag in lot.get("tags") or [])
+        return counted, in_use.most_common()
+
+    def preview_tag_rule(self, pattern: str, tags: Iterable[str], limit: int) -> dict[str, Any]:
+        """The current lots a pattern matches, one entry per distinct title (most lots first): an example lot id, the
+        lot count, where the pattern matched, the title's current tags, and those of `tags` (with groups filled in)
+        it doesn't have yet. Raises PatternError or TagTemplateError for a bad rule."""
+        rule = CompiledRule(pattern, clean_tags(tags))
+        rx = rule.rx
+        with self._lock:
+            items = self._tagged_titles()
+        groups: dict[str, dict[str, Any]] = {}
+        for lot in items:
+            if group := groups.get(lot["title"]):
+                group["lots"] += 1
+            elif m := rx.search(lot["title"]):
+                groups[lot["title"]] = {
+                    "title": lot["title"],
+                    "lotId": lot["id"],
+                    "lots": 1,
+                    "span": [m.start(), m.end()],
+                    "tags": (current := lot.get("tags") or []),
+                    "adds": [t for t in rule.tags_for(lot["title"]) or [] if t not in current],
+                }
+        ranked = sorted(groups.values(), key=lambda g: (-g["lots"], g["title"].lower()))
+        return {"lots": sum(g["lots"] for g in ranked), "titles": len(ranked), "matches": ranked[:limit]}
+
+    def remove_tag_rule(self, rule_id: int) -> dict[int, list[str] | None] | None:
+        """Drop a tag rule. Returns the new tags of the lots that changed, or None when there is no such rule."""
+        with self._lock, self._tx():
+            previous = self._tag_assignments()
+            if not self._db.execute("DELETE FROM tag_rules WHERE id = ?", (rule_id,)).rowcount:
+                return None
+            return self._touch_changes(previous, self._tag_assignments())
 
     # -- settings -------------------------------------------------------------
     def settings(self, since: int = 0) -> tuple[int, dict[str, Any]]:

@@ -227,3 +227,56 @@ test('typeahead suggests matching item types, brands, categories and top lots', 
   assert.deepEqual(suggest('brand:ryobi', facets, items, now, {}).lots, []);
   assert.deepEqual(suggest('  ', facets, items, now, {}).types, []);
 });
+
+test('tags: attributes filter OR within a group and AND across groups, with per-group counts', async () => {
+  const { parseTag, tagLabel } = await vite.ssrLoadModule('/src/shared/tags.ts');
+  assert.deepEqual(parseTag('finish: satin nickel'), { name: 'finish', value: 'satin nickel' });
+  assert.deepEqual(parseTag('cabinet knob'), { name: null, value: 'cabinet knob' });
+  assert.equal(tagLabel('finish: satin nickel'), 'Finish: satin nickel');
+
+  const items = [
+    lot('Mila Oval Cabinet Knob (Qty 16)', {
+      tags: ['cabinet knob', 'finish: satin nickel', 'shape: oval'],
+    }),
+    lot('Round Knob 10 Pack', { tags: ['cabinet knob', 'finish: brass', 'shape: round'] }),
+    lot('Bar Pull', { tags: ['cabinet pull', 'finish: satin nickel', 'shape: bar'] }),
+    lot('Untagged knob'),
+  ];
+  const view = { ...DEFAULT_VIEW, tags: ['finish: satin nickel', 'finish: brass', 'cabinet knob'] };
+  const result = run(items, view);
+  assert.deepEqual(titles(result).toSorted(), [
+    'Mila Oval Cabinet Knob (Qty 16)',
+    'Round Knob 10 Pack',
+  ]);
+  const facets = contextualFacets(computeFacets(items, now, []), result.facetCounts, view);
+  const count = (tag) => facets.tags.find((f) => f.value === tag)?.count ?? 0;
+  // Finish counts ignore the finish selection but keep the plain-tag one…
+  assert.equal(count('finish: satin nickel'), 1);
+  assert.equal(count('finish: brass'), 1);
+  // …plain tags ignore their own selection but keep the finish one…
+  assert.equal(count('cabinet pull'), 1);
+  // …and other attributes count only the results.
+  assert.equal(count('shape: bar'), 0);
+  assert.equal(count('shape: oval'), 1);
+
+  assert.deepEqual(titles(run(items, { search: 'nickel' })).toSorted(), [
+    'Bar Pull',
+    'Mila Oval Cabinet Knob (Qty 16)',
+  ]);
+  assert.deepEqual(titles(run(items, { search: 'tag:brass' })), ['Round Knob 10 Pack']);
+  assert.deepEqual(titles(run(items, { search: 'knob -tag:brass' })).toSorted(), [
+    'Mila Oval Cabinet Knob (Qty 16)',
+    'Untagged knob',
+  ]);
+
+  const nav = navFromUrl(`?${new URLSearchParams([['tag', 'finish: brass']])}`);
+  assert.deepEqual(nav.view.tags, ['finish: brass']);
+  assert.deepEqual(titles(run(items, nav.view)), ['Round Knob 10 Pack']);
+  assert.deepEqual(normalizeView({ search: '' }).tags, []);
+
+  const s = suggest('nick', computeFacets(items, now, []), items, now, {});
+  assert.deepEqual(
+    s.tags.map((f) => [f.value, f.count]),
+    [['finish: satin nickel', 2]],
+  );
+});

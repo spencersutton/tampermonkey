@@ -13,6 +13,7 @@ import {
   type PreparedDoc,
 } from '../shared/search';
 import { collator } from '../shared/sortKey';
+import { tagGroup, tagLabel } from '../shared/tags';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
 import { HOUR, memoize, memoizeWeak, memoLast } from './util';
@@ -116,6 +117,7 @@ export interface ViewState {
   noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
   types: string[]; // item types (lowercase)
   brands: string[]; // brand keys (see brandKey)
+  tags: string[]; // tags as stored; OR within an attribute (or among plain tags), AND across them
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -137,6 +139,7 @@ export const DEFAULT_VIEW: ViewState = {
   noCategories: false,
   types: [],
   brands: [],
+  tags: [],
   conditions: [],
   locations: [],
   reachable: false,
@@ -168,6 +171,7 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
+    tags: strings(view.tags),
     noCategories: !view.categories.length && view.noCategories,
     newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -212,6 +216,7 @@ export const activeFilterCount = (v: ViewState) =>
     v.categories.length || v.noCategories,
     v.types.length,
     v.brands.length,
+    v.tags.length,
     v.conditions.length,
     v.locations.length,
     v.reachable,
@@ -340,8 +345,11 @@ export const PRICE_BUCKETS: { label: string; min: number | null; max: number | n
 const inBucket = (price: number, b: (typeof PRICE_BUCKETS)[number]) =>
   (b.min == null || price >= b.min) && (b.max == null || price <= b.max);
 
-/** Facet dimensions whose counts ignore their own selection (so you can pick several). */
-type Dim = 'category' | 'condition' | 'location' | 'type' | 'brand' | 'price';
+/**
+ * Facet dimensions whose counts ignore their own selection (so you can pick several). Each tag
+ * group is one: `tag:finish`, or `tag:` for plain tags.
+ */
+type Dim = 'category' | 'condition' | 'location' | 'type' | 'brand' | 'price' | `tag:${string}`;
 
 /** Lot counts per facet value among the results, each ignoring its own facet's filter. */
 export interface FacetCounts {
@@ -350,6 +358,7 @@ export interface FacetCounts {
   location: Map<string, number>;
   type: Map<string, number>;
   brand: Map<string, number>;
+  tag: Map<string, number>; // by tag as stored
   price: number[]; // per PRICE_BUCKETS entry
 }
 
@@ -359,6 +368,7 @@ const emptyCounts = (): FacetCounts => ({
   location: new Map(),
   type: new Map(),
   brand: new Map(),
+  tag: new Map(),
   price: PRICE_BUCKETS.map(() => 0),
 });
 
@@ -379,6 +389,9 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
   if (only == null || only === 'brand') {
     const brand = brandOf(lot, details);
     if (brand) bump(counts.brand, brandKey(brand));
+  }
+  for (const tag of lot.tags ?? []) {
+    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.tag, tag);
   }
   if (only == null || only === 'price') {
     PRICE_BUCKETS.forEach((b, i) => {
@@ -592,6 +605,7 @@ export function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
     brand,
     model,
     itemType: lot.itemType,
+    tags: lot.tags,
   });
   docCache.set(lot, { brand, model, doc });
   return doc;
@@ -616,7 +630,7 @@ export function makeSearch(
     }
     return (lot) => {
       const { brand, model } = itemIdentity(lot, details);
-      const hay = [`${lot.title} ${lot.lotNumber}`, brand, model, lot.itemType]
+      const hay = [`${lot.title} ${lot.lotNumber}`, brand, model, lot.itemType, ...(lot.tags ?? [])]
         .filter(Boolean)
         .join(' ');
       return re.test(hay) ? 1 : null;
@@ -665,6 +679,10 @@ function makePredicates(v: ViewState, now: Temporal.Instant, details?: ItemDetai
       },
     ]);
   }
+  for (const [group, tags] of Map.groupBy(v.tags, tagGroup)) {
+    const wanted = new Set(tags);
+    dims.push([`tag:${group}`, (r) => (r.lot.tags ?? []).some((t) => wanted.has(t))]);
+  }
   if (v.priceMin != null || v.priceMax != null) {
     dims.push([
       'price',
@@ -711,6 +729,7 @@ export interface Facets {
   locations: Facet<string>[];
   types: Facet<string>[]; // item types, most lots first
   brands: Facet<string>[]; // by brandKey, labelled with the most common spelling; most lots first
+  tags: Facet<string>[]; // by tag as stored (group them with tagGroup); most lots first
   prices: Facet<number>[]; // index into PRICE_BUCKETS
 }
 
@@ -779,6 +798,9 @@ export function computeFacets(
       open.map((l) => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
     ).toSorted(byCountThenLabel),
     brands: tallyBrands(open.map((l) => brandOf(l, details))),
+    tags: tally(open.flatMap((l) => (l.tags ?? []).map((t) => ({ value: t, label: t })))).toSorted(
+      byCountThenLabel,
+    ),
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,
       label: b.label,
@@ -811,6 +833,7 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
     locations: recount(all.locations, counts.location).toSorted((a, b) => b.count - a.count),
     types: present(all.types, counts.type, view.types),
     brands: present(all.brands, counts.brand, view.brands),
+    tags: present(all.tags, counts.tag, view.tags),
     prices: all.prices.map((f) => ({ ...f, count: counts.price[f.value] ?? 0 })),
   };
 }
@@ -845,6 +868,7 @@ export function suggestName(v: ViewState, facets: Facets): string {
     ...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
     ...v.types,
     ...v.brands.map((b) => facets.brands.find((f) => f.value === b)?.label ?? b),
+    ...v.tags.map(tagLabel),
     v.locations.join('/'),
     v.priceMax != null && `≤ $${v.priceMax}`,
     v.totalMax != null && `total ≤ $${v.totalMax}`,

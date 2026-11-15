@@ -4,6 +4,7 @@
 import type { HiddenLot } from '../shared/keys';
 import type { ItemDetails } from '../shared/names';
 import { matchQuality, stem } from '../shared/search';
+import { parseTag } from '../shared/tags';
 import type { Lot } from './types';
 import { makeSearch, type Facet, type Facets } from './view';
 
@@ -11,12 +12,14 @@ export interface Suggestions {
   query: string; // trimmed
   types: Facet<string>[];
   brands: Facet<string>[];
+  tags: Facet<string>[]; // label is the tag as stored
   categories: Facet<string>[];
   lots: Lot[];
 }
 
 const MAX_TYPES = 5;
 const MAX_BRANDS = 3;
+const MAX_TAGS = 4;
 const MAX_CATEGORIES = 3;
 const MAX_LOTS = 4;
 
@@ -35,9 +38,15 @@ function nameScore(label: string, words: string[], query: string): number {
 }
 
 /** The best facet names for the query, best match then most lots first. */
-function matchFacets(facets: Facet<string>[], words: string[], query: string, max: number) {
+function matchFacets(
+  facets: Facet<string>[],
+  words: string[],
+  query: string,
+  max: number,
+  nameOf: (f: Facet<string>) => string = (f) => f.label,
+) {
   return facets
-    .map((f) => ({ f, s: nameScore(f.label, words, query) }))
+    .map((f) => ({ f, s: nameScore(nameOf(f), words, query) }))
     .filter(({ s, f }) => s > 0 && f.count > 0)
     .toSorted((a, b) => b.s - a.s || b.f.count - a.f.count)
     .slice(0, max)
@@ -54,7 +63,7 @@ export function suggest(
   details?: ItemDetails,
 ): Suggestions {
   const query = text.trim().toLowerCase().replace(/\s+/g, ' ');
-  const none = { query, types: [], brands: [], categories: [], lots: [] };
+  const none = { query, types: [], brands: [], tags: [], categories: [], lots: [] };
   // Qualifiers and phrases are precise searches already; suggest only for plain words.
   if (!query || /[":]/.test(query) || /(?:^|\s)-/.test(query)) return none;
   const words = query.split(' ');
@@ -86,6 +95,8 @@ export function suggest(
     query,
     types: matchFacets(facets.types, words, query, MAX_TYPES),
     brands: matchFacets(facets.brands, words, query, MAX_BRANDS),
+    // Tags match on their value ("nickel" finds "finish: satin nickel").
+    tags: matchFacets(facets.tags, words, query, MAX_TAGS, (f) => parseTag(f.value).value),
     categories: matchFacets(facets.categories, words, query, MAX_CATEGORIES),
     lots: best,
   };

@@ -1,8 +1,10 @@
 // Above the grid, as on a shop's results page: the spelling correction used
 // for a search that matched nothing, a removable chip per active filter, and
 // the item types among the results to narrow by in one click.
+import { tagLabel } from '../shared/tags';
 import { Icon } from './icons';
 import { filterFacets, gridView, pickupName, setView, sidebarFacets, storedView } from './state';
+import { TagMenus } from './TagMenus';
 import { fmtCount } from './util';
 import { DEFAULT_VIEW, ENDING, MINE, type ViewState } from './view';
 
@@ -48,6 +50,9 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
       label: labelOf(facets.brands, b),
       remove: { brands: without(v.brands, b) },
     });
+  }
+  for (const t of v.tags) {
+    chips.push({ key: `tag:${t}`, label: tagLabel(t), remove: { tags: without(v.tags, t) } });
   }
   for (const c of v.conditions) {
     chips.push({
@@ -97,7 +102,8 @@ export function Refinements() {
   const chips = chipsFor(view, pickupName.value);
   const types = view.types.length ? [] : sidebarFacets.value.types.slice(0, MAX_TYPE_PILLS);
   const showTypes = result.rows.length > 0 && types.length > 1;
-  if (!result.correctedSearch && !chips.length && !showTypes) return null;
+  const showTags = view.tags.length > 0 || sidebarFacets.value.tags.some((f) => f.count > 0);
+  if (!result.correctedSearch && !chips.length && !showTypes && !showTags) return null;
   return (
     <div class="refinements">
       {result.correctedSearch && (
@@ -139,6 +145,7 @@ export function Refinements() {
           )}
         </div>
       )}
+      {showTags && <TagMenus />}
       {showTypes && (
         <div class="type-pills" aria-label="Narrow by item type">
           <span class="muted">Item type:</span>

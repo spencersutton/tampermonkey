@@ -7,6 +7,7 @@ import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './bid';
 import { CardBrandModel } from './brands';
+import { CardTags } from './CardTags';
 import { siteConditions } from './conditions';
 import { Highlight } from './Highlight';
 import { Icon } from './icons';
@@ -188,6 +189,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           )}
         </div>
         <ItemTypeActions lot={lot} />
+        <CardTags lot={lot} />
         <div class="card-summary">
           <dl class="card-price">
             <div>

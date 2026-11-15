@@ -22,6 +22,11 @@ site:
     PUT  /api/settings/<key>    {"value": ...}; last write wins
     PUT  /api/item-type         {"lotId", "itemType"}; correct every listing of the same item; replies with their lotIds
     GET  /api/history?id=N      closed lots matching item N, most recent first
+    GET  /api/tag-rules         tag rules with their lot counts, and every tag in use
+    GET  /api/tag-rules/preview?pattern=P&tag=T...   the current lots a pattern matches, by title, with the tags it'd add
+    POST /api/tag-rules         {"pattern", "tags"}; add a rule
+    PUT  /api/tag-rules/<id>    {"pattern", "tags"}; change a rule
+    DELETE /api/tag-rules/<id>
     GET  /api/health
 
 Because the server is logged in to your account (and can bid), every request
@@ -52,6 +57,7 @@ import time
 from http import HTTPStatus
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import starmap
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
@@ -64,7 +70,7 @@ from .history import HISTORY_LIMIT
 from .itemtypes import MAX_TYPE_LENGTH, clean_type
 from .session import SiteSession
 from .site import SITE, USER_AGENT, client, normalize_detail, now_ms
-from .store import Store, dumps
+from .store import PatternError, Store, TagRule, TagTemplateError, dumps
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +78,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 WS_HOST = "ws.triangleliquidators.com"
 WS_PATH = "/connection/websocket"
 MAX_BODY = 4 * 1024 * 1024
+TAG_RULE_PATH = re.compile(r"^/api/tag-rules/(\d{1,9})$")
+PREVIEW_LIMIT = 300
 SETTING_KEY = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 SESSION_COOKIE = "tlx_session"
@@ -266,6 +274,16 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                     self._put_setting(path.removeprefix("/api/settings/"))
                 case ("PUT", "/api/item-type"):
                     self._put_item_type()
+                case ("GET", "/api/tag-rules"):
+                    rules, tags = api.store.tag_overview()
+                    self._json(HTTPStatus.OK, {"rules": list(starmap(rule_json, rules)), "tags": tags})
+                case ("GET", "/api/tag-rules/preview"):
+                    self._preview_tag_rule(query.get("pattern", [""])[0], query.get("tag", []))
+                case ("POST", "/api/tag-rules"):
+                    rule, changed = api.store.add_tag_rule(*self._rule_body())
+                    self._json(HTTPStatus.OK, {"rule": rule_json(rule), "changed": len(changed)})
+                case ("PUT" | "DELETE", _) if m := TAG_RULE_PATH.match(path):
+                    self._change_tag_rule(method, int(m[1]))
                 case _:
                     self._error(HTTPStatus.NOT_FOUND, "Not found")
 
@@ -328,6 +346,35 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             changed = api.store.save_lot_types([(lot, item_type)], manual=True)
             ids = sorted({lot_id, *(i for i, t in changed.items() if t == item_type)})
             self._json(HTTPStatus.OK, {"lotIds": ids, "itemType": item_type, "seq": api.store.seq()})
+
+        def _rule_body(self) -> tuple[str, list[str]]:
+            try:
+                body = self._json_body()
+            except TypeError as e:
+                raise ValueError(str(e)) from e
+            pattern, tags = body.get("pattern"), body.get("tags")
+            if not isinstance(pattern, str) or not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
+                raise ValueError('Expected {"pattern": string, "tags": [string]}')
+            return pattern, tags
+
+        def _preview_tag_rule(self, pattern: str, tags: list[str]) -> None:
+            try:
+                self._json(HTTPStatus.OK, api.store.preview_tag_rule(pattern, tags, PREVIEW_LIMIT))
+            except (PatternError, TagTemplateError) as e:
+                field = "pattern" if isinstance(e, PatternError) else "tags"
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(e), "field": field})
+
+        def _change_tag_rule(self, method: str, rule_id: int) -> None:
+            if method == "DELETE":
+                changed = api.store.remove_tag_rule(rule_id)
+                result = None if changed is None else {"changed": len(changed)}
+            else:
+                updated = api.store.update_tag_rule(rule_id, *self._rule_body())
+                result = None if updated is None else {"rule": rule_json(updated[0]), "changed": len(updated[1])}
+            if result is None:
+                self._error(HTTPStatus.NOT_FOUND, "No such tag rule")
+            else:
+                self._json(HTTPStatus.OK, result)
 
         # -- the site's API ---------------------------------------------------
         def _proxy(self, method: str) -> None:
@@ -426,7 +473,8 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
         # -- the app itself -------------------------------------------------
 
         def _static(self, path: str) -> None:
-            name = "index.html" if path in ("/", "/tlx", "/tlx/") else path.lstrip("/")
+            pages = {"/": "index.html", "/tlx": "index.html", "/tlx/": "index.html", "/tags": "tags.html", "/tags/": "tags.html"}
+            name = pages.get(path) or path.lstrip("/")
             file = (STATIC_DIR / name).resolve()
             if not file.is_relative_to(STATIC_DIR.resolve()) or not file.is_file():
                 self._error(HTTPStatus.NOT_FOUND, "Not found")
@@ -454,6 +502,13 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             self._route("DELETE")
 
     return Handler
+
+
+def rule_json(rule: TagRule, lots: int | None = None) -> dict[str, Any]:
+    out: dict[str, Any] = {"id": rule.id, "pattern": rule.pattern, "tags": rule.tags}
+    if lots is not None:
+        out["lots"] = lots
+    return out
 
 
 def _shutdown(sock: socket.socket) -> None:

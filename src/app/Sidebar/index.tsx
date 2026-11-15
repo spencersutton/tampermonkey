@@ -33,6 +33,9 @@ export function Sidebar(props: Props) {
       >
         Keyboard shortcuts (?)
       </button>
+      <a class="btn-text" href="/tags" title="Give tags to every lot whose title matches a pattern">
+        Tag rules
+      </a>
     </div>
   );
 }

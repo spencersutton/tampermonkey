@@ -5,6 +5,7 @@ import { useRef, useState } from 'preact/hooks';
 
 import { dollars } from '../shared/cost';
 import { KEYS } from '../shared/keys';
+import { tagGroup, tagLabel } from '../shared/tags';
 import { CDN } from './api';
 import { getSetting, setSetting } from './settings';
 import {
@@ -24,7 +25,7 @@ import { searchRegexOf, type Facet } from './view';
 type Option =
   | { kind: 'search'; text: string }
   | { kind: 'recent'; text: string }
-  | { kind: 'type' | 'brand' | 'category'; facet: Facet<string> }
+  | { kind: 'type' | 'brand' | 'tag' | 'category'; facet: Facet<string> }
   | { kind: 'lot'; lot: Lot };
 
 const GROUP_TITLES: Record<Option['kind'], string | null> = {
@@ -32,6 +33,7 @@ const GROUP_TITLES: Record<Option['kind'], string | null> = {
   recent: 'Recent searches',
   type: 'Item types',
   brand: 'Brands',
+  tag: 'Tags',
   category: 'Categories',
   lot: 'Lots',
 };
@@ -50,6 +52,7 @@ function optionsFor(draft: string): Option[] {
     { kind: 'search', text: q },
     ...s.types.map((facet) => ({ kind: 'type' as const, facet })),
     ...s.brands.map((facet) => ({ kind: 'brand' as const, facet })),
+    ...s.tags.map((facet) => ({ kind: 'tag' as const, facet })),
     ...s.categories.map((facet) => ({ kind: 'category' as const, facet })),
     ...s.lots.map((lot) => ({ kind: 'lot' as const, lot })),
   ];
@@ -88,6 +91,16 @@ export function SearchBox() {
         rememberSearch(draft);
         setView({ search: '', brands: [o.facet.value] });
         break;
+      case 'tag': {
+        // Replace any value of the same attribute; keep other tag filters.
+        const group = tagGroup(o.facet.value);
+        rememberSearch(draft);
+        setView({
+          search: '',
+          tags: [...view.tags.filter((t) => tagGroup(t) !== group), o.facet.value],
+        });
+        break;
+      }
       case 'category':
         rememberSearch(draft);
         setView({ search: '', categories: [o.facet.value], noCategories: false });
@@ -241,6 +254,13 @@ function OptionBody({ option: o }: { option: Option }) {
       );
     case 'recent':
       return <span>{o.text}</span>;
+    case 'tag':
+      return (
+        <>
+          <span class="search-option-label">{tagLabel(o.facet.value)}</span>
+          <span class="count">{fmtCount(o.facet.count)}</span>
+        </>
+      );
     case 'type':
     case 'brand':
     case 'category':
