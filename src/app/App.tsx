@@ -47,7 +47,7 @@ import {
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
 import type { Lot } from './types';
-import { clock, fmtCount, MINUTE, plural, shortTime } from './util';
+import { ago, clock, countdown, fmtCount, plural, shortTime } from './util';
 import {
   activeFilterCount,
   firstSeenAfter,
@@ -61,27 +61,6 @@ import {
   type ViewState,
 } from './view';
 import { observeEnd } from './viewport';
-
-/** How long ago `ts` was, e.g. "just now", "12 min ago"; older than a day shows the date. */
-function ago(ts: Temporal.Instant, now: Temporal.Instant) {
-  const m = Math.round((now.epochMilliseconds - ts.epochMilliseconds) / MINUTE);
-  if (m < 1) {
-    return 'just now';
-  }
-  if (m < 60) {
-    return `${m} min ago`;
-  }
-  const h = Math.floor(m / 60);
-  return h < 24 ? `${h} h ${m % 60} min ago` : new Date(ts.epochMilliseconds).toLocaleString();
-}
-
-/** Remaining time as "m:ss", or "Ns" under a minute. */
-export function countdown(ms: number) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return s >= 60
-    ? `${Math.floor(s / 60)}:${((n: number) => String(n).padStart(2, '0'))(s % 60)}`
-    : `${s}s`;
-}
 
 /** The whole /tlx page: sidebar, toolbar, infinitely scrolling lot grid, and the lot / bid popups. */
 export function App() {

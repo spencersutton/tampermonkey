@@ -44,6 +44,10 @@ test('compares and formats instant timestamps', () => {
   assert.equal(firstSeenAfter({ firstSeenAt: now }, now), false);
   assert.equal(firstSeenAfter({ firstSeenAt: now.add({ milliseconds: 1 }) }, now), true);
   assert.deepEqual(timeLabel(now.add({ seconds: 61 }), now), { text: '1m 01s', soon: true });
-  assert.equal(ago(now.subtract({ minutes: 2 }), now), '2 min ago');
+  assert.equal(ago(now.subtract({ seconds: 59 }), now), 'now');
+  assert.equal(ago(now.subtract({ minutes: 2 }), now), '2 minutes ago');
+  assert.equal(ago(now.subtract({ hours: 5, minutes: 59 }), now), '5 hours ago');
+  assert.equal(ago(now.subtract({ hours: 24 }), now), 'yesterday');
+  assert.equal(ago(now.subtract({ hours: 72 }), now), '3 days ago');
   assert.equal(countdown(61_000), '1:01');
 });

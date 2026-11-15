@@ -72,10 +72,7 @@ test('renames and deletions update current and saved filters without changing ot
     saves.map(([key]) => key),
     [KEYS.customCategories, KEYS.view, KEYS.savedSearches],
   );
-  assert.deepEqual(
-    JSON.parse(storage.get(`tlx:${KEYS.savedSearches}`)),
-    JSON.parse(JSON.stringify(searches)),
-  );
+  assert.equal(storage.has(`tlx:${KEYS.savedSearches}`), false);
 });
 
 test('removes filters when moving item types leaves a category empty', () => {
@@ -142,10 +139,7 @@ test('renames and deletions update synced default categories without changing co
     conditions: [2],
   });
   assert.ok(saves.some(([key]) => key === KEYS.defaultFilters));
-  assert.deepEqual(
-    JSON.parse(storage.get(`tlx:${KEYS.defaultFilters}`)),
-    getSetting(KEYS.defaultFilters),
-  );
+  assert.equal(storage.has(`tlx:${KEYS.defaultFilters}`), false);
 });
 
 test('category edits do not create a saved view in a new browser', () => {

@@ -16,7 +16,7 @@ import { categoryIndex, compileCategories } from './view';
 const SIMILAR_LIMIT = 12;
 
 /** "drill bit set" -> "Drill Bit Sets" */
-function categoryName(type: string): string {
+export function categoryName(type: string): string {
   const words = type.split(' ');
   const last = words.pop()!;
   let many = `${last}s`;
@@ -30,7 +30,7 @@ function categoryName(type: string): string {
   return [...words, many].map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
-function categoryError(
+export function categoryError(
   mode: 'new' | 'add',
   existing: CustomCategory | undefined,
   name: string,
