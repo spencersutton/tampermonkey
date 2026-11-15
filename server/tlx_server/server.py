@@ -20,7 +20,7 @@ site:
     POST /api/pull              start a full pull if one is allowed
     GET  /api/settings?since=N  settings changed after revision N
     PUT  /api/settings/<key>    {"value": ...}; last write wins
-    PUT  /api/item-type         {"lotId", "itemType"}; correct every listing with this exact title
+    PUT  /api/item-type         {"lotId", "itemType"}; correct every listing of the same item; replies with their lotIds
     GET  /api/history?id=N      closed lots matching item N, most recent first
     GET  /api/health
 
@@ -325,9 +325,9 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             if not lot:
                 self._error(HTTPStatus.NOT_FOUND, "No such catalog lot")
                 return
-            api.store.save_lot_types([(lot, item_type)], manual=True)
-            identity = {key: lot[key] for key in ("title", "brand", "model") if key in lot}
-            self._json(HTTPStatus.OK, {**identity, "itemType": item_type, "seq": api.store.seq()})
+            changed = api.store.save_lot_types([(lot, item_type)], manual=True)
+            ids = sorted({lot_id, *(i for i, t in changed.items() if t == item_type)})
+            self._json(HTTPStatus.OK, {"lotIds": ids, "itemType": item_type, "seq": api.store.seq()})
 
         # -- the site's API ---------------------------------------------------
         def _proxy(self, method: str) -> None:
@@ -365,6 +365,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
             ):
                 payload = json.loads(data)
                 api.store.annotate_identities(payload["results"], "lot_id")
+                api.catalog.history.relisted(payload["results"])
                 data = json.dumps(payload).encode()
             self._send(status, data, ctype)
 

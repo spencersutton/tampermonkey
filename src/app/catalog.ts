@@ -5,7 +5,6 @@
 // (cached for DETAIL_TTL).
 import { batch, signal } from '@preact/signals';
 
-import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 import type { Lot, LotDetail, LotMetadata } from './types';
@@ -55,18 +54,12 @@ export function updateLot(id: number, patch: Partial<Lot>, opts: { force?: boole
   rev.value = rev.peek() + 1;
 }
 
-/** Apply a saved item type to matching listings, with exact-title fallback. */
-export function updateItemType(identity: ItemIdentity, itemType: string) {
+/** Apply a saved item type to the listings the server says it covers. */
+export function updateItemType(ids: Iterable<number>, itemType: string) {
   const next = new Map(lots.peek());
-  for (const [id, lot] of next) {
-    if (
-      sameItemType(
-        itemIdentity(lot, { brands: lotBrands.peek(), models: lotModels.peek() }),
-        identity,
-      )
-    ) {
-      next.set(id, { ...lot, itemType });
-    }
+  for (const id of ids) {
+    const lot = next.get(id);
+    if (lot) next.set(id, { ...lot, itemType });
   }
   lots.value = next;
 }

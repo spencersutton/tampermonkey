@@ -92,6 +92,7 @@ interface RawClosedLot {
   hero_image: string | null;
   brand?: string | null;
   model?: string | null;
+  relisted?: number[]; // added by the tlx server's proxy
 }
 
 interface RawBidResponse {
@@ -219,6 +220,7 @@ function normalizeClosed(r: RawClosedLot): ClosedLot {
     heroImage: r.hero_image ?? null,
     ...(r.brand !== undefined ? { brand: r.brand } : {}),
     ...(r.model !== undefined ? { model: r.model } : {}),
+    ...(r.relisted !== undefined ? { relisted: r.relisted } : {}),
   };
 }
 

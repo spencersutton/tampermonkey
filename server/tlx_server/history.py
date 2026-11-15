@@ -11,11 +11,14 @@ Each open lot gets `pastCloses`: how many closed lots match its name and the
 most recent few of them, so a card can show what the item usually goes for.
 GET /api/history?id=N lists every match for the lot popup.
 
+All item matching lives here; the app only reads its results:
+- `groupId` on open lots that list the same item (same condition), which the
+  app folds into one card (`group_lots`);
+- `relisted` on the site's Won/Lost pages: open lots matching each closed one.
+
 Brand and model match exactly, ignoring case and whitespace, when both lots
-have both fields. Otherwise names match fuzzily, by `names_match`, which
-src/shared/names.ts mirrors for combining duplicate listings in the app.
-Title fallback requires 90% of words in common, ignoring case, punctuation
-and word order.
+have both fields. Otherwise names match fuzzily, by `names_match`: 90% of
+words in common, ignoring case, punctuation and word order.
 """
 
 from __future__ import annotations
@@ -27,6 +30,7 @@ import threading
 import time
 from collections import Counter, defaultdict
 from collections.abc import Iterable
+from operator import itemgetter
 from typing import Any
 
 from .identity import brand_model_key
@@ -47,6 +51,14 @@ _TOKEN = re.compile(r"qty[0-9]+|[0-9]+(?:[./][0-9]+)*|[a-z]+")
 def name_tokens(title: str) -> frozenset[str]:
     """The words of a title for matching: lowercase letters runs and numbers ("4.0", "1/2"), with "Qty 3" as one word."""
     return frozenset(_TOKEN.findall(_QTY.sub(r" qty\1 ", title.lower())))
+
+
+def items_match(a: dict[str, Any], b: dict[str, Any], min_pct: float = DEFAULT_NAME_MATCH) -> bool:
+    """Same brand and model when both have both; otherwise matching names."""
+    left, right = brand_model_key(a), brand_model_key(b)
+    if left and right:
+        return left == right
+    return names_match(name_tokens(a["title"]), name_tokens(b["title"]), min_pct)
 
 
 def names_match(a: frozenset[str], b: frozenset[str], min_pct: float) -> bool:
@@ -99,6 +111,75 @@ class NameIndex:
         return out
 
 
+def group_lots(lots: Iterable[dict[str, Any]], min_pct: float = DEFAULT_NAME_MATCH) -> dict[int, int]:
+    """Each lot's group, as the smallest lot id in it: lots of the same condition whose items match,
+    directly or through another lot in the group. A group never joins two different known brand/models,
+    even when a title without one matches both. Processed in id order, so the result doesn't depend on
+    the order lots are given in."""
+    # Lots with the same identity and the same words (or, without words, the same title) always match: one entry each.
+    entries: dict[tuple[Any, ...], list[int]] = defaultdict(list)
+    for lot in sorted(lots, key=itemgetter("id")):
+        tokens = name_tokens(lot["title"])
+        words: object = tokens or lot["title"].strip().lower()
+        entries[(lot.get("condition") or {}).get("value"), brand_model_key(lot), words].append(lot["id"])
+    keys = list(entries)
+    parent = list(range(len(keys)))
+    identity = [key[1] for key in keys]
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def join(i: int, j: int) -> None:
+        a, b = find(i), find(j)
+        if a == b or (identity[a] and identity[b] and identity[a] != identity[b]):
+            return
+        parent[b] = a
+        identity[a] = identity[a] or identity[b]
+
+    by_condition: dict[object, list[int]] = defaultdict(list)
+    for i, key in enumerate(keys):
+        by_condition[key[0]].append(i)
+    for members in by_condition.values():
+        known: dict[tuple[str, str], int] = {}
+        for i in members:
+            if ident := keys[i][1]:
+                if ident in known:
+                    join(known[ident], i)
+                else:
+                    known.setdefault(ident, i)
+        by_words: dict[object, list[int]] = defaultdict(list)
+        for i in members:
+            by_words[keys[i][2]].append(i)
+        names = NameIndex((w for w in by_words if isinstance(w, frozenset)), min_pct)
+        for i in members:
+            _, ident, words = keys[i]
+            similar = names.matches(words) if isinstance(words, frozenset) else [words]
+            for j in (j for w in similar for j in by_words[w]):
+                if j != i and find(i) != find(j) and (not ident or not keys[j][1] or ident == keys[j][1]):
+                    join(j, i)
+
+    smallest: dict[int, int] = {}
+    for i, ids in enumerate(entries.values()):
+        root = find(i)
+        smallest[root] = min(smallest.get(root, ids[0]), ids[0])
+    return {lot_id: smallest[find(i)] for i, ids in enumerate(entries.values()) for lot_id in ids}
+
+
+def set_groups(lots: Iterable[dict[str, Any]]) -> None:
+    """Set `groupId` on lots that share their group with another lot; drop it from the rest."""
+    lots = list(lots)
+    groups = group_lots(lots)
+    sizes = Counter(groups.values())
+    for lot in lots:
+        if sizes[group := groups[lot["id"]]] > 1:
+            lot["groupId"] = group
+        else:
+            lot.pop("groupId", None)
+
+
 def _close(row: dict[str, Any]) -> dict[str, Any]:
     """A closed lot as attached to an open lot's `pastCloses`."""
     return {
@@ -140,6 +221,7 @@ class History:
         self.store = store
         self._wake = threading.Event()
         self._cache: tuple[int, ItemIndex] | None = None
+        self._open: tuple[int, ItemIndex] | None = None
         self._cache_lock = threading.Lock()
 
     # -- matching ---------------------------------------------------------------
@@ -158,10 +240,24 @@ class History:
         return self._index().matches(lot)
 
     def annotate(self, lots: Iterable[dict[str, Any]]) -> None:
-        """Set (or drop) `pastCloses` on each lot."""
+        """Set (or drop) `pastCloses` on each lot, and `groupId` across them (pass the whole catalog)."""
+        lots = list(lots)
         index = self._index()
         for lot in lots:
             self._annotate(lot, index)
+        set_groups(lots)
+
+    def relisted(self, closed: Iterable[dict[str, Any]], id_field: str = "lot_id") -> None:
+        """Set `relisted` on each closed lot (as the site's Won/Lost pages list them): the open lots matching it."""
+        seq = self.store.seq()
+        with self._cache_lock:
+            if not self._open or self._open[0] != seq:
+                self._open = (seq, ItemIndex(self.store.all_lots().values(), DEFAULT_NAME_MATCH))
+            index = self._open[1]
+        now = time.time() * 1000
+        for c in closed:
+            item = {"id": c[id_field], "title": c.get("title") or "", "brand": c.get("brand"), "model": c.get("model")}
+            c["relisted"] = [lot["id"] for lot in index.matches(item) if (lot["endsAt"] or 0) > now]
 
     @staticmethod
     def _annotate(lot: dict[str, Any], index: ItemIndex) -> None:
@@ -174,10 +270,10 @@ class History:
         """Re-annotate the stored lots after closes or identities change."""
         index = self._index()  # outside the store lock, which update_lots holds
 
-        def update(lot: dict[str, Any]) -> dict[str, Any]:
-            out = dict(lot)
-            self._annotate(out, index)
-            return out
+        def update(lots: list[dict[str, Any]]) -> None:
+            for lot in lots:
+                self._annotate(lot, index)
+            set_groups(lots)
 
         if n := self.store.update_lots(update):
             log.info("past closes changed on %d lots", n)

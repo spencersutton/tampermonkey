@@ -12,8 +12,6 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { brandModelKey, itemsMatch, sameItemType, groupItems, groupNames } =
-  await vite.ssrLoadModule('/src/shared/names.ts');
 const { computeView, DEFAULT_VIEW, normalizeView, savedFilters } =
   await vite.ssrLoadModule('/src/app/view.ts');
 const { lots, lotBrands, lotModels, updateItemType } =
@@ -55,69 +53,11 @@ const lot = (id, fields = {}) => ({
 const view = (items, changes = {}, details) =>
   computeView(items, { ...DEFAULT_VIEW, ...changes }, '', ex, now, details);
 
-test('identity matches ignore titles, case and whitespace but not model punctuation or order', () => {
-  const first = lot(1);
-  assert.equal(
-    itemsMatch(
-      first,
-      lot(2, { title: 'Completely different 99-pack', brand: ' ACME ', model: ' d-100 ' }),
-      100,
-    ),
-    true,
-  );
-  for (const change of [
-    { model: 'D-101' },
-    { brand: 'Other' },
-    { model: 'D100' },
-    { model: '100-D' },
-  ]) {
-    assert.equal(itemsMatch(first, lot(2, change), 50), false);
-  }
-  assert.equal(
-    brandModelKey(lot(1, { brand: ' Acme   Tools ', model: ' D  100 ' })),
-    '["acme tools","d 100"]',
-  );
-  for (const change of [{ brand: null }, { model: undefined }, { brand: '   ' }]) {
-    const partial = lot(2, change);
-    assert.equal(itemsMatch(first, partial, 100), true);
-    assert.equal(itemsMatch(partial, first, 100), true);
-    assert.equal(brandModelKey(partial), null);
-  }
-  assert.equal(
-    itemsMatch(lot(1, { brand: null, title: 'Drill Qty 2' }), lot(2, { title: 'Drill Qty 3' }), 50),
-    false,
-  );
-  assert.equal(
-    sameItemType(first, lot(2, { title: 'drill Cordless', brand: null })),
-    false,
-    'item-type fallback remains exact',
-  );
-});
-
-test('grouping keeps known models separate, even when an unknown title matches both', () => {
+test('lots the server grouped fold into one card; ungrouped lots keep their own', () => {
   const items = [
-    lot(1),
-    lot(2, { model: null }),
-    lot(3, { model: 'D-200' }),
-    lot(4, { title: 'Other wording' }),
-  ];
-  for (const ordering of [items, [...items].reverse(), [items[1], items[2], items[0], items[3]]]) {
-    const groups = groupItems(ordering, 90);
-    assert.equal(groups.get(1), groups.get(4));
-    assert.notEqual(groups.get(1), groups.get(3));
-    assert.ok(groups.get(2) === groups.get(1) || groups.get(2) === groups.get(3));
-  }
-  const fallback = groupNames(['Cordless drill', 'drill CORDLESS', 'Cordless drill Qty 2'], 90);
-  assert.equal(fallback.get('Cordless drill'), fallback.get('drill CORDLESS'));
-  assert.notEqual(fallback.get('Cordless drill'), fallback.get('Cordless drill Qty 2'));
-});
-
-test('catalog title fallback uses a fixed 90% threshold', () => {
-  const title = 'Cordless drill with battery charger case bits belt clip';
-  const items = [
-    lot(1, { title: `${title} manual`, brand: null, model: null }),
-    lot(2, { title, brand: null, model: null }),
-    lot(3, { title: 'Cordless drill with battery charger', brand: null, model: null }),
+    lot(1, { title: 'Cordless drill kit', groupId: 1 }),
+    lot(2, { title: 'Cordless drill', groupId: 1 }),
+    lot(3, { title: 'Cordless drill', model: 'D-200' }),
   ];
   const result = view(items);
   assert.equal(result.combined, 1);
@@ -133,12 +73,12 @@ test('catalog title fallback uses a fixed 90% threshold', () => {
 
 test('dedupe preserves condition, cost ordering, and independent bid/hidden/filtered cards', () => {
   const items = [
-    lot(1, { title: 'Expensive kit', currentPrice: 30 }),
-    lot(2, { title: 'Cheap tool', currentPrice: 5 }),
+    lot(1, { title: 'Expensive kit', currentPrice: 30, groupId: 1 }),
+    lot(2, { title: 'Cheap tool', currentPrice: 5, groupId: 1 }),
     lot(3, { condition: { value: 1, label: 'New' } }),
-    lot(4, { hasBid: true }),
-    lot(5, { title: 'Hide me' }),
-    lot(6, { title: 'Excluded item' }),
+    lot(4, { hasBid: true, groupId: 1 }),
+    lot(5, { title: 'Hide me', groupId: 1 }),
+    lot(6, { title: 'Excluded item', groupId: 1 }),
   ];
   const result = computeView(
     items,
@@ -167,7 +107,7 @@ test('dedupe preserves condition, cost ordering, and independent bid/hidden/filt
   assert.equal(result.rows.length, 5);
 });
 
-test('live identity changes invalidate dedupe and brand/model sorting without a price update', () => {
+test('live identity changes re-sort by brand/model without a price update', () => {
   lots.value = new Map([
     [10, lot(10, { title: 'Zebra tool', brand: undefined, model: undefined })],
     [11, lot(11, { title: 'Apple tool', brand: undefined, model: undefined })],
@@ -191,20 +131,6 @@ test('live identity changes invalidate dedupe and brand/model sorting without a 
     gridView.value.rows.map((row) => row.lot.id),
     [10, 11],
   );
-  lotBrands.value = new Map([
-    [10, 'Acme'],
-    [11, 'Acme'],
-  ]);
-  lotModels.value = new Map([
-    [10, 'D-2'],
-    [11, 'D-2'],
-  ]);
-  assert.equal(gridView.value.combined, 1);
-  lotModels.value = new Map([
-    [10, 'D-2'],
-    [11, null],
-  ]);
-  assert.equal(gridView.value.combined, 0);
 });
 
 test('brand/model sort uses natural model order, title fallback, and persists in views and URLs', () => {
@@ -228,24 +154,17 @@ test('brand/model sort uses natural model order, title fallback, and persists in
   assert.equal(navFromUrl('?sort=brand-model-asc').view.sort, settings.sort);
 });
 
-test('item-type corrections use latest cached identity with exact-title fallback', () => {
+test('item-type corrections apply to exactly the lots the server names', () => {
   lots.value = new Map([
     [20, lot(20)],
-    [21, lot(21, { title: 'Different title' })],
-    [22, lot(22, { model: 'D-200' })],
+    [21, lot(21)],
     [23, lot(23, { brand: undefined, model: undefined })],
   ]);
-  lotBrands.value = new Map([[21, 'Acme']]);
-  lotModels.value = new Map([[21, 'D-300']]);
-  updateItemType(lot(20), 'driver');
+  updateItemType([20, 23, 99], 'driver');
   assert.equal(lots.value.get(20).itemType, 'driver');
-  assert.equal(
-    lots.value.get(21).itemType,
-    undefined,
-    'newer cached identity wins over the base lot',
-  );
-  assert.equal(lots.value.get(22).itemType, undefined);
+  assert.equal(lots.value.get(21).itemType, undefined);
   assert.equal(lots.value.get(23).itemType, 'driver');
+  assert.equal(lots.value.has(99), false);
 });
 
 test('item-type sort groups types case-insensitively, uses ending time for ties, and puts unassigned lots last', () => {
@@ -275,7 +194,7 @@ test('item-type corrections immediately reorder the grid when sorting by item ty
     gridView.value.rows.map((row) => row.lot.id),
     [61, 60],
   );
-  updateItemType(lot(60), 'battery');
+  updateItemType([60], 'battery');
   assert.deepEqual(
     gridView.value.rows.map((row) => row.lot.id),
     [60, 61],
@@ -286,13 +205,7 @@ test('identity correction survives stale polls without leaking to another model'
   const items = [lot(30), lot(31, { title: 'Another listing' }), lot(32, { model: 'D-200' })];
   lots.value = new Map(items.map((item) => [item.id, item]));
   t.mock.method(globalThis, 'fetch', async () =>
-    Response.json({
-      title: items[0].title,
-      brand: 'Acme',
-      model: 'D-100',
-      itemType: 'driver',
-      seq: 5,
-    }),
+    Response.json({ lotIds: [30, 31], itemType: 'driver', seq: 5 }),
   );
   await setItemType(30, 'driver');
   const poll = (seq) =>
@@ -317,11 +230,19 @@ test('closed-page normalization preserves cached identity and past-price updates
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
       count: 1,
-      results: [{ lot_id: 50, title: 'Different description', brand: 'Acme', model: 'D-100' }],
+      results: [
+        {
+          lot_id: 50,
+          title: 'Different description',
+          brand: 'Acme',
+          model: 'D-100',
+          relisted: [1],
+        },
+      ],
     }),
   );
   const [closed] = await fetchClosed('lost', () => {});
-  assert.equal(itemsMatch(closed, lot(1), 100), true);
+  assert.deepEqual([closed.brand, closed.model, closed.relisted], ['Acme', 'D-100', [1]]);
   lots.value = new Map([[1, lot(1, { version: 10, currentPrice: 50 })]]);
   applyCatalog({
     seq: 10,
@@ -336,15 +257,4 @@ test('closed-page normalization preserves cached identity and past-price updates
   });
   assert.equal(lots.value.get(1).currentPrice, 50);
   assert.equal(lots.value.get(1).pastCloses.n, 1);
-});
-
-test('duplicate-heavy catalogs collapse efficiently without changing known-model boundaries', () => {
-  const items = Array.from({ length: 20000 }, (_, id) => lot(id, { model: `D-${id % 10}` }));
-  const start = performance.now();
-  const groups = groupItems(items, 90);
-  assert.equal(new Set(groups.values()).size, 10);
-  assert.ok(
-    performance.now() - start < 2000,
-    '20,000 listings should not require quadratic comparisons',
-  );
 });

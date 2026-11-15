@@ -219,7 +219,7 @@ class IdentityTests(unittest.TestCase):
         try:
             status, result = request("PUT", "/api/item-type", {"lotId": 1, "itemType": "driver"})
             self.assertEqual(status, 200)
-            self.assertEqual((result["brand"], result["model"]), ("Acme", "D-100"))
+            self.assertEqual(result["lotIds"], [1, 2], "the same identity, not the same title of another model")
             self.assertEqual(self.get_lot(2)["itemType"], "driver")
             self.assertNotIn("itemType", self.get_lot(3))
             closed = {"count": 1, "results": [{"lot_id": 1, "title": "Closed title", "auction_period": "test"}]}
@@ -232,6 +232,7 @@ class IdentityTests(unittest.TestCase):
                 status, _ = request("GET", "/backend/v1/auctions/lots/test/1/")
                 self.assertEqual(status, 200)
                 catalog.history.wake.assert_called_once()
+                catalog.history.relisted.assert_called_once()
         finally:
             server.shutdown()
             thread.join()

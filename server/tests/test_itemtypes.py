@@ -128,11 +128,11 @@ class ItemTypeApiTests(unittest.TestCase):
         finally:
             conn.close()
 
-    def test_saves_canonical_type_and_returns_title_and_catalog_sequence(self) -> None:
+    def test_saves_canonical_type_and_returns_changed_lots_and_catalog_sequence(self) -> None:
         before = self.store.seq()
         status, data = self.request({"lotId": 1, "itemType": '  "Drill   Driver."  '})
         self.assertEqual(status, 200)
-        self.assertEqual(data, {"title": "Drill", "itemType": "drill driver", "seq": before + 1})
+        self.assertEqual(data, {"lotIds": sorted(self.store.all_lots()), "itemType": "drill driver", "seq": before + 1})
         self.assertEqual({l["itemType"] for l in self.store.all_lots().values()}, {"drill driver"})
         self.store.save_item_types({"Drill": ("battery", "tools")})
         self.assertEqual(self.store.item_types(["Drill"]), {"Drill": "drill driver"})

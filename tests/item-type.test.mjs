@@ -65,7 +65,7 @@ test('title corrections replace the catalog Map and update category matching and
     ].map((l) => [l.id, l]),
   );
   const previous = lots.peek();
-  updateItemType({ title: 'Drill' }, 'drill driver');
+  updateItemType([1, 2], 'drill driver');
   assert.notEqual(lots.peek(), previous);
   assert.deepEqual(
     [...lots.peek().values()].map((l) => l.itemType),
@@ -116,7 +116,7 @@ test('invalid catalog timestamps leave the previous catalog intact', () => {
   assert.equal(lots.peek(), previous);
 });
 
-test('saving uses the guarded endpoint and applies the canonical server response to all exact titles', async () => {
+test('saving uses the guarded endpoint and applies the canonical server response to the lots it names', async () => {
   lots.value = new Map(
     [catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery')].map((l) => [l.id, l]),
   );
@@ -127,7 +127,7 @@ test('saving uses the guarded endpoint and applies the canonical server response
     assert.equal(init.headers['X-TLX-Client'], '1');
     assert.equal(init.headers['Content-Type'], 'application/json');
     assert.deepEqual(JSON.parse(init.body), { lotId: 1, itemType: 'Drill Driver' });
-    return Response.json({ title: 'Drill', itemType: 'drill driver', seq: 5 });
+    return Response.json({ lotIds: [1, 2], itemType: 'drill driver', seq: 5 });
   };
   assert.equal(await setItemType(1, 'Drill Driver'), 'drill driver');
   assert.equal(lots.peek().get(2).itemType, 'drill driver');

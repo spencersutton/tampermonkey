@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS lots (
   is_transferable INTEGER NOT NULL, transfer_fee NUMERIC, current_price NUMERIC, estimated_retail_price NUMERIC,
   ends_at INTEGER, status TEXT, version INTEGER, bid_count INTEGER, next_min_increment NUMERIC,
   is_leading INTEGER, your_max_bid NUMERIC, is_watchlisted INTEGER NOT NULL, has_bid INTEGER NOT NULL,
-  first_seen_at INTEGER, past_close_count INTEGER NOT NULL DEFAULT 0
+  first_seen_at INTEGER, past_close_count INTEGER NOT NULL DEFAULT 0, group_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS lots_seq ON lots (seq);
 CREATE INDEX IF NOT EXISTS lots_title ON lots (title);
@@ -76,11 +76,13 @@ CREATE TABLE IF NOT EXISTS lot_details (
 """
 
 # lots: is_leading and your_max_bid are null without a standing; past_close_count
-# counts every matching closed lot, lot_past_closes holds the most recent few.
+# counts every matching closed lot, lot_past_closes holds the most recent few;
+# group_id is the smallest id of the open lots listing the same item (null when
+# no other does; see history.group_lots).
 LOT_COLUMNS = (
     "id, seq, auction_period, title, lot_number, category, condition, location, is_transferable, transfer_fee, current_price, "
     "estimated_retail_price, ends_at, status, version, bid_count, next_min_increment, is_leading, your_max_bid, is_watchlisted, "
-    "has_bid, first_seen_at, past_close_count"
+    "has_bid, first_seen_at, past_close_count, group_id"
 )
 
 
@@ -111,6 +113,7 @@ def lot_row(lot: dict[str, Any], seq: int) -> tuple[Any, ...]:
         int(bool(lot.get("hasBid"))),
         lot.get("firstSeenAt"),
         (lot.get("pastCloses") or {}).get("n", 0),
+        lot.get("groupId"),
     )
 
 
@@ -181,6 +184,8 @@ class Store:
             self._db.execute("ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0")
         if "images" not in {row[1] for row in self._db.execute("PRAGMA table_info(lot_details)")}:
             self._db.execute("ALTER TABLE lot_details ADD COLUMN images TEXT")
+        if "group_id" not in {row[1] for row in self._db.execute("PRAGMA table_info(lots)")}:
+            self._db.execute("ALTER TABLE lots ADD COLUMN group_id INTEGER")
         path.chmod(0o600)  # holds the site login cookies
 
     @contextmanager
@@ -235,13 +240,13 @@ class Store:
             f"""SELECT l.id, l.auction_period, l.title, l.lot_number, l.category, c.label, l.condition, k.label, l.location, p.name,
               l.is_transferable, l.transfer_fee, l.current_price, l.estimated_retail_price, l.ends_at, l.status, l.version,
               l.bid_count, l.next_min_increment, l.is_leading, l.your_max_bid, l.is_watchlisted, l.has_bid, l.first_seen_at,
-              l.past_close_count
+              l.past_close_count, l.group_id
             FROM lots l LEFT JOIN categories c ON c.value = l.category LEFT JOIN conditions k ON k.value = l.condition
               LEFT JOIN locations p ON p.id = l.location {where}""",
             params,
         )
         for (i, period, title, number, cat, cat_label, cond, cond_label, loc, loc_name, transferable, fee, price, retail, ends,
-             status, version, bids, increment, leading, max_bid, watched, has_bid, first_seen, n) in rows:  # fmt: skip
+             status, version, bids, increment, leading, max_bid, watched, has_bid, first_seen, n, group) in rows:  # fmt: skip
             lot = lots[i] = {
                 "id": i,
                 "auctionPeriod": period,
@@ -268,6 +273,8 @@ class Store:
                 lot["firstSeenAt"] = first_seen
             if n:
                 lot["pastCloses"] = {"n": n, "recent": []}
+            if group is not None:
+                lot["groupId"] = group
         if not lots:
             return lots
         ids = f"(SELECT l.id FROM lots l {where})"
@@ -330,12 +337,14 @@ class Store:
         self._annotate_items(items)
         return {lot["id"]: lot.get("itemType") for lot in items}
 
-    def _touch_type_changes(self, previous: dict[int, str | None]) -> None:
-        changed = [i for i, label in self._type_assignments().items() if previous.get(i) != label]
+    def _touch_type_changes(self, previous: dict[int, str | None]) -> dict[int, str | None]:
+        """Give lots whose item type changed a new sequence; returns their new types, by lot id."""
+        changed = {i: label for i, label in self._type_assignments().items() if previous.get(i) != label}
         if changed:
             seq = self._get_int("seq") + 1
             self._db.executemany("UPDATE lots SET seq = ? WHERE id = ?", [(seq, i) for i in changed])
             self._set("seq", seq)
+        return changed
 
     def _write_lots(self, lots: list[dict[str, Any]], seq: int) -> None:
         """Store these lots under this sequence, replacing their old rows (in the caller's transaction)."""
@@ -352,7 +361,7 @@ class Store:
         self._db.executemany("DELETE FROM lot_images WHERE lot_id = ?", ids)
         self._db.executemany("DELETE FROM lot_past_closes WHERE lot_id = ?", ids)
         self._db.executemany(
-            f"INSERT OR REPLACE INTO lots ({LOT_COLUMNS}) VALUES ({', '.join('?' * 23)})", [lot_row(lot, seq) for lot in lots]
+            f"INSERT OR REPLACE INTO lots ({LOT_COLUMNS}) VALUES ({', '.join('?' * 24)})", [lot_row(lot, seq) for lot in lots]
         )
         self._db.executemany(
             "INSERT INTO lot_images (lot_id, position, thumb, card, large) VALUES (?, ?, ?, ?, ?)",
@@ -428,11 +437,15 @@ class Store:
             ids = [i for (i,) in self._db.execute("SELECT id FROM lots")]
             return CatalogChanges(seq=seq, lots=lots, ids=ids)
 
-    def update_lots(self, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> int:
-        """Replace each stored lot with fn(lot), giving the changed ones a new sequence. Returns how many changed."""
+    def update_lots(self, fn: Callable[[list[dict[str, Any]]], None]) -> int:
+        """Let fn change every stored lot in place (it sees them all at once), giving the changed ones a new sequence.
+        Returns how many changed."""
         with self._lock:
             seq = self._get_int("seq") + 1
-            changed = [new for lot in self._load().values() if (new := fn(copy.deepcopy(lot))) != lot]
+            old = self._load()
+            new = copy.deepcopy(list(old.values()))
+            fn(new)
+            changed = [lot for lot in new if lot != old[lot["id"]]]
             if changed:
                 with self._tx():
                     self._write_lots(changed, seq)
@@ -568,8 +581,9 @@ class Store:
             [({"title": title, "category": {"value": category}}, label) for title, (label, category) in types.items()], manual=manual
         )
 
-    def save_lot_types(self, labels: Iterable[tuple[dict[str, Any], str]], *, manual: bool = False) -> None:
-        """Persist identity-aware labels and touch only changed effective assignments."""
+    def save_lot_types(self, labels: Iterable[tuple[dict[str, Any], str]], *, manual: bool = False) -> dict[int, str | None]:
+        """Persist identity-aware labels and touch only changed effective assignments; returns the new types of the lots
+        whose type changed, by lot id."""
         with self._lock, self._tx():
             previous = self._type_assignments()
             index = self._type_index()
@@ -586,7 +600,7 @@ class Store:
                     )
                 else:
                     self._db.execute("INSERT OR REPLACE INTO item_types (title, type, category, at, manual) VALUES (?, ?, ?, ?, ?)", values)
-            self._touch_type_changes(previous)
+            return self._touch_type_changes(previous)
 
     def reset_item_types(self) -> int:
         """Forget every stored item type, giving the lots that had one a new sequence. Returns how many titles had one."""

@@ -1,15 +1,14 @@
 // The site's "Closed Auctions" pages (Won / Lost), shown in place of the grid.
-// Each lot opens in the usual popup; matching items listed again
-// (matched like duplicate listings) are offered right under the lot, so a
-// lost item can be bid on again.
+// Each lot opens in the usual popup; matching items listed again (found by
+// the tlx server, which matches them like duplicate listings) are offered
+// right under the lot, so a lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { DEFAULT_NAME_MATCH, itemIdentity, itemsMatch } from '../shared/names';
 import { CDN, fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
-import { getLot, loadDetail, lotBrands, lotModels, lots as catalogLots, rev } from './catalog';
+import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
 import { ListingRow } from './ListingRow';
 import { LotModal } from './LotModal';
@@ -81,31 +80,20 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   const [modalLot, setModalLot] = useState<Lot | null>(null);
   const now = clock(30_000);
 
-  const brands = lotBrands.value;
-  const models = lotModels.value;
-  const open = useMemo(
-    () =>
-      catalogLots.value
-        .values()
-        .filter((l) => Temporal.Instant.compare(l.endsAt, now) > 0)
-        .map((l) => ({ lot: l, identity: itemIdentity(l, { brands, models }) }))
-        .toArray(),
-    [catalogLots.value, rev.value, now, brands, models],
-  );
   const relisted = useMemo(() => {
     const out = new Map<string, Row[]>();
     for (const c of data?.lots ?? []) {
-      const identity = itemIdentity({ ...c, id: c.lotId }, { brands, models });
-      const rows = open
-        .filter((o) => o.lot.id !== c.lotId && itemsMatch(identity, o.identity, DEFAULT_NAME_MATCH))
-        .map((o) => makeRow(o.lot, pickup, exclusions))
+      const rows = (c.relisted ?? [])
+        .map((id) => catalogLots.value.get(id))
+        .filter((l): l is Lot => l !== undefined && Temporal.Instant.compare(l.endsAt, now) > 0)
+        .map((l) => makeRow(l, pickup, exclusions))
         .toSorted((a, b) => a.total - b.total);
       if (rows.length) {
         out.set(key(c), rows);
       }
     }
     return out;
-  }, [data?.lots, open, pickup, exclusions, brands, models]);
+  }, [data?.lots, catalogLots.value, rev.value, now, pickup, exclusions]);
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const lots = (data?.lots ?? []).filter((c) => {

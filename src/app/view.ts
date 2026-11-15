@@ -4,13 +4,7 @@ import { totalCost } from '../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes } from '../shared/filters';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
-import {
-  brandModelKey,
-  DEFAULT_NAME_MATCH,
-  groupItems,
-  itemIdentity,
-  type ItemDetails,
-} from '../shared/names';
+import { itemIdentity, type ItemDetails } from '../shared/names';
 import { collator } from '../shared/sortKey';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
@@ -364,12 +358,11 @@ export function computeView(
       rows.push(row);
     }
   }
-  const { cards, groups } = combineDuplicates(rows, DEFAULT_NAME_MATCH, details);
+  const { cards, groups } = combineDuplicates(rows);
   const sortIdentity = (lot: Lot) => {
-    const identity = itemIdentity(lot, details);
-    return brandModelKey(identity)
-      ? [identity.brand!.trim().replace(/\s+/g, ' '), identity.model!.trim().replace(/\s+/g, ' ')]
-      : [lot.title, ''];
+    const { brand, model } = itemIdentity(lot, details);
+    const tidy = (s: string | null | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');
+    return tidy(brand) && tidy(model) ? [tidy(brand), tidy(model)] : [lot.title, ''];
   };
   const compare: Compare =
     view.sort === 'brand-model-asc'
@@ -404,40 +397,17 @@ const byCost = (a: Row, b: Row) =>
   Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) ||
   a.lot.id - b.lot.id;
 
-let groupCache: { key: string; groups: Map<number, number> } | undefined;
-function itemGroups(rows: Row[], pct: number, details?: ItemDetails): Map<number, number> {
-  const items = rows.map(({ lot }) => ({
-    id: lot.id,
-    ...itemIdentity(lot, details),
-    condition: lot.condition?.value ?? -1,
-  }));
-  const key = JSON.stringify([pct, items]);
-  if (groupCache?.key !== key) {
-    const groups = new Map<number, number>();
-    for (const condition of Map.groupBy(items, (item) => item.condition).values()) {
-      for (const [id, group] of groupItems(condition, pct)) groups.set(id, group);
-    }
-    groupCache = { key, groups };
-  }
-  return groupCache.groups;
-}
-
 /**
- * Fold matching items with the same condition, at any location, into one card showing the cheapest
- * by total cost (ties: ending soonest). Lots you've bid on, hidden lots and regex-filtered lots
- * keep their own card.
+ * Fold the shown lots the server grouped as the same item (same condition, at any location) into
+ * one card showing the cheapest by total cost (ties: ending soonest). Lots you've bid on, hidden
+ * lots and regex-filtered lots keep their own card.
  */
-function combineDuplicates(
-  rows: Row[],
-  pct: number,
-  details?: ItemDetails,
-): { cards: Row[]; groups: Map<number, Row[]> } {
+function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
   const candidates = rows.filter((row) => !ownCard(row));
-  const names = itemGroups(candidates, pct, details);
-  const buckets = Map.groupBy(candidates, ({ lot }) => names.get(lot.id)!);
+  const buckets = Map.groupBy(candidates, ({ lot }) => lot.groupId ?? lot.id);
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {
       cards.push(bucket[0]!);

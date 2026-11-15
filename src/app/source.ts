@@ -1,7 +1,6 @@
 import { batch, signal } from '@preact/signals';
 
 import { DEFAULTS, KEYS, SERVER_KEYS } from '../shared/keys';
-import { itemIdentity, sameItemType, type ItemIdentity } from '../shared/names';
 // Catalog source for the web app, which the tlx server (server/, Python)
 // serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
@@ -127,7 +126,7 @@ let seq = 0;
 /** When the server allows the next pull, in our clock. */
 let nextAt: Temporal.Instant | null = null;
 /** Local corrections not yet included in a catalog poll; protect them from an older in-flight reply. */
-const typeEdits = new Map<number, { identity: ItemIdentity; itemType: string; seq: number }>();
+const typeEdits = new Map<number, { lotIds: number[]; itemType: string; seq: number }>();
 
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
@@ -176,15 +175,15 @@ export function applyCatalog(r: CatalogReply) {
                 firstSeenAt: fresh.firstSeenAt,
                 itemType: fresh.itemType,
                 pastCloses: fresh.pastCloses,
+                groupId: fresh.groupId,
               }
             : fresh,
         );
       }
-      for (const [id, lot] of next) {
-        for (const edit of typeEdits.values()) {
-          if (sameItemType(itemIdentity(lot, { brands, models }), edit.identity)) {
-            next.set(id, { ...lot, itemType: edit.itemType });
-          }
+      for (const edit of typeEdits.values()) {
+        for (const id of edit.lotIds) {
+          const lot = next.get(id);
+          if (lot) next.set(id, { ...lot, itemType: edit.itemType });
         }
       }
       lots.value = next;
@@ -251,15 +250,14 @@ export const fetchPastCloses = (id: number) =>
 
 /** Persist an item correction and update cards, sorting and category matching immediately. */
 export async function setItemType(lotId: number, itemType: string): Promise<string> {
-  const reply = await call<ItemIdentity & { itemType: string; seq: number }>(
+  const reply = await call<{ lotIds: number[]; itemType: string; seq: number }>(
     'PUT',
     '/api/item-type',
     { lotId, itemType },
   );
-  const identity = { title: reply.title, brand: reply.brand, model: reply.model };
   typeEdits.delete(lotId);
-  typeEdits.set(lotId, { identity, itemType: reply.itemType, seq: reply.seq });
-  updateItemType(identity, reply.itemType);
+  typeEdits.set(lotId, { lotIds: reply.lotIds, itemType: reply.itemType, seq: reply.seq });
+  updateItemType(reply.lotIds, reply.itemType);
   return reply.itemType;
 }
 

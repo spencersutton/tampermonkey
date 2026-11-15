@@ -36,6 +36,7 @@ export interface Lot {
   firstSeenAt?: Temporal.Instant | undefined; // when a full pull first saw this lot (Unix epoch = already there on the first pull)
   itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
+  groupId?: number | undefined; // set by the server on lots that list the same item as another open lot (same condition): the smallest id among them
 }
 
 /** An earlier lot that closed, as the server records them (server/tlx_server/history.py). */
@@ -93,4 +94,5 @@ export interface ClosedLot {
   heroImage: string | null; // path on the CDN
   brand?: string | null | undefined;
   model?: string | null | undefined;
+  relisted?: number[] | undefined; // open lots of the same item, found by the server
 }
