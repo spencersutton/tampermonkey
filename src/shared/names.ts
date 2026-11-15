@@ -10,8 +10,8 @@ export const DEFAULT_NAME_MATCH = 90;
 
 export interface ItemIdentity {
   title: string;
-  brand?: string | null | undefined;
-  model?: string | null | undefined;
+  brand?: string | undefined;
+  model?: string | undefined;
 }
 
 export interface ItemDetails {
@@ -19,11 +19,10 @@ export interface ItemDetails {
   models: ReadonlyMap<number, string | null>;
 }
 
-const normalizeIdentity = (value: string | null | undefined) =>
-  (value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-
 /** Model punctuation and word order are significant; this is not fuzzy title matching. */
 export function brandModelKey(item: ItemIdentity): string | null {
+  const normalizeIdentity = (value = '') => value.trim().toLowerCase().replace(/\s+/g, ' ');
+
   const brand = normalizeIdentity(item.brand);
   const model = normalizeIdentity(item.model);
   return brand && model ? JSON.stringify([brand, model]) : null;
@@ -34,12 +33,10 @@ export function itemIdentity(
   item: ItemIdentity & { id: number },
   details?: ItemDetails,
 ): ItemIdentity {
-  const brand = details?.brands.get(item.id);
-  const model = details?.models.get(item.id);
   return {
     title: item.title,
-    brand: brand === undefined ? item.brand : brand,
-    model: model === undefined ? item.model : model,
+    brand: details?.brands.get(item.id) ?? item.brand,
+    model: details?.models.get(item.id) ?? item.model,
   };
 }
 
