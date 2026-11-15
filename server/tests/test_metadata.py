@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from tlx_server.server import Api, make_handler
-from tlx_server.site import normalize_detail, normalize_lot
+from tlx_server.site import client, normalize_detail, normalize_lot
 from tlx_server.store import Store
 
 
@@ -102,7 +102,7 @@ class MetadataTests(unittest.TestCase):
                 conn.close()
 
         try:
-            with patch("tlx_server.server._opener.open") as upstream:
+            with patch.object(client, "request") as upstream:
                 self.assertEqual(request("id=1&auctionPeriod=test"), (200, {"metadata": self.expected}))
                 self.assertEqual(request("id=99&auctionPeriod=test"), (200, {"metadata": None}))
                 self.assertEqual(request("id=1&auctionPeriod=other"), (200, {"metadata": None}))

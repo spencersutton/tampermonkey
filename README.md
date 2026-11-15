@@ -40,7 +40,7 @@ A separate, faster catalog for [triangleliquidators.com](https://triangleliquida
 
 ### Running the server
 
-The app is served by a small server you run yourself (`server/`, Python 3.12+, standard library only). It works in any browser, phones included; "Add to Home Screen" gives it an app icon.
+The app is served by a small server you run yourself (`server/`, Python 3.15+; [uv](https://docs.astral.sh/uv/) installs its dependencies). It works in any browser, phones included; "Add to Home Screen" gives it an app icon.
 
 Build the web app once first (and again after pulling changes to `src/` or `web/`); it needs Node:
 
@@ -67,9 +67,9 @@ authoritative, and pending item-type corrections survive older in-flight polls.
 
 ```bash
 cd server
-python3 -m tlx_server                                             # this computer only: http://127.0.0.1:8765
-TLX_PASSWORD='pick-one' python3 -m tlx_server --host 0.0.0.0      # also your phone: http://<computer's address>:8765
-python3 -m tlx_server --help                                      # --port, --db, --background-minutes, --llm-key, --tls-cert/--tls-key, ...
+uv run python -m tlx_server                                        # this computer only: http://127.0.0.1:8765
+TLX_PASSWORD='pick-one' uv run python -m tlx_server --host 0.0.0.0 # also your phone: http://<computer's address>:8765
+uv run python -m tlx_server --help                                 # --port, --db, --background-minutes, --llm-key, --tls-cert/--tls-key, ...
 ```
 
 The app can't call the site directly, because the site's API doesn't allow other origins and its websocket only accepts its own pages. So the server stands in for the site:

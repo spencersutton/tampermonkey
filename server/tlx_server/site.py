@@ -7,16 +7,16 @@ the app lots in exactly the shape it already works with.
 from __future__ import annotations
 
 import base64
+import http.cookiejar
 import json
 import math
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
 from http import HTTPStatus
 from typing import Any
+
+import httpx
 
 SITE = "https://triangleliquidators.com"
 BASE = f"{SITE}/backend"
@@ -25,6 +25,15 @@ USER_AGENT = "tlx-server/1.0 (+https://github.com/spencersutton/tampermonkey)"
 TIMEOUT = 30
 
 Raw = dict[str, Any]
+
+# Shared, pooled client for the site's API, the /backend proxy and the item-type model. Its cookie
+# jar refuses every cookie: the API is authenticated by bearer token, and cookies the site sets on
+# proxied replies must not leak into later requests (the login session keeps its own, in session.py).
+client = httpx.Client(
+    headers={"User-Agent": USER_AGENT},
+    timeout=TIMEOUT,
+    cookies=http.cookiejar.CookieJar(http.cookiejar.DefaultCookiePolicy(allowed_domains=[])),
+)
 
 
 class ApiError(Exception):
@@ -42,7 +51,7 @@ def token_expiry(token: str | None) -> float | None:
     try:
         part = token.split(".")[1]
         claims = json.loads(base64.urlsafe_b64decode(part + "=" * (-len(part) % 4)))
-    except (IndexError, ValueError):
+    except IndexError, ValueError:
         return None
     exp = claims.get("exp")
     return float(exp) if isinstance(exp, (int, float)) else None
@@ -50,18 +59,17 @@ def token_expiry(token: str | None) -> float | None:
 
 def get(path: str, params: dict[str, str | int] | None = None, token: str | None = None) -> Raw:
     """GET a JSON object endpoint, with the bearer token when there is one."""
-    qs = f"?{urllib.parse.urlencode(params)}" if params else ""
-    headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
+    headers = {"Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(f"{BASE}{path}{qs}", headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-            d = json.loads(res.read())
-    except urllib.error.HTTPError as e:
-        raise ApiError(f"{e.code} {e.reason or 'error'} for {path}", e.code) from e
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        res = client.get(f"{BASE}{path}", params=params, headers=headers, follow_redirects=True)
+    except httpx.HTTPError as e:
         raise ApiError(f"Network error for {path}: {e}", 0) from e
+    if res.is_error:
+        raise ApiError(f"{res.status_code} {res.reason_phrase or 'error'} for {path}", res.status_code)
+    try:
+        d = res.json()
     except ValueError as e:
         raise ApiError(f"Invalid JSON for {path}", HTTPStatus.BAD_GATEWAY) from e
     if not isinstance(d, dict):

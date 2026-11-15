@@ -20,21 +20,20 @@ To try the prompt, or start over after changing it:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import os
 import random
 import re
 import sys
 import threading
-import urllib.error
-import urllib.request
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from .identity import brand_model_key
-from .site import USER_AGENT
+from .site import client
 from .store import Store
 
 log = logging.getLogger(__name__)
@@ -158,18 +157,15 @@ class Labeller:
         return parse_reply(self._complete(body), len(titles))
 
     def _complete(self, body: dict[str, Any]) -> str:
-        req = urllib.request.Request(
-            self.url,
-            data=json.dumps(body).encode(),
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.key}", "User-Agent": USER_AGENT},
-        )
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-                d = json.loads(res.read())
-            return d["choices"][0]["message"]["content"] or ""
-        except urllib.error.HTTPError as e:
-            raise LabelError(f"HTTP {e.code}: {e.read()[:300].decode(errors='replace')}") from e
-        except (urllib.error.URLError, TimeoutError, ValueError, KeyError, IndexError) as e:
+            res = client.post(self.url, json=body, headers={"Authorization": f"Bearer {self.key}"}, timeout=TIMEOUT)
+        except httpx.HTTPError as e:
+            raise LabelError(str(e)) from e
+        if res.is_error:
+            raise LabelError(f"HTTP {res.status_code}: {res.text[:300]}")
+        try:
+            return res.json()["choices"][0]["message"]["content"] or ""
+        except (ValueError, KeyError, IndexError, TypeError) as e:
             raise LabelError(str(e)) from e
 
 

@@ -49,8 +49,6 @@ import sqlite3
 import ssl
 import threading
 import time
-import urllib.error
-import urllib.request
 from http import HTTPStatus
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -58,12 +56,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+import httpx
+
 from . import __version__
 from .catalog import Catalog
 from .history import HISTORY_LIMIT
 from .itemtypes import MAX_TYPE_LENGTH, clean_type
 from .session import SiteSession
-from .site import SITE, TIMEOUT, USER_AGENT, normalize_detail, now_ms
+from .site import SITE, USER_AGENT, client, normalize_detail, now_ms
 from .store import Store, dumps
 
 log = logging.getLogger(__name__)
@@ -80,14 +80,6 @@ SESSION_MAX_AGE = 90 * 24 * 3600
 LOT_DETAIL_PATH = re.compile(r"/backend/v1/auctions/lots/[^/]+/\d+/")  # a lot detail the proxy keeps (store.lot_details)
 PROXY_HEADERS = ("Accept", "Content-Type", "X-CSRF-Protection", "X-Bid-Surface", "X-Bid-Type")
 WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Extensions", "Sec-WebSocket-Protocol")
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, *args: object, **kwargs: object) -> None:
-        return None
-
-
-_opener = urllib.request.build_opener(_NoRedirect)
 
 
 class Api:
@@ -343,16 +335,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
             def send(token: str | None) -> tuple[int, str, bytes]:
                 headers = {h: v for h in PROXY_HEADERS if (v := self.headers.get(h))}
-                headers["User-Agent"] = USER_AGENT
                 if token:
                     headers["Authorization"] = f"Bearer {token}"
-                req = urllib.request.Request(f"{SITE}{self.path}", data=body, headers=headers, method=method)
-                try:
-                    res = _opener.open(req, timeout=TIMEOUT)
-                except urllib.error.HTTPError as e:
-                    res = e
-                with res:
-                    return (res.status or HTTPStatus.BAD_GATEWAY, res.headers.get("Content-Type", "application/json"), res.read())
+                res = client.request(method, f"{SITE}{self.path}", content=body, headers=headers)
+                return res.status_code, res.headers.get("Content-Type", "application/json"), res.content
 
             try:
                 token = api.session.token()
@@ -363,7 +349,7 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
                         status, ctype, data = send(new)
                     if status == 401 and method == "GET":
                         status, ctype, data = send(None)  # fall back to anonymous data
-            except (urllib.error.URLError, OSError) as e:
+            except httpx.HTTPError as e:
                 self._error(HTTPStatus.BAD_GATEWAY, f"Couldn’t reach the site: {e}")
                 return
             if method == "GET" and status == HTTPStatus.OK and LOT_DETAIL_PATH.fullmatch(urlsplit(self.path).path):

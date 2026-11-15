@@ -8,10 +8,13 @@ from tempfile import TemporaryDirectory
 from typing import Any
 from unittest.mock import Mock, patch
 
+import httpx
+
 from tlx_server.history import History, ItemIndex
 from tlx_server.identity import brand_model_key
 from tlx_server.itemtypes import Labeller
 from tlx_server.server import Api, make_handler
+from tlx_server.site import client
 from tlx_server.store import Store
 
 
@@ -219,25 +222,13 @@ class IdentityTests(unittest.TestCase):
             self.assertEqual((result["brand"], result["model"]), ("Acme", "D-100"))
             self.assertEqual(self.get_lot(2)["itemType"], "driver")
             self.assertNotIn("itemType", self.get_lot(3))
-            with patch("tlx_server.server._opener.open") as upstream:
-                response = upstream.return_value
-                response.status = 200
-                response.headers = {"Content-Type": "application/json"}
-                response.read.return_value = json.dumps({
-                    "count": 1,
-                    "results": [{"lot_id": 1, "title": "Closed title", "auction_period": "test"}],
-                }).encode()
+            closed = {"count": 1, "results": [{"lot_id": 1, "title": "Closed title", "auction_period": "test"}]}
+            detail = {"id": 1, "title": "Cordless drill", "brand": "Acme", "model": "D-300", "auction_period": "test"}
+            with patch.object(client, "request", side_effect=[httpx.Response(200, json=closed), httpx.Response(200, json=detail)]):
                 status, result = request("GET", "/backend/v1/auctions/control-panel/closed/lost/?page=1")
                 self.assertEqual(status, 200)
                 self.assertEqual(result["results"][0]["brand"], "Acme")
                 self.assertEqual(result["results"][0]["model"], "D-100")
-                response.read.return_value = json.dumps({
-                    "id": 1,
-                    "title": "Cordless drill",
-                    "brand": "Acme",
-                    "model": "D-300",
-                    "auction_period": "test",
-                }).encode()
                 status, _ = request("GET", "/backend/v1/auctions/lots/test/1/")
                 self.assertEqual(status, 200)
                 catalog.history.wake.assert_called_once()
