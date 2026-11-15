@@ -132,6 +132,21 @@ export function openHandler(open: () => void) {
   };
 }
 
+/**
+ * `fn`, cached per argument object; an entry goes when nothing else holds its key (e.g. a lot
+ * object replaced by a live update).
+ */
+export function memoizeWeak<T extends object, R>(fn: (arg: T) => R): (arg: T) => R {
+  const cache = new WeakMap<T, R>();
+  return (arg) => {
+    if (cache.has(arg)) return cache.get(arg)!;
+    const result = fn(arg);
+    cache.set(arg, result);
+    return result;
+  };
+}
+
+/** `fn`, cached per argument forever: only for keys from a small or short-lived set. */
 export function memoize<T, R>(fn: (arg: T) => R): (arg: T) => R {
   const cache = new Map<T, R>();
 

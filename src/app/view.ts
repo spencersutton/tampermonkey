@@ -8,7 +8,7 @@ import { itemIdentity, type ItemDetails } from '../shared/names';
 import { collator } from '../shared/sortKey';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
-import { HOUR, memoize, memoLast } from './util';
+import { HOUR, memoize, memoizeWeak, memoLast } from './util';
 
 /** A lot with everything the grid needs computed once. */
 export interface Row {
@@ -213,7 +213,7 @@ export interface Exclusions {
   customCategories: CustomCategory[];
 }
 
-const titleKey = memoize((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
+const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
 
 /**
  * The filter words whose regex matches a title (in filter order), cached by title until the filter
