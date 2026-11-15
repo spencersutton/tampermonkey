@@ -1,5 +1,6 @@
 // Full-size editor for custom categories: add, rename, edit item types,
 // and preview which open lots each one takes.
+import { dequal } from 'dequal';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { KEYS, type CustomCategory } from '../shared/keys';
@@ -51,7 +52,7 @@ export function rowError(d: Draft, drafts: Draft[]): string | null {
 export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => void }) {
   const [initial] = useState(() => getSetting(KEYS.customCategories));
   const [drafts, setDrafts] = useState<Draft[]>(() => initial.map(toDraft));
-  const [baseline] = useState(() => JSON.stringify(drafts.map(clean)));
+  const [baseline] = useState(() => drafts.map(clean));
   const [selected, setSelected] = useState<number | null>(null);
   const focusKey = useRef<number | null>(null);
   const editedName = useRef<{
@@ -60,7 +61,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     end: number | null;
   } | null>(null);
 
-  const dirty = JSON.stringify(drafts.map(clean)) !== baseline;
+  const dirty = !dequal(drafts.map(clean), baseline);
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
   const valid = [...errors.values()].every((e) => !e);
 

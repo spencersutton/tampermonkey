@@ -13,6 +13,7 @@
   "dependencies": {
     "@preact/signals": "^2.11.4",
     "centrifuge": "^5.7.4",
+    "dequal": "^2.0.3",
     "preact": "^10.29.8",
     "temporal-polyfill": "^1.0.8"
   },

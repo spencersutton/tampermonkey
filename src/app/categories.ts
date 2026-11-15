@@ -1,3 +1,5 @@
+import { dequal } from 'dequal';
+
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { getSetting, setSetting } from './settings';
 import { customCategoryValue, normalizeView } from './view';
@@ -56,7 +58,7 @@ export function saveCustomCategories(
   }
   const defaults = getSetting(KEYS.defaultFilters);
   const defaultCategories = fix(defaults.categories);
-  if (JSON.stringify(defaultCategories) !== JSON.stringify(defaults.categories)) {
+  if (!dequal(defaultCategories, defaults.categories)) {
     setSetting(KEYS.defaultFilters, { ...defaults, categories: defaultCategories });
   }
   const searches = getSetting(KEYS.savedSearches);

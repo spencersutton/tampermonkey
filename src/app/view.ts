@@ -1,3 +1,5 @@
+import { dequal } from 'dequal';
+
 import { totalCost } from '../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes } from '../shared/filters';
@@ -612,9 +614,7 @@ export const savedFilters = ({
 /** Same filters (ignoring sort and the "new only" toggle)? */
 export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boolean {
   const strip = ({ sort: _sort, ...rest }: Omit<ViewState, 'newSince'>) => rest;
-  return (
-    JSON.stringify(strip(savedFilters(a))) === JSON.stringify(strip(savedFilters(normalizeView(b))))
-  );
+  return dequal(strip(savedFilters(a)), strip(savedFilters(normalizeView(b))));
 }
 
 /** Default name for a new saved search, built from its filters. */
