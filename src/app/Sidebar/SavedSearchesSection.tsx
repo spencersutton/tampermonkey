@@ -119,7 +119,7 @@ export function SavedSearchesSection({
                 disabled={!canUpdate(s)}
                 onClick={() => onUpdate(s.id)}
               >
-                Update
+                <Icon name="refresh" size={16} />
               </button>
               {st.fresh > 0 && (
                 <button
