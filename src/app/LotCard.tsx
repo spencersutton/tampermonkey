@@ -8,6 +8,7 @@ import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './bid';
 import { CardBrandModel } from './brands';
 import { siteConditions } from './conditions';
+import { Highlight } from './Highlight';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { hideCategory, modalActions, openLot, setView, toggleHide } from './state';
@@ -155,7 +156,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           {lot.lotNumber && <span class="card-lot-number">Lot #{lot.lotNumber}</span>}
         </div>
         <a class="card-title" href={href} title={lot.title} onClick={open}>
-          {lot.title}
+          <Highlight text={lot.title} />
         </a>
         <CardBrandModel id={lot.id} />
         <div class="card-meta">

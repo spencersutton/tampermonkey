@@ -15,6 +15,8 @@ import { ItemTypeEditor } from './ItemType';
 import { liveState, type LiveState } from './live';
 import { LotCard } from './LotCard';
 import { LotModal } from './LotModal';
+import { Refinements } from './Refinements';
+import { SearchBox } from './SearchBox';
 import { getSetting, setSetting } from './settings';
 import { Sidebar } from './Sidebar';
 import { nextPullAt, pullCatalog } from './source';
@@ -24,7 +26,7 @@ import {
   filteredOnly,
   openFiltered,
   modalActions,
-  filterFacets,
+  sidebarFacets,
   gridView,
   highlight,
   modal,
@@ -39,7 +41,6 @@ import {
   totalNew,
   visitSince,
   searchDraft,
-  setSearchDraft,
   resetSearch,
   shownRows,
   PAGE_SIZE,
@@ -54,7 +55,6 @@ import {
   normalizeView,
   sameFilters,
   savedFilters,
-  searchRegexOf,
   SORTS,
   suggestName,
   type SavedSearch,
@@ -102,7 +102,7 @@ function AppSidebar({
   const view = storedView.value;
   const pickup = pickupName.value;
   const result = gridView.value;
-  const facets = filterFacets.value;
+  const facets = sidebarFacets.value;
   const savedStats = searchStats.value;
   const accountPickup = accountPickupName.value;
   const curClosed = closed.value;
@@ -177,48 +177,13 @@ function AppSidebar({
 
 function AppHeader() {
   const view = storedView.value;
-  const search = searchDraft.value;
-  const result = gridView.value;
   const nFilters = activeFilterCount(view);
-  const badRegex = view.searchRegex && search.trim() !== '' && !searchRegexOf({ ...view, search });
-  let searchTitle =
-    'Search title, lot number, and known brand/model details. Narrow with brand:dewalt model:dcd791; quote multi-word values, e.g. brand:"Black & Decker". All terms must match. Uncached details become searchable when loaded.';
-  if (badRegex) {
-    searchTitle = 'Invalid regex';
-  } else if (view.searchRegex) {
-    searchTitle = 'Case-insensitive regex across title, lot number, and known brand/model details';
-  }
   return (
     <header class="topbar">
       <a class="brand" href="/" title="Back to Triangle Liquidators">
         TL <span>Catalog</span>
       </a>
-      <div class="search-box">
-        <input
-          class={`search ${badRegex ? 'has-error' : ''}`}
-          type="search"
-          placeholder={
-            view.searchRegex
-              ? `Regex search ${fmtCount(result.open)} lots`
-              : `Search ${fmtCount(result.open)} lots: title, brand, model`
-          }
-          aria-label="Search lots"
-          aria-invalid={badRegex}
-          title={searchTitle}
-          spellcheck={!view.searchRegex}
-          value={search}
-          onInput={(e) => setSearchDraft(e.currentTarget.value)}
-        />
-        <button
-          type="button"
-          class={`regex-toggle ${view.searchRegex ? 'on' : ''}`}
-          aria-pressed={view.searchRegex}
-          title={view.searchRegex ? 'Regex search on (case-insensitive)' : 'Use regex search'}
-          onClick={() => setView({ searchRegex: !view.searchRegex })}
-        >
-          .*
-        </button>
-      </div>
+      <SearchBox />
       <select
         class="sort"
         aria-label="Sort"
@@ -278,6 +243,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
           </p>
         </>
       )}
+      <Refinements />
       <div class="results-line" ref={gridTop}>
         <span>
           {result.rows.length > 0 && plural(result.rows.length, 'lot')}
@@ -388,6 +354,10 @@ function AppDialogs() {
             <h2 id="shortcuts-title">Keyboard shortcuts</h2>
             <div class="confirm-body">
               <dl class="shortcut-guide">
+                <dt>
+                  <kbd>/</kbd>
+                </dt>
+                <dd>Jump to the search box (outside text fields)</dd>
                 <dt>
                   <kbd>Alt+Shift+D</kbd>
                 </dt>

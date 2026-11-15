@@ -1,4 +1,6 @@
 // oxlint-disable typescript/no-unsafe-type-assertion
+import { useState } from 'preact/hooks';
+
 import { KEYS } from '../../shared/keys';
 import { siteConditions } from '../conditions';
 import { Icon } from '../icons';
@@ -11,6 +13,7 @@ import {
   DEFAULT_VIEW,
   ENDING,
   MINE,
+  PRICE_BUCKETS,
   sameDefaultFilters,
   sameFilters,
   type Facet,
@@ -35,7 +38,10 @@ function CheckList<T>(props: {
   return (
     <>
       {facets.map((f) => (
-        <label class="check" title={titleOf?.(f.value)}>
+        <label
+          class={`check ${f.count || selected.includes(f.value) ? '' : 'zero'}`}
+          title={titleOf?.(f.value)}
+        >
           <input
             type="checkbox"
             checked={selected.includes(f.value)}
@@ -45,6 +51,58 @@ function CheckList<T>(props: {
           <span class="count">{fmtCount(f.count)}</span>
         </label>
       ))}
+    </>
+  );
+}
+
+/**
+ * A long facet (item types, brands): selected values first, then the most common, with a box to
+ * find the rest.
+ */
+function FacetList(props: {
+  name: string; // plural noun, e.g. "brands"
+  facets: Facet<string>[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const { name, facets, selected, onChange } = props;
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const INITIAL = 8;
+  const q = query.trim().toLowerCase();
+  const picked = facets.filter((f) => selected.includes(f.value));
+  const rest = facets.filter(
+    (f) => !selected.includes(f.value) && (!q || f.label.toLowerCase().includes(q)),
+  );
+  const shown = expanded || q ? rest : rest.slice(0, Math.max(0, INITIAL - picked.length));
+  return (
+    <>
+      {facets.length > INITIAL && (
+        <input
+          class="facet-find"
+          type="search"
+          placeholder={`Find ${name}`}
+          aria-label={`Find ${name}`}
+          value={query}
+          onInput={(e) => setQuery(e.currentTarget.value)}
+        />
+      )}
+      <CheckList facets={[...picked, ...shown]} selected={selected} onChange={onChange} />
+      {q && !rest.length && (
+        <p class="muted small">
+          No {name} match “{query.trim()}”.
+        </p>
+      )}
+      {!q && rest.length > shown.length && (
+        <button type="button" class="btn-text" onClick={() => setExpanded(true)}>
+          Show {fmtCount(rest.length - shown.length)} more
+        </button>
+      )}
+      {!q && expanded && rest.length > INITIAL && (
+        <button type="button" class="btn-text" onClick={() => setExpanded(false)}>
+          Show fewer
+        </button>
+      )}
     </>
   );
 }
@@ -185,6 +243,29 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         </button>
       </Collapsible>
 
+      {(facets.types.length > 0 || view.types.length > 0) && (
+        <Collapsible id="f-type" title="Item type">
+          <FacetList
+            name="item types"
+            facets={facets.types}
+            selected={view.types}
+            onChange={(types) => setView({ types })}
+          />
+        </Collapsible>
+      )}
+
+      {(facets.brands.length > 0 || view.brands.length > 0) && (
+        <Collapsible id="f-brand" title="Brand">
+          <FacetList
+            name="brands"
+            facets={facets.brands}
+            selected={view.brands}
+            onChange={(brands) => setView({ brands })}
+          />
+          <p class="muted small">Only lots whose brand has loaded are listed.</p>
+        </Collapsible>
+      )}
+
       <Collapsible id="f-condition" title="Condition">
         <CheckList
           facets={facets.conditions}
@@ -219,6 +300,27 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
       </button>
 
       <Collapsible id="f-price" title="Price">
+        <div class="price-buckets" role="group" aria-label="Current bid ranges">
+          {facets.prices.map((f) => {
+            const b = PRICE_BUCKETS[f.value]!;
+            const on = view.priceMin === b.min && view.priceMax === b.max;
+            return (
+              <button
+                type="button"
+                class={`price-bucket ${on ? 'on' : ''} ${f.count || on ? '' : 'zero'}`}
+                aria-pressed={on}
+                onClick={() =>
+                  setView(
+                    on ? { priceMin: null, priceMax: null } : { priceMin: b.min, priceMax: b.max },
+                  )
+                }
+              >
+                <span>{f.label}</span>
+                <span class="count">{fmtCount(f.count)}</span>
+              </button>
+            );
+          })}
+        </div>
         <div class="field-row">
           <PriceField
             label="Bid min"

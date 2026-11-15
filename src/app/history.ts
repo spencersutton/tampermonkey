@@ -32,11 +32,13 @@ interface Entry extends Omit<NavState, 'view'> {
   scrollY?: number;
 }
 
-const LISTS = ['categories', 'conditions', 'locations'] as const;
+const LISTS = ['categories', 'types', 'brands', 'conditions', 'locations'] as const;
 const NUMBERS = ['priceMin', 'priceMax', 'totalMax', 'retailMin'] as const;
 /** URL parameter for each list field. */
 const LIST_PARAM = {
   categories: 'category',
+  types: 'type',
+  brands: 'brand',
   conditions: 'condition',
   locations: 'location',
 } as const;
@@ -83,6 +85,8 @@ export function navFromUrl(search = location.search): NavState | null {
     sort: q.get('sort') ?? undefined,
     categories: q.getAll('category'),
     noCategories: q.get('noCategories') === '1',
+    types: q.getAll('type'),
+    brands: q.getAll('brand'),
     conditions: q.getAll('condition').map(Number).filter(Number.isFinite),
     locations: q.getAll('location'),
     reachable: q.has('reachable') && q.get('reachable') !== '0',

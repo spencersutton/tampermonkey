@@ -2346,6 +2346,216 @@ h3 {
   margin: 8px 0 0 68px;
 }
 
+/* Search typeahead */
+.search-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
+.search-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.search-group .btn-text {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 14px;
+  cursor: pointer;
+}
+
+.search-option.active {
+  background: var(--primary-soft);
+}
+
+.search-option-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-option-type .search-option-label {
+  font-weight: 600;
+}
+
+.search-option .count {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-option-lot img,
+.search-option-lot .noimg {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--bg);
+}
+
+.search-option-price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Refinements above the results */
+.refinements {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.did-you-mean {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--primary-soft);
+}
+
+.did-you-mean .btn-text {
+  padding: 0;
+  font-weight: 700;
+}
+
+.chips,
+.type-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.type-pill {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.type-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.type-pill .count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card-title mark {
+  background: none;
+  color: inherit;
+  font-weight: 700;
+}
+
+/* Facets */
+.check.zero {
+  opacity: 0.5;
+}
+
+.facet-find {
+  width: 100%;
+  height: 32px;
+  margin-bottom: 4px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.price-buckets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.price-bucket {
+  display: inline-flex;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.price-bucket .count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.price-bucket.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.price-bucket.zero {
+  opacity: 0.5;
+}
+
 /* Narrow screens */
 @media (max-width: 900px) {
   .topbar {

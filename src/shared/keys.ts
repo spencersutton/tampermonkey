@@ -17,6 +17,7 @@ export const KEYS = {
   lastCategory: 'tlxLastCategory', // last category used or created in this browser
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
   lastVisit: 'tlxLastVisit', // Instant | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
+  recentSearches: 'tlxRecentSearches', // string[] – searches typed in this browser, most recent first
 } as const;
 
 /**
@@ -81,6 +82,7 @@ export const DEFAULTS = {
   [KEYS.lastCategory]: null as string | null,
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
   [KEYS.lastVisit]: null as Temporal.Instant | null,
+  [KEYS.recentSearches]: [] as string[],
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */

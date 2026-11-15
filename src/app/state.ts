@@ -10,11 +10,13 @@ import type { BidRequest } from './bid';
 import { getLot, lotBrands, lotModels, lots, rev } from './catalog';
 import { getSetting, setSetting } from './settings';
 import { settingsReady } from './source';
+import { suggest } from './suggest';
 import type { Lot } from './types';
 import { clock, DAY, MINUTE } from './util';
 import {
   computeFacets,
   computeView,
+  contextualFacets,
   initialView,
   makeRow,
   savedSearchStats,
@@ -192,10 +194,43 @@ export const gridView = computed(() => {
     filteredOnly.value,
   );
 });
-/** Filter options and their counts; these don't follow live price updates. */
+/** Every filter option among open lots, with catalog-wide counts; these don't follow live prices. */
 export const filterFacets = computed(() =>
-  computeFacets(lots.value.values(), clock(30_000), getSetting(KEYS.customCategories)),
+  computeFacets(
+    lots.value.values(),
+    clock(30_000),
+    getSetting(KEYS.customCategories),
+    searchDetails.value,
+  ),
 );
+/** The sidebar's filter options, counted among the current results (each ignoring its own filter). */
+export const sidebarFacets = computed(() =>
+  contextualFacets(filterFacets.value, gridView.value.facetCounts, storedView.value),
+);
+/** The search that produced the grid: the typed one, or its spelling correction. */
+export const effectiveSearch = computed(() =>
+  storedView.value.searchRegex ? '' : (gridView.value.correctedSearch ?? storedView.value.search),
+);
+/** Typeahead suggestions for the text in the search box. */
+export const suggestions = computed(() =>
+  suggest(
+    searchDraft.value,
+    filterFacets.value,
+    lots.value.values(),
+    clock(30_000),
+    exclusionRules.value.hidden,
+    searchDetails.value,
+  ),
+);
+
+const RECENT_SEARCHES = 8;
+/** Remember a search the user settled on, most recent first. */
+export function rememberSearch(text: string) {
+  const q = text.trim();
+  if (!q) return;
+  const rest = getSetting(KEYS.recentSearches).filter((s) => s.toLowerCase() !== q.toLowerCase());
+  setSetting(KEYS.recentSearches, [q, ...rest].slice(0, RECENT_SEARCHES));
+}
 export const shownRows = computed(() => gridView.value.rows.slice(0, page.value * PAGE_SIZE));
 export const rowOf = (lot: Lot) => makeRow(lot, pickupName.value, exclusionRules.value);
 

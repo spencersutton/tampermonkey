@@ -29,16 +29,22 @@ export function filterShortcuts(element: HTMLDivElement | null) {
     ) {
       return;
     }
+    const inField = () =>
+      doc.activeElement?.closest(
+        'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+      );
     if (!event.altKey && (event.key === '?' || (event.shiftKey && event.code === 'Slash'))) {
-      if (
-        doc.activeElement?.closest(
-          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
-        )
-      ) {
-        return;
-      }
+      if (inField()) return;
       event.preventDefault();
       modalActions.showShortcuts();
+      return;
+    }
+    if (!event.altKey && !event.shiftKey && event.key === '/') {
+      const search = doc.querySelector<HTMLInputElement>('input.search');
+      if (inField() || !search) return;
+      event.preventDefault();
+      search.focus();
+      search.select();
       return;
     }
     if (!event.altKey || !event.shiftKey) return;

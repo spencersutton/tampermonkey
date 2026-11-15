@@ -259,7 +259,7 @@ test('question mark opens a dismissible guide but leaves text entry and popups a
   const labels = nodes(guide)
     .filter((n) => n.type === 'kbd')
     .map((n) => n.props.children);
-  assert.deepEqual(labels, ['Alt+Shift+D', 'Alt+Shift+E', 'Alt+Shift+C', '?', 'Esc']);
+  assert.deepEqual(labels, ['/', 'Alt+Shift+D', 'Alt+Shift+E', 'Alt+Shift+C', '?', 'Esc']);
   guide.props.onClose();
   assert.equal(modal.value, null);
   assert.equal(keys.press({ ...question, key: undefined }), true);

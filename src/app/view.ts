@@ -5,6 +5,13 @@ import { totalCost } from '../shared/cost';
 import { buildRegexes } from '../shared/filters';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { itemIdentity, type ItemDetails } from '../shared/names';
+import {
+  buildVocabulary,
+  compileQuery,
+  correctQuery,
+  prepareDoc,
+  type PreparedDoc,
+} from '../shared/search';
 import { collator } from '../shared/sortKey';
 import { hasBidOn } from './bid';
 import type { Lot } from './types';
@@ -21,12 +28,14 @@ export interface Row {
   matched: string | null; // regex filter that matched the title
   hidden: boolean;
   others: Row[]; // listings of the same item folded into this card (cheapest first)
+  score: number; // search relevance (0 without a search)
 }
 
 type Compare = (a: Row, b: Row) => number;
 
 /** Sort options. Ties always fall back to ending soonest. */
 export const SORTS = {
+  relevance: { label: 'Best match', compare: (a, b) => b.score - a.score },
   'ending-soonest': { label: 'Ending soonest', compare: () => 0 },
   'newly-listed': { label: 'Newly listed', compare: (a, b) => b.lot.id - a.lot.id },
   'title-asc': {
@@ -105,6 +114,8 @@ export interface ViewState {
   searchRegex: boolean; // the search box holds a case-insensitive regex rather than words
   categories: string[];
   noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
+  types: string[]; // item types (lowercase)
+  brands: string[]; // brand keys (see brandKey)
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -119,11 +130,13 @@ export interface ViewState {
 
 /** View with no filters, sorted by ending soonest. */
 export const DEFAULT_VIEW: ViewState = {
-  sort: 'ending-soonest',
+  sort: 'relevance',
   search: '',
   searchRegex: false,
   categories: [],
   noCategories: false,
+  types: [],
+  brands: [],
   conditions: [],
   locations: [],
   reachable: false,
@@ -149,8 +162,12 @@ export function normalizeView(v: unknown): ViewState {
   } else if (rawNewSince instanceof Temporal.Instant) {
     newSince = rawNewSince;
   }
+  const strings = (a: unknown): string[] =>
+    Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
   return {
     ...view,
+    types: strings(view.types),
+    brands: strings(view.brands),
     noCategories: !view.categories.length && view.noCategories,
     newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -193,6 +210,8 @@ export const activeFilterCount = (v: ViewState) =>
   [
     v.search.trim(),
     v.categories.length || v.noCategories,
+    v.types.length,
+    v.brands.length,
     v.conditions.length,
     v.locations.length,
     v.reachable,
@@ -301,7 +320,71 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     matched: ex.filterOn ? (titleMatcher(ex.words)(lot.title)[0] ?? null) : null,
     hidden: Boolean(ex.hidden[lot.id]),
     others: [],
+    score: 0,
   };
+}
+
+/** Brand facet key: case and spacing ignored, so "DEWALT" and "DeWalt " are one brand. */
+export const brandKey = (brand: string) => brand.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** Quick price ranges for the current bid (both ends inclusive; null = open-ended). */
+export const PRICE_BUCKETS: { label: string; min: number | null; max: number | null }[] = [
+  { label: 'Under $10', min: null, max: 10 },
+  { label: '$10 – $25', min: 10, max: 25 },
+  { label: '$25 – $50', min: 25, max: 50 },
+  { label: '$50 – $100', min: 50, max: 100 },
+  { label: '$100 – $250', min: 100, max: 250 },
+  { label: '$250 & up', min: 250, max: null },
+];
+
+const inBucket = (price: number, b: (typeof PRICE_BUCKETS)[number]) =>
+  (b.min == null || price >= b.min) && (b.max == null || price <= b.max);
+
+/** Facet dimensions whose counts ignore their own selection (so you can pick several). */
+type Dim = 'category' | 'condition' | 'location' | 'type' | 'brand' | 'price';
+
+/** Lot counts per facet value among the results, each ignoring its own facet's filter. */
+export interface FacetCounts {
+  category: Map<string, number>;
+  condition: Map<number, number>;
+  location: Map<string, number>;
+  type: Map<string, number>;
+  brand: Map<string, number>;
+  price: number[]; // per PRICE_BUCKETS entry
+}
+
+const emptyCounts = (): FacetCounts => ({
+  category: new Map(),
+  condition: new Map(),
+  location: new Map(),
+  type: new Map(),
+  brand: new Map(),
+  price: PRICE_BUCKETS.map(() => 0),
+});
+
+const bump = <K>(m: Map<K, number>, k: K) => m.set(k, (m.get(k) ?? 0) + 1);
+
+/** The lot's brand, from the newest detail cache when there is one. */
+function brandOf(lot: Lot, details?: ItemDetails): string | null {
+  const brand = itemIdentity(lot, details).brand?.trim();
+  return brand || null;
+}
+
+function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: ItemDetails) {
+  const { lot } = row;
+  if (only == null || only === 'category') bump(counts.category, row.category?.value ?? '');
+  if (only == null || only === 'condition') bump(counts.condition, lot.condition?.value ?? -1);
+  if (only == null || only === 'location') bump(counts.location, lot.location?.name ?? '');
+  if ((only == null || only === 'type') && lot.itemType) bump(counts.type, lot.itemType);
+  if (only == null || only === 'brand') {
+    const brand = brandOf(lot, details);
+    if (brand) bump(counts.brand, brandKey(brand));
+  }
+  if (only == null || only === 'price') {
+    PRICE_BUCKETS.forEach((b, i) => {
+      if (inBucket(lot.currentPrice, b)) counts.price[i]!++;
+    });
+  }
 }
 
 export interface ViewResult {
@@ -312,6 +395,8 @@ export interface ViewResult {
   matchCounts: Map<string, number>; // open lots each regex filter matches
   combined: number; // listings folded into another card as duplicates
   groups: Map<number, Row[]>; // lot id -> every listing in its group (cheapest first)
+  facetCounts: FacetCounts;
+  correctedSearch: string | null; // the search actually run when the typed one matched nothing
 }
 
 /** Filter, combine and sort the catalog for the grid, with counts for the status line and sidebar. */
@@ -324,15 +409,14 @@ export function computeView(
   details?: ItemDetails,
   filteredOnly = false,
 ): ViewResult {
-  const matches = makeMatcher(view, now, details);
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
   const titleMatches = titleMatcher(ex.words);
   const rowRules = filteredOnly ? { ...ex, filterOn: true } : ex;
 
-  const rows: Row[] = [];
+  // Rows that the hide / regex rules leave in, before the view's own filters.
+  const candidates: Row[] = [];
   let open = 0;
   let removed = 0;
-  let filteredOut = 0;
   for (const lot of lots) {
     if (Temporal.Instant.compare(lot.endsAt, now) <= 0) {
       continue;
@@ -352,12 +436,50 @@ export function computeView(
       ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))
     ) {
       removed++;
-    } else if (!matches(row)) {
-      filteredOut++;
     } else {
-      rows.push(row);
+      candidates.push(row);
     }
   }
+
+  const run = (v: ViewState) => {
+    const p = makePredicates(v, now, details);
+    const counts = emptyCounts();
+    const rows: Row[] = [];
+    for (const row of candidates) {
+      const score = p.search(row.lot);
+      if (score == null || !p.base(row)) continue;
+      let failed: Dim | null = null;
+      let nFailed = 0;
+      for (const [dim, test] of p.dims) {
+        if (!test(row)) {
+          failed = dim;
+          if (++nFailed > 1) break;
+        }
+      }
+      if (nFailed === 0) {
+        rows.push({ ...row, score });
+        tallyRow(counts, row, null, details);
+      } else if (nFailed === 1) {
+        tallyRow(counts, row, failed, details);
+      }
+    }
+    return { rows, counts };
+  };
+
+  let correctedSearch: string | null = null;
+  let { rows, counts } = run(view);
+  if (!rows.length && !view.searchRegex && view.search.trim() && candidates.length) {
+    const docs = candidates.map((r) => docOf(r.lot, details));
+    const fixed = correctQuery(view.search, docs, buildVocabulary(docs));
+    if (fixed) {
+      const retry = run({ ...view, search: fixed });
+      if (retry.rows.length) {
+        ({ rows, counts } = retry);
+        correctedSearch = fixed;
+      }
+    }
+  }
+
   const { cards, groups } = combineDuplicates(rows);
   const sortIdentity = (lot: Lot) => {
     const { brand, model } = itemIdentity(lot, details);
@@ -380,10 +502,12 @@ export function computeView(
     rows: cards,
     open,
     removed,
-    filteredOut,
+    filteredOut: candidates.length - rows.length,
     matchCounts,
     combined: rows.length - cards.length,
     groups,
+    facetCounts: counts,
+    correctedSearch,
   };
 }
 
@@ -400,7 +524,8 @@ const byCost = (a: Row, b: Row) =>
 /**
  * Fold the shown lots the server grouped as the same item (same condition, at any location) into
  * one card showing the cheapest by total cost (ties: ending soonest). Lots you've bid on, hidden
- * lots and regex-filtered lots keep their own card.
+ * lots and regex-filtered lots keep their own card. The card keeps the best search score in its
+ * group.
  */
 function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
@@ -414,7 +539,8 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row
       continue;
     }
     bucket.sort(byCost);
-    cards.push({ ...bucket[0]!, others: bucket.slice(1) });
+    const score = Math.max(...bucket.map((r) => r.score));
+    cards.push({ ...bucket[0]!, others: bucket.slice(1), score });
     bucket.forEach((r) => groups.set(r.lot.id, bucket));
   }
   return { cards, groups };
@@ -449,63 +575,127 @@ export function searchRegexOf(v: ViewState): RegExp | null {
   }
 }
 
+/** Prepared search text per lot, reused until the lot or its brand/model changes. */
+const docCache = new WeakMap<
+  Lot,
+  { brand: string | null | undefined; model: string | null | undefined; doc: PreparedDoc }
+>();
+
+/** A lot's searchable fields, with brand and model from the newest detail cache. */
+export function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
+  const { brand, model } = itemIdentity(lot, details);
+  const hit = docCache.get(lot);
+  if (hit && hit.brand === brand && hit.model === model) return hit.doc;
+  const doc = prepareDoc({
+    title: lot.title,
+    lotNumber: lot.lotNumber,
+    brand,
+    model,
+    itemType: lot.itemType,
+  });
+  docCache.set(lot, { brand, model, doc });
+  return doc;
+}
+
+/**
+ * The view's search as a scorer: a relevance score for a matching lot (0 with no search), or null
+ * when it doesn't match.
+ */
+export function makeSearch(
+  v: Pick<ViewState, 'search' | 'searchRegex'>,
+  details?: ItemDetails,
+): (lot: Lot) => number | null {
+  if (v.searchRegex) {
+    if (!v.search.trim()) return () => 0;
+    // An invalid regex matches nothing, so the mistake is obvious.
+    let re: RegExp = /$^/;
+    try {
+      re = new RegExp(v.search.trim(), 'i');
+    } catch {
+      // keep the never-matching pattern
+    }
+    return (lot) => {
+      const { brand, model } = itemIdentity(lot, details);
+      const hay = [`${lot.title} ${lot.lotNumber}`, brand, model, lot.itemType]
+        .filter(Boolean)
+        .join(' ');
+      return re.test(hay) ? 1 : null;
+    };
+  }
+  const query = compileQuery(v.search);
+  if (query.empty) return () => 0;
+  return (lot) => query.score(docOf(lot, details));
+}
+
+interface Predicates {
+  search: (lot: Lot) => number | null;
+  base: (row: Row) => boolean; // every filter that isn't a facet
+  dims: [Dim, (row: Row) => boolean][]; // facet filters that are on
+}
+
+/** The view's filters split into search, plain filters and facet filters. */
+function makePredicates(v: ViewState, now: Temporal.Instant, details?: ItemDetails): Predicates {
+  const win = ENDING[v.ending].window?.(now);
+  const newSince = v.newSince;
+  const mine: (lot: Lot) => boolean = MINE[v.mine].test;
+  const dims: Predicates['dims'] = [];
+  if (v.noCategories || v.categories.length) {
+    const category = oneOf(v.categories);
+    dims.push(['category', (r) => !v.noCategories && category(r.category?.value ?? '')]);
+  }
+  if (v.conditions.length) {
+    const condition = oneOf(v.conditions);
+    dims.push(['condition', (r) => condition(r.lot.condition?.value ?? -1)]);
+  }
+  if (v.locations.length) {
+    const location = oneOf(v.locations);
+    dims.push(['location', (r) => location(r.lot.location?.name ?? '')]);
+  }
+  if (v.types.length) {
+    const types = new Set(v.types);
+    dims.push(['type', (r) => r.lot.itemType != null && types.has(r.lot.itemType)]);
+  }
+  if (v.brands.length) {
+    const brands = new Set(v.brands);
+    dims.push([
+      'brand',
+      (r) => {
+        const b = brandOf(r.lot, details);
+        return b != null && brands.has(brandKey(b));
+      },
+    ]);
+  }
+  if (v.priceMin != null || v.priceMax != null) {
+    dims.push([
+      'price',
+      (r) =>
+        (v.priceMin == null || r.lot.currentPrice >= v.priceMin) &&
+        (v.priceMax == null || r.lot.currentPrice <= v.priceMax),
+    ]);
+  }
+  return {
+    search: makeSearch(v, details),
+    dims,
+    base: ({ lot, total, pickupOnly }) =>
+      (newSince == null || firstSeenAfter(lot, newSince)) &&
+      !(v.reachable && pickupOnly) &&
+      (v.totalMax == null || total <= v.totalMax) &&
+      (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) &&
+      (!win ||
+        (Temporal.Instant.compare(lot.endsAt, win[0]) >= 0 &&
+          Temporal.Instant.compare(lot.endsAt, win[1]) < 0)) &&
+      mine(lot),
+  };
+}
+
 /** Predicate for the view's own filters (not hide / regex exclusions). */
 export function makeMatcher(
   v: ViewState,
   now: Temporal.Instant,
   details?: ItemDetails,
 ): (row: Row) => boolean {
-  const terms = v.searchRegex
-    ? []
-    : Array.from(
-        v.search
-          .toLowerCase()
-          .matchAll(/(?:^|\s+)(?:(brand|model):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g),
-        ([, field, value = '']) => ({
-          field,
-          value:
-            value.startsWith('"') && value.endsWith('"')
-              ? value.slice(1, -1).replace(/\\(["\\])/g, '$1')
-              : value,
-        }),
-      );
-  // An invalid regex matches nothing, so the mistake is obvious.
-  const re = v.searchRegex && v.search.trim() ? (searchRegexOf(v) ?? /$^/) : null;
-  const win = ENDING[v.ending].window?.(now);
-  const newSince = v.newSince;
-  const category = oneOf(v.categories);
-  const condition = oneOf(v.conditions);
-  const location = oneOf(v.locations);
-  const mine: (lot: Lot) => boolean = MINE[v.mine].test;
-  const searchMatches = (lot: Lot) => {
-    const identity = itemIdentity(lot, details);
-    const brand = identity.brand ?? '';
-    const model = identity.model ?? '';
-    const hay = [`${lot.title} ${lot.lotNumber}`, brand, model].filter(Boolean).join(' ');
-    if (re) return re.test(hay);
-    return terms.every(({ field, value }) => {
-      let target = hay;
-      if (field === 'brand') target = brand;
-      else if (field === 'model') target = model;
-      return Boolean(value) && target.toLowerCase().includes(value);
-    });
-  };
-  return ({ lot, category: cat, total, pickupOnly }) =>
-    !v.noCategories &&
-    (newSince == null || firstSeenAfter(lot, newSince)) &&
-    ((!terms.length && !re) || searchMatches(lot)) &&
-    category(cat?.value ?? '') &&
-    condition(lot.condition?.value ?? -1) &&
-    location(lot.location?.name ?? '') &&
-    !(v.reachable && pickupOnly) &&
-    (v.priceMin == null || lot.currentPrice >= v.priceMin) &&
-    (v.priceMax == null || lot.currentPrice <= v.priceMax) &&
-    (v.totalMax == null || total <= v.totalMax) &&
-    (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) &&
-    (!win ||
-      (Temporal.Instant.compare(lot.endsAt, win[0]) >= 0 &&
-        Temporal.Instant.compare(lot.endsAt, win[1]) < 0)) &&
-    mine(lot);
+  const p = makePredicates(v, now, details);
+  return (row) => p.search(row.lot) != null && p.base(row) && p.dims.every(([, test]) => test(row));
 }
 
 export interface Facet<T> {
@@ -519,6 +709,9 @@ export interface Facets {
   siteCategories: Facet<string>[]; // the site's own categories, before custom ones take lots out
   conditions: Facet<number>[];
   locations: Facet<string>[];
+  types: Facet<string>[]; // item types, most lots first
+  brands: Facet<string>[]; // by brandKey, labelled with the most common spelling; most lots first
+  prices: Facet<number>[]; // index into PRICE_BUCKETS
 }
 
 /** Distinct values with how often each occurs (the first label seen wins). */
@@ -534,14 +727,34 @@ function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
   }));
 }
 
+const byCountThenLabel = <T>(a: Facet<T>, b: Facet<T>) =>
+  b.count - a.count || collator.compare(a.label, b.label);
+
+/** Brands among lots, labelled with each brand's most common spelling. */
+function tallyBrands(brands: (string | null)[]): Facet<string>[] {
+  const spellings = new Map<string, Map<string, number>>();
+  for (const b of brands) {
+    if (!b) continue;
+    const key = brandKey(b);
+    const label = b.trim().replace(/\s+/g, ' ');
+    const m = spellings.get(key) ?? new Map<string, number>();
+    spellings.set(key, bump(m, label));
+  }
+  return Array.from(spellings, ([value, m]) => {
+    const [label] = [...m].reduce((best, cur) => (cur[1] > best[1] ? cur : best));
+    return { value, label, count: m.values().reduce((n, c) => n + c, 0) };
+  }).toSorted(byCountThenLabel);
+}
+
 /**
- * Categories (custom ones included), conditions and locations among open lots, with counts, for the
- * filter lists.
+ * Categories (custom ones included), conditions, locations, item types, brands and price ranges
+ * among open lots, with counts, for the filter lists.
  */
 export function computeFacets(
   lots: Iterable<Lot>,
   now: Temporal.Instant,
   customCategories: CustomCategory[],
+  details?: ItemDetails,
 ): Facets {
   const open = Array.from(lots).filter((l) => Temporal.Instant.compare(l.endsAt, now) > 0);
   const categories = tally(open.map((l) => categoryOf(l, customCategories)));
@@ -562,6 +775,43 @@ export function computeFacets(
     locations: tally(
       open.map((l) => l.location && { value: l.location.name, label: l.location.name }),
     ).toSorted((a, b) => b.count - a.count),
+    types: tally(
+      open.map((l) => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
+    ).toSorted(byCountThenLabel),
+    brands: tallyBrands(open.map((l) => brandOf(l, details))),
+    prices: PRICE_BUCKETS.map((b, i) => ({
+      value: i,
+      label: b.label,
+      count: open.filter((l) => inBucket(l.currentPrice, b)).length,
+    })),
+  };
+}
+
+/**
+ * The filter lists with counts from the current results (each facet ignoring its own selection),
+ * like a shop's sidebar. Every category, condition and location stays listed; item types and brands
+ * list only those with results, plus any selected.
+ */
+export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewState): Facets {
+  const recount = <T>(facets: Facet<T>[], m: Map<T, number>) =>
+    facets.map((f) => ({ ...f, count: m.get(f.value) ?? 0 }));
+  const present = (facets: Facet<string>[], m: Map<string, number>, selected: string[]) => {
+    const known = new Map(facets.map((f) => [f.value, f.label]));
+    const values = new Set([...m.keys(), ...selected]);
+    return Array.from(values, (value) => ({
+      value,
+      label: known.get(value) ?? value,
+      count: m.get(value) ?? 0,
+    })).toSorted(byCountThenLabel);
+  };
+  return {
+    categories: recount(all.categories, counts.category),
+    siteCategories: all.siteCategories,
+    conditions: recount(all.conditions, counts.condition),
+    locations: recount(all.locations, counts.location).toSorted((a, b) => b.count - a.count),
+    types: present(all.types, counts.type, view.types),
+    brands: present(all.brands, counts.brand, view.brands),
+    prices: all.prices.map((f) => ({ ...f, count: counts.price[f.value] ?? 0 })),
   };
 }
 
@@ -593,6 +843,8 @@ export function suggestName(v: ViewState, facets: Facets): string {
     v.search.trim(),
     v.noCategories && 'No categories',
     ...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
+    ...v.types,
+    ...v.brands.map((b) => facets.brands.find((f) => f.value === b)?.label ?? b),
     v.locations.join('/'),
     v.priceMax != null && `≤ $${v.priceMax}`,
     v.totalMax != null && `total ≤ $${v.totalMax}`,
