@@ -2,9 +2,10 @@
 // for a search that matched nothing, a removable chip per active filter, and
 // the item types among the results to narrow by in one click.
 import { tagLabel } from '../shared/tags';
+import { FilterMenus, hasFilterMenus } from './FilterMenus';
 import { Icon } from './icons';
+import { groupCategories, groupFacets, type CategoryGroup } from './Sidebar/CategoryList';
 import { filterFacets, gridView, pickupName, setView, sidebarFacets, storedView } from './state';
-import { TagMenus } from './TagMenus';
 import { fmtCount } from './util';
 import { DEFAULT_VIEW, ENDING, MINE, type ViewState } from './view';
 
@@ -34,13 +35,31 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
       remove: { categories: [], noCategories: false },
     });
   }
-  for (const c of v.categories) {
+  // A parent category gets one chip only when it and all its subcategories are selected;
+  // otherwise each selected subcategory gets its own.
+  const pending = new Set(v.categories);
+  const categoryChip = (value: string, label: string, values: string[]) => {
+    for (const x of values) pending.delete(x);
     chips.push({
-      key: `cat:${c}`,
-      label: labelOf(facets.categories, c),
-      remove: { categories: without(v.categories, c) },
+      key: `cat:${value}`,
+      label,
+      remove: { categories: v.categories.filter((x) => !values.includes(x)) },
     });
-  }
+  };
+  const addGroup = (g: CategoryGroup) => {
+    const { value } = g.facet;
+    const full = labelOf([...facets.categories, ...facets.siteCategories], value);
+    const values = groupFacets(g).map((f) => f.value);
+    if (!g.subs.length || values.every((x) => pending.has(x))) {
+      if (pending.has(value)) categoryChip(value, full, values);
+      return;
+    }
+    if (pending.has(value)) categoryChip(value, `${full} (other)`, [value]);
+    g.subs.forEach(addGroup);
+  };
+  groupCategories(facets).forEach(addGroup);
+  // Selections no longer among the lots' categories.
+  for (const c of pending) categoryChip(c, labelOf(facets.categories, c), [c]);
   for (const t of v.types) {
     chips.push({ key: `type:${t}`, label: t, remove: { types: without(v.types, t) } });
   }
@@ -52,7 +71,11 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
     });
   }
   for (const t of v.tags) {
-    chips.push({ key: `tag:${t}`, label: tagLabel(t), remove: { tags: without(v.tags, t) } });
+    chips.push({
+      key: `tag:${t}`,
+      label: tagLabel(labelOf(facets.tags, t)),
+      remove: { tags: without(v.tags, t) },
+    });
   }
   for (const c of v.conditions) {
     chips.push({
@@ -102,8 +125,8 @@ export function Refinements() {
   const chips = chipsFor(view, pickupName.value);
   const types = view.types.length ? [] : sidebarFacets.value.types.slice(0, MAX_TYPE_PILLS);
   const showTypes = result.rows.length > 0 && types.length > 1;
-  const showTags = view.tags.length > 0 || sidebarFacets.value.tags.some((f) => f.count > 0);
-  if (!result.correctedSearch && !chips.length && !showTypes && !showTags) return null;
+  const showMenus = hasFilterMenus();
+  if (!result.correctedSearch && !chips.length && !showTypes && !showMenus) return null;
   return (
     <div class="refinements">
       {result.correctedSearch && (
@@ -145,7 +168,7 @@ export function Refinements() {
           )}
         </div>
       )}
-      {showTags && <TagMenus />}
+      {showMenus && <FilterMenus />}
       {showTypes && (
         <div class="type-pills" aria-label="Narrow by item type">
           <span class="muted">Item type:</span>

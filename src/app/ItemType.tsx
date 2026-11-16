@@ -5,7 +5,7 @@ import { lots } from './catalog';
 import { Dialog } from './Dialog';
 import { Icon } from './icons';
 import { setItemType } from './source';
-import { modalActions } from './state';
+import { modalActions, setView } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
 
@@ -21,18 +21,29 @@ function itemTypeError(name: string): string | null {
 }
 
 export function ItemTypeActions({ lot }: { lot: Lot }) {
+  const type = lot.itemType;
   return (
     <div class="item-type-row">
-      {lot.itemType && (
-        <button
-          type="button"
-          class="item-type"
-          title="Make a category of this item type"
-          onClick={() => modalActions.addType(lot)}
-        >
-          <span>{lot.itemType}</span>
-          <Icon name="add" size={14} />
-        </button>
+      {type && (
+        <>
+          <button
+            type="button"
+            class="item-type"
+            title={`Show only ${type}`}
+            onClick={() => setView({ types: [type] })}
+          >
+            <span>{type}</span>
+          </button>
+          <button
+            type="button"
+            class="icon-btn item-type-edit"
+            title="Make a category of this item type"
+            aria-label="Make a category of this item type"
+            onClick={() => modalActions.addType(lot)}
+          >
+            <Icon name="add" size={14} />
+          </button>
+        </>
       )}
       <button
         type="button"

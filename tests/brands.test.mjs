@@ -19,7 +19,8 @@ const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/state.ts');
 const { applyCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
 const { BrandModel, CardBrandModel, startBrandWatch } =
   await vite.ssrLoadModule('/src/app/brands.tsx');
-const { LocationText, LotCard, WatchButton } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
+const { LocationText, LotCard, TimeLeft, WatchButton } =
+  await vite.ssrLoadModule('/src/app/LotCard.tsx');
 
 const raw = (id, brand, model = null) => ({
   id,
@@ -524,7 +525,7 @@ test('a known brand without a cached model still loads its model', async (t) => 
   assert.deepEqual(identity(81), { brand: 'Acme', model: 'D-81' });
 });
 
-test('cards clearly label condition, lot number, pricing, retail comparison and time', () => {
+test('cards show condition, location, lot number, pricing, retail comparison and time compactly', () => {
   const item = {
     ...lot(82),
     lotNumber: 'A-82',
@@ -540,15 +541,11 @@ test('cards clearly label condition, lot number, pricing, retail comparison and 
   assert.equal(text(byClass('card-lot-number')), 'Lot #A-82');
   const location = nodes(byClass('card-location')).find((node) => node.type === LocationText);
   assert.equal(text(LocationText(location.props)), 'Raleigh');
-  assert.deepEqual(
-    nodes(byClass('card-price'))
-      .filter((node) => node.type === 'dt')
-      .map(text),
-    ['Current bid', 'Est. total'],
-  );
-  assert.equal(text(byClass('card-retail-pct')), 'Bid is 20% of retail');
+  assert.equal(byClass('price').props.title, 'Current bid');
+  assert.match(text(byClass('card-total')), /total$/);
+  assert.equal(text(byClass('card-retail-pct')).trim(), '(20%)');
   assert.match(text(byClass('card-sub')), /3 bids/);
-  assert.equal(text(byClass('card-ending')), 'Time left');
+  assert.ok(nodes(byClass('card-sub')).some((node) => node.type === TimeLeft));
   const sparse = card(rowOf(lot(83)))();
   assert.equal(
     nodes(sparse).some((node) => node.props?.class === 'card-condition'),

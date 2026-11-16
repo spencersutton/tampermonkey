@@ -19,11 +19,11 @@ def lot(lot_id: int, title: str = "Knob", **fields: object) -> dict[str, Any]:
 
 class CleanTagTests(unittest.TestCase):
     def test_tags_are_tidied_and_attributes_normalized(self) -> None:
-        self.assertEqual(clean_tag("  Cabinet   Knob "), "cabinet knob")
-        self.assertEqual(clean_tag("Finish:Satin  Nickel"), "finish: satin nickel")
+        self.assertEqual(clean_tag("  Cabinet   Knob "), "Cabinet Knob")
+        self.assertEqual(clean_tag("Finish:Satin  Nickel"), "Finish: Satin Nickel")
         self.assertEqual(clean_tag("finish:"), "finish")
         self.assertIsNone(clean_tag(" : "))
-        self.assertEqual(clean_tags(["Brass", "brass", "", "Finish: Brass"]), ["brass", "finish: brass"])
+        self.assertEqual(clean_tags(["Brass", "brass", "", "Finish: Brass", "finish:BRASS"]), ["Brass", "Finish: Brass"])
 
 
 class TagStoreTests(unittest.TestCase):
@@ -37,10 +37,10 @@ class TagStoreTests(unittest.TestCase):
     def test_tags_follow_exact_titles_and_bump_the_sequence(self) -> None:
         seq = self.store.seq()
         changed = self.store.save_lot_tags([(lot(1), ["Cabinet Knob", "Finish: Satin Nickel"])])
-        self.assertEqual(changed, {1: ["cabinet knob", "finish: satin nickel"], 2: ["cabinet knob", "finish: satin nickel"]})
+        self.assertEqual(changed, {1: ["Cabinet Knob", "Finish: Satin Nickel"], 2: ["Cabinet Knob", "Finish: Satin Nickel"]})
         changes = self.store.changes(seq)
         self.assertEqual(sorted(x["id"] for x in changes.lots), [1, 2])
-        self.assertEqual(changes.lots[0]["tags"], ["cabinet knob", "finish: satin nickel"])
+        self.assertEqual(changes.lots[0]["tags"], ["Cabinet Knob", "Finish: Satin Nickel"])
         self.assertNotIn("tags", self.store.lot(3) or {})
 
     def test_brand_and_model_identify_items_across_titles(self) -> None:
@@ -80,16 +80,23 @@ class TagRuleTests(unittest.TestCase):
     def test_rules_tag_matching_titles_case_insensitively_and_bump_the_sequence(self) -> None:
         seq = self.store.seq()
         rule, changed = self.store.add_tag_rule(r"\bcabinet (knob|pull)", ["Cabinet Hardware"])
-        self.assertEqual(rule.tags, ["cabinet hardware"])
+        self.assertEqual(rule.tags, ["Cabinet Hardware"])
         self.assertEqual(sorted(changed), [1, 2])
         self.assertEqual(sorted(x["id"] for x in self.store.changes(seq).lots), [1, 2])
         self.assertIsNone(self.tags(3))
 
     def test_rule_tags_merge_with_lot_tags_without_repeats(self) -> None:
         self.store.save_lot_tags([(lot(1, "Mila Satin Nickel Oval Cabinet Knob"), ["cabinet knob", "finish: satin nickel"])], manual=True)
-        self.store.add_tag_rule("satin nickel", ["finish: satin nickel"])
+        self.store.add_tag_rule("satin nickel", ["Finish: SATIN Nickel"])  # the same tag, ignoring case
         self.store.add_tag_rule("knob|pull", ["cabinet hardware"])
         self.assertEqual(self.tags(1), ["cabinet knob", "finish: satin nickel", "cabinet hardware"])
+
+    def test_tags_in_use_are_counted_ignoring_case(self) -> None:
+        self.store.save_lot_tags([(lot(1, "Mila Satin Nickel Oval Cabinet Knob"), ["Finish: Brass"])], manual=True)
+        self.store.add_tag_rule("brass", ["finish: brass"])
+        _, in_use = self.store.tag_overview()
+        self.assertEqual(len(in_use), 1)
+        self.assertEqual(in_use[0][1], 2)
 
     def test_rules_apply_to_future_lots_and_go_away_when_removed(self) -> None:
         rule, _ = self.store.add_tag_rule("drill", ["power tool"])
@@ -123,8 +130,8 @@ class TagRuleGroupTests(unittest.TestCase):
 
     def test_tags_fill_in_numbered_and_named_groups(self) -> None:
         self.store.add_tag_rule(r"(satin nickel|matte black) (?P<Kind>knob|pull)", ["finish: $1", "${kind}", "$0"])
-        self.assertEqual(self.tags(1), ["finish: satin nickel", "knob", "satin nickel knob"])
-        self.assertEqual(self.tags(2), ["finish: matte black", "pull", "matte black pull"])
+        self.assertEqual(self.tags(1), ["finish: Satin Nickel", "Knob", "Satin Nickel Knob"])  # as written in the title
+        self.assertEqual(self.tags(2), ["finish: Matte Black", "Pull", "Matte Black Pull"])
         self.assertIsNone(self.tags(3))
 
     def test_groups_that_capture_nothing_drop_their_tag_and_dollars_can_be_escaped(self) -> None:
@@ -182,8 +189,8 @@ class TagRuleApiTests(unittest.TestCase):
             data["matches"][0] | {"lotId": 0},
             {"title": "Satin Nickel Knob", "lotId": 0, "lots": 2, "span": [6, 12], "tags": ["cabinet knob"], "adds": []},
         )
-        _, data = self.call("GET", "/api/tag-rules/preview?pattern=" + quote("(satin) nickel") + "&tag=finish:+%241&tag=cabinet+knob")
-        self.assertEqual(data["matches"][0]["adds"], ["finish: satin"])
+        _, data = self.call("GET", "/api/tag-rules/preview?pattern=" + quote("(satin) nickel") + "&tag=finish:+%241&tag=Cabinet+KNOB")
+        self.assertEqual(data["matches"][0]["adds"], ["finish: Satin"])
         status, data = self.call("GET", "/api/tag-rules/preview?pattern=knob&tag=%241")
         self.assertEqual((status, data["field"]), (400, "tags"))
         status, data = self.call("GET", "/api/tag-rules/preview?pattern=" + quote("(bad"))
@@ -193,7 +200,7 @@ class TagRuleApiTests(unittest.TestCase):
 
     def test_add_update_list_and_delete_rules(self) -> None:
         status, data = self.call("POST", "/api/tag-rules", {"pattern": "nickel", "tags": ["Finish: Satin Nickel"]})
-        self.assertEqual((status, data["changed"], data["rule"]["tags"]), (200, 2, ["finish: satin nickel"]))
+        self.assertEqual((status, data["changed"], data["rule"]["tags"]), (200, 2, ["Finish: Satin Nickel"]))
         rule_id = data["rule"]["id"]
         status, data = self.call("PUT", f"/api/tag-rules/{rule_id}", {"pattern": "brass|nickel", "tags": ["metal"]})
         self.assertEqual((status, data["changed"]), (200, 3))

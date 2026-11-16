@@ -22,7 +22,7 @@ import type { Row } from './view';
 interface Props {
   row: Row;
   onClose: () => void;
-  group?: Row[] | undefined; // listings of the same item, cheapest total first
+  group?: Row[] | undefined; // listings of the same item, best condition then cheapest total first
   onOpenLot?: (lot: Lot) => void; // a lot in the catalog
 }
 
@@ -258,6 +258,7 @@ function SameListings({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
+  const mixed = new Set(group.map((r) => r.lot.condition?.label)).size > 1;
   return (
     <div>
       <h3>{fmtCount(group.length)} listings of this item</h3>
@@ -268,6 +269,7 @@ function SameListings({
             row={r}
             currentTitle={current.title}
             selected={r.lot.id === current.id}
+            showCondition={mixed}
             onOpen={onOpen}
           />
         ))}

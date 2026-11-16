@@ -52,10 +52,17 @@ class MatchingTests(unittest.TestCase):
         self.assertEqual(groups[1], groups[2])
         self.assertNotEqual(groups[1], groups[3])
 
-    def test_groups_stay_within_one_condition_and_only_shared_groups_get_an_id(self) -> None:
-        lots = [item(5), item(3), item(4, condition={"value": 1, "label": "New"}), item(9, "Saw", model="S-1")]
+    def test_the_same_brand_and_model_groups_across_conditions_and_only_shared_groups_get_an_id(self) -> None:
+        new = {"value": 1, "label": "New"}
+        lots = [item(5), item(3), item(4, "Other words", condition=new), item(9, "Saw", model="S-1")]
         set_groups(lots)
-        self.assertEqual([lot.get("groupId") for lot in lots], [3, 3, None, None])
+        self.assertEqual([lot.get("groupId") for lot in lots], [3, 3, 3, None])
+
+    def test_title_matches_without_a_brand_and_model_stay_within_one_condition(self) -> None:
+        new = {"value": 1, "label": "New"}
+        groups = group_lots([item(1, brand=None), item(2, brand=None, condition=new), item(3, brand=None)])
+        self.assertEqual(groups[1], groups[3])
+        self.assertNotEqual(groups[1], groups[2])
 
     def test_titles_without_words_group_only_with_the_same_title(self) -> None:
         groups = group_lots([item(1, "!!", brand=None), item(2, "!!", brand=None), item(3, "??", brand=None)])

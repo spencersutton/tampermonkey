@@ -1,4 +1,4 @@
-import { tagGroup, tagLabel } from '../shared/tags';
+import { tagGroup, tagKey, tagLabel } from '../shared/tags';
 import { setView, storedView } from './state';
 import type { Lot } from './types';
 
@@ -19,7 +19,7 @@ export function CardTags({ lot }: { lot: Lot }) {
             onClick={() => {
               const group = tagGroup(tag);
               const rest = storedView.peek().tags.filter((t) => tagGroup(t) !== group);
-              setView({ tags: [...rest, tag] });
+              setView({ tags: [...rest, tagKey(tag)] });
             }}
           >
             {tagLabel(tag)}

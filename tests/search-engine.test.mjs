@@ -21,6 +21,10 @@ const { DEFAULT_VIEW, computeView, computeFacets, contextualFacets, normalizeVie
   await vite.ssrLoadModule('/src/app/view.ts');
 const { suggest } = await vite.ssrLoadModule('/src/app/suggest.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
+const { numericOrder } = await vite.ssrLoadModule('/src/app/util.ts');
+const { tagMenuOptions, toggleFilterOption } = await vite.ssrLoadModule(
+  '/src/app/filterOptions.ts',
+);
 
 const now = Temporal.Now.instant();
 const ex = {
@@ -279,4 +283,188 @@ test('tags: attributes filter OR within a group and AND across groups, with per-
     s.tags.map((f) => [f.value, f.count]),
     [['finish: satin nickel', 2]],
   );
+});
+
+test('tags: "none" picks lots without an attribute and counts them per group', async () => {
+  const { noneTag, isNoneTag, tagLabel } = await vite.ssrLoadModule('/src/shared/tags.ts');
+  assert.equal(noneTag('finish'), 'finish:');
+  assert.ok(isNoneTag('finish:'));
+  assert.ok(!isNoneTag('finish: brass') && !isNoneTag('cabinet knob'));
+  assert.equal(tagLabel('finish:'), 'Finish: none');
+
+  const items = [
+    lot('Brass Knob', { tags: ['cabinet knob', 'finish: brass', 'shape: round'] }),
+    lot('Nickel Pull', { tags: ['finish: satin nickel', 'shape: bar'] }),
+    lot('Mystery Knob', { tags: ['cabinet knob', 'shape: round'] }),
+    lot('Plain Hinge'),
+  ];
+  const facetsFor = (view) =>
+    contextualFacets(computeFacets(items, now, []), run(items, view).facetCounts, view);
+  const count = (facets, tag) => facets.tags.find((f) => f.value === tag)?.count;
+
+  // Nothing selected: two lots lack a finish, one lacks a shape.
+  let facets = facetsFor(DEFAULT_VIEW);
+  assert.equal(count(facets, 'finish:'), 2);
+  assert.equal(count(facets, 'shape:'), 1);
+  assert.equal(count(facets, ':'), undefined); // no "none" for plain tags
+
+  // None alone, OR'd with a value of the same attribute, and AND'd with another attribute.
+  assert.deepEqual(titles(run(items, { tags: ['finish:'] })).toSorted(), [
+    'Mystery Knob',
+    'Plain Hinge',
+  ]);
+  assert.deepEqual(titles(run(items, { tags: ['finish:', 'finish: brass'] })).toSorted(), [
+    'Brass Knob',
+    'Mystery Knob',
+    'Plain Hinge',
+  ]);
+  const view = { ...DEFAULT_VIEW, tags: ['finish:', 'shape: round'] };
+  assert.deepEqual(titles(run(items, view)), ['Mystery Knob']);
+  facets = facetsFor(view);
+  // Finish counts ignore the finish selection but keep the shape one…
+  assert.equal(count(facets, 'finish:'), 1);
+  assert.equal(count(facets, 'finish: brass'), 1);
+  // …and shape counts keep the finish one (lots without a finish: Mystery Knob, Plain Hinge).
+  assert.equal(count(facets, 'shape:'), 1);
+  assert.equal(count(facets, 'shape: round'), 1);
+
+  assert.deepEqual(navFromUrl(`?${new URLSearchParams([['tag', 'finish:']])}`).view.tags, [
+    'finish:',
+  ]);
+});
+
+test('tags: case is kept for display but ignored when filtering and counting', async () => {
+  const { tagGroup, tagKey } = await vite.ssrLoadModule('/src/shared/tags.ts');
+  assert.equal(tagGroup('Battery System: M18'), 'battery system');
+  assert.equal(tagKey('Finish: Satin Nickel'), 'finish: satin nickel');
+
+  const items = [
+    lot('Nickel Knob', { tags: ['Finish: Satin Nickel'] }),
+    lot('Nickel Pull', { tags: ['finish: satin nickel'] }),
+    lot('Brass Pull', { tags: ['FINISH: Brass'] }),
+  ];
+  const all = computeFacets(items, now, []);
+  const nickel = all.tags.find((f) => f.value === 'finish: satin nickel');
+  assert.deepEqual(nickel, {
+    value: 'finish: satin nickel',
+    label: 'Finish: Satin Nickel',
+    count: 2,
+  });
+
+  // Selections are keys, whatever case they arrive in (URL, saved views).
+  const view = normalizeView({
+    ...DEFAULT_VIEW,
+    tags: ['Finish: SATIN nickel', 'finish: satin nickel'],
+  });
+  assert.deepEqual(view.tags, ['finish: satin nickel']);
+  assert.deepEqual(titles(run(items, view)).toSorted(), ['Nickel Knob', 'Nickel Pull']);
+  const facets = contextualFacets(all, run(items, view).facetCounts, view);
+  assert.equal(facets.tags.find((f) => f.value === 'finish: brass')?.count, 1);
+  assert.equal(facets.tags.find((f) => f.value === 'finish:')?.count, 0);
+  assert.deepEqual(navFromUrl(`?${new URLSearchParams([['tag', 'Finish: Brass']])}`).view.tags, [
+    'finish: brass',
+  ]);
+});
+
+test('filter values that are all numbers sort by value', () => {
+  const label = (x) => x;
+  assert.deepEqual(numericOrder(['10', '2.5', '8', '.5', '-1', '12'], label), [
+    '-1',
+    '.5',
+    '2.5',
+    '8',
+    '10',
+    '12',
+  ]);
+  assert.equal(numericOrder(['10', '8 in', '2'], label), null);
+  assert.equal(numericOrder(['1/2', '3'], label), null);
+  assert.equal(numericOrder([], label), null);
+});
+
+test('numeric tag menus merge equivalent options, count lots once and toggle every spelling', () => {
+  const items = [
+    lot('Four', { tags: ['Size: 4'] }),
+    lot('Four decimal', { tags: ['size: 4.0'], currentPrice: 50 }),
+    lot('Both', { tags: ['size: 4', 'size: 4.0'] }),
+    lot('Half', { tags: ['size: 04.500'] }),
+    lot('Missing'),
+  ];
+  const menu = (view = DEFAULT_VIEW) => {
+    const result = run(items, view);
+    const all = computeFacets(items, now, []);
+    const facets = contextualFacets(all, result.facetCounts, view);
+    return tagMenuOptions(facets.tags, result.facetCounts.numericTag, all.tags);
+  };
+  const options = menu();
+  const four = options.find((f) => f.value === 'size: 4');
+  assert.equal(options.length, 3);
+  assert.equal(four.label, 'Size: 4');
+  assert.equal(four.count, 3);
+  assert.deepEqual(four.values.toSorted(), ['size: 4', 'size: 4.0']);
+  assert.equal(options.find((f) => f.value === 'size: 4.5').label, 'size: 4.5');
+  assert.equal(options.find((f) => f.value === 'size:').count, 1);
+
+  const tags = toggleFilterOption([], four.values);
+  assert.deepEqual(titles(run(items, { tags })).toSorted(), ['Both', 'Four', 'Four decimal']);
+  assert.equal(menu({ ...DEFAULT_VIEW, tags }).find((f) => f.value === 'size: 4').count, 3);
+  assert.deepEqual(toggleFilterOption(['finish: brass', 'size: 4.0'], four.values), [
+    'finish: brass',
+  ]);
+  assert.deepEqual(toggleFilterOption(tags, four.values), []);
+  const cheap = menu({ ...DEFAULT_VIEW, priceMax: 25 }).find((f) => f.value === 'size: 4');
+  assert.equal(cheap.count, 2);
+  assert.deepEqual(cheap.values.toSorted(), ['size: 4', 'size: 4.0']);
+  const decimalOnly = menu({ ...DEFAULT_VIEW, priceMin: 40 }).find((f) => f.value === 'size: 4');
+  assert.equal(decimalOnly.count, 1);
+  assert.deepEqual(decimalOnly.values.toSorted(), ['size: 4', 'size: 4.0']);
+});
+
+test('numeric menu normalization leaves mixed values alone and preserves decimal precision', () => {
+  const facets = ['size: 4', 'size: 4.0', 'size: large', 'size:'].map((value) => ({
+    value,
+    label: value,
+    count: 1,
+  }));
+  assert.deepEqual(
+    tagMenuOptions(facets, new Map()).map((f) => [f.label, f.values]),
+    facets.map((f) => [f.label, [f.value]]),
+  );
+  const values = ['+04.00', '-0.0', '.500', '9007199254740992', '9007199254740993'];
+  const numeric = values.map((value) => ({ value, label: value, count: 1 }));
+  const counts = new Map([
+    ['4', 1],
+    ['0', 1],
+    ['0.5', 1],
+    ['9007199254740992', 1],
+    ['9007199254740993', 1],
+  ]);
+  assert.deepEqual(
+    tagMenuOptions(numeric, counts).map((f) => f.label),
+    [...counts.keys()],
+  );
+});
+
+test('a combined card leads with the best condition and notes a cheaper worse one', () => {
+  const cond = (value, label) => ({ condition: { value, label } });
+  const items = [
+    lot('Drill as-is', { ...cond(4, 'As-is'), currentPrice: 2, groupId: 1 }),
+    lot('Drill used', { ...cond(3, 'Used'), currentPrice: 5, groupId: 1 }),
+    lot('Drill like new', { ...cond(2, 'Like New'), currentPrice: 30, groupId: 1 }),
+    lot('Drill new', { ...cond(1, 'New'), currentPrice: 40, groupId: 1 }),
+    lot('Drill new cheap', { ...cond(1, 'New'), currentPrice: 35, groupId: 1 }),
+  ];
+  const [card] = run(items).rows;
+  assert.equal(card.lot.title, 'Drill new cheap', 'New first, cheapest within it');
+  assert.deepEqual(
+    card.others.map((r) => r.lot.title),
+    ['Drill new', 'Drill like new', 'Drill used', 'Drill as-is'],
+  );
+  assert.equal(card.cheaper.lot.title, 'Drill as-is', 'the cheapest worse-condition listing');
+
+  const [alone] = run([
+    lot('Saw new', { ...cond(1, 'New'), currentPrice: 10, groupId: 7 }),
+    lot('Saw used', { ...cond(3, 'Used'), currentPrice: 15, groupId: 7 }),
+  ]).rows;
+  assert.equal(alone.lot.title, 'Saw new');
+  assert.equal(alone.cheaper, null, 'no note when the worse condition costs more');
 });

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { Icon } from '../app/icons';
 import { fmtCount } from '../app/util';
-import { cleanTag, tagLabel } from '../shared/tags';
+import { cleanTag, tagKey, tagLabel } from '../shared/tags';
 import {
   ApiError,
   deleteRule,
@@ -340,8 +340,11 @@ function TagInput({
   const [text, setText] = useState('');
   /** Add each comma-separated tag in `raw` that isn't there yet. */
   const add = (raw: string) => {
-    const fresh = raw.split(',').map(cleanTag);
-    const next = [...new Set([...tags, ...fresh.filter((t) => t != null)])];
+    // Tags differing only in case are the same tag; the first spelling stays.
+    const next = [...tags];
+    for (const tag of raw.split(',').map(cleanTag)) {
+      if (tag && !next.some((t) => tagKey(t) === tagKey(tag))) next.push(tag);
+    }
     if (next.length > tags.length) onChange(next);
     setText('');
   };

@@ -1,4 +1,4 @@
-// Dialog behind the item type button on a lot card: make a custom category of
+// Dialog behind the + button next to the item type on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useState } from 'preact/hooks';
 

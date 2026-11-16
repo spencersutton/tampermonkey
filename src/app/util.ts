@@ -78,6 +78,32 @@ export function parseNum(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const PLAIN_NUMBER = /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+/** Canonical plain decimal text, without rounding large numbers or precise fractions. */
+export function numericLabel(text: string): string | null {
+  const value = text.trim();
+  if (!PLAIN_NUMBER.test(value)) return null;
+  const [whole = '', fraction = ''] = value.replace(/^[-+]/, '').split('.');
+  const integer = whole.replace(/^0+/, '') || '0';
+  const decimal = fraction.replace(/0+$/, '');
+  const sign = value.startsWith('-') && (integer !== '0' || decimal) ? '-' : '';
+  return `${sign}${integer}${decimal ? `.${decimal}` : ''}`;
+}
+
+/**
+ * `items` sorted by value, smallest first, when every one's text is a plain number ("8", "1.5",
+ * "-.25"); null when any isn't (or there are none). Equal numbers keep their order.
+ */
+export function numericOrder<T>(items: T[], text: (item: T) => string): T[] | null {
+  const nums = items.map((item) => text(item).trim());
+  if (!nums.length || !nums.every((n) => PLAIN_NUMBER.test(n))) return null;
+  return items
+    .map((item, i) => ({ item, n: Number(nums[i]) }))
+    .toSorted((a, b) => a.n - b.n)
+    .map((x) => x.item);
+}
+
 /**
  * A set of ids (e.g. lots with a request in flight); reading it in a component re-renders that
  * component when it changes.

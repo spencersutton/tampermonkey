@@ -257,7 +257,7 @@ function OptionBody({ option: o }: { option: Option }) {
     case 'tag':
       return (
         <>
-          <span class="search-option-label">{tagLabel(o.facet.value)}</span>
+          <span class="search-option-label">{tagLabel(o.facet.label)}</span>
           <span class="count">{fmtCount(o.facet.count)}</span>
         </>
       );

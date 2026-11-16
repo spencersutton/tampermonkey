@@ -455,6 +455,34 @@ test('Only on a parent replaces selections with the whole branch, even while col
   assert.deepEqual(selected, ['custom:Tools - Drills', 'custom:Tools - Drills - Cordless']);
 });
 
+test('Only goes to onOnly when given, so the sidebar can clear other filters', () => {
+  const [group] = groupCategories(
+    facetsFor(
+      [facet('Tools', 0, 'tools'), facet('Tools - Drills', 2), facet('Tools - Saws', 1)],
+      [facet('Tools', 3, 'tools')],
+    ),
+  );
+  const only = [];
+  for (const branch of [group, group.subs[0]]) {
+    rowNodes(
+      CategoryGroupRow({
+        group: branch,
+        selected: ['garden'],
+        collapsed: {},
+        setCollapsed: () => {},
+        onChange: () => assert.fail('Only must not call onChange when onOnly is given'),
+        onOnly: (next) => only.push(next),
+      }),
+    )
+      .find((n) => n.props?.class === 'icon-btn check-only')
+      .props.onClick();
+  }
+  assert.deepEqual(only, [
+    ['tools', 'custom:Tools - Drills', 'custom:Tools - Saws'],
+    ['custom:Tools - Drills'],
+  ]);
+});
+
 test('Only on Other excludes descendants, ancestors and unrelated categories', () => {
   const [group] = groupCategories(
     facetsFor(

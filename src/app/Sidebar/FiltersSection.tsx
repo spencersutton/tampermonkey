@@ -236,6 +236,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
           facets={facets}
           selected={view.categories}
           onChange={(categories) => setView({ categories, noCategories: false })}
+          onOnly={(categories) => setView({ ...DEFAULT_VIEW, sort: view.sort, categories })}
         />
         <button type="button" class="btn-text cat-edit-btn" onClick={modalActions.editCategories}>
           <Icon name="edit" size={16} />{' '}

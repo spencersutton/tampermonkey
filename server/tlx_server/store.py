@@ -158,11 +158,11 @@ MAX_RULE_TAGS = 20
 
 
 def clean_tag(text: str) -> str | None:
-    """A tag tidied: lowercase, single spaces, and "name: value" for an attribute ("Finish:Satin  Nickel" →
-    "finish: satin nickel"). None when nothing is left."""
+    """A tag tidied: single spaces and "name: value" for an attribute ("Finish:Satin  Nickel" → "Finish: Satin
+    Nickel"). Case is kept for display, but tags are compared ignoring it (tag_key). None when nothing is left."""
 
     def tidy(part: str) -> str:
-        return " ".join(part.lower().split()).strip(" \"'`.,;")[:MAX_TAG_PART]
+        return " ".join(part.split()).strip(" \"'`.,;")[:MAX_TAG_PART]
 
     name, sep, value = text.partition(":")
     if sep and tidy(name) and tidy(value):
@@ -170,9 +170,22 @@ def clean_tag(text: str) -> str | None:
     return tidy(text.replace(":", " ")) or None
 
 
+def tag_key(tag: str) -> str:
+    """What tags are compared by: "Finish: Brass" and "finish: brass" are the same tag."""
+    return tag.casefold()
+
+
+def unique_tags(tags: Iterable[str]) -> list[str]:
+    """Tags without repeats (ignoring case), each kept as first written, in their original order."""
+    seen: dict[str, str] = {}
+    for tag in tags:
+        seen.setdefault(tag_key(tag), tag)
+    return list(seen.values())
+
+
 def clean_tags(tags: Iterable[str]) -> list[str]:
-    """Tidied tags without blanks or repeats, in their original order."""
-    return list(dict.fromkeys(t for tag in tags if (t := clean_tag(tag))))
+    """Tidied tags without blanks or repeats (ignoring case), in their original order."""
+    return unique_tags(t for tag in tags if (t := clean_tag(tag)))
 
 
 @dataclass(frozen=True)
@@ -211,7 +224,7 @@ TAG_REF = re.compile(r"\$(?:(\$)|(\d+)|\{(\w+)\})")
 
 class CompiledRule:
     """A rule ready to apply: its pattern compiled and each tag's group references checked (tags are stored tidied,
-    so lowercase, and group names are looked up ignoring case)."""
+    so group names are looked up ignoring case, which they may not keep)."""
 
     def __init__(self, pattern: str, tags: Iterable[str]) -> None:
         self.rx = compile_tag_pattern(pattern)
@@ -468,7 +481,7 @@ class Store:
             for rule in rules:
                 tags.extend(rule.tags_for(lot["title"]) or [])
             if tags:
-                lot["tags"] = list(dict.fromkeys(tags))
+                lot["tags"] = unique_tags(tags)
             else:
                 lot.pop("tags", None)
 
@@ -826,7 +839,8 @@ class Store:
         return items
 
     def tag_overview(self) -> tuple[list[tuple[TagRule, int]], list[tuple[str, int]]]:
-        """Every rule with how many current lots it matches, and every tag in use with its lot count, commonest first."""
+        """Every rule with how many current lots it matches, and every tag in use (ignoring case, in its most common
+        spelling) with its lot count, commonest first."""
         with self._lock:
             items = self._tagged_titles()
             rules = self._tag_rules()
@@ -835,7 +849,11 @@ class Store:
         for rule in rules:
             pattern = compile_tag_pattern(rule.pattern)
             counted.append((rule, sum(n for title, n in titles.items() if pattern.search(title))))
-        in_use = Counter(tag for lot in items for tag in lot.get("tags") or [])
+        spellings: dict[str, Counter[str]] = {}  # each tag's spellings, by tag key
+        for lot in items:
+            for tag in lot.get("tags") or []:
+                spellings.setdefault(tag_key(tag), Counter())[tag] += 1
+        in_use = Counter({c.most_common(1)[0][0]: c.total() for c in spellings.values()})
         return counted, in_use.most_common()
 
     def preview_tag_rule(self, pattern: str, tags: Iterable[str], limit: int) -> dict[str, Any]:
@@ -857,7 +875,7 @@ class Store:
                     "lots": 1,
                     "span": [m.start(), m.end()],
                     "tags": (current := lot.get("tags") or []),
-                    "adds": [t for t in rule.tags_for(lot["title"]) or [] if t not in current],
+                    "adds": [t for t in rule.tags_for(lot["title"]) or [] if tag_key(t) not in {tag_key(c) for c in current}],
                 }
         ranked = sorted(groups.values(), key=lambda g: (-g["lots"], g["title"].lower()))
         return {"lots": sum(g["lots"] for g in ranked), "titles": len(ranked), "matches": ranked[:limit]}

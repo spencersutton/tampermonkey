@@ -13,8 +13,9 @@ import {
   type PreparedDoc,
 } from '../shared/search';
 import { collator } from '../shared/sortKey';
-import { tagGroup, tagLabel } from '../shared/tags';
+import { noneTag, tagGroup, tagKey, tagLabel } from '../shared/tags';
 import { hasBidOn } from './bid';
+import { numericTagKey } from './filterOptions';
 import type { Lot } from './types';
 import { HOUR, memoize, memoizeWeak, memoLast } from './util';
 
@@ -28,7 +29,8 @@ export interface Row {
   retailPct: number | null;
   matched: string | null; // regex filter that matched the title
   hidden: boolean;
-  others: Row[]; // listings of the same item folded into this card (cheapest first)
+  others: Row[]; // listings of the same item folded into this card (best condition, then cheapest, first)
+  cheaper: Row | null; // the cheapest of `others` in a worse condition that costs less than this lot
   score: number; // search relevance (0 without a search)
 }
 
@@ -117,7 +119,7 @@ export interface ViewState {
   noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
   types: string[]; // item types (lowercase)
   brands: string[]; // brand keys (see brandKey)
-  tags: string[]; // tags as stored; OR within an attribute (or among plain tags), AND across them
+  tags: string[]; // tag keys (tagKey); OR within an attribute (or among plain tags), AND across them
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -171,7 +173,7 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
-    tags: strings(view.tags),
+    tags: [...new Set(strings(view.tags).map(tagKey))],
     noCategories: !view.categories.length && view.noCategories,
     newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -325,6 +327,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     matched: ex.filterOn ? (titleMatcher(ex.words)(lot.title)[0] ?? null) : null,
     hidden: Boolean(ex.hidden[lot.id]),
     others: [],
+    cheaper: null,
     score: 0,
   };
 }
@@ -358,9 +361,19 @@ export interface FacetCounts {
   location: Map<string, number>;
   type: Map<string, number>;
   brand: Map<string, number>;
-  tag: Map<string, number>; // by tag as stored
+  tag: Map<string, number>; // by tag key
+  numericTag: Map<string, number>; // equivalent numeric spellings counted once per lot
+  // For each attribute's "none" count: rows tallied in every dim, rows tallied only in `tag:<name>`
+  // (they fail just that one), and rows of either kind with a tag of that attribute.
+  tagRows: number;
+  tagOnly: Map<string, number>;
+  tagHas: Map<string, number>;
   price: number[]; // per PRICE_BUCKETS entry
 }
+
+/** Lots among the results (ignoring this attribute's own filter) with no tag of the attribute. */
+export const noneCount = (counts: FacetCounts, group: string) =>
+  counts.tagRows + (counts.tagOnly.get(group) ?? 0) - (counts.tagHas.get(group) ?? 0);
 
 const emptyCounts = (): FacetCounts => ({
   category: new Map(),
@@ -369,6 +382,10 @@ const emptyCounts = (): FacetCounts => ({
   type: new Map(),
   brand: new Map(),
   tag: new Map(),
+  numericTag: new Map(),
+  tagRows: 0,
+  tagOnly: new Map(),
+  tagHas: new Map(),
   price: PRICE_BUCKETS.map(() => 0),
 });
 
@@ -391,7 +408,18 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
     if (brand) bump(counts.brand, brandKey(brand));
   }
   for (const tag of lot.tags ?? []) {
-    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.tag, tag);
+    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.tag, tagKey(tag));
+  }
+  const numericTags = new Set(
+    (lot.tags ?? []).map(numericTagKey).filter((tag): tag is string => tag != null),
+  );
+  for (const tag of numericTags) {
+    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.numericTag, tag);
+  }
+  if (only == null) counts.tagRows++;
+  else if (only.startsWith('tag:')) bump(counts.tagOnly, only.slice(4));
+  for (const group of new Set((lot.tags ?? []).map(tagGroup))) {
+    if (only == null || only === `tag:${group}`) bump(counts.tagHas, group);
   }
   if (only == null || only === 'price') {
     PRICE_BUCKETS.forEach((b, i) => {
@@ -534,11 +562,26 @@ const byCost = (a: Row, b: Row) =>
   Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) ||
   a.lot.id - b.lot.id;
 
+const CONDITION_RANK: Record<string, number> = { new: 0, 'like new': 1, used: 2, 'as-is': 3 };
+
+/** How good a lot's condition is: New 0, Like New 1, Used 2, As-is 3; unknown ones last. */
+export function conditionRank(lot: Lot): number {
+  return CONDITION_RANK[lot.condition?.label.trim().toLowerCase() ?? ''] ?? 4;
+}
+
 /**
- * Fold the shown lots the server grouped as the same item (same condition, at any location) into
- * one card showing the cheapest by total cost (ties: ending soonest). Lots you've bid on, hidden
- * lots and regex-filtered lots keep their own card. The card keeps the best search score in its
- * group.
+ * Best condition first, then cheapest (see byCost). Lots you can't get to your pickup location
+ * still come last.
+ */
+const byConditionThenCost = (a: Row, b: Row) =>
+  +a.pickupOnly - +b.pickupOnly || conditionRank(a.lot) - conditionRank(b.lot) || byCost(a, b);
+
+/**
+ * Fold the shown lots the server grouped as the same item (at any location; any condition when the
+ * brand and model match) into one card showing the best condition, cheapest by total cost within it
+ * (ties: ending soonest). The card notes the cheapest listing in a worse condition that costs less.
+ * Lots you've bid on, hidden lots and regex-filtered lots keep their own card. The card keeps the
+ * best search score in its group.
  */
 function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row[]> } {
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
@@ -551,9 +594,20 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row
       cards.push(bucket[0]!);
       continue;
     }
-    bucket.sort(byCost);
+    bucket.sort(byConditionThenCost);
+    const lead = bucket[0]!;
+    const others = bucket.slice(1);
     const score = Math.max(...bucket.map((r) => r.score));
-    cards.push({ ...bucket[0]!, others: bucket.slice(1), score });
+    const cheaper =
+      others
+        .filter(
+          (r) =>
+            conditionRank(r.lot) > conditionRank(lead.lot) &&
+            r.total < lead.total &&
+            (lead.pickupOnly || !r.pickupOnly),
+        )
+        .toSorted(byCost)[0] ?? null;
+    cards.push({ ...lead, others, cheaper, score });
     bucket.forEach((r) => groups.set(r.lot.id, bucket));
   }
   return { cards, groups };
@@ -681,7 +735,15 @@ function makePredicates(v: ViewState, now: Temporal.Instant, details?: ItemDetai
   }
   for (const [group, tags] of Map.groupBy(v.tags, tagGroup)) {
     const wanted = new Set(tags);
-    dims.push([`tag:${group}`, (r) => (r.lot.tags ?? []).some((t) => wanted.has(t))]);
+    // "None" picks lots without any tag of this attribute.
+    const none = wanted.has(noneTag(group));
+    dims.push([
+      `tag:${group}`,
+      (r) => {
+        const own = (r.lot.tags ?? []).filter((t) => tagGroup(t) === group);
+        return own.some((t) => wanted.has(tagKey(t))) || (none && !own.length);
+      },
+    ]);
   }
   if (v.priceMin != null || v.priceMax != null) {
     dims.push([
@@ -729,7 +791,7 @@ export interface Facets {
   locations: Facet<string>[];
   types: Facet<string>[]; // item types, most lots first
   brands: Facet<string>[]; // by brandKey, labelled with the most common spelling; most lots first
-  tags: Facet<string>[]; // by tag as stored (group them with tagGroup); most lots first
+  tags: Facet<string>[]; // by tag key, labelled with its most common spelling (group with tagGroup); most lots first
   prices: Facet<number>[]; // index into PRICE_BUCKETS
 }
 
@@ -749,20 +811,25 @@ function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
 const byCountThenLabel = <T>(a: Facet<T>, b: Facet<T>) =>
   b.count - a.count || collator.compare(a.label, b.label);
 
-/** Brands among lots, labelled with each brand's most common spelling. */
-function tallyBrands(brands: (string | null)[]): Facet<string>[] {
+/** Values grouped by key, each labelled with its most common spelling, most lots first. */
+function tallySpellings(values: string[], keyOf: (v: string) => string): Facet<string>[] {
   const spellings = new Map<string, Map<string, number>>();
-  for (const b of brands) {
-    if (!b) continue;
-    const key = brandKey(b);
-    const label = b.trim().replace(/\s+/g, ' ');
-    const m = spellings.get(key) ?? new Map<string, number>();
-    spellings.set(key, bump(m, label));
+  for (const v of values) {
+    const key = keyOf(v);
+    spellings.set(key, bump(spellings.get(key) ?? new Map<string, number>(), v));
   }
   return Array.from(spellings, ([value, m]) => {
     const [label] = [...m].reduce((best, cur) => (cur[1] > best[1] ? cur : best));
     return { value, label, count: m.values().reduce((n, c) => n + c, 0) };
   }).toSorted(byCountThenLabel);
+}
+
+/** Brands among lots, labelled with each brand's most common spelling. */
+function tallyBrands(brands: (string | null)[]): Facet<string>[] {
+  return tallySpellings(
+    brands.filter((b): b is string => Boolean(b)).map((b) => b.trim().replace(/\s+/g, ' ')),
+    brandKey,
+  );
 }
 
 /**
@@ -798,8 +865,10 @@ export function computeFacets(
       open.map((l) => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
     ).toSorted(byCountThenLabel),
     brands: tallyBrands(open.map((l) => brandOf(l, details))),
-    tags: tally(open.flatMap((l) => (l.tags ?? []).map((t) => ({ value: t, label: t })))).toSorted(
-      byCountThenLabel,
+    // Tags differing only in case are one value, shown in its most common spelling.
+    tags: tallySpellings(
+      open.flatMap((l) => l.tags ?? []),
+      tagKey,
     ),
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,
@@ -807,6 +876,18 @@ export function computeFacets(
       count: open.filter((l) => inBucket(l.currentPrice, b)).length,
     })),
   };
+}
+
+/** Tag counts plus each attribute's "none" count (attributes found among the lots or selected). */
+function tagCounts(all: Facet<string>[], counts: FacetCounts, selected: string[]) {
+  const m = new Map(counts.tag);
+  const groups = new Set(
+    [...all, ...selected.map((value) => ({ value }))].map((f) => tagGroup(f.value)),
+  );
+  for (const group of groups) {
+    if (group) m.set(noneTag(group), noneCount(counts, group));
+  }
+  return m;
 }
 
 /**
@@ -833,7 +914,7 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
     locations: recount(all.locations, counts.location).toSorted((a, b) => b.count - a.count),
     types: present(all.types, counts.type, view.types),
     brands: present(all.brands, counts.brand, view.brands),
-    tags: present(all.tags, counts.tag, view.tags),
+    tags: present(all.tags, tagCounts(all.tags, counts, view.tags), view.tags),
     prices: all.prices.map((f) => ({ ...f, count: counts.price[f.value] ?? 0 })),
   };
 }
@@ -868,7 +949,7 @@ export function suggestName(v: ViewState, facets: Facets): string {
     ...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
     ...v.types,
     ...v.brands.map((b) => facets.brands.find((f) => f.value === b)?.label ?? b),
-    ...v.tags.map(tagLabel),
+    ...v.tags.map((t) => tagLabel(facets.tags.find((f) => f.value === t)?.label ?? t)),
     v.locations.join('/'),
     v.priceMax != null && `≤ $${v.priceMax}`,
     v.totalMax != null && `total ≤ $${v.totalMax}`,

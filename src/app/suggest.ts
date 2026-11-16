@@ -12,7 +12,7 @@ export interface Suggestions {
   query: string; // trimmed
   types: Facet<string>[];
   brands: Facet<string>[];
-  tags: Facet<string>[]; // label is the tag as stored
+  tags: Facet<string>[]; // value is the tag key, label the tag as written
   categories: Facet<string>[];
   lots: Lot[];
 }

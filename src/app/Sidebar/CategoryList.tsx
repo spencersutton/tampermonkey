@@ -6,7 +6,7 @@ import { fmtCount, plural } from '../util';
 import { isCustomCategory, type Facet, type Facets } from '../view';
 
 /** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
-interface CategoryGroup {
+export interface CategoryGroup {
   facet: Facet<string>;
   subs: CategoryGroup[];
 }
@@ -50,7 +50,8 @@ export function groupCategories({ categories, siteCategories }: Facets): Categor
   return sort(top);
 }
 
-const groupFacets = (g: CategoryGroup): Facet<string>[] => [
+/** A group's own category and all its subcategories, nested ones included. */
+export const groupFacets = (g: CategoryGroup): Facet<string>[] => [
   g.facet,
   ...g.subs.flatMap(groupFacets),
 ];
@@ -72,10 +73,13 @@ export function CategoryList({
   facets,
   selected,
   onChange,
+  onOnly = onChange,
 }: {
   facets: Facets;
   selected: string[];
   onChange: (next: string[]) => void;
+  /** "Show only" on a row: these categories alone (default: just selects them). */
+  onOnly?: (next: string[]) => void;
 }) {
   const collapsed = getSetting(KEYS.collapsed);
   const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) =>
@@ -112,6 +116,7 @@ export function CategoryList({
           group={group}
           selected={selected}
           onChange={onChange}
+          onOnly={onOnly}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
         />
@@ -124,12 +129,15 @@ export function CategoryGroupRow({
   group,
   selected,
   onChange,
+  onOnly = onChange,
   collapsed,
   setCollapsed,
 }: {
   group: CategoryGroup;
   selected: string[];
   onChange: (next: string[]) => void;
+  /** "Show only" on a row: these categories alone (default: just selects them). */
+  onOnly?: (next: string[]) => void;
   collapsed: Record<string, boolean>;
   setCollapsed: (next: Record<string, boolean>) => void;
 }) {
@@ -146,7 +154,7 @@ export function CategoryGroupRow({
         facet={facet}
         checked={selected.includes(facet.value)}
         onChange={toggle}
-        onOnly={() => onChange([facet.value])}
+        onOnly={() => onOnly([facet.value])}
       />
     );
   }
@@ -192,7 +200,7 @@ export function CategoryGroupRow({
           class="icon-btn check-only"
           title={onlyLabel}
           aria-label={onlyLabel}
-          onClick={() => onChange(values)}
+          onClick={() => onOnly(values)}
         >
           <Icon name="focus" size={16} />
         </button>
@@ -203,7 +211,7 @@ export function CategoryGroupRow({
             facet={{ ...facet, label: 'Other' }}
             checked={selected.includes(facet.value)}
             onChange={toggle}
-            onOnly={() => onChange([facet.value])}
+            onOnly={() => onOnly([facet.value])}
             onlyLabel={`Show only lots directly in ${facet.label}`}
           />
           {subs.map((sub) => (
@@ -212,6 +220,7 @@ export function CategoryGroupRow({
               group={sub}
               selected={selected}
               onChange={onChange}
+              onOnly={onOnly}
               collapsed={collapsed}
               setCollapsed={setCollapsed}
             />

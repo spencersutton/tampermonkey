@@ -12,8 +12,9 @@ most recent few of them, so a card can show what the item usually goes for.
 GET /api/history?id=N lists every match for the lot popup.
 
 All item matching lives here; the app only reads its results:
-- `groupId` on open lots that list the same item (same condition), which the
-  app folds into one card (`group_lots`);
+- `groupId` on open lots that list the same item (in any condition when brand
+  and model match, else in the same one), which the app folds into one card
+  (`group_lots`);
 - `relisted` on the site's Won/Lost pages: open lots matching each closed one.
 
 Brand and model match exactly, ignoring case and whitespace, when both lots
@@ -112,10 +113,11 @@ class NameIndex:
 
 
 def group_lots(lots: Iterable[dict[str, Any]], min_pct: float = DEFAULT_NAME_MATCH) -> dict[int, int]:
-    """Each lot's group, as the smallest lot id in it: lots of the same condition whose items match,
-    directly or through another lot in the group. A group never joins two different known brand/models,
-    even when a title without one matches both. Processed in id order, so the result doesn't depend on
-    the order lots are given in."""
+    """Each lot's group, as the smallest lot id in it: lots whose items match, directly or through
+    another lot in the group. The same known brand and model is the same item in any condition; matching
+    by title (when a lot has no brand/model) stays within one condition. A group never joins two
+    different known brand/models, even when a title without one matches both. Processed in id order, so
+    the result doesn't depend on the order lots are given in."""
     # Lots with the same identity and the same words (or, without words, the same title) always match: one entry each.
     entries: dict[tuple[Any, ...], list[int]] = defaultdict(list)
     for lot in sorted(lots, key=itemgetter("id")):
@@ -139,17 +141,17 @@ def group_lots(lots: Iterable[dict[str, Any]], min_pct: float = DEFAULT_NAME_MAT
         parent[b] = a
         identity[a] = identity[a] or identity[b]
 
+    known: dict[tuple[str, str], int] = {}
+    for i, key in enumerate(keys):
+        if ident := key[1]:
+            if ident in known:
+                join(known[ident], i)
+            else:
+                known[ident] = i
     by_condition: dict[object, list[int]] = defaultdict(list)
     for i, key in enumerate(keys):
         by_condition[key[0]].append(i)
     for members in by_condition.values():
-        known: dict[tuple[str, str], int] = {}
-        for i in members:
-            if ident := keys[i][1]:
-                if ident in known:
-                    join(known[ident], i)
-                else:
-                    known.setdefault(ident, i)
         by_words: dict[object, list[int]] = defaultdict(list)
         for i in members:
             by_words[keys[i][2]].append(i)

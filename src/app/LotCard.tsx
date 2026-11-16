@@ -154,19 +154,18 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
               {lot.condition.label}
             </span>
           )}
+          <span class="card-location">
+            <LocationText row={row} />
+          </span>
           {lot.lotNumber && <span class="card-lot-number">Lot #{lot.lotNumber}</span>}
         </div>
         <a class="card-title" href={href} title={lot.title} onClick={open}>
           <Highlight text={lot.title} />
         </a>
         <CardBrandModel id={lot.id} />
-        <div class="card-meta">
-          <div class="card-location">
-            <span class="card-label">Location</span>
-            <LocationText row={row} />
-          </div>
+        <div class="card-chips">
           {category && (
-            <div class="card-category">
+            <span class="card-category">
               <button
                 type="button"
                 class="btn-text category-only"
@@ -183,47 +182,42 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
                 aria-label={`Hide category: ${category.label}`}
                 onClick={() => hideCategory(category.value)}
               >
-                <Icon name="visibilityOff" size={16} />
+                <Icon name="visibilityOff" size={14} />
               </button>
-            </div>
+            </span>
           )}
+          <ItemTypeActions lot={lot} />
+          <CardTags lot={lot} />
         </div>
-        <ItemTypeActions lot={lot} />
-        <CardTags lot={lot} />
         <div class="card-summary">
-          <dl class="card-price">
-            <div>
-              <dt class="card-label">Current bid</dt>
-              <dd class="price">{dollars(lot.currentPrice)}</dd>
-            </div>
-            <div title={costBreakdown(lot.currentPrice, row.transferFee)}>
-              <dt class="card-label">Est. total</dt>
-              <dd class="card-total">≈ {money(row.total)}</dd>
-            </div>
-          </dl>
+          <div class="card-price">
+            <span class="price" title="Current bid">
+              {dollars(lot.currentPrice)}
+            </span>
+            <span class="card-total" title={costBreakdown(lot.currentPrice, row.transferFee)}>
+              ≈ {money(row.total)} total
+            </span>
+            <CardBidButton row={row} />
+          </div>
           <div class="card-sub">
+            <TimeLeft endsAt={lot.endsAt} />
+            <span>{plural(lot.bidCount, 'bid')}</span>
             {lot.estimatedRetailPrice ? (
               <span>
                 Retail {dollars(lot.estimatedRetailPrice)}
                 {row.retailPct != null && (
-                  <span class="card-retail-pct">
-                    Bid is {Math.round(row.retailPct * 100)}% of retail
+                  <span class="card-retail-pct" title="Current bid as a share of retail">
+                    {' '}
+                    ({Math.round(row.retailPct * 100)}%)
                   </span>
                 )}
               </span>
             ) : (
               <span class="muted">No retail estimate</span>
             )}
-            <span>{plural(lot.bidCount, 'bid')}</span>
           </div>
           {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
-        </div>
-        <div class="card-foot">
-          <div class="card-ending">
-            <span class="card-label">Time left</span>
-            <TimeLeft endsAt={lot.endsAt} />
-          </div>
-          <CardBidButton row={row} />
+          {row.cheaper && <CheaperNote lead={row} cheaper={row.cheaper} />}
         </div>
       </div>
     </article>
@@ -249,6 +243,26 @@ function DupeCount({ row }: { row: Row }) {
       onClick={() => openLot(row.lot)}
     >
       +{row.others.length} more
+    </button>
+  );
+}
+
+/**
+ * "Used for ≈ $9 total (save $4)": the same item listed cheaper in a worse condition; opens that
+ * lot.
+ */
+function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
+  const condition = cheaper.lot.condition?.label ?? 'Unknown condition';
+  const where = cheaper.lot.location?.name ?? 'Unknown';
+  return (
+    <button
+      type="button"
+      class="card-cheaper"
+      title={`Same item, ${condition.toLowerCase()}: ${dollars(cheaper.lot.currentPrice)} bid at ${where}, ends ${shortTime(cheaper.lot.endsAt)}`}
+      onClick={() => openLot(cheaper.lot)}
+    >
+      {condition} for <b>≈ {money(cheaper.total)}</b> total (save{' '}
+      {money(lead.total - cheaper.total)})
     </button>
   );
 }

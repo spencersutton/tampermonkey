@@ -37,7 +37,7 @@ export interface Lot {
   tags?: string[] | undefined; // labels beyond the item type; "name: value" ones are attributes (see shared/tags.ts)
   itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
-  groupId?: number | undefined; // set by the server on lots that list the same item as another open lot (same condition): the smallest id among them
+  groupId?: number | undefined; // set by the server on lots that list the same item as another open lot (any condition when brand and model match, else the same one): the smallest id among them
 }
 
 /** An earlier lot that closed, as the server records them (server/tlx_server/history.py). */
