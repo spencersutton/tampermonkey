@@ -35,51 +35,23 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
       remove: { categories: [], noCategories: false },
     });
   }
-  // Hiding a category selects all the others, so when most are selected show a chip per
-  // excluded category instead; removing one puts that category back.
-  const selected = new Set(v.categories);
-  const known = facets.categories.map((f) => f.value);
-  const excluding =
-    !v.noCategories &&
-    known.length > 1 &&
-    known.filter((x) => selected.has(x)).length > known.length / 2;
-  // A parent category gets one chip only when it and all its subcategories are in the set;
-  // otherwise each subcategory gets its own.
-  const pending = new Set(excluding ? known.filter((x) => !selected.has(x)) : v.categories);
+  // A parent category gets one chip only when it and all its subcategories are selected;
+  // otherwise each selected subcategory gets its own.
+  const pending = new Set(v.categories);
   const categoryChip = (value: string, label: string, values: string[]) => {
-    const taken = values.filter((x) => pending.has(x));
-    for (const x of taken) pending.delete(x);
-    chips.push(
-      excluding
-        ? {
-            key: `notcat:${value}`,
-            label: `Not ${label}`,
-            remove: {
-              // Back to no category filter once nothing is excluded.
-              categories: known.every((x) => selected.has(x) || taken.includes(x))
-                ? []
-                : [...v.categories, ...taken],
-            },
-          }
-        : {
-            key: `cat:${value}`,
-            label,
-            remove: { categories: v.categories.filter((x) => !values.includes(x)) },
-          },
-    );
+    for (const x of values) pending.delete(x);
+    chips.push({
+      key: `cat:${value}`,
+      label,
+      remove: { categories: v.categories.filter((x) => !values.includes(x)) },
+    });
   };
   const addGroup = (g: CategoryGroup) => {
     const { value } = g.facet;
     const full = labelOf([...facets.categories, ...facets.siteCategories], value);
-    // When excluding, a site category with no lots of its own isn't among the known ones and
-    // can't be excluded, so it mustn't stop its fully excluded subcategories sharing one chip.
-    const values = groupFacets(g)
-      .map((f) => f.value)
-      .filter((x) => !excluding || known.includes(x));
+    const values = groupFacets(g).map((f) => f.value);
     if (!g.subs.length || values.every((x) => pending.has(x))) {
-      if (values.length && values.every((x) => pending.has(x))) {
-        categoryChip(value, full, values);
-      }
+      if (pending.has(value)) categoryChip(value, full, values);
       return;
     }
     if (pending.has(value)) categoryChip(value, `${full} (other)`, [value]);
@@ -151,6 +123,21 @@ export function Refinements() {
   const view = storedView.value;
   const result = gridView.value;
   const chips = chipsFor(view, pickupName.value);
+  const isCategory = (c: Chip) => c.key.startsWith('cat:');
+  const catChips = chips.filter(isCategory);
+  const otherChips = chips.filter((c) => !isCategory(c));
+  const chipButton = (c: Chip) => (
+    <button
+      type="button"
+      key={c.key}
+      class="chip"
+      title={`Remove filter: ${c.label}`}
+      onClick={() => setView(c.remove)}
+    >
+      <span>{c.label}</span>
+      <Icon name="close" size={14} />
+    </button>
+  );
   const types = view.types.length ? [] : sidebarFacets.value.types.slice(0, MAX_TYPE_PILLS);
   const showTypes = result.rows.length > 0 && types.length > 1;
   const showMenus = hasFilterMenus();
@@ -171,20 +158,15 @@ export function Refinements() {
           .
         </p>
       )}
+      {catChips.length > 0 && (
+        // Hiding categories can select dozens, so they share one row that scrolls sideways.
+        <div class="chips chips-scroll" aria-label="Category filters">
+          {catChips.map(chipButton)}
+        </div>
+      )}
       {chips.length > 0 && (
         <div class="chips" aria-label="Active filters">
-          {chips.map((c) => (
-            <button
-              type="button"
-              key={c.key}
-              class="chip"
-              title={`Remove filter: ${c.label}`}
-              onClick={() => setView(c.remove)}
-            >
-              <span>{c.label}</span>
-              <Icon name="close" size={14} />
-            </button>
-          ))}
+          {otherChips.map(chipButton)}
           {chips.length > 1 && (
             <button
               type="button"
