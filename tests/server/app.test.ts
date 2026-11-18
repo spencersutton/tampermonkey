@@ -1,114 +1,17 @@
-// The front server's HTTP side (src/server/app.ts): guards, its own endpoints,
-// the /backend proxy (fed real captured site replies), forwarding to the Python
-// server, and static files.
+// The server's HTTP side (src/server/app.ts): guards, logins, the /backend
+// proxy (fed real captured site replies) and what it keeps from them, and
+// static files. The rest of the API is in api.test.ts.
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 
-import { createApp, type Backend } from '../../src/server/app';
-import { SiteSession } from '../../src/server/session';
-import { Store } from '../../src/server/store';
-import { FakeSite, jwt } from './fake-site';
+import { jwt } from './fake-site';
+import { fixture, setup, staticRoot } from './harness';
 
-interface Captured {
-  request: { path: string };
-  status: number;
-  contentType: string;
-  body: unknown;
-}
-const fixture = (name: string): Captured =>
-  JSON.parse(readFileSync(new URL(`../fixtures/site/${name}`, import.meta.url), 'utf8'));
 const LOTS = fixture('lots-newly-listed.json');
 const NOT_FOUND = fixture('lot-detail-not-found.json');
 const ANONYMOUS_ME = fixture('auth-me-anonymous.json');
-
-const root = mkdtempSync(join(tmpdir(), 'tlx-app-'));
-const staticDir = join(root, 'static');
-mkdirSync(join(staticDir, 'assets'), { recursive: true });
-writeFileSync(join(staticDir, 'index.html'), '<!doctype html><title>TL Catalog</title>');
-writeFileSync(join(staticDir, 'tags.html'), '<!doctype html><title>Tags</title>');
-writeFileSync(
-  join(staticDir, 'assets', 'app-1234.js'),
-  `console.log(${JSON.stringify('x'.repeat(5000))});`,
-);
-writeFileSync(join(root, 'secret.txt'), 'not for the web');
-afterAll(() => rmSync(root, { recursive: true }));
-
-interface SiteCall {
-  method: string;
-  path: string;
-  headers: Headers;
-  body: string;
-}
-
-async function setup(
-  options: { password?: string; loggedIn?: boolean; site?: (call: SiteCall) => Response } = {},
-) {
-  const store = new Store(':memory:');
-  const fake = new FakeSite();
-  const siteCalls: SiteCall[] = [];
-  const backendCalls: { method: string; path: string; headers: Headers; body: string }[] = [];
-  const siteFetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = new URL(String(input));
-    if (!url.pathname.startsWith('/backend/')) {
-      return fake.fetch(input, init);
-    }
-    const call = {
-      method: init?.method ?? 'GET',
-      path: url.pathname + url.search,
-      headers: new Headers(init?.headers),
-      body: init?.body ? new TextDecoder().decode(init.body as ArrayBuffer) : '',
-    };
-    siteCalls.push(call);
-    if (options.site) {
-      return options.site(call);
-    }
-    const captured = call.path === LOTS.request.path ? LOTS : NOT_FOUND;
-    return new Response(JSON.stringify(captured.body), {
-      status: captured.status,
-      headers: { 'Content-Type': captured.contentType },
-    });
-  }) as typeof fetch;
-  if (options.loggedIn) {
-    await new SiteSession(store, fake.fetch).login('user@example.test', 'right');
-  }
-  // As after a restart: the login is in the database, and no refresh has run yet.
-  const session = new SiteSession(store, fake.fetch);
-  const backend: Backend = async (req, path) => {
-    backendCalls.push({
-      method: req.method,
-      path,
-      headers: req.headers,
-      body: ['GET', 'HEAD'].includes(req.method) ? '' : await req.text(),
-    });
-    return Response.json(
-      { from: 'python', path },
-      { status: path.startsWith('/api/missing') ? 404 : 200 },
-    );
-  };
-  const app = createApp({
-    store,
-    session,
-    backend,
-    password: options.password ?? null,
-    staticDir,
-    siteFetch,
-    wrongPasswordDelayMs: 0,
-  });
-  const request = (path: string, init: RequestInit & { host?: string } = {}) => {
-    const headers = new Headers(init.headers);
-    headers.set('Host', init.host ?? '127.0.0.1:8765');
-    return app.request(`http://${init.host ?? '127.0.0.1:8765'}${path}`, { ...init, headers });
-  };
-  const post = (path: string, body?: unknown, headers: Record<string, string> = {}) =>
-    request(path, {
-      method: 'POST',
-      headers: { 'X-TLX-Client': '1', 'Content-Type': 'application/json', ...headers },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-  return { store, fake, session, siteCalls, backendCalls, request, post };
-}
+const DETAIL = fixture('lot-detail-with-brand-model.json');
+afterAll(() => rmSync(staticRoot, { recursive: true }));
 
 describe('guards', () => {
   test('without a password only local Host names are served, plus --allow-host', async () => {
@@ -166,8 +69,8 @@ describe('guards', () => {
 });
 
 describe('site login', () => {
-  test('logging in reports the site status and asks the Python server for a pull', async () => {
-    const { post, backendCalls } = await setup();
+  test('logging in reports the site status and asks for a pull', async () => {
+    const { post, pulls } = await setup();
     const res = await post('/api/site-login', { email: ' user@example.test ', password: 'right' });
     expect(await res.json()).toEqual({
       error: null,
@@ -175,16 +78,15 @@ describe('site login', () => {
       app: { locked: false, password: false },
       site: { loggedIn: true, email: 'user@example.test', name: 'Test User' },
     });
-    expect(backendCalls.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /api/pull']);
-    expect(backendCalls[0]?.headers.get('X-TLX-Client')).toBe('1');
+    expect(pulls).toEqual(['started']);
   });
 
   test('a failed login is reported and asks for nothing', async () => {
-    const { post, backendCalls } = await setup();
+    const { post, pulls } = await setup();
     const body = await (await post('/api/site-login', { email: 'a', password: 'wrong' })).json();
     expect(body.error).toBe('Wrong email or password.');
     expect(body.site.loggedIn).toBe(false);
-    expect(backendCalls).toEqual([]);
+    expect(pulls).toEqual([]);
   });
 
   test('logging out', async () => {
@@ -267,17 +169,45 @@ describe('/backend proxy', () => {
     expect(await res.json()).toEqual(ANONYMOUS_ME.body);
   });
 
-  test('lot details and won/lost pages go through the Python server, which keeps their data', async () => {
-    const { request, siteCalls, backendCalls } = await setup();
-    for (const path of [
-      '/backend/v1/auctions/lots/2026-11-01/207621/',
-      '/backend/v1/auctions/control-panel/closed/won/?page=1&per_page=100',
-      '/backend/v1/auctions/control-panel/closed/lost/',
-    ]) {
-      expect(await (await request(path)).json()).toEqual({ from: 'python', path });
-    }
-    expect(siteCalls).toEqual([]);
-    expect(backendCalls.length).toBe(3);
+  test('lot details are kept, and the history woken to use them', async () => {
+    const { request, store } = await setup();
+    const raw = DETAIL.body as {
+      id: number;
+      auction_period: string;
+      brand: string;
+      description: string;
+    };
+    const res = await request(DETAIL.request.path);
+    expect(await res.json()).toEqual(raw);
+    expect(store.lotMetadata(raw.id, raw.auction_period)).toMatchObject({
+      brand: raw.brand,
+      description: raw.description,
+    });
+  });
+
+  test('Won/Lost pages get saved identities and the open lots relisting each item', async () => {
+    const closedPage = (results: unknown[]) => Response.json({ count: results.length, results });
+    const { request, store } = await setup({
+      site: (call) =>
+        call.path.startsWith('/backend/v1/auctions/control-panel/closed/won/')
+          ? closedPage([
+              { lot_id: 90, title: 'Something else' },
+              { lot_id: 91, title: 'Cordless Drill' },
+            ])
+          : Response.json({}, { status: 404 }),
+    });
+    store.replaceAll([
+      { id: 1, title: 'Cordless drill', endsAt: Date.now() + 60_000 },
+      { id: 2, title: 'Saw', endsAt: Date.now() + 60_000 },
+    ]);
+    store.saveLotDetail({ id: 90, brand: 'Acme', model: 'D-1' });
+    const body = await (
+      await request('/backend/v1/auctions/control-panel/closed/won/?page=1')
+    ).json();
+    expect(body.results).toEqual([
+      { lot_id: 90, title: 'Something else', brand: 'Acme', model: 'D-1', relisted: [] },
+      { lot_id: 91, title: 'Cordless Drill', relisted: [1] },
+    ]);
   });
 
   test('an unreachable site is a 502', async () => {
@@ -292,33 +222,29 @@ describe('/backend proxy', () => {
   });
 });
 
-describe('forwarding to the Python server', () => {
-  test('other /api requests keep their method, path, query, body and app headers', async () => {
-    const { request, backendCalls } = await setup();
-    const res = await request('/api/settings/tlxSyncMinutes?x=1', {
-      method: 'PUT',
-      headers: {
-        'X-TLX-Client': '1',
-        'Content-Type': 'application/json',
-        Cookie: 'tlx_session=secret',
-      },
-      body: '{"value":5}',
-    });
-    expect(await res.json()).toEqual({ from: 'python', path: '/api/settings/tlxSyncMinutes?x=1' });
-    expect(backendCalls[0]).toMatchObject({ method: 'PUT', body: '{"value":5}' });
-    expect((await request('/api/missing')).status).toBe(404);
-  });
-
+describe('requests', () => {
   test('oversized bodies are refused', async () => {
-    const { request, backendCalls } = await setup();
-    const res = await request('/api/tag-rules', {
-      method: 'POST',
+    const { request, store } = await setup();
+    const res = await request('/api/settings/x', {
+      method: 'PUT',
       headers: { 'X-TLX-Client': '1' },
-      body: 'x'.repeat(4 * 1024 * 1024 + 1),
+      body: JSON.stringify({ value: 'x'.repeat(4 * 1024 * 1024) }),
     });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'Request body too large' });
-    expect(backendCalls).toEqual([]);
+    expect(store.settings().rev).toBe(0);
+  });
+
+  test('bad JSON is a 400, and unknown API paths a 404', async () => {
+    const { request, send } = await setup();
+    const res = await request('/api/settings/x', {
+      method: 'PUT',
+      headers: { 'X-TLX-Client': '1' },
+      body: '{',
+    });
+    expect(res.status).toBe(400);
+    expect((await send('PUT', '/api/settings/x', [1])).status).toBe(400);
+    expect((await request('/api/nope')).status).toBe(404);
   });
 });
 

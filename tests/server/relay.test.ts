@@ -4,9 +4,11 @@ import { afterAll, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 import { createApp } from '../../src/server/app';
+import { Catalog } from '../../src/server/catalog';
+import { History } from '../../src/server/history';
 import { relayHandler, type RelayData } from '../../src/server/relay';
 import { SiteSession } from '../../src/server/session';
-import { BunWebSocket, SITE } from '../../src/server/site';
+import { BunWebSocket, SITE, SiteApi } from '../../src/server/site';
 import { Store } from '../../src/server/store';
 
 interface Frame {
@@ -52,14 +54,7 @@ const upstream = Bun.serve({
   },
 });
 
-const app = createApp({
-  store: new Store(':memory:'),
-  session: new SiteSession(new Store(':memory:')),
-  backend: () => Promise.resolve(new Response()),
-  password: null,
-  staticDir: '/nonexistent',
-  wsUrl: `ws://127.0.0.1:${upstream.port}`,
-});
+const app = createApp(deps(`ws://127.0.0.1:${upstream.port}`));
 const front = Bun.serve<RelayData>({
   port: 0,
   fetch: (req, srv) => app.fetch(req, srv),
@@ -69,6 +64,22 @@ afterAll(() => {
   void front.stop(true);
   void upstream.stop(true);
 });
+
+function deps(wsUrl: string) {
+  const store = new Store(':memory:');
+  const site = new SiteApi();
+  const session = new SiteSession(store);
+  const history = new History(store, site);
+  return {
+    store,
+    session,
+    history,
+    catalog: new Catalog(store, session, history, site),
+    password: null,
+    staticDir: '/nonexistent',
+    wsUrl,
+  };
+}
 
 function open(headers: Record<string, string> = {}) {
   const ws = new BunWebSocket(`ws://127.0.0.1:${front.port}/ws`, { headers });
@@ -123,14 +134,7 @@ test('cross-origin upgrades are refused before connecting upstream', async () =>
 });
 
 test('an unreachable upstream is a 502', async () => {
-  const dead = createApp({
-    store: new Store(':memory:'),
-    session: new SiteSession(new Store(':memory:')),
-    backend: () => Promise.resolve(new Response()),
-    password: null,
-    staticDir: '/nonexistent',
-    wsUrl: 'ws://127.0.0.1:1',
-  });
+  const dead = createApp(deps('ws://127.0.0.1:1'));
   const server = Bun.serve<RelayData>({
     port: 0,
     fetch: (req, srv) => dead.fetch(req, srv),

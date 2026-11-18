@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vite';
 
-// The web app that the tlx server (server/) serves; the server pulls the
+// The web app that the tlx server (src/server/) serves; the server pulls the
 // catalog, holds the site login, and stands in for the site's API and websocket.
 export default defineConfig({
   root: 'web',
@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: fileURLToPath(new URL('server/tlx_server/static', import.meta.url)),
+    outDir: fileURLToPath(new URL('dist', import.meta.url)),
     emptyOutDir: true,
     target: 'es2023',
     // Two pages: the catalog, and the tag rules editor (/tags).

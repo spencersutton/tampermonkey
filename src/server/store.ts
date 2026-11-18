@@ -291,6 +291,7 @@ export class Store {
   private typeIndexCache: ItemTypeIndex | null = null;
   private tagIndexCache: ItemTypeIndex | null = null;
   private rulesCache: CompiledRule[] | null = null;
+  private lastStamp = 0;
 
   constructor(path: string) {
     const file = path !== ':memory:';
@@ -320,6 +321,15 @@ export class Store {
     if (file) {
       chmodSync(path, 0o600); // holds the site login cookies
     }
+  }
+
+  /**
+   * When a label or tag is saved, in epoch seconds. Strictly increasing, so two corrections in the
+   * same millisecond still rank in the order they were made.
+   */
+  private stamp(): number {
+    this.lastStamp = Math.max(Date.now() / 1000, this.lastStamp + 1e-6);
+    return this.lastStamp;
   }
 
   close(): void {
@@ -964,7 +974,13 @@ export class Store {
         if (!manual && record?.manual) {
           continue;
         }
-        const values = [lot.title, label, lot.category?.value ?? null, now(), manual ? 1 : 0];
+        const values = [
+          lot.title,
+          label,
+          lot.category?.value ?? null,
+          this.stamp(),
+          manual ? 1 : 0,
+        ];
         const identity = brandModelKey(lot);
         if (identity) {
           const [brand, model] = identity.split('\n');
@@ -1029,7 +1045,7 @@ export class Store {
           model,
           lot.title,
           JSON.stringify(cleanTags(tags)),
-          now(),
+          this.stamp(),
           manual ? 1 : 0,
         );
       }
