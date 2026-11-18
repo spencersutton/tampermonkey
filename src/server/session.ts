@@ -1,13 +1,12 @@
-// The server's own login to triangleliquidators.com (a port of
-// server/tlx_server/session.py).
+// The server's own login to triangleliquidators.com.
 //
 // The site uses next-auth: signing in with email and password sets an HttpOnly
 // session cookie, and every call to /api/auth/session re-issues a readable
 // `token` cookie, the bearer token its JSON API takes. The server signs in
 // itself (the password is used once and never stored), keeps the cookies in
-// SQLite in the format the Python server uses, and refreshes the token shortly
-// before it expires or after the API rejects it. The Python server, run with
-// --shared-login, reads the token from there instead of keeping its own.
+// SQLite (in the format the earlier Python server used, so its login carries
+// over), and refreshes the token shortly before it expires or after the API
+// rejects it.
 import { field, isRecord, prop } from './json';
 import { SITE, USER_AGENT } from './site';
 import type { Store } from './store';

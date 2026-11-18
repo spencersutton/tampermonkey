@@ -2,9 +2,8 @@
 // tlx server work with. Times are epoch milliseconds, as the server sends them;
 // the app turns them into Temporal.Instants (see app/api.ts).
 //
-// The server's copy is normalize_lot in server/tlx_server/site.py until the
-// TypeScript server replaces it; keep them in step. The API isn't ours, so
-// every field is treated as possibly missing or malformed.
+// The API isn't ours, so every field is treated as possibly missing or
+// malformed.
 
 export interface LotImage {
   thumb: string;

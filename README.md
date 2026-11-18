@@ -11,7 +11,7 @@ A separate, faster catalog for [triangleliquidators.com](https://triangleliquida
   Click the hide icon beside the category name to uncheck that category in the sidebar without changing other filters or individually hiding lots. This affects the displayed category only, not its subcategories. With no category filter, it selects all other categories; hiding the last selected category shows no results. Check a category, choose “Show all categories”, or Clear to resume browsing. The selection is retained on reload, in shared URLs, and in saved searches and defaults.
 - **Sort** by best match (the default: search relevance, then ending soonest; with no search it is ending soonest), ending time, newly listed, title (A–Z / Z–A, grouped by item type, leading specs moved to the end), brand + model (A–Z, natural model-number order, falling back to title when either field is missing), estimated total cost, % of retail, retail price, or random (a fresh shuffle each page load that holds still as lots update).
 - **Item types:** the server names what each lot is (“pressure washer”, “area rug”) with an LLM, shown as a chip on each card. Click the chip to show only lots of that type; click the **+** beside it to create a category of that type, with a suggested name and similar types to include. “New category” is always the default. If the lot already belongs to a custom category, the suggested full name creates a child under it (for example, “Tools - Drills - Cordless Drills”); otherwise the name defaults to the lot's site category and pluralized item type. Edit the full name to change where it nests. The parent is retained even if its last item type moves to the child. “Add to existing” defaults to the last category used or created in this browser, with nearby categories listed first; search by name to filter the list. See _Item types_ under the server below for setup.
-  Use the pencil beside the item type on a card or in its details to correct it, or “Set item type” if none is assigned. Pick an existing type from the suggestions or enter a short singular name. It saves in lowercase, updates sorting and category matching immediately, and applies to listings with the same brand and model, including future relistings. If either listing lacks brand or model, it falls back to the exact title. Corrections live on the server and automatic labelling cannot replace them; the explicit `itemtypes reset` command still clears all types, including corrections. Existing title-only labels remain usable.
+  Use the pencil beside the item type on a card or in its details to correct it, or “Set item type” if none is assigned. Pick an existing type from the suggestions or enter a short singular name. It saves in lowercase, updates sorting and category matching immediately, and applies to listings with the same brand and model, including future relistings. If either listing lacks brand or model, it falls back to the exact title. Corrections live on the server and automatic labelling cannot replace them; the explicit `npm run itemtypes -- reset` command still clears all types, including corrections. Existing title-only labels remain usable.
 - **Search like a shop:** as you type, a dropdown suggests matching item types, brands and categories (with lot counts), plus the best-matching lots with thumbnail and price. Picking an item type, brand or category filters by it and clears the text; picking a lot opens it; Enter searches right away. With the box empty, it lists your recent searches (kept in this browser). Use ↑/↓ to move, Enter to pick, Esc to close, and press **/** anywhere outside a text field to jump to the search box.
   Results are ranked by relevance under _Best match_: a word matching the item type or brand counts more than one in the title, a whole word more than part of one, and the words together as a phrase more still. Plurals and singulars match each other (“drills” finds “drill”, “battery” finds “batteries”), and common shopper synonyms do too (“fridge” finds “refrigerator”, “weed eater” finds “string trimmer”). One- and two-letter words must start a word. Put `-` before a word to exclude it (`drill -bit`). If a search matches nothing, misspelt words are corrected to the closest words in the catalog and those results are shown, with a note saying so. Matched words are bold in card titles.
   Above the grid, each active filter is a removable chip (with “Clear all”), the item types among the results are listed as one-click refinements, and a _Brand ▾_ dropdown (shown when the results have more than one brand) lists their brands with counts; tick brands to filter, or type in its box to find one.
@@ -45,15 +45,15 @@ A separate, faster catalog for [triangleliquidators.com](https://triangleliquida
 
 ### Running the server
 
-The app is served by a small server you run yourself (`server/`, Python 3.15+; [uv](https://docs.astral.sh/uv/) installs its dependencies). It works in any browser, phones included; "Add to Home Screen" gives it an app icon.
+The app is served by a small server you run yourself (`src/server/`, TypeScript on [Bun](https://bun.sh) with [Hono](https://hono.dev)). It works in any browser, phones included; "Add to Home Screen" gives it an app icon.
 
-Build the web app once first (and again after pulling changes to `src/` or `web/`); it needs Node:
+It needs Node (for npm); `npm install` also installs Bun. Build the web app once first, and again after pulling changes to `src/` or `web/`:
 
 ```bash
 npm install && npm run build
 ```
 
-Run `npm test` for the web app's regression tests.
+Run `npm test` for the regression tests.
 
 ### Client structure
 
@@ -71,32 +71,21 @@ authoritative, and pending item-type corrections survive older in-flight polls.
 ### Starting the server
 
 ```bash
-cd server
-uv run python -m tlx_server                                        # this computer only: http://127.0.0.1:8765
-TLX_PASSWORD='pick-one' uv run python -m tlx_server --host 0.0.0.0 # also your phone: http://<computer's address>:8765
-uv run python -m tlx_server --help                                 # --port, --db, --background-minutes, --llm-key, --tls-cert/--tls-key, ...
+npm run server                                            # this computer only: http://127.0.0.1:8765
+TLX_PASSWORD='pick-one' npm run server -- --host 0.0.0.0  # also your phone: http://<computer's address>:8765
+npm run server -- --help                                  # --port, --db, --background-minutes, --llm-key, --tls-cert/--tls-key, ...
 ```
 
-#### TypeScript front server (in progress)
-
-The server is moving to TypeScript ([Bun](https://bun.sh) and [Hono](https://hono.dev), in `src/server/`). For now the TypeScript server is the front door: it serves the app, relays the websocket, proxies `/backend`, and keeps both logins (the app password and the site login). It starts the Python server on a loopback port for everything else (the catalog, settings, history, item types and tags), sharing the same database. Bun comes with `npm install`; the Python side still needs uv.
-
-```bash
-npm run server                                                 # this computer only: http://127.0.0.1:8765
-TLX_PASSWORD='pick-one' npm run server -- --host 0.0.0.0       # also your phone
-npm run server -- --help                                       # the same options, plus --backend URL / --backend-port
-```
-
-The Python server it starts runs with `--shared-login` (it reads the site token the front server keeps fresh in the database, and never signs in or refreshes itself) and accepts only requests carrying a random `X-TLX-Backend-Key` the front server gives it at startup, so other programs on the computer can't use it directly. Both servers use the same database, so switching between `npm run server` and running the Python server directly keeps your logins, sessions and data.
+The server used to be written in Python (`server/`); this one uses the same database file and formats, so an existing database, with your logins, sessions, settings, item types, tags and closed lots, carries straight over. Rules saved with Python's `(?P<name>…)` groups keep working.
 
 The app can't call the site directly, because the site's API doesn't allow other origins and its websocket only accepts its own pages. So the server stands in for the site:
 
 - **Your login.** Use _Log in_ (in the banner, the lot popup, or _Settings_) to have the server sign in to Triangle Liquidators. Your password is sent to the site once and isn't stored. The server keeps the site's session cookies, so you stay logged in, and refreshes the API token as needed. _Log out_ signs the server out.
 - **The site's API.** Lot details, bids and the watchlist go through the server at `/backend/...`, with your token added. A rejected token is refreshed and the request retried once, as the site's own client does.
-- **Live prices.** The server relays the site's websocket byte for byte, presenting itself with the site's Origin.
+- **Live prices.** The server relays the site's websocket message for message, presenting itself with the site's Origin.
 - **The catalog.** The server pulls the catalog and stores it in SQLite, with the load rules above: at most once per interval, measured from the start of the last pull, pages fetched one at a time, and only while some open app tab is visible and in use. Each tab fetches only what changed since its last check, about every 15 seconds. With `--background-minutes N` it also pulls every N minutes when no one has the app open, so saved searches keep counting new lots.
-- **Item types.** With an API key for an OpenAI-compatible LLM (`--llm-key` or `TLX_LLM_KEY`), the server names each new item's type after every pull, in batches of 40 titles from one site category with the types that category already uses, so the same kind of item gets the same name. Types are reused by brand/model with exact-title fallback when either side lacks a complete identity; each known identity needs only one label request. The default is Ministral 3 14B on [nano-gpt.com](https://nano-gpt.com) (`--llm-url`, `--llm-model` or `TLX_LLM_URL`, `TLX_LLM_MODEL` to change it); labelling the whole catalog once costs a few cents. Without a key lots have no automatic item type, and everything else works as before.
-- **Tags.** Stored in `item_tags` the same way as item types: by brand/model when both are known, else by exact title, so relistings keep them. They are tidied on save (single spaces, `name: value` for attributes) but keep their case: “Finish: Satin Nickel” shows as written, while every comparison (filters, counts, repeats, the URL) ignores case, so “finish: satin nickel” is the same tag and the dropdowns show each tag in its most common spelling. Set them by hand with `uv run python -m tlx_server.tags set <lot id> "cabinet knob" "finish: satin nickel"` (also `show`, `clear`, `reset`; `--db` for another database). Tags set this way are marked manual, so a future automatic tagger won't replace them. **Tag rules** (`tag_rules`) give tags to every lot whose title matches a regular expression (case-insensitive, anywhere in the title), including lots in future pulls. A rule's tag can use what the pattern captured: `$1`, `$2`… for numbered groups, `${name}` for `(?P<name>…)`, `$0` for the whole match and `$$` for a dollar sign, so pattern `(satin nickel|brass|chrome)` with tag `finish: $1` gives each lot the finish its title names, spelled as in the title; a tag whose group captured nothing is skipped, and a reference to a group the pattern lacks is refused. Manage them on the server's **/tags** page (also linked at the bottom of the catalog's sidebar; `/tags.html` under `npm run dev`): a full-screen editor with the rules on one side and, on the other, the rule being written with a live preview of the current lots it matches, the matched text marked and the tags it would add (groups filled in) shown. From a terminal: `tags rule preview "satin nickel"` lists the titles a pattern matches, `tags rule add "satin nickel" "finish: satin nickel"` saves a rule, and `rule list` / `rule remove <id>` manage them. A lot's tags are its own plus those of every matching rule, without repeats; `reset` keeps the rules. Open app tabs pick changes up on their next check.
+- **Item types.** With an API key for an OpenAI-compatible LLM (`--llm-key` or `TLX_LLM_KEY`), the server names each new item's type after every pull, in batches of 40 titles from one site category with the types that category already uses, so the same kind of item gets the same name. Types are reused by brand/model with exact-title fallback when either side lacks a complete identity; each known identity needs only one label request. The default is Ministral 3 14B on [nano-gpt.com](https://nano-gpt.com) (`--llm-url`, `--llm-model` or `TLX_LLM_URL`, `TLX_LLM_MODEL` to change it); labelling the whole catalog once costs a few cents. Without a key lots have no automatic item type, and everything else works as before. To try the prompt on a sample of stored titles without saving anything, run `TLX_LLM_KEY=... npm run itemtypes -- try` (`-n` for the sample size, `-c` for one site category).
+- **Tags.** Stored in `item_tags` the same way as item types: by brand/model when both are known, else by exact title, so relistings keep them. They are tidied on save (single spaces, `name: value` for attributes) but keep their case: “Finish: Satin Nickel” shows as written, while every comparison (filters, counts, repeats, the URL) ignores case, so “finish: satin nickel” is the same tag and the dropdowns show each tag in its most common spelling. Set them by hand with `npm run tags -- set <lot id> "cabinet knob" "finish: satin nickel"` (also `show`, `clear`, `reset`; `--db` for another database). Tags set this way are marked manual, so a future automatic tagger won't replace them. **Tag rules** (`tag_rules`) give tags to every lot whose title matches a regular expression (JavaScript syntax, case-insensitive, anywhere in the title), including lots in future pulls. A rule's tag can use what the pattern captured: `$1`, `$2`… for numbered groups, `${name}` for `(?<name>…)`, `$0` for the whole match and `$$` for a dollar sign, so pattern `(satin nickel|brass|chrome)` with tag `finish: $1` gives each lot the finish its title names, spelled as in the title; a tag whose group captured nothing is skipped, and a reference to a group the pattern lacks is refused. Manage them on the server's **/tags** page (also linked at the bottom of the catalog's sidebar; `/tags.html` under `npm run dev`): a full-screen editor with the rules on one side and, on the other, the rule being written with a live preview of the current lots it matches, the matched text marked and the tags it would add (groups filled in) shown. From a terminal: `npm run tags -- rule preview "satin nickel"` lists the titles a pattern matches, `tags rule add "satin nickel" "finish: satin nickel"` saves a rule, and `rule list` / `rule remove <id>` manage them. A lot's tags are its own plus those of every matching rule, without repeats; `reset` keeps the rules. Open app tabs pick changes up on their next check.
 - **Closed lots.** When a lot leaves the catalog, the server keeps a small row of it (title, price, bids, condition, location; about 200 bytes, so well under 100 MB a year) and, after the pull, asks the site once for its final price and whether it sold, one lot at a time with a short pause between. Lots get most of their bids in the last minutes, so the last price a pull saw is often low; a popup marks with * any price the site couldn't confirm. Closed lots are kept for good.
 - **Server-only settings.** Hidden lots, regex filters, custom categories, default category and condition filters, saved searches, your pickup location and the refresh interval are stored only on the server. Each page load reads them from the server, and edits are saved directly through the API; failed saves show an error. Old browser copies are ignored and never uploaded. A missing server setting uses its default. Reload the browser page to see edits from another device or direct database changes; the catalog's Refresh button only refreshes lots.
   The current view, collapsed panels and other browser-only UI preferences remain in localStorage. Shared settings are held only in memory while the page is open.
@@ -110,8 +99,9 @@ The app can't call the site directly, because the site's API doesn't allow other
 
 ### Development
 
-Source is in `src/` (TypeScript + Preact, bundled with Vite). The build goes to
-`server/tlx_server/static/`, which git ignores.
+Source is in `src/`: the web app (TypeScript + Preact, bundled with Vite) and
+the server (TypeScript on Bun). The web app builds to `dist/`, which git ignores
+and the server serves.
 
 ```bash
 npm install
@@ -119,7 +109,8 @@ npm run build     # lint, typecheck, then build the web app
 npm run typecheck # check TypeScript and included JavaScript with strict compiler options
 npm run lint      # Oxlint with type-aware checks for unnecessary conditions and optional chaining
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
-npm test          # web tests (node --test) and TypeScript server tests (bun test)
+npm test          # web tests (node --test) and server tests (bun test)
+npm run server    # the server (see above)
 npm run capture-fixtures  # refresh the real site replies in tests/fixtures/site/
 ```
 
@@ -130,17 +121,8 @@ optional properties, indexed access, unused code, and control flow.
 
 Oxlint excludes files under `tests/`.
 
-Python is formatted with [ruff](https://docs.astral.sh/ruff/) (`pipx install ruff`). A
-pre-commit hook in `githooks/` runs `ruff format` on the Python files being committed and
-re-stages them; enable it once per clone:
-
-```bash
-git config core.hooksPath githooks
-```
-
 - `src/web.tsx` and `web/`: the web app entry, page and icons.
 - `src/app/`: the catalog view. `catalog.ts` holds the in-memory catalog, `source.ts` fetches it and shared settings from the server, `auth.tsx` handles the server's login and the app password, and `settings.ts` provides reactive settings with localStorage only for browser-specific UI state.
-- `server/tlx_server/`: the Python server: `site.py` API client, `session.py` site login, `catalog.py` pulls, `itemtypes.py` item types, `history.py` closed lots and past prices, `store.py` SQLite, `tags.py` the tags command, `server.py` HTTP (app, proxy, websocket relay).
 - `src/tags/` and `web/tags.html`: the tag rules page (`/tags`).
-- `src/shared/`: filters, the search engine (`search.ts`: query parsing, ranking, stemming, synonyms, spelling correction), cost formula, title sort key, item identity and settings keys, the site's raw lot normalizer (`lot.ts`), and item matching (`identity.ts`: duplicate listings, relisted items, past prices; ported from the Python server, which still runs it).
-- `src/server/`: the TypeScript front server: `main.ts` command line and the Python server it starts, `app.ts` HTTP (guards, `/backend` proxy, forwarding, static files), `session.ts` site login, `relay.ts` websocket relay, `store.ts` the shared tables. Type-checked with `tsconfig.server.json`; tests in `tests/server/`.
+- `src/shared/`: filters, the search engine (`search.ts`: query parsing, ranking, stemming, synonyms, spelling correction), cost formula, title sort key, item identity and settings keys, the site's raw lot normalizer (`lot.ts`), and item matching (`identity.ts`: duplicate listings, relisted items, past prices, run by the server).
+- `src/server/`: the server: `main.ts` command line, `app.ts` HTTP (guards, the API, the `/backend` proxy, static files), `site.ts` the site's API client, `session.ts` site login, `relay.ts` websocket relay, `catalog.ts` pulls, `history.ts` closed lots and past prices, `itemtypes.ts` item types, `store.ts` SQLite, `tags.ts` tag rules, `tags-cli.ts` and `itemtypes-cli.ts` the commands. Type-checked with its own `tsconfig.json` (Bun, no DOM); tests in `tests/server/`.

@@ -1,4 +1,4 @@
-// The tlx server's tag rule endpoints (see server/tlx_server/server.py).
+// The tlx server's tag rule endpoints (see src/server/app.ts).
 import { authedFetch } from '../app/auth';
 
 export interface TagRule {

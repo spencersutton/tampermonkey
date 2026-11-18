@@ -1,11 +1,11 @@
 // Item identity and matching: which listings are the same item. Used for
 // duplicate listings (`groupId`), relisted items and past closing prices.
 //
-// A TypeScript port of server/tlx_server/identity.py and the matching half of
-// server/tlx_server/history.py, for the TypeScript server that will replace
-// them. Until then both run; keep them in step. Iteration orders mirror the
-// Python on purpose: grouping never joins two different known identities, so
-// which joins happen first can change the result.
+// Ported from the earlier Python server, whose results (identity keys, item
+// types and tags saved by brand/model) are in existing databases, so its rules
+// are kept exactly: Python's whitespace and word-boundary rules, and its
+// iteration order (grouping never joins two different known identities, so
+// which joins happen first can change the result).
 //
 // Brand and model match exactly, ignoring case and whitespace, when both items
 // have both fields. Otherwise titles match fuzzily (`namesMatch`): 90% of words
@@ -26,7 +26,7 @@ export interface Listing extends Item {
   groupId?: number | undefined;
 }
 
-// Python's str.split()/strip() whitespace, so keys match those the Python server computes.
+// Python's str.split()/strip() whitespace, so keys match those saved by the earlier Python server.
 const SPACE =
   '\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';
 const SPACES = new RegExp(`[${SPACE}]+`, 'g');

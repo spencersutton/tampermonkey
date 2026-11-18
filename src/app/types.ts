@@ -31,7 +31,7 @@ export interface Lot {
   groupId?: number | undefined; // set by the server on lots that list the same item as another open lot (any condition when brand and model match, else the same one): the smallest id among them
 }
 
-/** An earlier lot that closed, as the server records them (server/tlx_server/history.py). */
+/** An earlier lot that closed, as the server records them (src/server/history.ts). */
 export interface PastClose {
   id: number;
   price: number;

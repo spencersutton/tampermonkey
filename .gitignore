@@ -1,7 +1,6 @@
 node_modules/
 dist/
-__pycache__/
-.venv/
 .env
 .vscode/
-server/tlx_server/static/
+# Left in older clones by the Python server this replaced (virtualenv, built app).
+server/

@@ -1,4 +1,4 @@
-// Entry point of the web app (the tlx server serves it; see server/): the
+// Entry point of the web app (the tlx server serves it; see src/server/): the
 // catalog UI behind the server's password prompt, with the site login form
 // available from anywhere.
 import 'temporal-polyfill/global';

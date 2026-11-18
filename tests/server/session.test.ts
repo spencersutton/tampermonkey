@@ -1,5 +1,4 @@
-// The site login (src/server/session.ts), against a fake next-auth like the one
-// in server/tests/test_session.py.
+// The site login (src/server/session.ts), against a fake next-auth.
 import { describe, expect, test } from 'bun:test';
 
 import { SiteSession, tokenExpiry } from '../../src/server/session';

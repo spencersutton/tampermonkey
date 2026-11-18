@@ -73,7 +73,9 @@ const LOT = {
   your_standing: STANDING,
   is_watchlisted: 'boolean',
   has_bid: 'boolean',
-  images: [{ position: 'number', image_thumb: 'string', image_card: 'string', image_large: 'string' }],
+  images: [
+    { position: 'number', image_thumb: 'string', image_card: 'string', image_large: 'string' },
+  ],
 };
 const DETAIL = {
   ...LOT,
@@ -156,10 +158,18 @@ test('websocket frames: connect and subscribe replies, pings, and lot publicatio
   for (const d of subscribed) {
     check(d, {
       id: 'number',
-      subscribe: { recoverable: 'boolean', epoch: 'string', offset: 'number', positioned: 'boolean' },
+      subscribe: {
+        recoverable: 'boolean',
+        epoch: 'string',
+        offset: 'number',
+        positioned: 'boolean',
+      },
     });
   }
-  assert.ok(received.some((d) => Object.keys(d).length === 0), 'the server pings with {}');
+  assert.ok(
+    received.some((d) => Object.keys(d).length === 0),
+    'the server pings with {}',
+  );
   const pushes = received.filter((d) => d.push);
   assert.ok(pushes.length > 0, 'recapture near closing time if no lot got a bid');
   for (const { push } of pushes) {

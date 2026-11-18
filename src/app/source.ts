@@ -1,8 +1,7 @@
 import { batch, signal } from '@preact/signals';
 
 import { DEFAULTS, KEYS, SERVER_KEYS } from '../shared/keys';
-// Catalog source for the web app, which the tlx server (server/, Python)
-// serves: the server pulls the full catalog, stores it, and records when each
+// Catalog source for the web app, which the tlx server (src/server/) serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
 // keeps the SERVER_KEYS settings, so every device using it shares filters,
 // hidden lots, custom categories and saved searches.

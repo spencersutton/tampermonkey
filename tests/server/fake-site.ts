@@ -1,5 +1,5 @@
 // A fake of the site's next-auth endpoints, as far as SiteSession uses them
-// (like FakeSite in server/tests/test_session.py).
+// (ported from the earlier Python server's tests).
 
 export const jwt = (exp: number) =>
   `header.${Buffer.from(JSON.stringify({ exp })).toString('base64url')}.signature`;

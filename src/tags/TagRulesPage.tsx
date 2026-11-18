@@ -273,7 +273,7 @@ function Editor() {
           />
           <small id="tr-pattern-help" class={patternError ? 'error' : 'muted'}>
             {patternError ??
-              'A regular expression (Python syntax), matched anywhere in the title, ignoring case.'}
+              'A regular expression (JavaScript syntax), matched anywhere in the title, ignoring case.'}
           </small>
         </label>
         <div class="tr-field">
@@ -290,7 +290,7 @@ function Editor() {
           </small>
           <small class="muted">
             Fill in what the pattern captured with <code>$1</code>, <code>$2</code>… or{' '}
-            <code>{'${name}'}</code> for <code>{'(?P<name>…)'}</code>, and <code>$0</code> for the
+            <code>{'${name}'}</code> for <code>{'(?<name>…)'}</code>, and <code>$0</code> for the
             whole match: pattern <code>(satin nickel|brass|chrome)</code> with tag{' '}
             <code>finish: $1</code>. A tag whose group captured nothing is skipped.
           </small>
@@ -439,7 +439,7 @@ function PreviewList({
 }
 
 function MatchRow({ m }: { m: PreviewMatch }) {
-  // The span counts code points, as Python does.
+  // The server counts the span in code points.
   const chars = Array.from(m.title);
   const [start, end] = m.span;
   return (

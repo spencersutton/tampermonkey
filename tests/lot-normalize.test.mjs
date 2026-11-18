@@ -1,5 +1,4 @@
-// src/shared/lot.ts: the one normalizer for the site's raw lots, matching
-// normalize_lot / normalize_detail in server/tlx_server/site.py.
+// src/shared/lot.ts: the one normalizer for the site's raw lots.
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 

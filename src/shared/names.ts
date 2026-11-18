@@ -1,7 +1,7 @@
 // A lot's identity for display, sorting and search. Matching items to each
 // other (duplicate listings, relisted items, past closing prices) happens only
-// on the tlx server (server/tlx_server/history.py, ported to identity.ts); the
-// app reads its results (`groupId`, `relisted`, `pastCloses`).
+// on the tlx server (src/server/history.ts, with identity.ts); the app reads
+// its results (`groupId`, `relisted`, `pastCloses`).
 
 export interface ItemIdentity {
   title: string;

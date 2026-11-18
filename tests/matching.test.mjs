@@ -1,5 +1,5 @@
-// Ported from server/tests/test_matching.py and test_identity.py (the parts that
-// don't need the store): src/shared/identity.ts must match the Python server.
+// Item matching (src/shared/identity.ts), ported from the earlier Python
+// server's tests; it must keep giving the results that server saved.
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 

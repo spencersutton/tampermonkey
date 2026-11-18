@@ -1,5 +1,5 @@
 // The catalog: every live lot, held in memory for the view. The tlx server
-// (server/) pulls and stores it, and the page fetches what changed (see
+// (src/server/) pulls and stores it, and the page fetches what changed (see
 // source.ts). Between pulls prices for lots on screen stay current over the
 // site's websocket (see live.ts), and opening a lot fetches just that lot
 // (cached for DETAIL_TTL).
