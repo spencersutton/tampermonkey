@@ -35,23 +35,51 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
       remove: { categories: [], noCategories: false },
     });
   }
-  // A parent category gets one chip only when it and all its subcategories are selected;
-  // otherwise each selected subcategory gets its own.
-  const pending = new Set(v.categories);
+  // Hiding a category selects all the others, so when most are selected show a chip per
+  // excluded category instead; removing one puts that category back.
+  const selected = new Set(v.categories);
+  const known = facets.categories.map((f) => f.value);
+  const excluding =
+    !v.noCategories &&
+    known.length > 1 &&
+    known.filter((x) => selected.has(x)).length > known.length / 2;
+  // A parent category gets one chip only when it and all its subcategories are in the set;
+  // otherwise each subcategory gets its own.
+  const pending = new Set(excluding ? known.filter((x) => !selected.has(x)) : v.categories);
   const categoryChip = (value: string, label: string, values: string[]) => {
-    for (const x of values) pending.delete(x);
-    chips.push({
-      key: `cat:${value}`,
-      label,
-      remove: { categories: v.categories.filter((x) => !values.includes(x)) },
-    });
+    const taken = values.filter((x) => pending.has(x));
+    for (const x of taken) pending.delete(x);
+    chips.push(
+      excluding
+        ? {
+            key: `notcat:${value}`,
+            label: `Not ${label}`,
+            remove: {
+              // Back to no category filter once nothing is excluded.
+              categories: known.every((x) => selected.has(x) || taken.includes(x))
+                ? []
+                : [...v.categories, ...taken],
+            },
+          }
+        : {
+            key: `cat:${value}`,
+            label,
+            remove: { categories: v.categories.filter((x) => !values.includes(x)) },
+          },
+    );
   };
   const addGroup = (g: CategoryGroup) => {
     const { value } = g.facet;
     const full = labelOf([...facets.categories, ...facets.siteCategories], value);
-    const values = groupFacets(g).map((f) => f.value);
+    // When excluding, a site category with no lots of its own isn't among the known ones and
+    // can't be excluded, so it mustn't stop its fully excluded subcategories sharing one chip.
+    const values = groupFacets(g)
+      .map((f) => f.value)
+      .filter((x) => !excluding || known.includes(x));
     if (!g.subs.length || values.every((x) => pending.has(x))) {
-      if (pending.has(value)) categoryChip(value, full, values);
+      if (values.length && values.every((x) => pending.has(x))) {
+        categoryChip(value, full, values);
+      }
       return;
     }
     if (pending.has(value)) categoryChip(value, `${full} (other)`, [value]);
