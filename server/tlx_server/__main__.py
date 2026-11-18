@@ -65,6 +65,11 @@ def main() -> None:
     p.add_argument("--tls-cert", type=Path, help="serve HTTPS with this certificate (PEM)")
     p.add_argument("--tls-key", type=Path, help="private key for --tls-cert")
     p.add_argument("--allow-host", action="append", default=[], metavar="NAME", help="extra Host name to accept when there's no password")
+    p.add_argument(
+        "--shared-login",
+        action="store_true",
+        help="read the site login another process keeps in --db (the TypeScript front server) instead of keeping one",
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="log every request")
     args = p.parse_args()
 
@@ -74,7 +79,7 @@ def main() -> None:
     if bool(args.tls_cert) != bool(args.tls_key):
         sys.exit("tlx-server: --tls-cert and --tls-key go together.")
     store = Store(args.db)
-    session = SiteSession(store)
+    session = SiteSession(store, shared=args.shared_login)
     history = History(store)
     catalog = Catalog(store, session, history, args.background_minutes)
     threading.Thread(target=catalog.run_forever, name="puller", daemon=True).start()
@@ -84,7 +89,8 @@ def main() -> None:
         labeller = Labeller(store, args.llm_key, args.llm_url, args.llm_model)
         catalog.after_pull = labeller.wake
         threading.Thread(target=labeller.run_forever, name="item-types", daemon=True).start()
-    api = Api(store, catalog, session, args.password, set(args.allow_host), tls=bool(args.tls_cert))
+    backend_key = os.environ.get("TLX_BACKEND_KEY") or None
+    api = Api(store, catalog, session, args.password, set(args.allow_host), tls=bool(args.tls_cert), backend_key=backend_key)
     with contextlib.suppress(KeyboardInterrupt):
         serve(api, args.host, args.port, args.tls_cert, args.tls_key)
 

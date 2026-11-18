@@ -37,6 +37,10 @@ header, which another site can't add without a CORS preflight that's never
 answered; websocket upgrades must come from this server's own Origin.
 Without a password, the Host header must be a local name (stops DNS
 rebinding).
+
+Behind the TypeScript front server (src/server/), this one runs on loopback
+with --shared-login, and every request must carry the X-TLX-Backend-Key it was
+started with (TLX_BACKEND_KEY), so other local programs can't use it directly.
 """
 
 from __future__ import annotations
@@ -93,8 +97,18 @@ WS_HEADERS = ("Sec-WebSocket-Key", "Sec-WebSocket-Version", "Sec-WebSocket-Exten
 class Api:
     """What the handler needs, shared by every request thread."""
 
-    def __init__(self, store: Store, catalog: Catalog, session: SiteSession, password: str | None, hosts: set[str], tls: bool) -> None:
+    def __init__(
+        self,
+        store: Store,
+        catalog: Catalog,
+        session: SiteSession,
+        password: str | None,
+        hosts: set[str],
+        tls: bool,
+        backend_key: str | None = None,
+    ) -> None:
         self.store = store
+        self.backend_key = backend_key
         self.catalog = catalog
         self.session = session
         self.password = password
@@ -199,6 +213,10 @@ def make_handler(api: Api) -> type[BaseHTTPRequestHandler]:
 
         def _guard(self, method: str, path: str) -> bool:
             """Host, CSRF and password checks; sends the error and returns False if one fails."""
+            given = self.headers.get("X-TLX-Backend-Key", "")
+            if api.backend_key and not hmac.compare_digest(given.encode(), api.backend_key.encode()):
+                self._error(HTTPStatus.FORBIDDEN, "Missing or wrong X-TLX-Backend-Key")
+                return False
             if not api.password and self._host() not in api.hosts:
                 self._error(HTTPStatus.FORBIDDEN, f"Host {self._host()!r} not allowed (use --allow-host, or set a password)")
                 return False

@@ -6,6 +6,11 @@ session cookie, and every call to /api/auth/session re-issues a readable
 leaves all that to the site's own page; here the server signs in itself
 (your password is used once and never stored), keeps the cookies in SQLite,
 and refreshes the token shortly before it expires or after the API rejects it.
+
+With `shared=True` (--shared-login) another process keeps the login: the
+TypeScript front server (src/server/session.ts), which saves the cookies in the
+same form. This one then only reads them from the database, never signing in,
+out or refreshing itself.
 """
 
 from __future__ import annotations
@@ -37,18 +42,25 @@ SITE_HOST = urllib.parse.urlsplit(SITE).hostname or ""
 
 
 class SiteSession:
-    def __init__(self, store: Store, transport: httpx.BaseTransport | None = None) -> None:
+    def __init__(self, store: Store, transport: httpx.BaseTransport | None = None, shared: bool = False) -> None:
         self.store = store
+        self.shared = shared
         self._lock = threading.RLock()
         # Its own client, so the session's cookie jar (expiry, deletion, domain and path rules) stays apart
         # from the shared API client. Redirects stay off: next-auth answers with them, and we read the reply.
         self._http = httpx.Client(
             base_url=SITE, headers={"Accept": "application/json", "User-Agent": USER_AGENT}, timeout=TIMEOUT, transport=transport
         )
-        self._load_cookies(store.get_meta(COOKIES_KEY))
-        user = store.get_meta(USER_KEY)
-        self.user: dict[str, Any] | None = user if isinstance(user, dict) else None
+        self.user: dict[str, Any] | None = None
+        self._reload()
         self._last_refresh = 0.0
+
+    def _reload(self) -> None:
+        """Take the cookies and user saved in the database."""
+        self._http.cookies.clear()
+        self._load_cookies(self.store.get_meta(COOKIES_KEY))
+        user = self.store.get_meta(USER_KEY)
+        self.user = user if isinstance(user, dict) else None
 
     # -- cookies --------------------------------------------------------------
     def _load_cookies(self, saved: object) -> None:
@@ -87,8 +99,12 @@ class SiteSession:
     def token(self) -> str | None:
         """The API bearer token, refreshed first if it's about to expire; None when logged out."""
         with self._lock:
+            if self.shared:
+                self._reload()
             if not self.logged_in:
                 return None
+            if self.shared:
+                return self._cookie("token")
             exp = token_expiry(self._cookie("token"))
             if exp is not None and exp - EXPIRY_MARGIN < time.time():
                 self.refresh()
@@ -97,6 +113,9 @@ class SiteSession:
     def refresh(self, force: bool = False) -> bool:
         """Ask next-auth for the session, which re-issues the token cookie. Returns whether we're logged in."""
         with self._lock:
+            if self.shared:
+                self._reload()
+                return self.logged_in
             if not self.user:
                 return False
             if force and time.time() - self._last_refresh < REFRESH_MIN_GAP:
@@ -122,6 +141,10 @@ class SiteSession:
     def rejected(self, token: str) -> str | None:
         """The API rejected `token`: refresh once and return the new token, if any."""
         with self._lock:
+            if self.shared:
+                self._reload()
+                new = self._cookie("token")
+                return new if self.logged_in and new != token else None
             if self._cookie("token") != token:
                 return self._cookie("token") if self.logged_in else None
             self.refresh(force=True)
@@ -132,6 +155,8 @@ class SiteSession:
     def login(self, email: str, password: str) -> str | None:
         """Sign in like the site's login form; returns an error message, or None on success."""
         with self._lock:
+            if self.shared:
+                return "Log in through the front server."
             self._http.cookies.clear()
             self.user = None
             try:
@@ -159,6 +184,8 @@ class SiteSession:
 
     def logout(self) -> None:
         with self._lock:
+            if self.shared:
+                return
             try:
                 _, csrf = self._request("GET", "/api/auth/csrf")
                 if isinstance(csrf, dict) and csrf.get("csrfToken"):

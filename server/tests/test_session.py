@@ -1,13 +1,18 @@
 import base64
 import json
+import threading
 import time
 import unittest
+from http.client import HTTPConnection
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import Mock
 from urllib.parse import parse_qs
 
 import httpx
 
+from tlx_server.server import Api, make_handler
 from tlx_server.session import COOKIES_KEY, USER_KEY, SiteSession
 from tlx_server.store import Store
 
@@ -120,6 +125,53 @@ class SiteSessionTest(unittest.TestCase):
         self.assertFalse(s.refresh())
         self.assertFalse(s.logged_in)
         self.assertEqual(self.store.get_meta(COOKIES_KEY), [])
+
+    def test_a_shared_login_follows_the_database_and_never_contacts_the_site(self) -> None:
+        def refuse(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"a shared login contacted the site: {request.url}")
+
+        follower = SiteSession(self.store, transport=httpx.MockTransport(refuse), shared=True)
+        self.assertIsNone(follower.token())
+        front = self.session()
+        front.login("user@example.test", "right")
+        self.assertEqual(follower.token(), self.site.token, "a login saved after startup is picked up")
+        old = self.site.token
+        self.assertIsNone(follower.rejected(old), "no newer token to retry with")
+        self.site.token = jwt(time.time() + 7200)
+        front.refresh()
+        self.assertEqual(follower.rejected(old), self.site.token)
+        follower._http.cookies.set("token", jwt(time.time() + 10), domain="triangleliquidators.com", path="/")
+        self.assertEqual(follower.token(), self.site.token, "an expiring token is the front server's to refresh")
+        self.assertEqual(follower.login("user@example.test", "right"), "Log in through the front server.")
+        follower.logout()
+        self.assertEqual(follower.token(), self.site.token, "logging out is the front server's too")
+        front.logout()
+        self.assertIsNone(follower.token())
+        self.assertFalse(follower.refresh())
+
+
+class BackendKeyTest(unittest.TestCase):
+    def test_behind_the_front_server_every_request_needs_its_key(self) -> None:
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        store = Store(Path(tmp.name) / "tlx.db")
+        api = Api(store, Mock(), Mock(), None, set(), False, backend_key="secret")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(api))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+
+        def status(headers: dict[str, str]) -> int:
+            conn = HTTPConnection("127.0.0.1", server.server_port, timeout=5)
+            try:
+                conn.request("GET", "/api/health", headers=headers)
+                return conn.getresponse().status
+            finally:
+                conn.close()
+
+        self.assertEqual(status({}), 403)
+        self.assertEqual(status({"X-TLX-Backend-Key": "wrong"}), 403)
+        self.assertEqual(status({"X-TLX-Backend-Key": "secret"}), 200)
 
 
 if __name__ == "__main__":
