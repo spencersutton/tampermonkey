@@ -1,0 +1,186 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/filter-config/"
+  },
+  "status": 200,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:55.540Z",
+  "body": {
+    "categories": [
+      {
+        "value": "Apparel",
+        "label": "Apparel",
+        "short_label": "Apparel",
+        "icon": "fashion"
+      },
+      {
+        "value": "automotive",
+        "label": "Automotive",
+        "short_label": "Automotive",
+        "icon": "automotive"
+      },
+      {
+        "value": "baby-kids",
+        "label": "Baby & Kids",
+        "short_label": "Baby & Kids",
+        "icon": "toys"
+      },
+      {
+        "value": "Building_Hardware",
+        "label": "Building & Hardware",
+        "short_label": "Building & Hardware",
+        "icon": "office"
+      },
+      {
+        "value": "electronics-appliances",
+        "label": "Electronics & Appliances",
+        "short_label": "Electronics & Appliances",
+        "icon": "electronics"
+      },
+      {
+        "value": "General-Merchandise",
+        "label": "General Merchandise",
+        "short_label": "General Merchandise",
+        "icon": "bulk"
+      },
+      {
+        "value": "health-beauty",
+        "label": "Health & Beauty",
+        "short_label": "Health & Beauty",
+        "icon": "beauty"
+      },
+      {
+        "value": "home",
+        "label": "Home",
+        "short_label": "Home",
+        "icon": "home"
+      },
+      {
+        "value": "lighting-electrical",
+        "label": "Lighting & Electrical",
+        "short_label": "Lighting & Electrical",
+        "icon": "lighting"
+      },
+      {
+        "value": "outdoor",
+        "label": "Outdoor",
+        "short_label": "Outdoor",
+        "icon": "garden"
+      },
+      {
+        "value": "Pets",
+        "label": "Pets",
+        "short_label": "Pets",
+        "icon": "pets"
+      },
+      {
+        "value": "plumbing-bath",
+        "label": "Plumbing & Bath",
+        "short_label": "Plumbing & Bath",
+        "icon": "bath"
+      },
+      {
+        "value": "tools",
+        "label": "Tools",
+        "short_label": "Tools",
+        "icon": "tools"
+      },
+      {
+        "value": "Toys_Sports",
+        "label": "Toys & Sports",
+        "short_label": "Toys & Sports",
+        "icon": "sports"
+      }
+    ],
+    "conditions": [
+      {
+        "value": 1,
+        "label": "New",
+        "chip_label": "New",
+        "color": "primary",
+        "description": "Appears New or never used; in original packaging with no signs of wear."
+      },
+      {
+        "value": 2,
+        "label": "Like New",
+        "chip_label": "Like New",
+        "color": "success",
+        "description": "Appears Open-box or lightly used; shows minor wear and may not be in original packaging."
+      },
+      {
+        "value": 3,
+        "label": "Used",
+        "chip_label": "Used",
+        "color": "warning",
+        "description": "Signs of prior use; may have cosmetic wear and/or minor missing parts or accessories."
+      },
+      {
+        "value": 4,
+        "label": "As-is",
+        "chip_label": "As-is",
+        "color": "default",
+        "description": "Unknown condition or Significant wear, damage, and/or missing critical parts; may be non-functional."
+      }
+    ],
+    "time_to_end": [
+      {
+        "value": "ending-today",
+        "label": "Ending Today"
+      },
+      {
+        "value": "ending-tomorrow",
+        "label": "Ending Tomorrow"
+      }
+    ],
+    "sort_options": [
+      {
+        "value": "relevance",
+        "label": "Best Match / Relevance",
+        "is_default": false
+      },
+      {
+        "value": "ending-soonest",
+        "label": "Time: Ending Soonest",
+        "is_default": true
+      },
+      {
+        "value": "newly-listed",
+        "label": "Time: Newly Listed",
+        "is_default": false
+      },
+      {
+        "value": "price-lowest",
+        "label": "Price: Lowest First",
+        "is_default": false
+      },
+      {
+        "value": "price-highest",
+        "label": "Price: Highest First",
+        "is_default": false
+      },
+      {
+        "value": "bids-most",
+        "label": "Bids: Most Bids",
+        "is_default": false
+      },
+      {
+        "value": "bids-fewest",
+        "label": "Bids: Fewest Bids",
+        "is_default": false
+      }
+    ],
+    "locations": [
+      {
+        "value": "RDU",
+        "name": "Raleigh",
+        "active_lot_count": 2900
+      },
+      {
+        "value": "SCU",
+        "name": "Anderson",
+        "active_lot_count": 2409
+      }
+    ]
+  }
+}

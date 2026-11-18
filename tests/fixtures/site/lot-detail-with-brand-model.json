@@ -1,0 +1,2114 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/lots/2026-11-01/202312/"
+  },
+  "status": 200,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:51.481Z",
+  "body": {
+    "id": 202312,
+    "auction_period": "2026-11-01",
+    "title": "Leviton 15 amps 125 V Duplex White Outlet 5-15R 10 pk",
+    "lot_number": "22616679",
+    "category": {
+      "value": "lighting-electrical",
+      "label": "Lighting & Electrical"
+    },
+    "condition": {
+      "value": 1,
+      "display_name": "New"
+    },
+    "location": {
+      "id": 1,
+      "name": "Raleigh"
+    },
+    "is_transferable": true,
+    "transfer_fee": 5,
+    "current_price": 18,
+    "estimated_retail_price": 15,
+    "ends_at": "2026-11-19T00:00:00Z",
+    "status": "live",
+    "version": 16,
+    "bid_count": 20,
+    "next_min_increment": 19,
+    "your_standing": null,
+    "is_watchlisted": false,
+    "has_bid": false,
+    "images": [
+      {
+        "position": 1,
+        "image_thumb": "lots/2026/11/202312/1_thumb.webp",
+        "image_card": "lots/2026/11/202312/1_card.webp",
+        "image_large": "lots/2026/11/202312/1_large.webp"
+      },
+      {
+        "position": 2,
+        "image_thumb": "lots/2026/11/202312/2_thumb.webp",
+        "image_card": "lots/2026/11/202312/2_card.webp",
+        "image_large": "lots/2026/11/202312/2_large.webp"
+      },
+      {
+        "position": 3,
+        "image_thumb": "lots/2026/11/202312/3_thumb.webp",
+        "image_card": "lots/2026/11/202312/3_card.webp",
+        "image_large": "lots/2026/11/202312/3_large.webp"
+      },
+      {
+        "position": 4,
+        "image_thumb": "lots/2026/11/202312/4_thumb.webp",
+        "image_card": "lots/2026/11/202312/4_card.webp",
+        "image_large": "lots/2026/11/202312/4_large.webp"
+      },
+      {
+        "position": 5,
+        "image_thumb": "lots/2026/11/202312/5_thumb.webp",
+        "image_card": "lots/2026/11/202312/5_card.webp",
+        "image_large": "lots/2026/11/202312/5_large.webp"
+      },
+      {
+        "position": 6,
+        "image_thumb": "lots/2026/11/202312/6_thumb.webp",
+        "image_card": "lots/2026/11/202312/6_card.webp",
+        "image_large": "lots/2026/11/202312/6_large.webp"
+      },
+      {
+        "position": 7,
+        "image_thumb": "lots/2026/11/202312/7_thumb.webp",
+        "image_card": "lots/2026/11/202312/7_card.webp",
+        "image_large": "lots/2026/11/202312/7_large.webp"
+      }
+    ],
+    "description": "Quantity: 1,\n\nLeviton's duplex receptacles are designed for a chic appearance, quick installation and durability. The impact-resistant thermoplastic design allows for a long service life and high performance in homes, offices, schools and other settings.\n\nLot Number: 22616679,\nBrand: Leviton,",
+    "brand": "Leviton",
+    "model": "T5320-WMP",
+    "bid_history": [
+      {
+        "bidder_label": "Bidder 11",
+        "amount": 18,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 7",
+        "amount": 17,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 10",
+        "amount": 16,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 9",
+        "amount": 15,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 10",
+        "amount": 14,
+        "is_you": false
+      }
+    ],
+    "lot_fee": 1,
+    "similar": [
+      {
+        "id": 202785,
+        "auction_period": "2026-11-01",
+        "title": "ecobee Premium Black Smart Compatible Thermostat and room sensor with Wi-Fi Compatibility",
+        "lot_number": "22756643",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 111,
+        "estimated_retail_price": 250,
+        "ends_at": "2026-11-19T00:39:25Z",
+        "status": "live",
+        "version": 32,
+        "bid_count": 53,
+        "next_min_increment": 113,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202785/1_thumb.webp",
+            "image_card": "lots/2026/11/202785/1_card.webp",
+            "image_large": "lots/2026/11/202785/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202785/2_thumb.webp",
+            "image_card": "lots/2026/11/202785/2_card.webp",
+            "image_large": "lots/2026/11/202785/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202785/3_thumb.webp",
+            "image_card": "lots/2026/11/202785/3_card.webp",
+            "image_large": "lots/2026/11/202785/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202785/4_thumb.webp",
+            "image_card": "lots/2026/11/202785/4_card.webp",
+            "image_large": "lots/2026/11/202785/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202785/5_thumb.webp",
+            "image_card": "lots/2026/11/202785/5_card.webp",
+            "image_large": "lots/2026/11/202785/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203225,
+        "auction_period": "2026-11-01",
+        "title": "Upgraded Square 200W UFO LED High Bay Light 30000LM 6000K 12 Pack",
+        "lot_number": "22771236",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 101,
+        "estimated_retail_price": 330,
+        "ends_at": "2026-11-19T01:16:05Z",
+        "status": "live",
+        "version": 40,
+        "bid_count": 70,
+        "next_min_increment": 103,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203225/1_thumb.webp",
+            "image_card": "lots/2026/11/203225/1_card.webp",
+            "image_large": "lots/2026/11/203225/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203225/2_thumb.webp",
+            "image_card": "lots/2026/11/203225/2_card.webp",
+            "image_large": "lots/2026/11/203225/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203225/3_thumb.webp",
+            "image_card": "lots/2026/11/203225/3_card.webp",
+            "image_large": "lots/2026/11/203225/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203225/4_thumb.webp",
+            "image_card": "lots/2026/11/203225/4_card.webp",
+            "image_large": "lots/2026/11/203225/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203225/5_thumb.webp",
+            "image_card": "lots/2026/11/203225/5_card.webp",
+            "image_large": "lots/2026/11/203225/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203225/6_thumb.webp",
+            "image_card": "lots/2026/11/203225/6_card.webp",
+            "image_large": "lots/2026/11/203225/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202944,
+        "auction_period": "2026-11-01",
+        "title": "75 ft. 8/3 Black Stranded CerroMax SLiPWire Copper NM-B Wire",
+        "lot_number": "22761923",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 65,
+        "estimated_retail_price": 377,
+        "ends_at": "2026-11-19T00:52:40Z",
+        "status": "live",
+        "version": 26,
+        "bid_count": 37,
+        "next_min_increment": 67,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202944/1_thumb.webp",
+            "image_card": "lots/2026/11/202944/1_card.webp",
+            "image_large": "lots/2026/11/202944/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202944/2_thumb.webp",
+            "image_card": "lots/2026/11/202944/2_card.webp",
+            "image_large": "lots/2026/11/202944/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202944/3_thumb.webp",
+            "image_card": "lots/2026/11/202944/3_card.webp",
+            "image_large": "lots/2026/11/202944/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202944/4_thumb.webp",
+            "image_card": "lots/2026/11/202944/4_card.webp",
+            "image_large": "lots/2026/11/202944/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203660,
+        "auction_period": "2026-11-01",
+        "title": "WhisperCeiling DC with LED, Pick-A-Flow 110/130/150 CFM Ceiling Bath Exhaust Fan",
+        "lot_number": "22819466",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 59,
+        "estimated_retail_price": 289,
+        "ends_at": "2026-11-19T01:52:20Z",
+        "status": "live",
+        "version": 26,
+        "bid_count": 46,
+        "next_min_increment": 61,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203660/1_thumb.webp",
+            "image_card": "lots/2026/11/203660/1_card.webp",
+            "image_large": "lots/2026/11/203660/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203660/2_thumb.webp",
+            "image_card": "lots/2026/11/203660/2_card.webp",
+            "image_large": "lots/2026/11/203660/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203660/3_thumb.webp",
+            "image_card": "lots/2026/11/203660/3_card.webp",
+            "image_large": "lots/2026/11/203660/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203660/4_thumb.webp",
+            "image_card": "lots/2026/11/203660/4_card.webp",
+            "image_large": "lots/2026/11/203660/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203660/5_thumb.webp",
+            "image_card": "lots/2026/11/203660/5_card.webp",
+            "image_large": "lots/2026/11/203660/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203660/6_thumb.webp",
+            "image_card": "lots/2026/11/203660/6_card.webp",
+            "image_large": "lots/2026/11/203660/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/203660/7_thumb.webp",
+            "image_card": "lots/2026/11/203660/7_card.webp",
+            "image_large": "lots/2026/11/203660/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/203660/8_thumb.webp",
+            "image_card": "lots/2026/11/203660/8_card.webp",
+            "image_large": "lots/2026/11/203660/8_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203523,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic 0.5-Sone 110-CFM White Bathroom Fan, ENERGY STAR",
+        "lot_number": "22816921",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 56,
+        "estimated_retail_price": 271,
+        "ends_at": "2026-11-19T01:40:55Z",
+        "status": "live",
+        "version": 16,
+        "bid_count": 27,
+        "next_min_increment": 58,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203523/1_thumb.webp",
+            "image_card": "lots/2026/11/203523/1_card.webp",
+            "image_large": "lots/2026/11/203523/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203523/2_thumb.webp",
+            "image_card": "lots/2026/11/203523/2_card.webp",
+            "image_large": "lots/2026/11/203523/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203523/3_thumb.webp",
+            "image_card": "lots/2026/11/203523/3_card.webp",
+            "image_large": "lots/2026/11/203523/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203523/4_thumb.webp",
+            "image_card": "lots/2026/11/203523/4_card.webp",
+            "image_large": "lots/2026/11/203523/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203523/5_thumb.webp",
+            "image_card": "lots/2026/11/203523/5_card.webp",
+            "image_large": "lots/2026/11/203523/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203549,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperCeiling 290 CFM Ceiling Surface Mount Bathroom Exhaust Fan, ENERGY STAR",
+        "lot_number": "22817223",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 56,
+        "estimated_retail_price": 272,
+        "ends_at": "2026-11-19T01:43:05Z",
+        "status": "live",
+        "version": 22,
+        "bid_count": 39,
+        "next_min_increment": 58,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203549/1_thumb.webp",
+            "image_card": "lots/2026/11/203549/1_card.webp",
+            "image_large": "lots/2026/11/203549/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203549/2_thumb.webp",
+            "image_card": "lots/2026/11/203549/2_card.webp",
+            "image_large": "lots/2026/11/203549/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203549/3_thumb.webp",
+            "image_card": "lots/2026/11/203549/3_card.webp",
+            "image_large": "lots/2026/11/203549/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203549/4_thumb.webp",
+            "image_card": "lots/2026/11/203549/4_card.webp",
+            "image_large": "lots/2026/11/203549/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203571,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic 0.5-Sone 110-CFM White Bathroom Fan, ENERGY STAR",
+        "lot_number": "22817421",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 56,
+        "estimated_retail_price": 271,
+        "ends_at": "2026-11-19T01:44:55Z",
+        "status": "live",
+        "version": 16,
+        "bid_count": 27,
+        "next_min_increment": 58,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203571/1_thumb.webp",
+            "image_card": "lots/2026/11/203571/1_card.webp",
+            "image_large": "lots/2026/11/203571/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203571/2_thumb.webp",
+            "image_card": "lots/2026/11/203571/2_card.webp",
+            "image_large": "lots/2026/11/203571/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203571/3_thumb.webp",
+            "image_card": "lots/2026/11/203571/3_card.webp",
+            "image_large": "lots/2026/11/203571/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203571/4_thumb.webp",
+            "image_card": "lots/2026/11/203571/4_card.webp",
+            "image_large": "lots/2026/11/203571/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203571/5_thumb.webp",
+            "image_card": "lots/2026/11/203571/5_card.webp",
+            "image_large": "lots/2026/11/203571/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203279,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperCeiling DC Fan with LED Lights, Pick-A-Flow 50/80/110 CFM, Flex-Z Bracket",
+        "lot_number": "22772885",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 52,
+        "estimated_retail_price": 247,
+        "ends_at": "2026-11-19T01:20:35Z",
+        "status": "live",
+        "version": 24,
+        "bid_count": 43,
+        "next_min_increment": 54,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203279/1_thumb.webp",
+            "image_card": "lots/2026/11/203279/1_card.webp",
+            "image_large": "lots/2026/11/203279/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203279/2_thumb.webp",
+            "image_card": "lots/2026/11/203279/2_card.webp",
+            "image_large": "lots/2026/11/203279/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203279/3_thumb.webp",
+            "image_card": "lots/2026/11/203279/3_card.webp",
+            "image_large": "lots/2026/11/203279/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203279/4_thumb.webp",
+            "image_card": "lots/2026/11/203279/4_card.webp",
+            "image_large": "lots/2026/11/203279/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203279/5_thumb.webp",
+            "image_card": "lots/2026/11/203279/5_card.webp",
+            "image_large": "lots/2026/11/203279/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203283,
+        "auction_period": "2026-11-01",
+        "title": "WhisperCeiling DC Fan with LEDs, Pick-A-Flow 50/80/110 CFM, Flex-Z Fast Install Bracket",
+        "lot_number": "22773019",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 52,
+        "estimated_retail_price": 247,
+        "ends_at": "2026-11-19T01:20:55Z",
+        "status": "live",
+        "version": 22,
+        "bid_count": 38,
+        "next_min_increment": 54,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203283/1_thumb.webp",
+            "image_card": "lots/2026/11/203283/1_card.webp",
+            "image_large": "lots/2026/11/203283/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203283/2_thumb.webp",
+            "image_card": "lots/2026/11/203283/2_card.webp",
+            "image_large": "lots/2026/11/203283/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203283/3_thumb.webp",
+            "image_card": "lots/2026/11/203283/3_card.webp",
+            "image_large": "lots/2026/11/203283/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203283/4_thumb.webp",
+            "image_card": "lots/2026/11/203283/4_card.webp",
+            "image_large": "lots/2026/11/203283/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203283/5_thumb.webp",
+            "image_card": "lots/2026/11/203283/5_card.webp",
+            "image_large": "lots/2026/11/203283/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 206563,
+        "auction_period": "2026-11-01",
+        "title": "Govee Ceiling Fan with Lights, 20' RGBIC Fandelier Ceiling Fan with Light",
+        "lot_number": "22597830",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 44,
+        "estimated_retail_price": 190,
+        "ends_at": "2026-11-20T01:11:45Z",
+        "status": "live",
+        "version": 25,
+        "bid_count": 44,
+        "next_min_increment": 45,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/206563/1_thumb.webp",
+            "image_card": "lots/2026/11/206563/1_card.webp",
+            "image_large": "lots/2026/11/206563/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/206563/2_thumb.webp",
+            "image_card": "lots/2026/11/206563/2_card.webp",
+            "image_large": "lots/2026/11/206563/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/206563/3_thumb.webp",
+            "image_card": "lots/2026/11/206563/3_card.webp",
+            "image_large": "lots/2026/11/206563/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/206563/4_thumb.webp",
+            "image_card": "lots/2026/11/206563/4_card.webp",
+            "image_large": "lots/2026/11/206563/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/206563/5_thumb.webp",
+            "image_card": "lots/2026/11/206563/5_card.webp",
+            "image_large": "lots/2026/11/206563/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/206563/6_thumb.webp",
+            "image_card": "lots/2026/11/206563/6_card.webp",
+            "image_large": "lots/2026/11/206563/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203243,
+        "auction_period": "2026-11-01",
+        "title": "Amico 48 Pack 4 Inch 5CCT LED Ultra-Thin Recessed Ceiling Light, 800LM",
+        "lot_number": "22771998",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 43,
+        "estimated_retail_price": 212,
+        "ends_at": "2026-11-19T01:17:35Z",
+        "status": "live",
+        "version": 25,
+        "bid_count": 43,
+        "next_min_increment": 44,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203243/1_thumb.webp",
+            "image_card": "lots/2026/11/203243/1_card.webp",
+            "image_large": "lots/2026/11/203243/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203243/2_thumb.webp",
+            "image_card": "lots/2026/11/203243/2_card.webp",
+            "image_large": "lots/2026/11/203243/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203243/3_thumb.webp",
+            "image_card": "lots/2026/11/203243/3_card.webp",
+            "image_large": "lots/2026/11/203243/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203243/4_thumb.webp",
+            "image_card": "lots/2026/11/203243/4_card.webp",
+            "image_large": "lots/2026/11/203243/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203243/5_thumb.webp",
+            "image_card": "lots/2026/11/203243/5_card.webp",
+            "image_large": "lots/2026/11/203243/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203243/6_thumb.webp",
+            "image_card": "lots/2026/11/203243/6_card.webp",
+            "image_large": "lots/2026/11/203243/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/203243/7_thumb.webp",
+            "image_card": "lots/2026/11/203243/7_card.webp",
+            "image_large": "lots/2026/11/203243/7_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204288,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperSense Fan with Motion&Humidity Sensors Timer Pick-A-Flow 50/80/110 CFM",
+        "lot_number": "22686431",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 42,
+        "estimated_retail_price": 214,
+        "ends_at": "2026-11-19T01:48:00Z",
+        "status": "live",
+        "version": 13,
+        "bid_count": 22,
+        "next_min_increment": 43,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204288/1_thumb.webp",
+            "image_card": "lots/2026/11/204288/1_card.webp",
+            "image_large": "lots/2026/11/204288/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204288/2_thumb.webp",
+            "image_card": "lots/2026/11/204288/2_card.webp",
+            "image_large": "lots/2026/11/204288/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204288/3_thumb.webp",
+            "image_card": "lots/2026/11/204288/3_card.webp",
+            "image_large": "lots/2026/11/204288/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204288/4_thumb.webp",
+            "image_card": "lots/2026/11/204288/4_card.webp",
+            "image_large": "lots/2026/11/204288/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/204288/5_thumb.webp",
+            "image_card": "lots/2026/11/204288/5_card.webp",
+            "image_large": "lots/2026/11/204288/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/204288/6_thumb.webp",
+            "image_card": "lots/2026/11/204288/6_card.webp",
+            "image_large": "lots/2026/11/204288/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203436,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperFit 0.25-Sone 110-CFM White Lighted Bathroom Fan, ENERGY STAR",
+        "lot_number": "22816219",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 39,
+        "estimated_retail_price": 189,
+        "ends_at": "2026-11-19T01:33:40Z",
+        "status": "live",
+        "version": 15,
+        "bid_count": 26,
+        "next_min_increment": 40,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203436/1_thumb.webp",
+            "image_card": "lots/2026/11/203436/1_card.webp",
+            "image_large": "lots/2026/11/203436/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203436/2_thumb.webp",
+            "image_card": "lots/2026/11/203436/2_card.webp",
+            "image_large": "lots/2026/11/203436/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203436/3_thumb.webp",
+            "image_card": "lots/2026/11/203436/3_card.webp",
+            "image_large": "lots/2026/11/203436/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203436/4_thumb.webp",
+            "image_card": "lots/2026/11/203436/4_card.webp",
+            "image_large": "lots/2026/11/203436/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203436/5_thumb.webp",
+            "image_card": "lots/2026/11/203436/5_card.webp",
+            "image_large": "lots/2026/11/203436/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203436/6_thumb.webp",
+            "image_card": "lots/2026/11/203436/6_card.webp",
+            "image_large": "lots/2026/11/203436/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202786,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperCeiling 0.3-Sone 150-CFM White Bathroom Fan ENERGY STAR",
+        "lot_number": "22756647",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 35,
+        "estimated_retail_price": 270,
+        "ends_at": "2026-11-19T00:39:30Z",
+        "status": "live",
+        "version": 11,
+        "bid_count": 18,
+        "next_min_increment": 36,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202786/1_thumb.webp",
+            "image_card": "lots/2026/11/202786/1_card.webp",
+            "image_large": "lots/2026/11/202786/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202786/2_thumb.webp",
+            "image_card": "lots/2026/11/202786/2_card.webp",
+            "image_large": "lots/2026/11/202786/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202786/3_thumb.webp",
+            "image_card": "lots/2026/11/202786/3_card.webp",
+            "image_large": "lots/2026/11/202786/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202786/4_thumb.webp",
+            "image_card": "lots/2026/11/202786/4_card.webp",
+            "image_large": "lots/2026/11/202786/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202786/5_thumb.webp",
+            "image_card": "lots/2026/11/202786/5_card.webp",
+            "image_large": "lots/2026/11/202786/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202786/6_thumb.webp",
+            "image_card": "lots/2026/11/202786/6_card.webp",
+            "image_large": "lots/2026/11/202786/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202900,
+        "auction_period": "2026-11-01",
+        "title": "Amico 52 Inch Black Low Profile Ceiling Fans with Lights and Remote",
+        "lot_number": "22760330",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 31,
+        "estimated_retail_price": 80,
+        "ends_at": "2026-11-19T00:49:00Z",
+        "status": "live",
+        "version": 15,
+        "bid_count": 25,
+        "next_min_increment": 32,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202900/1_thumb.webp",
+            "image_card": "lots/2026/11/202900/1_card.webp",
+            "image_large": "lots/2026/11/202900/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202900/2_thumb.webp",
+            "image_card": "lots/2026/11/202900/2_card.webp",
+            "image_large": "lots/2026/11/202900/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202900/3_thumb.webp",
+            "image_card": "lots/2026/11/202900/3_card.webp",
+            "image_large": "lots/2026/11/202900/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202900/4_thumb.webp",
+            "image_card": "lots/2026/11/202900/4_card.webp",
+            "image_large": "lots/2026/11/202900/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202900/5_thumb.webp",
+            "image_card": "lots/2026/11/202900/5_card.webp",
+            "image_large": "lots/2026/11/202900/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202900/6_thumb.webp",
+            "image_card": "lots/2026/11/202900/6_card.webp",
+            "image_large": "lots/2026/11/202900/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204748,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperFit 0.25-Sone 110-CFM White Lighted Bathroom Fan, ENERGY STAR",
+        "lot_number": "22716286",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 28,
+        "estimated_retail_price": 189,
+        "ends_at": "2026-11-19T02:26:15Z",
+        "status": "live",
+        "version": 16,
+        "bid_count": 28,
+        "next_min_increment": 29,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204748/1_thumb.webp",
+            "image_card": "lots/2026/11/204748/1_card.webp",
+            "image_large": "lots/2026/11/204748/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204748/2_thumb.webp",
+            "image_card": "lots/2026/11/204748/2_card.webp",
+            "image_large": "lots/2026/11/204748/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204748/3_thumb.webp",
+            "image_card": "lots/2026/11/204748/3_card.webp",
+            "image_large": "lots/2026/11/204748/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204748/4_thumb.webp",
+            "image_card": "lots/2026/11/204748/4_card.webp",
+            "image_large": "lots/2026/11/204748/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/204748/5_thumb.webp",
+            "image_card": "lots/2026/11/204748/5_card.webp",
+            "image_large": "lots/2026/11/204748/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203444,
+        "auction_period": "2026-11-01",
+        "title": "ecobee Smart Thermostat Wi Fi Works with Siri, Alexa, Google Assistant, Energy Star",
+        "lot_number": "22816314",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 25,
+        "estimated_retail_price": 190,
+        "ends_at": "2026-11-19T01:34:20Z",
+        "status": "live",
+        "version": 10,
+        "bid_count": 18,
+        "next_min_increment": 26,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203444/1_thumb.webp",
+            "image_card": "lots/2026/11/203444/1_card.webp",
+            "image_large": "lots/2026/11/203444/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203444/2_thumb.webp",
+            "image_card": "lots/2026/11/203444/2_card.webp",
+            "image_large": "lots/2026/11/203444/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203444/3_thumb.webp",
+            "image_card": "lots/2026/11/203444/3_card.webp",
+            "image_large": "lots/2026/11/203444/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203444/4_thumb.webp",
+            "image_card": "lots/2026/11/203444/4_card.webp",
+            "image_large": "lots/2026/11/203444/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203444/5_thumb.webp",
+            "image_card": "lots/2026/11/203444/5_card.webp",
+            "image_large": "lots/2026/11/203444/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202873,
+        "auction_period": "2026-11-01",
+        "title": "Alturas 3-Light Satin Brass Hanging Pendant",
+        "lot_number": "22759660",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 24,
+        "estimated_retail_price": 274,
+        "ends_at": "2026-11-19T00:46:45Z",
+        "status": "live",
+        "version": 14,
+        "bid_count": 24,
+        "next_min_increment": 25,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202873/1_thumb.webp",
+            "image_card": "lots/2026/11/202873/1_card.webp",
+            "image_large": "lots/2026/11/202873/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202873/2_thumb.webp",
+            "image_card": "lots/2026/11/202873/2_card.webp",
+            "image_large": "lots/2026/11/202873/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202873/3_thumb.webp",
+            "image_card": "lots/2026/11/202873/3_card.webp",
+            "image_large": "lots/2026/11/202873/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202873/4_thumb.webp",
+            "image_card": "lots/2026/11/202873/4_card.webp",
+            "image_large": "lots/2026/11/202873/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202873/5_thumb.webp",
+            "image_card": "lots/2026/11/202873/5_card.webp",
+            "image_large": "lots/2026/11/202873/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202873/6_thumb.webp",
+            "image_card": "lots/2026/11/202873/6_card.webp",
+            "image_large": "lots/2026/11/202873/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/202873/7_thumb.webp",
+            "image_card": "lots/2026/11/202873/7_card.webp",
+            "image_large": "lots/2026/11/202873/7_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203308,
+        "auction_period": "2026-11-01",
+        "title": "2500W Modified Sine Wave Power Inverter, 12V DC to 110/120V AC, 3 Outlets, Remote, LED USB 3.4V",
+        "lot_number": "22773588",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 23,
+        "estimated_retail_price": 136,
+        "ends_at": "2026-11-19T01:23:00Z",
+        "status": "live",
+        "version": 9,
+        "bid_count": 10,
+        "next_min_increment": 24,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203308/1_thumb.webp",
+            "image_card": "lots/2026/11/203308/1_card.webp",
+            "image_large": "lots/2026/11/203308/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203308/2_thumb.webp",
+            "image_card": "lots/2026/11/203308/2_card.webp",
+            "image_large": "lots/2026/11/203308/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203308/3_thumb.webp",
+            "image_card": "lots/2026/11/203308/3_card.webp",
+            "image_large": "lots/2026/11/203308/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203308/4_thumb.webp",
+            "image_card": "lots/2026/11/203308/4_card.webp",
+            "image_large": "lots/2026/11/203308/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203308/5_thumb.webp",
+            "image_card": "lots/2026/11/203308/5_card.webp",
+            "image_large": "lots/2026/11/203308/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203308/6_thumb.webp",
+            "image_card": "lots/2026/11/203308/6_card.webp",
+            "image_large": "lots/2026/11/203308/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203334,
+        "auction_period": "2026-11-01",
+        "title": "RGB Ceiling Fan with Light and Remote,20\" Fandelier Smart Ceiling Fan,Black",
+        "lot_number": "22774634",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 23,
+        "estimated_retail_price": 90,
+        "ends_at": "2026-11-19T01:25:10Z",
+        "status": "live",
+        "version": 11,
+        "bid_count": 17,
+        "next_min_increment": 24,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203334/1_thumb.webp",
+            "image_card": "lots/2026/11/203334/1_card.webp",
+            "image_large": "lots/2026/11/203334/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203334/2_thumb.webp",
+            "image_card": "lots/2026/11/203334/2_card.webp",
+            "image_large": "lots/2026/11/203334/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203334/3_thumb.webp",
+            "image_card": "lots/2026/11/203334/3_card.webp",
+            "image_large": "lots/2026/11/203334/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203334/4_thumb.webp",
+            "image_card": "lots/2026/11/203334/4_card.webp",
+            "image_large": "lots/2026/11/203334/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203334/5_thumb.webp",
+            "image_card": "lots/2026/11/203334/5_card.webp",
+            "image_large": "lots/2026/11/203334/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203693,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperCeiling 0.4-Sone 110-CFM White Bathroom Fan ENERGY STAR",
+        "lot_number": "22820136",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 22,
+        "estimated_retail_price": 150,
+        "ends_at": "2026-11-19T01:55:05Z",
+        "status": "live",
+        "version": 13,
+        "bid_count": 23,
+        "next_min_increment": 23,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203693/1_thumb.webp",
+            "image_card": "lots/2026/11/203693/1_card.webp",
+            "image_large": "lots/2026/11/203693/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203693/2_thumb.webp",
+            "image_card": "lots/2026/11/203693/2_card.webp",
+            "image_large": "lots/2026/11/203693/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203693/3_thumb.webp",
+            "image_card": "lots/2026/11/203693/3_card.webp",
+            "image_large": "lots/2026/11/203693/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203693/4_thumb.webp",
+            "image_card": "lots/2026/11/203693/4_card.webp",
+            "image_large": "lots/2026/11/203693/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203693/5_thumb.webp",
+            "image_card": "lots/2026/11/203693/5_card.webp",
+            "image_large": "lots/2026/11/203693/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203693/6_thumb.webp",
+            "image_card": "lots/2026/11/203693/6_card.webp",
+            "image_large": "lots/2026/11/203693/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/203693/7_thumb.webp",
+            "image_card": "lots/2026/11/203693/7_card.webp",
+            "image_large": "lots/2026/11/203693/7_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203863,
+        "auction_period": "2026-11-01",
+        "title": "TALOYA 52 inch Ceiling Fans with Lights and Remote Control White",
+        "lot_number": "22572975",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 21,
+        "estimated_retail_price": 110,
+        "ends_at": "2026-11-19T01:12:35Z",
+        "status": "live",
+        "version": 12,
+        "bid_count": 22,
+        "next_min_increment": 22,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203863/1_thumb.webp",
+            "image_card": "lots/2026/11/203863/1_card.webp",
+            "image_large": "lots/2026/11/203863/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203863/2_thumb.webp",
+            "image_card": "lots/2026/11/203863/2_card.webp",
+            "image_large": "lots/2026/11/203863/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203863/3_thumb.webp",
+            "image_card": "lots/2026/11/203863/3_card.webp",
+            "image_large": "lots/2026/11/203863/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203863/4_thumb.webp",
+            "image_card": "lots/2026/11/203863/4_card.webp",
+            "image_large": "lots/2026/11/203863/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203863/5_thumb.webp",
+            "image_card": "lots/2026/11/203863/5_card.webp",
+            "image_large": "lots/2026/11/203863/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203863/6_thumb.webp",
+            "image_card": "lots/2026/11/203863/6_card.webp",
+            "image_large": "lots/2026/11/203863/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/203863/7_thumb.webp",
+            "image_card": "lots/2026/11/203863/7_card.webp",
+            "image_large": "lots/2026/11/203863/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/203863/8_thumb.webp",
+            "image_card": "lots/2026/11/203863/8_card.webp",
+            "image_large": "lots/2026/11/203863/8_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204523,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperWarm Ceiling-Mount Bath Exhaust Fan with LED Light/Heater, FV-0511VHL1",
+        "lot_number": "22701956",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 21,
+        "estimated_retail_price": 390,
+        "ends_at": "2026-11-19T02:07:35Z",
+        "status": "live",
+        "version": 7,
+        "bid_count": 10,
+        "next_min_increment": 22,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204523/1_thumb.webp",
+            "image_card": "lots/2026/11/204523/1_card.webp",
+            "image_large": "lots/2026/11/204523/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204523/2_thumb.webp",
+            "image_card": "lots/2026/11/204523/2_card.webp",
+            "image_large": "lots/2026/11/204523/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204523/3_thumb.webp",
+            "image_card": "lots/2026/11/204523/3_card.webp",
+            "image_large": "lots/2026/11/204523/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204523/4_thumb.webp",
+            "image_card": "lots/2026/11/204523/4_card.webp",
+            "image_large": "lots/2026/11/204523/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/204523/5_thumb.webp",
+            "image_card": "lots/2026/11/204523/5_card.webp",
+            "image_large": "lots/2026/11/204523/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204632,
+        "auction_period": "2026-11-01",
+        "title": "Modern Linear Dining Chandeliers, Crystal, Adjustable Height Hanging Light, 12 Lights, Gold",
+        "lot_number": "22708241",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 18,
+        "estimated_retail_price": 259,
+        "ends_at": "2026-11-19T02:16:40Z",
+        "status": "live",
+        "version": 14,
+        "bid_count": 19,
+        "next_min_increment": 19,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204632/1_thumb.webp",
+            "image_card": "lots/2026/11/204632/1_card.webp",
+            "image_large": "lots/2026/11/204632/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204632/2_thumb.webp",
+            "image_card": "lots/2026/11/204632/2_card.webp",
+            "image_large": "lots/2026/11/204632/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204632/3_thumb.webp",
+            "image_card": "lots/2026/11/204632/3_card.webp",
+            "image_large": "lots/2026/11/204632/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204632/4_thumb.webp",
+            "image_card": "lots/2026/11/204632/4_card.webp",
+            "image_large": "lots/2026/11/204632/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204835,
+        "auction_period": "2026-11-01",
+        "title": "WhisperValue DC Pick-A-Flow 50/80/100 CFM Ceiling or Wall Bath Exhaust Fan Energy Star",
+        "lot_number": "22727710",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 16,
+        "estimated_retail_price": 95,
+        "ends_at": "2026-11-19T02:33:30Z",
+        "status": "live",
+        "version": 10,
+        "bid_count": 16,
+        "next_min_increment": 17,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204835/1_thumb.webp",
+            "image_card": "lots/2026/11/204835/1_card.webp",
+            "image_large": "lots/2026/11/204835/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204835/2_thumb.webp",
+            "image_card": "lots/2026/11/204835/2_card.webp",
+            "image_large": "lots/2026/11/204835/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204835/3_thumb.webp",
+            "image_card": "lots/2026/11/204835/3_card.webp",
+            "image_large": "lots/2026/11/204835/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204835/4_thumb.webp",
+            "image_card": "lots/2026/11/204835/4_card.webp",
+            "image_large": "lots/2026/11/204835/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 205424,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperGreen Select Pick-A-Flow 30 110 CFM Bathroom Exhaust Fan Duct Adapter",
+        "lot_number": "22822919",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 16,
+        "estimated_retail_price": 233,
+        "ends_at": "2026-11-20T00:41:50Z",
+        "status": "live",
+        "version": 6,
+        "bid_count": 6,
+        "next_min_increment": 17,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/205424/1_thumb.webp",
+            "image_card": "lots/2026/11/205424/1_card.webp",
+            "image_large": "lots/2026/11/205424/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/205424/2_thumb.webp",
+            "image_card": "lots/2026/11/205424/2_card.webp",
+            "image_large": "lots/2026/11/205424/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/205424/3_thumb.webp",
+            "image_card": "lots/2026/11/205424/3_card.webp",
+            "image_large": "lots/2026/11/205424/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/205424/4_thumb.webp",
+            "image_card": "lots/2026/11/205424/4_card.webp",
+            "image_large": "lots/2026/11/205424/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/205424/5_thumb.webp",
+            "image_card": "lots/2026/11/205424/5_card.webp",
+            "image_large": "lots/2026/11/205424/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/205424/6_thumb.webp",
+            "image_card": "lots/2026/11/205424/6_card.webp",
+            "image_large": "lots/2026/11/205424/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/205424/7_thumb.webp",
+            "image_card": "lots/2026/11/205424/7_card.webp",
+            "image_large": "lots/2026/11/205424/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/205424/8_thumb.webp",
+            "image_card": "lots/2026/11/205424/8_card.webp",
+            "image_large": "lots/2026/11/205424/8_large.webp"
+          },
+          {
+            "position": 9,
+            "image_thumb": "lots/2026/11/205424/9_thumb.webp",
+            "image_card": "lots/2026/11/205424/9_card.webp",
+            "image_large": "lots/2026/11/205424/9_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202435,
+        "auction_period": "2026-11-01",
+        "title": "Hampton Bay Low Voltage 20-Watt (Bi-Pin) Black Outdoor Landscape Flood Light (Qty 4)",
+        "lot_number": "22749455",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 14,
+        "estimated_retail_price": 80,
+        "ends_at": "2026-11-19T00:10:15Z",
+        "status": "live",
+        "version": 11,
+        "bid_count": 13,
+        "next_min_increment": 15,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202435/1_thumb.webp",
+            "image_card": "lots/2026/11/202435/1_card.webp",
+            "image_large": "lots/2026/11/202435/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202435/2_thumb.webp",
+            "image_card": "lots/2026/11/202435/2_card.webp",
+            "image_large": "lots/2026/11/202435/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202435/3_thumb.webp",
+            "image_card": "lots/2026/11/202435/3_card.webp",
+            "image_large": "lots/2026/11/202435/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202435/4_thumb.webp",
+            "image_card": "lots/2026/11/202435/4_card.webp",
+            "image_large": "lots/2026/11/202435/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202437,
+        "auction_period": "2026-11-01",
+        "title": "Hampton Bay Low Voltage 20-Watt (Bi-Pin) Black Outdoor Landscape Flood Light (Qty 4)",
+        "lot_number": "22749474",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 12,
+        "estimated_retail_price": 80,
+        "ends_at": "2026-11-19T00:10:25Z",
+        "status": "live",
+        "version": 9,
+        "bid_count": 12,
+        "next_min_increment": 13,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202437/1_thumb.webp",
+            "image_card": "lots/2026/11/202437/1_card.webp",
+            "image_large": "lots/2026/11/202437/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202437/2_thumb.webp",
+            "image_card": "lots/2026/11/202437/2_card.webp",
+            "image_large": "lots/2026/11/202437/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202437/3_thumb.webp",
+            "image_card": "lots/2026/11/202437/3_card.webp",
+            "image_large": "lots/2026/11/202437/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202437/4_thumb.webp",
+            "image_card": "lots/2026/11/202437/4_card.webp",
+            "image_large": "lots/2026/11/202437/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 205027,
+        "auction_period": "2026-11-01",
+        "title": "Panasonic WhisperGreen Select Pick-A-Flow 30 110 CFM Bathroom Exhaust Fan Duct Adapter",
+        "lot_number": "22815783",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 12,
+        "estimated_retail_price": 233,
+        "ends_at": "2026-11-20T00:08:45Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 3,
+        "next_min_increment": 13,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/205027/1_thumb.webp",
+            "image_card": "lots/2026/11/205027/1_card.webp",
+            "image_large": "lots/2026/11/205027/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/205027/2_thumb.webp",
+            "image_card": "lots/2026/11/205027/2_card.webp",
+            "image_large": "lots/2026/11/205027/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/205027/3_thumb.webp",
+            "image_card": "lots/2026/11/205027/3_card.webp",
+            "image_large": "lots/2026/11/205027/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/205027/4_thumb.webp",
+            "image_card": "lots/2026/11/205027/4_card.webp",
+            "image_large": "lots/2026/11/205027/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/205027/5_thumb.webp",
+            "image_card": "lots/2026/11/205027/5_card.webp",
+            "image_large": "lots/2026/11/205027/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/205027/6_thumb.webp",
+            "image_card": "lots/2026/11/205027/6_card.webp",
+            "image_large": "lots/2026/11/205027/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/205027/7_thumb.webp",
+            "image_card": "lots/2026/11/205027/7_card.webp",
+            "image_large": "lots/2026/11/205027/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/205027/8_thumb.webp",
+            "image_card": "lots/2026/11/205027/8_card.webp",
+            "image_large": "lots/2026/11/205027/8_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203546,
+        "auction_period": "2026-11-01",
+        "title": "20\" Gold Crystal Fandelier Ceiling Fan with Light, Modern Gold Flower Chandelier, 6 Speeds",
+        "lot_number": "22817180",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 11,
+        "estimated_retail_price": 149,
+        "ends_at": "2026-11-19T01:42:50Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 5,
+        "next_min_increment": 12,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203546/1_thumb.webp",
+            "image_card": "lots/2026/11/203546/1_card.webp",
+            "image_large": "lots/2026/11/203546/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203546/2_thumb.webp",
+            "image_card": "lots/2026/11/203546/2_card.webp",
+            "image_large": "lots/2026/11/203546/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203546/3_thumb.webp",
+            "image_card": "lots/2026/11/203546/3_card.webp",
+            "image_large": "lots/2026/11/203546/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203546/4_thumb.webp",
+            "image_card": "lots/2026/11/203546/4_card.webp",
+            "image_large": "lots/2026/11/203546/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203546/5_thumb.webp",
+            "image_card": "lots/2026/11/203546/5_card.webp",
+            "image_large": "lots/2026/11/203546/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/203546/6_thumb.webp",
+            "image_card": "lots/2026/11/203546/6_card.webp",
+            "image_large": "lots/2026/11/203546/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/203546/7_thumb.webp",
+            "image_card": "lots/2026/11/203546/7_card.webp",
+            "image_large": "lots/2026/11/203546/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/203546/8_thumb.webp",
+            "image_card": "lots/2026/11/203546/8_card.webp",
+            "image_large": "lots/2026/11/203546/8_large.webp"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/lots/2026-11-01/1/"
+  },
+  "status": 404,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:54.940Z",
+  "body": {
+    "error": "Not found.",
+    "code": "not_found"
+  }
+}

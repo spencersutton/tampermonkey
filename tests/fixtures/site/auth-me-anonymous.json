@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auth/me/"
+  },
+  "status": 401,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:56.091Z",
+  "body": {
+    "error": "Authentication credentials were not provided.",
+    "code": "not_authenticated"
+  }
+}

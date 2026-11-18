@@ -4,20 +4,27 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run lint && tsc --noEmit && vite build",
-    "test": "node --test",
-    "typecheck": "tsc --noEmit",
+    "build": "npm run lint && npm run typecheck && vite build",
+    "test": "npm run test:web; web=$?; npm run test:server && exit $web",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
     "lint": "oxlint",
-    "lint:fix": "oxlint --fix"
+    "lint:fix": "oxlint --fix",
+    "capture-fixtures": "bun scripts/capture-site-fixtures.ts",
+    "server": "bun src/server/main.ts",
+    "test:web": "node --test 'tests/*.test.mjs'",
+    "test:server": "bun test ./tests/server/"
   },
   "dependencies": {
     "@preact/signals": "^2.11.4",
     "centrifuge": "^5.7.4",
     "dequal": "^2.0.3",
+    "hono": "^4.13.19",
     "preact": "^10.29.8",
     "temporal-polyfill": "^1.0.8"
   },
   "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "bun": "^1.4.4",
     "eslint": "^10.14.0",
     "oxfmt": "^0.78.0",
     "oxlint": "^1.92.0",
@@ -27,6 +34,7 @@
   },
   "allowScripts": {
     "fsevents@2.3.3": true,
-    "protobufjs@7.6.6": true
+    "protobufjs@7.6.6": true,
+    "bun@1.4.4": true
   }
 }

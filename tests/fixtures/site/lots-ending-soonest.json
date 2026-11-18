@@ -1,0 +1,372 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/lots/?page=1&per_page=5&order_by=ending-soonest"
+  },
+  "status": 200,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:50.730Z",
+  "body": {
+    "count": 5309,
+    "results": [
+      {
+        "id": 202312,
+        "auction_period": "2026-11-01",
+        "title": "Leviton 15 amps 125 V Duplex White Outlet 5-15R 10 pk",
+        "lot_number": "22616679",
+        "category": {
+          "value": "lighting-electrical",
+          "label": "Lighting & Electrical"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 18,
+        "estimated_retail_price": 15,
+        "ends_at": "2026-11-19T00:00:00Z",
+        "status": "live",
+        "version": 16,
+        "bid_count": 20,
+        "next_min_increment": 19,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202312/1_thumb.webp",
+            "image_card": "lots/2026/11/202312/1_card.webp",
+            "image_large": "lots/2026/11/202312/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202312/2_thumb.webp",
+            "image_card": "lots/2026/11/202312/2_card.webp",
+            "image_large": "lots/2026/11/202312/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202312/3_thumb.webp",
+            "image_card": "lots/2026/11/202312/3_card.webp",
+            "image_large": "lots/2026/11/202312/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202312/4_thumb.webp",
+            "image_card": "lots/2026/11/202312/4_card.webp",
+            "image_large": "lots/2026/11/202312/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202312/5_thumb.webp",
+            "image_card": "lots/2026/11/202312/5_card.webp",
+            "image_large": "lots/2026/11/202312/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202312/6_thumb.webp",
+            "image_card": "lots/2026/11/202312/6_card.webp",
+            "image_large": "lots/2026/11/202312/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/202312/7_thumb.webp",
+            "image_card": "lots/2026/11/202312/7_card.webp",
+            "image_large": "lots/2026/11/202312/7_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202313,
+        "auction_period": "2026-11-01",
+        "title": "Sahara 2 ft. x 2 ft. Lay-in Ceiling Tile ( 64 sq. ft. / Case)",
+        "lot_number": "22622119",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 1,
+        "estimated_retail_price": 114,
+        "ends_at": "2026-11-19T00:00:05Z",
+        "status": "live",
+        "version": 1,
+        "bid_count": 1,
+        "next_min_increment": 2,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202313/1_thumb.webp",
+            "image_card": "lots/2026/11/202313/1_card.webp",
+            "image_large": "lots/2026/11/202313/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202313/2_thumb.webp",
+            "image_card": "lots/2026/11/202313/2_card.webp",
+            "image_large": "lots/2026/11/202313/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202313/3_thumb.webp",
+            "image_card": "lots/2026/11/202313/3_card.webp",
+            "image_large": "lots/2026/11/202313/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202313/4_thumb.webp",
+            "image_card": "lots/2026/11/202313/4_card.webp",
+            "image_large": "lots/2026/11/202313/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202313/5_thumb.webp",
+            "image_card": "lots/2026/11/202313/5_card.webp",
+            "image_large": "lots/2026/11/202313/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202314,
+        "auction_period": "2026-11-01",
+        "title": "Pietra Divina Calacatta Dolomiti Marble Chevron Mosaic Tile, 14x14 in, Polished(1.11 sq ft/ea) (Qty",
+        "lot_number": "22649308",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 9,
+        "estimated_retail_price": 426,
+        "ends_at": "2026-11-19T00:00:10Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 9,
+        "next_min_increment": 10,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202314/1_thumb.webp",
+            "image_card": "lots/2026/11/202314/1_card.webp",
+            "image_large": "lots/2026/11/202314/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202314/2_thumb.webp",
+            "image_card": "lots/2026/11/202314/2_card.webp",
+            "image_large": "lots/2026/11/202314/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202314/3_thumb.webp",
+            "image_card": "lots/2026/11/202314/3_card.webp",
+            "image_large": "lots/2026/11/202314/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202314/4_thumb.webp",
+            "image_card": "lots/2026/11/202314/4_card.webp",
+            "image_large": "lots/2026/11/202314/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202314/5_thumb.webp",
+            "image_card": "lots/2026/11/202314/5_card.webp",
+            "image_large": "lots/2026/11/202314/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202314/6_thumb.webp",
+            "image_card": "lots/2026/11/202314/6_card.webp",
+            "image_large": "lots/2026/11/202314/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/202314/7_thumb.webp",
+            "image_card": "lots/2026/11/202314/7_card.webp",
+            "image_large": "lots/2026/11/202314/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/202314/8_thumb.webp",
+            "image_card": "lots/2026/11/202314/8_card.webp",
+            "image_large": "lots/2026/11/202314/8_large.webp"
+          },
+          {
+            "position": 9,
+            "image_thumb": "lots/2026/11/202314/9_thumb.webp",
+            "image_card": "lots/2026/11/202314/9_card.webp",
+            "image_large": "lots/2026/11/202314/9_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202315,
+        "auction_period": "2026-11-01",
+        "title": "30 Gal. Paper Lawn and Leaf Bags 5-CounT (Qty 4)",
+        "lot_number": "22657357",
+        "category": {
+          "value": "home",
+          "label": "Home"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 2,
+        "estimated_retail_price": 10,
+        "ends_at": "2026-11-19T00:00:15Z",
+        "status": "live",
+        "version": 2,
+        "bid_count": 2,
+        "next_min_increment": 3,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202315/1_thumb.webp",
+            "image_card": "lots/2026/11/202315/1_card.webp",
+            "image_large": "lots/2026/11/202315/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202315/2_thumb.webp",
+            "image_card": "lots/2026/11/202315/2_card.webp",
+            "image_large": "lots/2026/11/202315/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202315/3_thumb.webp",
+            "image_card": "lots/2026/11/202315/3_card.webp",
+            "image_large": "lots/2026/11/202315/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202315/4_thumb.webp",
+            "image_card": "lots/2026/11/202315/4_card.webp",
+            "image_large": "lots/2026/11/202315/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202315/5_thumb.webp",
+            "image_card": "lots/2026/11/202315/5_card.webp",
+            "image_large": "lots/2026/11/202315/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202315/6_thumb.webp",
+            "image_card": "lots/2026/11/202315/6_card.webp",
+            "image_large": "lots/2026/11/202315/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202316,
+        "auction_period": "2026-11-01",
+        "title": "12 inch X 4 inch Mainzu ceramic glazed blue tile 32 tiles per box (8 boxes of tile)",
+        "lot_number": "22727356",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 4,
+        "estimated_retail_price": 480,
+        "ends_at": "2026-11-19T00:00:20Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 4,
+        "next_min_increment": 5,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202316/1_thumb.webp",
+            "image_card": "lots/2026/11/202316/1_card.webp",
+            "image_large": "lots/2026/11/202316/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202316/2_thumb.webp",
+            "image_card": "lots/2026/11/202316/2_card.webp",
+            "image_large": "lots/2026/11/202316/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202316/3_thumb.webp",
+            "image_card": "lots/2026/11/202316/3_card.webp",
+            "image_large": "lots/2026/11/202316/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202316/4_thumb.webp",
+            "image_card": "lots/2026/11/202316/4_card.webp",
+            "image_large": "lots/2026/11/202316/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202316/5_thumb.webp",
+            "image_card": "lots/2026/11/202316/5_card.webp",
+            "image_large": "lots/2026/11/202316/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202316/6_thumb.webp",
+            "image_card": "lots/2026/11/202316/6_card.webp",
+            "image_large": "lots/2026/11/202316/6_large.webp"
+          }
+        ]
+      }
+    ]
+  }
+}

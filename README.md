@@ -77,6 +77,18 @@ TLX_PASSWORD='pick-one' uv run python -m tlx_server --host 0.0.0.0 # also your p
 uv run python -m tlx_server --help                                 # --port, --db, --background-minutes, --llm-key, --tls-cert/--tls-key, ...
 ```
 
+#### TypeScript front server (in progress)
+
+The server is moving to TypeScript ([Bun](https://bun.sh) and [Hono](https://hono.dev), in `src/server/`). For now the TypeScript server is the front door: it serves the app, relays the websocket, proxies `/backend`, and keeps both logins (the app password and the site login). It starts the Python server on a loopback port for everything else (the catalog, settings, history, item types and tags), sharing the same database. Bun comes with `npm install`; the Python side still needs uv.
+
+```bash
+npm run server                                                 # this computer only: http://127.0.0.1:8765
+TLX_PASSWORD='pick-one' npm run server -- --host 0.0.0.0       # also your phone
+npm run server -- --help                                       # the same options, plus --backend URL / --backend-port
+```
+
+The Python server it starts runs with `--shared-login` (it reads the site token the front server keeps fresh in the database, and never signs in or refreshes itself) and accepts only requests carrying a random `X-TLX-Backend-Key` the front server gives it at startup, so other programs on the computer can't use it directly. Both servers use the same database, so switching between `npm run server` and running the Python server directly keeps your logins, sessions and data.
+
 The app can't call the site directly, because the site's API doesn't allow other origins and its websocket only accepts its own pages. So the server stands in for the site:
 
 - **Your login.** Use _Log in_ (in the banner, the lot popup, or _Settings_) to have the server sign in to Triangle Liquidators. Your password is sent to the site once and isn't stored. The server keeps the site's session cookies, so you stay logged in, and refreshes the API token as needed. _Log out_ signs the server out.
@@ -107,7 +119,11 @@ npm run build     # lint, typecheck, then build the web app
 npm run typecheck # check TypeScript and included JavaScript with strict compiler options
 npm run lint      # Oxlint with type-aware checks for unnecessary conditions and optional chaining
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
+npm test          # web tests (node --test) and TypeScript server tests (bun test)
+npm run capture-fixtures  # refresh the real site replies in tests/fixtures/site/
 ```
+
+`tests/fixtures/site/` holds real replies from triangleliquidators.com (public, anonymous endpoints only, captured by `scripts/capture-site-fixtures.ts`): catalog pages, lot details, errors, next-auth's logged-out replies, and a few minutes of websocket frames. `tests/site-fixtures.test.mjs` checks them against the shapes the code declares, so after a refresh a failing test means the site changed. Lot channels only publish when someone bids, so if the capture records no publication, run it again closer to closing time with `--ws-seconds=600`.
 
 The type check also validates declaration files and enables additional checks for
 optional properties, indexed access, unused code, and control flow.
@@ -126,4 +142,5 @@ git config core.hooksPath githooks
 - `src/app/`: the catalog view. `catalog.ts` holds the in-memory catalog, `source.ts` fetches it and shared settings from the server, `auth.tsx` handles the server's login and the app password, and `settings.ts` provides reactive settings with localStorage only for browser-specific UI state.
 - `server/tlx_server/`: the Python server: `site.py` API client, `session.py` site login, `catalog.py` pulls, `itemtypes.py` item types, `history.py` closed lots and past prices, `store.py` SQLite, `tags.py` the tags command, `server.py` HTTP (app, proxy, websocket relay).
 - `src/tags/` and `web/tags.html`: the tag rules page (`/tags`).
-- `src/shared/`: filters, the search engine (`search.ts`: query parsing, ranking, stemming, synonyms, spelling correction), cost formula, title sort key, item identity and settings keys. Item matching (duplicate listings, relisted items, past prices) is only in `server/tlx_server/history.py`.
+- `src/shared/`: filters, the search engine (`search.ts`: query parsing, ranking, stemming, synonyms, spelling correction), cost formula, title sort key, item identity and settings keys, the site's raw lot normalizer (`lot.ts`), and item matching (`identity.ts`: duplicate listings, relisted items, past prices; ported from the Python server, which still runs it).
+- `src/server/`: the TypeScript front server: `main.ts` command line and the Python server it starts, `app.ts` HTTP (guards, `/backend` proxy, forwarding, static files), `session.ts` site login, `relay.ts` websocket relay, `store.ts` the shared tables. Type-checked with `tsconfig.server.json`; tests in `tests/server/`.

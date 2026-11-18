@@ -1,0 +1,1815 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/lots/2026-11-01/202316/"
+  },
+  "status": 200,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:54.352Z",
+  "body": {
+    "id": 202316,
+    "auction_period": "2026-11-01",
+    "title": "12 inch X 4 inch Mainzu ceramic glazed blue tile 32 tiles per box (8 boxes of tile)",
+    "lot_number": "22727356",
+    "category": {
+      "value": "Building_Hardware",
+      "label": "Building & Hardware"
+    },
+    "condition": {
+      "value": 3,
+      "display_name": "Used"
+    },
+    "location": {
+      "id": 1,
+      "name": "Raleigh"
+    },
+    "is_transferable": true,
+    "transfer_fee": 5,
+    "current_price": 4,
+    "estimated_retail_price": 480,
+    "ends_at": "2026-11-19T00:00:20Z",
+    "status": "live",
+    "version": 4,
+    "bid_count": 4,
+    "next_min_increment": 5,
+    "your_standing": null,
+    "is_watchlisted": false,
+    "has_bid": false,
+    "images": [
+      {
+        "position": 1,
+        "image_thumb": "lots/2026/11/202316/1_thumb.webp",
+        "image_card": "lots/2026/11/202316/1_card.webp",
+        "image_large": "lots/2026/11/202316/1_large.webp"
+      },
+      {
+        "position": 2,
+        "image_thumb": "lots/2026/11/202316/2_thumb.webp",
+        "image_card": "lots/2026/11/202316/2_card.webp",
+        "image_large": "lots/2026/11/202316/2_large.webp"
+      },
+      {
+        "position": 3,
+        "image_thumb": "lots/2026/11/202316/3_thumb.webp",
+        "image_card": "lots/2026/11/202316/3_card.webp",
+        "image_large": "lots/2026/11/202316/3_large.webp"
+      },
+      {
+        "position": 4,
+        "image_thumb": "lots/2026/11/202316/4_thumb.webp",
+        "image_card": "lots/2026/11/202316/4_card.webp",
+        "image_large": "lots/2026/11/202316/4_large.webp"
+      },
+      {
+        "position": 5,
+        "image_thumb": "lots/2026/11/202316/5_thumb.webp",
+        "image_card": "lots/2026/11/202316/5_card.webp",
+        "image_large": "lots/2026/11/202316/5_large.webp"
+      },
+      {
+        "position": 6,
+        "image_thumb": "lots/2026/11/202316/6_thumb.webp",
+        "image_card": "lots/2026/11/202316/6_card.webp",
+        "image_large": "lots/2026/11/202316/6_large.webp"
+      }
+    ],
+    "description": "Quantity: 8,\n\n\n\nLot Number: 22727356,\nBrand: N/A,",
+    "brand": "N/A",
+    "model": null,
+    "bid_history": [
+      {
+        "bidder_label": "Bidder 4",
+        "amount": 4,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 3",
+        "amount": 3,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 2",
+        "amount": 2,
+        "is_you": false
+      },
+      {
+        "bidder_label": "Bidder 1",
+        "amount": 1,
+        "is_you": false
+      }
+    ],
+    "lot_fee": 1,
+    "similar": [
+      {
+        "id": 202983,
+        "auction_period": "2026-11-01",
+        "title": "Trex Hideaway Hidden Deck Fasteners 500 sq. ft. Combo Pack",
+        "lot_number": "22763012",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 40,
+        "estimated_retail_price": 246,
+        "ends_at": "2026-11-19T00:55:55Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 6,
+        "next_min_increment": 41,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202983/1_thumb.webp",
+            "image_card": "lots/2026/11/202983/1_card.webp",
+            "image_large": "lots/2026/11/202983/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202983/2_thumb.webp",
+            "image_card": "lots/2026/11/202983/2_card.webp",
+            "image_large": "lots/2026/11/202983/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202983/3_thumb.webp",
+            "image_card": "lots/2026/11/202983/3_card.webp",
+            "image_large": "lots/2026/11/202983/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202983/4_thumb.webp",
+            "image_card": "lots/2026/11/202983/4_card.webp",
+            "image_large": "lots/2026/11/202983/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203582,
+        "auction_period": "2026-11-01",
+        "title": "Trex Hideaway Hidden Deck Fasteners 500 sq.ft. Combo Pack",
+        "lot_number": "22817577",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 40,
+        "estimated_retail_price": 270,
+        "ends_at": "2026-11-19T01:45:50Z",
+        "status": "live",
+        "version": 2,
+        "bid_count": 2,
+        "next_min_increment": 41,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203582/1_thumb.webp",
+            "image_card": "lots/2026/11/203582/1_card.webp",
+            "image_large": "lots/2026/11/203582/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203582/2_thumb.webp",
+            "image_card": "lots/2026/11/203582/2_card.webp",
+            "image_large": "lots/2026/11/203582/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203582/3_thumb.webp",
+            "image_card": "lots/2026/11/203582/3_card.webp",
+            "image_large": "lots/2026/11/203582/3_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204708,
+        "auction_period": "2026-11-01",
+        "title": "Trex Hideaway Hidden Deck Fasteners 500 sq. ft. Combo Pack",
+        "lot_number": "22713523",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 40,
+        "estimated_retail_price": 246,
+        "ends_at": "2026-11-19T02:22:55Z",
+        "status": "live",
+        "version": 7,
+        "bid_count": 11,
+        "next_min_increment": 41,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204708/1_thumb.webp",
+            "image_card": "lots/2026/11/204708/1_card.webp",
+            "image_large": "lots/2026/11/204708/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204708/2_thumb.webp",
+            "image_card": "lots/2026/11/204708/2_card.webp",
+            "image_large": "lots/2026/11/204708/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204708/3_thumb.webp",
+            "image_card": "lots/2026/11/204708/3_card.webp",
+            "image_large": "lots/2026/11/204708/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204708/4_thumb.webp",
+            "image_card": "lots/2026/11/204708/4_card.webp",
+            "image_large": "lots/2026/11/204708/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204836,
+        "auction_period": "2026-11-01",
+        "title": "#9 x 3 in. Tan Star Flat Head Wood Deck Screw (25 lbs. / 1543-Pieces)",
+        "lot_number": "22727774",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 31,
+        "estimated_retail_price": 105,
+        "ends_at": "2026-11-19T02:33:35Z",
+        "status": "live",
+        "version": 23,
+        "bid_count": 33,
+        "next_min_increment": 32,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204836/1_thumb.webp",
+            "image_card": "lots/2026/11/204836/1_card.webp",
+            "image_large": "lots/2026/11/204836/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204836/2_thumb.webp",
+            "image_card": "lots/2026/11/204836/2_card.webp",
+            "image_large": "lots/2026/11/204836/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204836/3_thumb.webp",
+            "image_card": "lots/2026/11/204836/3_card.webp",
+            "image_large": "lots/2026/11/204836/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204836/4_thumb.webp",
+            "image_card": "lots/2026/11/204836/4_card.webp",
+            "image_large": "lots/2026/11/204836/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202849,
+        "auction_period": "2026-11-01",
+        "title": "Trex Hideaway Universal Hidden Deck Fastener Clip 500 SQFT Bucket",
+        "lot_number": "22759056",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 30,
+        "estimated_retail_price": 230,
+        "ends_at": "2026-11-19T00:44:45Z",
+        "status": "live",
+        "version": 3,
+        "bid_count": 4,
+        "next_min_increment": 31,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202849/1_thumb.webp",
+            "image_card": "lots/2026/11/202849/1_card.webp",
+            "image_large": "lots/2026/11/202849/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202849/2_thumb.webp",
+            "image_card": "lots/2026/11/202849/2_card.webp",
+            "image_large": "lots/2026/11/202849/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202849/3_thumb.webp",
+            "image_card": "lots/2026/11/202849/3_card.webp",
+            "image_large": "lots/2026/11/202849/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202849/4_thumb.webp",
+            "image_card": "lots/2026/11/202849/4_card.webp",
+            "image_large": "lots/2026/11/202849/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202849/5_thumb.webp",
+            "image_card": "lots/2026/11/202849/5_card.webp",
+            "image_large": "lots/2026/11/202849/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204528,
+        "auction_period": "2026-11-01",
+        "title": "10 mil Plastic Sheeting, Heavy Duty, 5 x 100 ft, Polyethylene Underlayment Roll, Black",
+        "lot_number": "22702639",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 26,
+        "estimated_retail_price": 60,
+        "ends_at": "2026-11-19T02:08:00Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 5,
+        "next_min_increment": 27,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204528/1_thumb.webp",
+            "image_card": "lots/2026/11/204528/1_card.webp",
+            "image_large": "lots/2026/11/204528/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204528/2_thumb.webp",
+            "image_card": "lots/2026/11/204528/2_card.webp",
+            "image_large": "lots/2026/11/204528/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204528/3_thumb.webp",
+            "image_card": "lots/2026/11/204528/3_card.webp",
+            "image_large": "lots/2026/11/204528/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204528/4_thumb.webp",
+            "image_card": "lots/2026/11/204528/4_card.webp",
+            "image_large": "lots/2026/11/204528/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202671,
+        "auction_period": "2026-11-01",
+        "title": "36 x 80 in. Universal White Surface-Mount Outswing Steel Security Door with Perforated Screen",
+        "lot_number": "22753174",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 24,
+        "estimated_retail_price": 348,
+        "ends_at": "2026-11-19T00:29:55Z",
+        "status": "live",
+        "version": 10,
+        "bid_count": 11,
+        "next_min_increment": 25,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202671/1_thumb.webp",
+            "image_card": "lots/2026/11/202671/1_card.webp",
+            "image_large": "lots/2026/11/202671/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202671/2_thumb.webp",
+            "image_card": "lots/2026/11/202671/2_card.webp",
+            "image_large": "lots/2026/11/202671/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202671/3_thumb.webp",
+            "image_card": "lots/2026/11/202671/3_card.webp",
+            "image_large": "lots/2026/11/202671/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202671/4_thumb.webp",
+            "image_card": "lots/2026/11/202671/4_card.webp",
+            "image_large": "lots/2026/11/202671/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202671/5_thumb.webp",
+            "image_card": "lots/2026/11/202671/5_card.webp",
+            "image_large": "lots/2026/11/202671/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202671/6_thumb.webp",
+            "image_card": "lots/2026/11/202671/6_card.webp",
+            "image_large": "lots/2026/11/202671/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203886,
+        "auction_period": "2026-11-01",
+        "title": "Misc. cabinet knobs/drawer pulls lot",
+        "lot_number": "22601155",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 23,
+        "estimated_retail_price": 250,
+        "ends_at": "2026-11-19T01:14:30Z",
+        "status": "live",
+        "version": 13,
+        "bid_count": 23,
+        "next_min_increment": 24,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203886/1_thumb.webp",
+            "image_card": "lots/2026/11/203886/1_card.webp",
+            "image_large": "lots/2026/11/203886/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203886/2_thumb.webp",
+            "image_card": "lots/2026/11/203886/2_card.webp",
+            "image_large": "lots/2026/11/203886/2_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204558,
+        "auction_period": "2026-11-01",
+        "title": "ArmorGuard EDGE Hidden Deck Clip (450 Count)",
+        "lot_number": "22705122",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 23,
+        "estimated_retail_price": 179,
+        "ends_at": "2026-11-19T02:10:30Z",
+        "status": "live",
+        "version": 3,
+        "bid_count": 4,
+        "next_min_increment": 24,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204558/1_thumb.webp",
+            "image_card": "lots/2026/11/204558/1_card.webp",
+            "image_large": "lots/2026/11/204558/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204558/2_thumb.webp",
+            "image_card": "lots/2026/11/204558/2_card.webp",
+            "image_large": "lots/2026/11/204558/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204558/3_thumb.webp",
+            "image_card": "lots/2026/11/204558/3_card.webp",
+            "image_large": "lots/2026/11/204558/3_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203717,
+        "auction_period": "2026-11-01",
+        "title": "Sanbristol White Marvel 24x48 Matte Colorbody Porcelain Stone Look Tile 15.26 sq ft/case",
+        "lot_number": "22030911",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 22,
+        "estimated_retail_price": 987,
+        "ends_at": "2026-11-19T01:00:25Z",
+        "status": "live",
+        "version": 10,
+        "bid_count": 16,
+        "next_min_increment": 23,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203717/1_thumb.webp",
+            "image_card": "lots/2026/11/203717/1_card.webp",
+            "image_large": "lots/2026/11/203717/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203717/2_thumb.webp",
+            "image_card": "lots/2026/11/203717/2_card.webp",
+            "image_large": "lots/2026/11/203717/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203717/3_thumb.webp",
+            "image_card": "lots/2026/11/203717/3_card.webp",
+            "image_large": "lots/2026/11/203717/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203717/4_thumb.webp",
+            "image_card": "lots/2026/11/203717/4_card.webp",
+            "image_large": "lots/2026/11/203717/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203239,
+        "auction_period": "2026-11-01",
+        "title": "10 Mil Plastic Sheeting, 10 x 100 ft, Heavy-Duty Polyethylene Tarp, Vapor Barrier, Crawl Space",
+        "lot_number": "22771892",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 22,
+        "estimated_retail_price": 100,
+        "ends_at": "2026-11-19T01:17:15Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 8,
+        "next_min_increment": 23,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203239/1_thumb.webp",
+            "image_card": "lots/2026/11/203239/1_card.webp",
+            "image_large": "lots/2026/11/203239/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203239/2_thumb.webp",
+            "image_card": "lots/2026/11/203239/2_card.webp",
+            "image_large": "lots/2026/11/203239/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203239/3_thumb.webp",
+            "image_card": "lots/2026/11/203239/3_card.webp",
+            "image_large": "lots/2026/11/203239/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203239/4_thumb.webp",
+            "image_card": "lots/2026/11/203239/4_card.webp",
+            "image_large": "lots/2026/11/203239/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204769,
+        "auction_period": "2026-11-01",
+        "title": "2 Pack Shed Windows, Chicken Coop Windows, 36\" x 36\" White",
+        "lot_number": "22718039",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 22,
+        "estimated_retail_price": 220,
+        "ends_at": "2026-11-19T02:28:00Z",
+        "status": "live",
+        "version": 13,
+        "bid_count": 23,
+        "next_min_increment": 23,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204769/1_thumb.webp",
+            "image_card": "lots/2026/11/204769/1_card.webp",
+            "image_large": "lots/2026/11/204769/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204769/2_thumb.webp",
+            "image_card": "lots/2026/11/204769/2_card.webp",
+            "image_large": "lots/2026/11/204769/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204769/3_thumb.webp",
+            "image_card": "lots/2026/11/204769/3_card.webp",
+            "image_large": "lots/2026/11/204769/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204769/4_thumb.webp",
+            "image_card": "lots/2026/11/204769/4_card.webp",
+            "image_large": "lots/2026/11/204769/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204727,
+        "auction_period": "2026-11-01",
+        "title": "VEVOR 10 Mil Heavy Duty Black Plastic Sheeting Roll (10' x 100')",
+        "lot_number": "22714665",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 21,
+        "estimated_retail_price": 100,
+        "ends_at": "2026-11-19T02:24:30Z",
+        "status": "live",
+        "version": 3,
+        "bid_count": 4,
+        "next_min_increment": 22,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204727/1_thumb.webp",
+            "image_card": "lots/2026/11/204727/1_card.webp",
+            "image_large": "lots/2026/11/204727/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204727/2_thumb.webp",
+            "image_card": "lots/2026/11/204727/2_card.webp",
+            "image_large": "lots/2026/11/204727/2_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202331,
+        "auction_period": "2026-11-01",
+        "title": "Avondale Shaker Alpine White Quick-Assembly Plywood 12 in Wall Kitchen Cabinet (12x30x12)",
+        "lot_number": "22748549",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 20,
+        "estimated_retail_price": 119,
+        "ends_at": "2026-11-19T00:01:35Z",
+        "status": "live",
+        "version": 13,
+        "bid_count": 20,
+        "next_min_increment": 21,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202331/1_thumb.webp",
+            "image_card": "lots/2026/11/202331/1_card.webp",
+            "image_large": "lots/2026/11/202331/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202331/2_thumb.webp",
+            "image_card": "lots/2026/11/202331/2_card.webp",
+            "image_large": "lots/2026/11/202331/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202331/3_thumb.webp",
+            "image_card": "lots/2026/11/202331/3_card.webp",
+            "image_large": "lots/2026/11/202331/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202331/4_thumb.webp",
+            "image_card": "lots/2026/11/202331/4_card.webp",
+            "image_large": "lots/2026/11/202331/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204447,
+        "auction_period": "2026-11-01",
+        "title": "10 Mil Plastic Sheeting 5 x 100 ft Heavy Duty Roll, Polyethylene Tarp, Vapor Barrier",
+        "lot_number": "22696917",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 20,
+        "estimated_retail_price": 60,
+        "ends_at": "2026-11-19T02:01:15Z",
+        "status": "live",
+        "version": 5,
+        "bid_count": 6,
+        "next_min_increment": 21,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204447/1_thumb.webp",
+            "image_card": "lots/2026/11/204447/1_card.webp",
+            "image_large": "lots/2026/11/204447/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204447/2_thumb.webp",
+            "image_card": "lots/2026/11/204447/2_card.webp",
+            "image_large": "lots/2026/11/204447/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204447/3_thumb.webp",
+            "image_card": "lots/2026/11/204447/3_card.webp",
+            "image_large": "lots/2026/11/204447/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204447/4_thumb.webp",
+            "image_card": "lots/2026/11/204447/4_card.webp",
+            "image_large": "lots/2026/11/204447/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204448,
+        "auction_period": "2026-11-01",
+        "title": "10 Mil Plastic Sheeting 5 x 100 ft Heavy Duty Roll, Polyethylene Tarp, Vapor Barrier",
+        "lot_number": "22696970",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 20,
+        "estimated_retail_price": 60,
+        "ends_at": "2026-11-19T02:01:20Z",
+        "status": "live",
+        "version": 5,
+        "bid_count": 6,
+        "next_min_increment": 21,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204448/1_thumb.webp",
+            "image_card": "lots/2026/11/204448/1_card.webp",
+            "image_large": "lots/2026/11/204448/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204448/2_thumb.webp",
+            "image_card": "lots/2026/11/204448/2_card.webp",
+            "image_large": "lots/2026/11/204448/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204448/3_thumb.webp",
+            "image_card": "lots/2026/11/204448/3_card.webp",
+            "image_large": "lots/2026/11/204448/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204448/4_thumb.webp",
+            "image_card": "lots/2026/11/204448/4_card.webp",
+            "image_large": "lots/2026/11/204448/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202370,
+        "auction_period": "2026-11-01",
+        "title": "Avondale 9 W x 24 D x 34.5 H RTA Plywood Shaker Base Kitchen Cabinet Alpine White",
+        "lot_number": "22748774",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 18,
+        "estimated_retail_price": 199,
+        "ends_at": "2026-11-19T00:04:50Z",
+        "status": "live",
+        "version": 12,
+        "bid_count": 19,
+        "next_min_increment": 19,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202370/1_thumb.webp",
+            "image_card": "lots/2026/11/202370/1_card.webp",
+            "image_large": "lots/2026/11/202370/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202370/2_thumb.webp",
+            "image_card": "lots/2026/11/202370/2_card.webp",
+            "image_large": "lots/2026/11/202370/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202370/3_thumb.webp",
+            "image_card": "lots/2026/11/202370/3_card.webp",
+            "image_large": "lots/2026/11/202370/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202370/4_thumb.webp",
+            "image_card": "lots/2026/11/202370/4_card.webp",
+            "image_large": "lots/2026/11/202370/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202370/5_thumb.webp",
+            "image_card": "lots/2026/11/202370/5_card.webp",
+            "image_large": "lots/2026/11/202370/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/202370/6_thumb.webp",
+            "image_card": "lots/2026/11/202370/6_card.webp",
+            "image_large": "lots/2026/11/202370/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204173,
+        "auction_period": "2026-11-01",
+        "title": "Hardware Cloth 1/4 in x 4 ft x 100 ft, 23-Gauge, Galvanized Wire Mesh Roll",
+        "lot_number": "22672807",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 18,
+        "estimated_retail_price": 99,
+        "ends_at": "2026-11-19T01:38:25Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 9,
+        "next_min_increment": 19,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204173/1_thumb.webp",
+            "image_card": "lots/2026/11/204173/1_card.webp",
+            "image_large": "lots/2026/11/204173/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204173/2_thumb.webp",
+            "image_card": "lots/2026/11/204173/2_card.webp",
+            "image_large": "lots/2026/11/204173/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204173/3_thumb.webp",
+            "image_card": "lots/2026/11/204173/3_card.webp",
+            "image_large": "lots/2026/11/204173/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204173/4_thumb.webp",
+            "image_card": "lots/2026/11/204173/4_card.webp",
+            "image_large": "lots/2026/11/204173/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/204173/5_thumb.webp",
+            "image_card": "lots/2026/11/204173/5_card.webp",
+            "image_large": "lots/2026/11/204173/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 207215,
+        "auction_period": "2026-11-01",
+        "title": "48 in. x 25 ft. Radiant Barrier Bubble Aluminum Foil Reflective Insulation",
+        "lot_number": "22815709",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 17,
+        "estimated_retail_price": 52,
+        "ends_at": "2026-11-20T02:06:05Z",
+        "status": "live",
+        "version": 11,
+        "bid_count": 17,
+        "next_min_increment": 18,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207215/1_thumb.webp",
+            "image_card": "lots/2026/11/207215/1_card.webp",
+            "image_large": "lots/2026/11/207215/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207215/2_thumb.webp",
+            "image_card": "lots/2026/11/207215/2_card.webp",
+            "image_large": "lots/2026/11/207215/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207215/3_thumb.webp",
+            "image_card": "lots/2026/11/207215/3_card.webp",
+            "image_large": "lots/2026/11/207215/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207215/4_thumb.webp",
+            "image_card": "lots/2026/11/207215/4_card.webp",
+            "image_large": "lots/2026/11/207215/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/207215/5_thumb.webp",
+            "image_card": "lots/2026/11/207215/5_card.webp",
+            "image_large": "lots/2026/11/207215/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203138,
+        "auction_period": "2026-11-01",
+        "title": "1 Pieces 24 x 36\" Clear Acrylic Sheet Plexiglass - 1/4\" (6mm) Thick",
+        "lot_number": "22768945",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 16,
+        "estimated_retail_price": 43,
+        "ends_at": "2026-11-19T01:08:50Z",
+        "status": "live",
+        "version": 11,
+        "bid_count": 17,
+        "next_min_increment": 17,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203138/1_thumb.webp",
+            "image_card": "lots/2026/11/203138/1_card.webp",
+            "image_large": "lots/2026/11/203138/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203138/2_thumb.webp",
+            "image_card": "lots/2026/11/203138/2_card.webp",
+            "image_large": "lots/2026/11/203138/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203138/3_thumb.webp",
+            "image_card": "lots/2026/11/203138/3_card.webp",
+            "image_large": "lots/2026/11/203138/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203138/4_thumb.webp",
+            "image_card": "lots/2026/11/203138/4_card.webp",
+            "image_large": "lots/2026/11/203138/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204529,
+        "auction_period": "2026-11-01",
+        "title": "10 mil Plastic Sheeting, Heavy Duty, 5 x 100 ft, Polyethylene Underlayment Roll, Black",
+        "lot_number": "22702701",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 16,
+        "estimated_retail_price": 60,
+        "ends_at": "2026-11-19T02:08:05Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 4,
+        "next_min_increment": 17,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204529/1_thumb.webp",
+            "image_card": "lots/2026/11/204529/1_card.webp",
+            "image_large": "lots/2026/11/204529/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204529/2_thumb.webp",
+            "image_card": "lots/2026/11/204529/2_card.webp",
+            "image_large": "lots/2026/11/204529/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204529/3_thumb.webp",
+            "image_card": "lots/2026/11/204529/3_card.webp",
+            "image_large": "lots/2026/11/204529/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204529/4_thumb.webp",
+            "image_card": "lots/2026/11/204529/4_card.webp",
+            "image_large": "lots/2026/11/204529/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204530,
+        "auction_period": "2026-11-01",
+        "title": "10 mil Plastic Sheeting, Heavy Duty, 5 x 100 ft, Polyethylene Underlayment Roll, Black",
+        "lot_number": "22702702",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 16,
+        "estimated_retail_price": 60,
+        "ends_at": "2026-11-19T02:08:10Z",
+        "status": "live",
+        "version": 4,
+        "bid_count": 4,
+        "next_min_increment": 17,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204530/1_thumb.webp",
+            "image_card": "lots/2026/11/204530/1_card.webp",
+            "image_large": "lots/2026/11/204530/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204530/2_thumb.webp",
+            "image_card": "lots/2026/11/204530/2_card.webp",
+            "image_large": "lots/2026/11/204530/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204530/3_thumb.webp",
+            "image_card": "lots/2026/11/204530/3_card.webp",
+            "image_large": "lots/2026/11/204530/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204530/4_thumb.webp",
+            "image_card": "lots/2026/11/204530/4_card.webp",
+            "image_large": "lots/2026/11/204530/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 203468,
+        "auction_period": "2026-11-01",
+        "title": "20-Pack 5.375-In 13-Gauge Black Powder-Coated Hurricane Ties for Roof Trusses",
+        "lot_number": "22816489",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 15,
+        "estimated_retail_price": 118,
+        "ends_at": "2026-11-19T01:36:20Z",
+        "status": "live",
+        "version": 9,
+        "bid_count": 12,
+        "next_min_increment": 16,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/203468/1_thumb.webp",
+            "image_card": "lots/2026/11/203468/1_card.webp",
+            "image_large": "lots/2026/11/203468/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/203468/2_thumb.webp",
+            "image_card": "lots/2026/11/203468/2_card.webp",
+            "image_large": "lots/2026/11/203468/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/203468/3_thumb.webp",
+            "image_card": "lots/2026/11/203468/3_card.webp",
+            "image_large": "lots/2026/11/203468/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/203468/4_thumb.webp",
+            "image_card": "lots/2026/11/203468/4_card.webp",
+            "image_large": "lots/2026/11/203468/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/203468/5_thumb.webp",
+            "image_card": "lots/2026/11/203468/5_card.webp",
+            "image_large": "lots/2026/11/203468/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202957,
+        "auction_period": "2026-11-01",
+        "title": "Ball Satin Nickel Bed/Bath Door Knob (6-Pack)",
+        "lot_number": "22762267",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 14,
+        "estimated_retail_price": 45,
+        "ends_at": "2026-11-19T00:53:45Z",
+        "status": "live",
+        "version": 11,
+        "bid_count": 16,
+        "next_min_increment": 15,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202957/1_thumb.webp",
+            "image_card": "lots/2026/11/202957/1_card.webp",
+            "image_large": "lots/2026/11/202957/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202957/2_thumb.webp",
+            "image_card": "lots/2026/11/202957/2_card.webp",
+            "image_large": "lots/2026/11/202957/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202957/3_thumb.webp",
+            "image_card": "lots/2026/11/202957/3_card.webp",
+            "image_large": "lots/2026/11/202957/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202957/4_thumb.webp",
+            "image_card": "lots/2026/11/202957/4_card.webp",
+            "image_large": "lots/2026/11/202957/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202963,
+        "auction_period": "2026-11-01",
+        "title": "8 x 3/4 in. Phillips Truss Head Sharp Point Lath Screws (600-Pack)",
+        "lot_number": "22762455",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 14,
+        "estimated_retail_price": 31,
+        "ends_at": "2026-11-19T00:54:15Z",
+        "status": "live",
+        "version": 10,
+        "bid_count": 15,
+        "next_min_increment": 15,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202963/1_thumb.webp",
+            "image_card": "lots/2026/11/202963/1_card.webp",
+            "image_large": "lots/2026/11/202963/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202963/2_thumb.webp",
+            "image_card": "lots/2026/11/202963/2_card.webp",
+            "image_large": "lots/2026/11/202963/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202963/3_thumb.webp",
+            "image_card": "lots/2026/11/202963/3_card.webp",
+            "image_large": "lots/2026/11/202963/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202963/4_thumb.webp",
+            "image_card": "lots/2026/11/202963/4_card.webp",
+            "image_large": "lots/2026/11/202963/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202559,
+        "auction_period": "2026-11-01",
+        "title": "Hinged 6 in. x 3 ft. Unpainted Galvanized Steel Mesh Gutter Guard (Qty 30)",
+        "lot_number": "22751256",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 13,
+        "estimated_retail_price": 195,
+        "ends_at": "2026-11-19T00:20:35Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 12,
+        "next_min_increment": 14,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202559/1_thumb.webp",
+            "image_card": "lots/2026/11/202559/1_card.webp",
+            "image_large": "lots/2026/11/202559/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202559/2_thumb.webp",
+            "image_card": "lots/2026/11/202559/2_card.webp",
+            "image_large": "lots/2026/11/202559/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202559/3_thumb.webp",
+            "image_card": "lots/2026/11/202559/3_card.webp",
+            "image_large": "lots/2026/11/202559/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202559/4_thumb.webp",
+            "image_card": "lots/2026/11/202559/4_card.webp",
+            "image_large": "lots/2026/11/202559/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202559/5_thumb.webp",
+            "image_card": "lots/2026/11/202559/5_card.webp",
+            "image_large": "lots/2026/11/202559/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202564,
+        "auction_period": "2026-11-01",
+        "title": "Snap-In 3 ft. White Vinyl Mesh Gutter Guard (Qty 41)",
+        "lot_number": "22751327",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 13,
+        "estimated_retail_price": 63,
+        "ends_at": "2026-11-19T00:21:00Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 13,
+        "next_min_increment": 14,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202564/1_thumb.webp",
+            "image_card": "lots/2026/11/202564/1_card.webp",
+            "image_large": "lots/2026/11/202564/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202564/2_thumb.webp",
+            "image_card": "lots/2026/11/202564/2_card.webp",
+            "image_large": "lots/2026/11/202564/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202564/3_thumb.webp",
+            "image_card": "lots/2026/11/202564/3_card.webp",
+            "image_large": "lots/2026/11/202564/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202564/4_thumb.webp",
+            "image_card": "lots/2026/11/202564/4_card.webp",
+            "image_large": "lots/2026/11/202564/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/202564/5_thumb.webp",
+            "image_card": "lots/2026/11/202564/5_card.webp",
+            "image_large": "lots/2026/11/202564/5_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 202992,
+        "auction_period": "2026-11-01",
+        "title": "Ball Satin Nickel Bed/Bath Door Knob (6-Pack)",
+        "lot_number": "22763370",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 1,
+          "name": "Raleigh"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 13,
+        "estimated_retail_price": 45,
+        "ends_at": "2026-11-19T00:56:40Z",
+        "status": "live",
+        "version": 10,
+        "bid_count": 15,
+        "next_min_increment": 14,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/202992/1_thumb.webp",
+            "image_card": "lots/2026/11/202992/1_card.webp",
+            "image_large": "lots/2026/11/202992/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/202992/2_thumb.webp",
+            "image_card": "lots/2026/11/202992/2_card.webp",
+            "image_large": "lots/2026/11/202992/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/202992/3_thumb.webp",
+            "image_card": "lots/2026/11/202992/3_card.webp",
+            "image_large": "lots/2026/11/202992/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/202992/4_thumb.webp",
+            "image_card": "lots/2026/11/202992/4_card.webp",
+            "image_large": "lots/2026/11/202992/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 204422,
+        "auction_period": "2026-11-01",
+        "title": "Hardware Cloth 1/2 in x 24 in x 100 ft, 19 GA Galvanized Wire Mesh Roll for Chicken Wire Fencing",
+        "lot_number": "22696381",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 13,
+        "estimated_retail_price": 64,
+        "ends_at": "2026-11-19T01:59:10Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 13,
+        "next_min_increment": 14,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/204422/1_thumb.webp",
+            "image_card": "lots/2026/11/204422/1_card.webp",
+            "image_large": "lots/2026/11/204422/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/204422/2_thumb.webp",
+            "image_card": "lots/2026/11/204422/2_card.webp",
+            "image_large": "lots/2026/11/204422/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/204422/3_thumb.webp",
+            "image_card": "lots/2026/11/204422/3_card.webp",
+            "image_large": "lots/2026/11/204422/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/204422/4_thumb.webp",
+            "image_card": "lots/2026/11/204422/4_card.webp",
+            "image_large": "lots/2026/11/204422/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 207213,
+        "auction_period": "2026-11-01",
+        "title": "48 in. x 25 ft. Radiant Barrier Bubble Aluminum Foil Reflective Insulation",
+        "lot_number": "22815688",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 13,
+        "estimated_retail_price": 52,
+        "ends_at": "2026-11-20T02:05:55Z",
+        "status": "live",
+        "version": 8,
+        "bid_count": 11,
+        "next_min_increment": 14,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207213/1_thumb.webp",
+            "image_card": "lots/2026/11/207213/1_card.webp",
+            "image_large": "lots/2026/11/207213/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207213/2_thumb.webp",
+            "image_card": "lots/2026/11/207213/2_card.webp",
+            "image_large": "lots/2026/11/207213/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207213/3_thumb.webp",
+            "image_card": "lots/2026/11/207213/3_card.webp",
+            "image_large": "lots/2026/11/207213/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207213/4_thumb.webp",
+            "image_card": "lots/2026/11/207213/4_card.webp",
+            "image_large": "lots/2026/11/207213/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/207213/5_thumb.webp",
+            "image_card": "lots/2026/11/207213/5_card.webp",
+            "image_large": "lots/2026/11/207213/5_large.webp"
+          }
+        ]
+      }
+    ]
+  }
+}

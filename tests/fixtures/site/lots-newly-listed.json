@@ -1,0 +1,366 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/lots/?page=1&per_page=5&order_by=newly-listed"
+  },
+  "status": 200,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-18T19:00:50.106Z",
+  "body": {
+    "count": 5309,
+    "results": [
+      {
+        "id": 207621,
+        "auction_period": "2026-11-01",
+        "title": "Pneumatic 15-Degree Coil Corded Siding Nailer",
+        "lot_number": "22871179",
+        "category": {
+          "value": "tools",
+          "label": "Tools"
+        },
+        "condition": {
+          "value": 4,
+          "display_name": "As-is"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 2,
+        "estimated_retail_price": 299,
+        "ends_at": "2026-11-20T02:39:55Z",
+        "status": "live",
+        "version": 2,
+        "bid_count": 2,
+        "next_min_increment": 3,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207621/1_thumb.webp",
+            "image_card": "lots/2026/11/207621/1_card.webp",
+            "image_large": "lots/2026/11/207621/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207621/2_thumb.webp",
+            "image_card": "lots/2026/11/207621/2_card.webp",
+            "image_large": "lots/2026/11/207621/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207621/3_thumb.webp",
+            "image_card": "lots/2026/11/207621/3_card.webp",
+            "image_large": "lots/2026/11/207621/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207621/4_thumb.webp",
+            "image_card": "lots/2026/11/207621/4_card.webp",
+            "image_large": "lots/2026/11/207621/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/207621/5_thumb.webp",
+            "image_card": "lots/2026/11/207621/5_card.webp",
+            "image_large": "lots/2026/11/207621/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/207621/6_thumb.webp",
+            "image_card": "lots/2026/11/207621/6_card.webp",
+            "image_large": "lots/2026/11/207621/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/207621/7_thumb.webp",
+            "image_card": "lots/2026/11/207621/7_card.webp",
+            "image_large": "lots/2026/11/207621/7_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 207620,
+        "auction_period": "2026-11-01",
+        "title": "BougeRV 12v refrigerator 23 Quart, -8 ~50  Portable Freezer for Car, Black",
+        "lot_number": "22871054",
+        "category": {
+          "value": "electronics-appliances",
+          "label": "Electronics & Appliances"
+        },
+        "condition": {
+          "value": 2,
+          "display_name": "Like New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 48,
+        "estimated_retail_price": 200,
+        "ends_at": "2026-11-20T02:39:50Z",
+        "status": "live",
+        "version": 6,
+        "bid_count": 9,
+        "next_min_increment": 49,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207620/1_thumb.webp",
+            "image_card": "lots/2026/11/207620/1_card.webp",
+            "image_large": "lots/2026/11/207620/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207620/2_thumb.webp",
+            "image_card": "lots/2026/11/207620/2_card.webp",
+            "image_large": "lots/2026/11/207620/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207620/3_thumb.webp",
+            "image_card": "lots/2026/11/207620/3_card.webp",
+            "image_large": "lots/2026/11/207620/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207620/4_thumb.webp",
+            "image_card": "lots/2026/11/207620/4_card.webp",
+            "image_large": "lots/2026/11/207620/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/207620/5_thumb.webp",
+            "image_card": "lots/2026/11/207620/5_card.webp",
+            "image_large": "lots/2026/11/207620/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/207620/6_thumb.webp",
+            "image_card": "lots/2026/11/207620/6_card.webp",
+            "image_large": "lots/2026/11/207620/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/207620/7_thumb.webp",
+            "image_card": "lots/2026/11/207620/7_card.webp",
+            "image_large": "lots/2026/11/207620/7_large.webp"
+          },
+          {
+            "position": 8,
+            "image_thumb": "lots/2026/11/207620/8_thumb.webp",
+            "image_card": "lots/2026/11/207620/8_card.webp",
+            "image_large": "lots/2026/11/207620/8_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 207619,
+        "auction_period": "2026-11-01",
+        "title": "Glidden Spred Interior Paint + Primer, Semi-Gloss White, 1 Gallon",
+        "lot_number": "22870709",
+        "category": {
+          "value": "Building_Hardware",
+          "label": "Building & Hardware"
+        },
+        "condition": {
+          "value": 1,
+          "display_name": "New"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 1,
+        "estimated_retail_price": 38,
+        "ends_at": "2026-11-20T02:39:45Z",
+        "status": "live",
+        "version": 1,
+        "bid_count": 1,
+        "next_min_increment": 2,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207619/1_thumb.webp",
+            "image_card": "lots/2026/11/207619/1_card.webp",
+            "image_large": "lots/2026/11/207619/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207619/2_thumb.webp",
+            "image_card": "lots/2026/11/207619/2_card.webp",
+            "image_large": "lots/2026/11/207619/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207619/3_thumb.webp",
+            "image_card": "lots/2026/11/207619/3_card.webp",
+            "image_large": "lots/2026/11/207619/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207619/4_thumb.webp",
+            "image_card": "lots/2026/11/207619/4_card.webp",
+            "image_large": "lots/2026/11/207619/4_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 207618,
+        "auction_period": "2026-11-01",
+        "title": "ECHO Universal 2-Line Rapid Loader Trimmer Head",
+        "lot_number": "22870160",
+        "category": {
+          "value": "tools",
+          "label": "Tools"
+        },
+        "condition": {
+          "value": 3,
+          "display_name": "Used"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 0,
+        "estimated_retail_price": 35,
+        "ends_at": "2026-11-20T02:39:40Z",
+        "status": "live",
+        "version": 0,
+        "bid_count": 0,
+        "next_min_increment": 1,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207618/1_thumb.webp",
+            "image_card": "lots/2026/11/207618/1_card.webp",
+            "image_large": "lots/2026/11/207618/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207618/2_thumb.webp",
+            "image_card": "lots/2026/11/207618/2_card.webp",
+            "image_large": "lots/2026/11/207618/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207618/3_thumb.webp",
+            "image_card": "lots/2026/11/207618/3_card.webp",
+            "image_large": "lots/2026/11/207618/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207618/4_thumb.webp",
+            "image_card": "lots/2026/11/207618/4_card.webp",
+            "image_large": "lots/2026/11/207618/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/207618/5_thumb.webp",
+            "image_card": "lots/2026/11/207618/5_card.webp",
+            "image_large": "lots/2026/11/207618/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/207618/6_thumb.webp",
+            "image_card": "lots/2026/11/207618/6_card.webp",
+            "image_large": "lots/2026/11/207618/6_large.webp"
+          }
+        ]
+      },
+      {
+        "id": 207617,
+        "auction_period": "2026-11-01",
+        "title": "Tail Light Assembly for 2006-2014 Honda Ridgeline 33551-SJC-A11 33501-SJC-A11 Taillight Set",
+        "lot_number": "22869742",
+        "category": {
+          "value": "automotive",
+          "label": "Automotive"
+        },
+        "condition": {
+          "value": 4,
+          "display_name": "As-is"
+        },
+        "location": {
+          "id": 2,
+          "name": "Anderson"
+        },
+        "is_transferable": true,
+        "transfer_fee": 5,
+        "current_price": 2,
+        "estimated_retail_price": 109,
+        "ends_at": "2026-11-20T02:39:35Z",
+        "status": "live",
+        "version": 2,
+        "bid_count": 2,
+        "next_min_increment": 3,
+        "your_standing": null,
+        "is_watchlisted": false,
+        "has_bid": false,
+        "images": [
+          {
+            "position": 1,
+            "image_thumb": "lots/2026/11/207617/1_thumb.webp",
+            "image_card": "lots/2026/11/207617/1_card.webp",
+            "image_large": "lots/2026/11/207617/1_large.webp"
+          },
+          {
+            "position": 2,
+            "image_thumb": "lots/2026/11/207617/2_thumb.webp",
+            "image_card": "lots/2026/11/207617/2_card.webp",
+            "image_large": "lots/2026/11/207617/2_large.webp"
+          },
+          {
+            "position": 3,
+            "image_thumb": "lots/2026/11/207617/3_thumb.webp",
+            "image_card": "lots/2026/11/207617/3_card.webp",
+            "image_large": "lots/2026/11/207617/3_large.webp"
+          },
+          {
+            "position": 4,
+            "image_thumb": "lots/2026/11/207617/4_thumb.webp",
+            "image_card": "lots/2026/11/207617/4_card.webp",
+            "image_large": "lots/2026/11/207617/4_large.webp"
+          },
+          {
+            "position": 5,
+            "image_thumb": "lots/2026/11/207617/5_thumb.webp",
+            "image_card": "lots/2026/11/207617/5_card.webp",
+            "image_large": "lots/2026/11/207617/5_large.webp"
+          },
+          {
+            "position": 6,
+            "image_thumb": "lots/2026/11/207617/6_thumb.webp",
+            "image_card": "lots/2026/11/207617/6_card.webp",
+            "image_large": "lots/2026/11/207617/6_large.webp"
+          },
+          {
+            "position": 7,
+            "image_thumb": "lots/2026/11/207617/7_thumb.webp",
+            "image_card": "lots/2026/11/207617/7_card.webp",
+            "image_large": "lots/2026/11/207617/7_large.webp"
+          }
+        ]
+      }
+    ]
+  }
+}
