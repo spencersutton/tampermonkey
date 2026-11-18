@@ -1,4 +1,7 @@
-"""Item identity shared by history matching and persisted item-type labels."""
+"""Item identity shared by history matching and persisted item-type labels.
+
+Ported to src/shared/identity.ts for the TypeScript server; keep them in step.
+"""
 
 from collections import defaultdict
 from collections.abc import Iterable

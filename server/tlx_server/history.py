@@ -20,6 +20,9 @@ All item matching lives here; the app only reads its results:
 Brand and model match exactly, ignoring case and whitespace, when both lots
 have both fields. Otherwise names match fuzzily, by `names_match`: 90% of
 words in common, ignoring case, punctuation and word order.
+
+The matching here (`name_tokens` through `ItemIndex`) is ported to
+src/shared/identity.ts for the TypeScript server; keep them in step.
 """
 
 from __future__ import annotations
