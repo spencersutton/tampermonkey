@@ -2,7 +2,7 @@ import { dequal } from 'dequal';
 
 import { totalCost } from '../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
-import { buildRegexes } from '../shared/filters';
+import { buildRegexes, filterMatches } from '../shared/filters';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
 import { itemIdentity, type ItemDetails } from '../shared/names';
 import {
@@ -36,6 +36,17 @@ export interface Row {
 
 type Compare = (a: Row, b: Row) => number;
 
+/** Per-page-load seed, so the random order stays put as lots update but changes on reload. */
+const shuffleSeed = Math.floor(Math.random() * 2 ** 32);
+
+/** Deterministic pseudo-random key for a lot id (murmur3 finalizer mixed with the seed). */
+function shuffleKey(id: number): number {
+  let h = (id ^ shuffleSeed) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
 /** Sort options. Ties always fall back to ending soonest. */
 export const SORTS = {
   relevance: { label: 'Best match', compare: (a, b) => b.score - a.score },
@@ -68,8 +79,7 @@ export const SORTS = {
     label: 'Retail price: high to low',
     compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1),
   },
-  'bids-most': { label: 'Most bids', compare: (a, b) => b.lot.bidCount - a.lot.bidCount },
-  'bids-fewest': { label: 'Fewest bids', compare: (a, b) => a.lot.bidCount - b.lot.bidCount },
+  random: { label: 'Random', compare: (a, b) => shuffleKey(a.lot.id) - shuffleKey(b.lot.id) },
 } satisfies Record<string, { label: string; compare: Compare }>;
 export type SortId = keyof typeof SORTS;
 
@@ -242,14 +252,19 @@ export interface Exclusions {
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
 
 /**
- * The filter words whose regex matches a title (in filter order), cached by title until the filter
- * words change, so view changes don't re-run every regex on every lot.
+ * The filter words whose regex matches a lot's title or whole item type (in filter order), cached
+ * by title and item type until the filter words change, so view changes don't re-run every regex on
+ * every lot.
  */
-const titleMatcher = memoLast((words: string[]) => {
+const lotMatcher = memoLast((words: string[]) => {
   const compiled = buildRegexes(words);
-  return memoize((title: string) =>
-    compiled.filter(({ re }) => re?.test(title)).map(({ word }) => word),
-  );
+  const byKey = memoize((key: string) => {
+    const cut = key.indexOf('\u0000');
+    const itemType = key.slice(0, cut),
+      title = key.slice(cut + 1);
+    return compiled.filter((f) => filterMatches(f, title, itemType)).map(({ word }) => word);
+  });
+  return (lot: Lot) => byKey(titleKey(lot));
 });
 
 /** Prefix that keeps custom category values apart from the site's. */
@@ -324,7 +339,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     retailPct: lot.estimatedRetailPrice
       ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100
       : null,
-    matched: ex.filterOn ? (titleMatcher(ex.words)(lot.title)[0] ?? null) : null,
+    matched: ex.filterOn ? (lotMatcher(ex.words)(lot)[0] ?? null) : null,
     hidden: Boolean(ex.hidden[lot.id]),
     others: [],
     cheaper: null,
@@ -451,7 +466,7 @@ export function computeView(
   filteredOnly = false,
 ): ViewResult {
   const matchCounts = new Map(ex.words.map((w) => [w, 0]));
-  const titleMatches = titleMatcher(ex.words);
+  const lotMatches = lotMatcher(ex.words);
   const rowRules = filteredOnly ? { ...ex, filterOn: true } : ex;
 
   // Rows that the hide / regex rules leave in, before the view's own filters.
@@ -463,7 +478,7 @@ export function computeView(
       continue;
     }
     open++;
-    for (const word of titleMatches(lot.title)) {
+    for (const word of lotMatches(lot)) {
       matchCounts.set(word, matchCounts.get(word)! + 1);
     }
     const row = makeRow(lot, pickup, rowRules);
