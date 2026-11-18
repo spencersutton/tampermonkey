@@ -157,7 +157,6 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           <span class="card-location">
             <LocationText row={row} />
           </span>
-          {lot.lotNumber && <span class="card-lot-number">Lot #{lot.lotNumber}</span>}
         </div>
         <a class="card-title" href={href} title={lot.title} onClick={open}>
           <Highlight text={lot.title} />

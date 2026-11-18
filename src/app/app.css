@@ -1074,11 +1074,6 @@ h3 {
   font-weight: 600;
 }
 
-.card-lot-number {
-  margin-left: auto;
-  overflow-wrap: anywhere;
-}
-
 
 /* Brand and model on one line, labelled for screen readers only. */
 .card-identity .brand-model {
