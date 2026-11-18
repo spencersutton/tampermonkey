@@ -60,6 +60,14 @@ export function ago(ts: Temporal.Instant, now: Temporal.Instant) {
   return relative.format(-Math.floor(ms / DAY), 'day');
 }
 
+/** An epoch-millisecond time from the tlx server or the site's API as an Instant. */
+export function instantFromEpochMilliseconds(ms: number | null): Temporal.Instant {
+  if (ms === null || !Number.isSafeInteger(ms)) {
+    throw new TypeError('Invalid epoch-millisecond timestamp');
+  }
+  return Temporal.Instant.fromEpochMilliseconds(ms);
+}
+
 /** Remaining time as "m:ss", or "Ns" under a minute. */
 export function countdown(ms: number) {
   const s = Math.max(0, Math.ceil(ms / 1000));

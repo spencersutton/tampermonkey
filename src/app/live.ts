@@ -4,7 +4,8 @@
 import { computed, effect, signal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 
-import { fetchWsToken, normalizeStanding, type RawStanding } from './api';
+import { normalizeStanding, type RawStanding } from '../shared/lot';
+import { fetchWsToken } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';
 import { onScreen, openId } from './state';

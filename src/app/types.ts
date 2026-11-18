@@ -1,13 +1,4 @@
-interface LotImage {
-  thumb: string;
-  card: string;
-  large: string;
-}
-
-export interface Standing {
-  isLeading: boolean;
-  yourMaxBid: number | null;
-}
+import type { LotImage, Standing } from '../shared/lot';
 
 // Normalized (camelCase) lot from the list endpoint.
 export interface Lot {

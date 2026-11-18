@@ -26,6 +26,7 @@ import {
 import { applySetting, setSaveHook, type Key } from './settings';
 import { toast } from './toast';
 import type { Lot, PastClose, PastCloseDetail } from './types';
+import { instantFromEpochMilliseconds } from './util';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
@@ -93,13 +94,6 @@ interface CatalogReply extends Status {
   full: boolean;
   ids: number[] | null; // every current lot id (delta replies only)
   lots: ServerLot[]; // lots changed since the requested sequence
-}
-
-function instantFromEpochMilliseconds(ms: number): Temporal.Instant {
-  if (!Number.isSafeInteger(ms)) {
-    throw new TypeError('Invalid epoch-millisecond timestamp from the tlx server');
-  }
-  return Temporal.Instant.fromEpochMilliseconds(ms);
 }
 
 function normalizePastClose<T extends ServerPastClose>(

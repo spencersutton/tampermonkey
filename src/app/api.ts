@@ -1,8 +1,10 @@
 // Thin client for the site's JSON API, proxied by the tlx server, which adds
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
+import * as wire from '../shared/lot';
 import { authedFetch, isAuthenticated } from './auth';
-import type { ClosedLot, Lot, LotDetail, LotMetadata, Standing } from './types';
+import type { ClosedLot, Lot, LotDetail, LotMetadata } from './types';
+import { instantFromEpochMilliseconds } from './util';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
@@ -40,45 +42,9 @@ function send(
   });
 }
 
-export interface RawStanding {
-  is_leading: boolean;
-  your_max_bid: number | null;
-}
-
-/** @see Lot, which is the normalized version of this. */
-interface RawLot {
-  id: number;
-  auction_period: string;
-  title?: string | null;
-  lot_number?: string | null;
-  category: { value: string; label: string } | null;
-  condition: { value: number; display_name: string } | null;
-  location: { id: number; name: string } | null;
-  is_transferable: boolean;
-  transfer_fee?: number | null;
-  current_price?: number | null;
-  estimated_retail_price: number | null;
-  ends_at: string;
-  status: string;
-  version?: number | null;
-  bid_count?: number | null;
-  next_min_increment?: number | null;
-  your_standing: RawStanding | null;
-  is_watchlisted: boolean;
-  has_bid: boolean;
-  images?:
-    | { position: number; image_thumb: string; image_card: string; image_large: string }[]
-    | null;
-}
-
-/** @see LotDetail, which is the normalized version of this. */
-interface RawLotDetail extends RawLot {
-  description?: string | null;
-  brand: string | null;
-  model: string | null;
-  lot_fee: number | null;
-  bid_history?: { bidder_label: string; amount: number; is_you: boolean }[] | null;
-  similar?: RawLot[] | null;
+/** @see LotDetail; the site's detail adds its "Similar Auctions". */
+interface RawLotDetail extends wire.RawLotDetail {
+  similar?: wire.RawLot[] | null;
 }
 
 /** @see ClosedLot, which is the normalized version of this. */
@@ -106,37 +72,10 @@ interface RawBidResponse {
   version?: number | null;
 }
 
-/** Convert the API's `your_standing` object (snake_case) into a Standing. */
-export function normalizeStanding(s: RawStanding | null | undefined): Standing | null {
-  return s ? { isLeading: s.is_leading, yourMaxBid: s.your_max_bid ?? null } : null;
-}
-
 /** Convert a raw API lot (snake_case) into a Lot. */
-export function normalizeLot(r: RawLot): Lot {
-  return {
-    id: r.id,
-    auctionPeriod: r.auction_period,
-    title: r.title ?? '',
-    lotNumber: r.lot_number ?? '',
-    category: r.category ? { value: r.category.value, label: r.category.label } : null,
-    condition: r.condition ? { value: r.condition.value, label: r.condition.display_name } : null,
-    location: r.location ? { id: r.location.id, name: r.location.name } : null,
-    isTransferable: r.is_transferable,
-    transferFee: r.transfer_fee ?? 0,
-    currentPrice: r.current_price ?? 0,
-    estimatedRetailPrice: r.estimated_retail_price ?? null,
-    endsAt: Temporal.Instant.from(r.ends_at),
-    status: r.status,
-    version: r.version ?? -1,
-    bidCount: r.bid_count ?? 0,
-    nextMinIncrement: r.next_min_increment ?? 0,
-    yourStanding: normalizeStanding(r.your_standing),
-    isWatchlisted: r.is_watchlisted,
-    hasBid: r.has_bid,
-    images: (r.images ?? [])
-      .toSorted((a, b) => a.position - b.position)
-      .map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large })),
-  };
+export function normalizeLot(r: wire.RawLot): Lot {
+  const lot = wire.normalizeLot(r);
+  return { ...lot, endsAt: instantFromEpochMilliseconds(lot.endsAt) };
 }
 
 /** Fetch one lot's full detail: description, brand/model, bid history and the site's similar lots. */
@@ -146,17 +85,10 @@ export async function fetchLotDetail(
   signal?: AbortSignal,
 ): Promise<LotDetail> {
   const r = await get<RawLotDetail>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
+  const detail = wire.normalizeDetail(r);
   return {
-    ...normalizeLot(r),
-    description: r.description ?? '',
-    brand: r.brand || null,
-    model: r.model || null,
-    lotFee: r.lot_fee ?? null,
-    bidHistory: (r.bid_history ?? []).map((b) => ({
-      bidderLabel: b.bidder_label,
-      amount: b.amount,
-      isYou: b.is_you,
-    })),
+    ...detail,
+    endsAt: instantFromEpochMilliseconds(detail.endsAt),
     similar: (r.similar ?? []).map(normalizeLot),
   };
 }
