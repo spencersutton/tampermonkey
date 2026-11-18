@@ -1,0 +1,11 @@
+{
+  // The TypeScript server, its tests and scripts: Bun, no DOM.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "jsx": "preserve",
+    "types": ["bun"]
+  },
+  "include": [".", "../shared", "../../scripts", "../../tests/server"],
+  "exclude": []
+}
