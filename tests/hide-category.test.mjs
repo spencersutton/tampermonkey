@@ -100,7 +100,7 @@ test('hiding a selected category preserves other filters and its descendants', (
   page.value = 4;
   hideCategory('tools');
   assert.deepEqual(storedView.value, { ...view, categories: [custom, 'garden'] });
-  assert.equal(page.value, 1);
+  assert.equal(page.value, 4, 'keeps the loaded cards so the grid does not jump');
   assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.view}`)), storedView.value);
 });
 

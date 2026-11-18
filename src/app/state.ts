@@ -152,14 +152,38 @@ export function setView(patch: Partial<ViewState>) {
   });
 }
 
-export function hideCategory(value: string) {
+/**
+ * Drop a category from the grid without moving the page: keep the cards already loaded, and put the
+ * next card that survives where the clicked one was.
+ */
+export function hideCategory(value: string, from?: EventTarget | null) {
   const view = storedView.value;
   const selected =
     view.categories.length || view.noCategories
       ? view.categories
       : filterFacets.value.categories.map((f) => f.value);
   const categories = selected.filter((v) => v !== value);
-  setView({ categories, noCategories: !categories.length });
+  const clicked =
+    typeof Element !== 'undefined' && from instanceof Element
+      ? from.closest('article[data-lot]')
+      : null;
+  const cards = clicked ? [...document.querySelectorAll('article[data-lot]')] : [];
+  const at = clicked ? cards.indexOf(clicked) : -1;
+  const anchorTop = clicked?.getBoundingClientRect().top;
+  const after = at >= 0 ? cards.slice(at + 1) : [];
+  const before = at >= 0 ? cards.slice(0, at).toReversed() : [];
+  const beforeTops = new Map(before.map((card) => [card, card.getBoundingClientRect().top]));
+  setSetting(KEYS.view, { ...view, categories, noCategories: !categories.length });
+  if (anchorTop == null) return;
+  // Preact renders on a microtask, so this runs after the grid updates but before it's painted.
+  requestAnimationFrame(() => {
+    const next = after.find((card) => card.isConnected);
+    const prev = next ? undefined : before.find((card) => card.isConnected);
+    const target = next ?? prev;
+    if (!target) return;
+    const want = next ? anchorTop : beforeTops.get(target)!;
+    window.scrollBy(0, target.getBoundingClientRect().top - want);
+  });
 }
 
 export const exclusionRules = computed(() => ({

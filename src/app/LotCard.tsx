@@ -180,7 +180,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
                 class="icon-btn category-hide"
                 title={`Hide category: ${category.label}`}
                 aria-label={`Hide category: ${category.label}`}
-                onClick={() => hideCategory(category.value)}
+                onClick={(e?: MouseEvent) => hideCategory(category.value, e?.currentTarget)}
               >
                 <Icon name="visibilityOff" size={14} />
               </button>
