@@ -1,5 +1,3 @@
-import { sumBy, unique } from 'remeda';
-
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
@@ -173,7 +171,7 @@ export function CategoryGroupRow({
   // Subcategory lists start closed; `collapsed[id] === false` means opened.
   const id = categoryCollapseId(facet.value);
   const open = collapsed[id] === false;
-  const total = sumBy(rows, r => r.count);
+  const total = rows.reduce((n, r) => n + r.count, 0);
   const onlyLabel = `Show only ${facet.label} and its subcategories`;
   return (
     <div class="check-group">
@@ -185,7 +183,9 @@ export function CategoryGroupRow({
             indeterminate={some && !all}
             onChange={() =>
               onChange(
-                all ? selected.filter(v => !values.includes(v)) : unique([...selected, ...values]),
+                all
+                  ? selected.filter(v => !values.includes(v))
+                  : [...new Set([...selected, ...values])],
               )
             }
           />
