@@ -23,7 +23,7 @@ export function itemIdentity(
   const model = details?.models.get(item.id);
   return {
     title: item.title,
-    brand: brand === undefined ? item.brand : brand,
-    model: model === undefined ? item.model : model,
+    brand: brand ?? item.brand,
+    model: model ?? item.model,
   };
 }
