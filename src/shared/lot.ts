@@ -47,6 +47,15 @@ export interface RawLotDetail extends RawLot {
   bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
 }
 
+/** Reusable item metadata, kept separately from prices, bids and account state. */
+export interface LotMetadata {
+  description: string;
+  brand: string | null;
+  model: string | null;
+  lot_fee: number | null;
+  images?: LotImage[] | undefined; // older server cache entries may not have saved images
+}
+
 /** When a lot ends, as epoch ms (NaN if it has no valid time). */
 export const endsAtMs = (lot: { ends_at?: string | null | undefined }): number =>
   lot.ends_at ? Date.parse(lot.ends_at) : Number.NaN;

@@ -1,4 +1,4 @@
-import type { LotImage, RawLot, RawLotDetail } from '../shared/lot';
+import type { RawLot, RawLotDetail } from '../shared/lot';
 
 // A lot as the tlx server sends it: the site's fields (snake_case, see RawLot in
 // shared/lot.ts) plus the server's own (camelCase).
@@ -30,15 +30,6 @@ export interface PastCloseDetail extends PastClose {
   location: string | null;
   category: string | null;
   retail: number | null;
-}
-
-/** Reusable item metadata, kept separately from prices, bids and account state. */
-export interface LotMetadata {
-  description: string;
-  brand: string | null;
-  model: string | null;
-  lot_fee: number | null;
-  images?: LotImage[] | undefined; // older server cache entries may not have saved images
 }
 
 export interface LotDetail extends RawLotDetail, Omit<Lot, keyof RawLotDetail> {

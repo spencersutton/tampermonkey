@@ -5,8 +5,8 @@ import { useRef, useState } from 'preact/hooks';
 
 import { dollars } from '../shared/cost';
 import { KEYS } from '../shared/keys';
+import { CDN } from '../shared/site';
 import { tagGroup, tagLabel } from '../shared/tags';
-import { CDN } from './api';
 import { getSetting, setSetting } from './settings';
 import {
   gridView,

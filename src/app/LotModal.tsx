@@ -2,8 +2,8 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
-import { endsAtMs } from '../shared/lot';
-import { CDN } from './api';
+import { endsAtMs, type LotMetadata } from '../shared/lot';
+import { CDN } from '../shared/site';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending } from './bid';
 import { BrandModel } from './brands';
@@ -16,7 +16,7 @@ import { ListingRow } from './ListingRow';
 import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
-import type { Lot, LotDetail, LotMetadata, PastCloseDetail } from './types';
+import type { Lot, LotDetail, PastCloseDetail } from './types';
 import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
 

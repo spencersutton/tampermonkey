@@ -18,14 +18,13 @@
 // final prices of the lots that just left the catalog).
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
+import { ACTIVE_WINDOW, MINUTE } from '../shared/time';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';
 import { ApiError, LIST_PAGE_SIZE, type SiteApi } from './site';
 import type { CatalogMeta, Lot, Store } from './store';
 
-const MINUTE_MS = 60_000;
-const ACTIVE_WINDOW_MS = 10 * MINUTE_MS; // pull only if a tab was in use this recently
 const CHECK_EVERY_MS = 15_000; // between checks whether a pull is due
 const ACCOUNT_FIELDS = ['your_standing', 'is_watchlisted', 'has_bid'] as const;
 
@@ -60,7 +59,7 @@ export class Catalog {
     backgroundMinutes = 0,
     private readonly now: () => number = Date.now,
   ) {
-    this.backgroundMs = backgroundMinutes * MINUTE_MS;
+    this.backgroundMs = backgroundMinutes * MINUTE;
   }
 
   // -- what clients tell us -----------------------------------------------------
@@ -78,7 +77,7 @@ export class Catalog {
   /** Minimum time between full pulls, from the synced setting. */
   intervalMs(): number {
     const m = this.store.setting(KEYS.syncMinutes);
-    return Math.max(MIN_SYNC_MINUTES, typeof m === 'number' ? m : DEFAULT_SYNC_MINUTES) * MINUTE_MS;
+    return Math.max(MIN_SYNC_MINUTES, typeof m === 'number' ? m : DEFAULT_SYNC_MINUTES) * MINUTE;
   }
 
   /** Epoch ms when the next full pull is allowed. */
@@ -92,7 +91,7 @@ export class Catalog {
 
   private wanted(meta: CatalogMeta): boolean {
     const now = this.now();
-    if (this.requested || now - this.lastActive <= ACTIVE_WINDOW_MS) {
+    if (this.requested || now - this.lastActive <= ACTIVE_WINDOW) {
       return true;
     }
     if (this.backgroundMs) {

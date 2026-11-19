@@ -7,7 +7,9 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-import { CDN, fetchClosed, type ClosedSection } from './api';
+import { CDN } from '../shared/site';
+import { MINUTE } from '../shared/time';
+import { fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
 import { Icon } from './icons';
@@ -16,7 +18,7 @@ import { LotModal } from './LotModal';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, fmtCount, MINUTE, openHandler, plural } from './util';
+import { clock, fmtCount, openHandler, plural } from './util';
 import { makeRow, type Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */

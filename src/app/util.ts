@@ -1,8 +1,6 @@
 import { signal, type Signal } from '@preact/signals';
 
-export const MINUTE = 60_000;
-export const HOUR = 60 * MINUTE;
-export const DAY = 24 * HOUR;
+import { DAY, HOUR, MINUTE } from '../shared/time';
 
 /** Weekday and time, e.g. "Tue 3:45 PM". */
 export const shortTime = (ts: number) =>

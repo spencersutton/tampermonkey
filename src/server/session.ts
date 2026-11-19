@@ -7,8 +7,9 @@
 // SQLite (in the format the earlier Python server used, so its login carries
 // over), and refreshes the token shortly before it expires or after the API
 // rejects it.
+import { SITE } from '../shared/site';
 import { field, isRecord, prop } from './json';
-import { SITE, USER_AGENT } from './site';
+import { USER_AGENT } from './site';
 import type { Store } from './store';
 
 const EXPIRY_MARGIN = 120; // seconds; refresh the token this long before it expires

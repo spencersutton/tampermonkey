@@ -5,9 +5,10 @@ import { describe, expect, test } from 'bun:test';
 
 import { Catalog, type CatalogStore } from '../../src/server/catalog';
 import { History } from '../../src/server/history';
-import { cleanType, Labeller, parseReply } from '../../src/server/itemtypes';
+import { Labeller, parseReply } from '../../src/server/itemtypes';
 import { ApiError, type LotPage, SiteApi } from '../../src/server/site';
 import { type Lot, Store } from '../../src/server/store';
+import { cleanType } from '../../src/shared/itemtype';
 import { fixture } from './harness';
 
 const NOW = 1_800_000_000_000;

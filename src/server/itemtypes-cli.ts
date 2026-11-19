@@ -7,6 +7,8 @@
 import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
+import { byCode } from '../shared/sortKey';
+import { MINUTE } from '../shared/time';
 import { BATCH, DEFAULT_MODEL, DEFAULT_URL, Labeller, RETRY_MS, VOCAB } from './itemtypes';
 import { DEFAULT_DB } from './main';
 import { type Lot, Store } from './store';
@@ -41,8 +43,6 @@ function sample<T>(items: T[], n: number, random: () => number): T[] {
   return pool.slice(0, n);
 }
 
-const byCode = (a: string, b: string) => (a < b ? -1 : Number(a > b));
-
 async function main() {
   const { values, positionals } = parseArgs({
     options: {
@@ -66,7 +66,7 @@ async function main() {
   if (cmd === 'reset') {
     const n = store.resetItemTypes();
     console.log(
-      `forgot the item types of ${n} titles; a running server relabels them on its next run (after a pull, or within ${RETRY_MS / 60_000} minutes)`,
+      `forgot the item types of ${n} titles; a running server relabels them on its next run (after a pull, or within ${RETRY_MS / MINUTE} minutes)`,
     );
     return;
   }

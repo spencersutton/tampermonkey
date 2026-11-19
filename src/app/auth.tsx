@@ -9,8 +9,8 @@ import { computed, effect, signal, untracked } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 
+import { MINUTE } from '../shared/time';
 import { Dialog } from './Dialog';
-import { MINUTE } from './util';
 
 const CHECK_EVERY = 5 * MINUTE;
 const FOCUS_MIN_GAP = MINUTE;

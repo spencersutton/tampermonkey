@@ -1,6 +1,7 @@
 import { batch, signal } from '@preact/signals';
 
 import { DEFAULTS, SERVER_KEYS } from '../shared/keys';
+import { MINUTE } from '../shared/time';
 // Catalog source for the web app, which the tlx server (src/server/) serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
 // keeps the SERVER_KEYS settings, so every device using it shares filters,
@@ -29,7 +30,7 @@ import type { Lot, PastCloseDetail } from './types';
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
 const POLL_VISIBLE = 15_000;
-const POLL_HIDDEN = 60_000;
+const POLL_HIDDEN = MINUTE;
 const TIMEOUT = 30_000;
 
 /** Call the tlx server and parse its JSON reply. */

@@ -5,15 +5,15 @@
 // (cached for DETAIL_TTL).
 import { batch, signal } from '@preact/signals';
 
+import type { LotMetadata } from '../shared/lot';
+import { ACTIVE_WINDOW, MINUTE } from '../shared/time';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
-import type { Lot, LotDetail, LotMetadata } from './types';
-import { MINUTE } from './util';
+import type { Lot, LotDetail } from './types';
 
 /** How long a fetched lot detail is reused. */
 const DETAIL_TTL = 2 * MINUTE;
 /** Auto-refresh only if the page was used this recently. */
-export const ACTIVE_WINDOW = 10 * MINUTE;
 
 export interface SyncProgress {
   done: number;

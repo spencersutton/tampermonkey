@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 
+import { MAX_TYPE_LENGTH } from '../shared/itemtype';
 import { collator } from '../shared/sortKey';
 import { lots } from './catalog';
 import { Dialog } from './Dialog';
@@ -9,15 +10,11 @@ import { modalActions, setView } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
 
-const MAX_ITEM_TYPE_LENGTH = 60;
-
 function itemTypeError(name: string): string | null {
   if (!name.trim()) {
     return 'Item type is required';
   }
-  return name.length > MAX_ITEM_TYPE_LENGTH
-    ? `Use at most ${MAX_ITEM_TYPE_LENGTH} characters`
-    : null;
+  return name.length > MAX_TYPE_LENGTH ? `Use at most ${MAX_TYPE_LENGTH} characters` : null;
 }
 
 export function ItemTypeActions({ lot }: { lot: Lot }) {
@@ -113,7 +110,7 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
               value={name}
               autoFocus
               required
-              maxLength={MAX_ITEM_TYPE_LENGTH}
+              maxLength={MAX_TYPE_LENGTH}
               list="item-type-options"
               disabled={saving}
               aria-describedby={`item-type-help${error || validation ? ' item-type-error' : ''}`}

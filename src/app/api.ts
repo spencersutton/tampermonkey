@@ -1,14 +1,13 @@
 // Thin client for the site's JSON API, proxied by the tlx server, which adds
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
-import { type RawLot, type RawLotDetail as SiteLotDetail } from '../shared/lot';
+import { type LotMetadata, type RawLot, type RawLotDetail as SiteLotDetail } from '../shared/lot';
 import { authedFetch, isAuthenticated } from './auth';
-import type { ClosedLot, LotDetail, LotMetadata } from './types';
+import type { ClosedLot, LotDetail } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
 /** Host serving lot images. */
-export const CDN = 'https://cdn.triangleliquidators.com';
 
 const LOGGED_OUT = 'You’re logged out. Log in, then try again.';
 

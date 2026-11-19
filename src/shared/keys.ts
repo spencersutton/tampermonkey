@@ -1,5 +1,6 @@
 // Settings keys (server-only for SERVER_KEYS, otherwise browser-local).
 import type { SavedSearch } from '../app/view';
+import { SITE } from './site';
 
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
@@ -86,8 +87,7 @@ export const DEFAULTS = {
 };
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
-export const lotHref = (auctionPeriod: string, id: number) =>
-  `https://triangleliquidators.com/lots/${auctionPeriod}/${id}`;
+export const lotHref = (auctionPeriod: string, id: number) => `${SITE}/lots/${auctionPeriod}/${id}`;
 
 /** A link saved with a hidden lot as an absolute URL on the site (older ones were saved as paths). */
-export const siteUrl = (href: string) => new URL(href, 'https://triangleliquidators.com/').href;
+export const siteUrl = (href: string) => new URL(href, `${SITE}/`).href;

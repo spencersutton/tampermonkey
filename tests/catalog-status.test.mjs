@@ -52,5 +52,4 @@ test('catalog polling and manual refresh preserve the visible pull status', asyn
     ['/api/settings', 'GET'],
     ['/api/pull', 'POST'],
   ]);
-
 });

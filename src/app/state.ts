@@ -5,6 +5,7 @@ import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
+import { DAY, MINUTE } from '../shared/time';
 import { fetchPickupLocation, type ClosedSection } from './api';
 import { isAuthenticated } from './auth';
 import type { BidRequest } from './bid';
@@ -13,7 +14,7 @@ import { getSetting, setSetting } from './settings';
 import { settingsReady } from './source';
 import { suggest } from './suggest';
 import type { Lot } from './types';
-import { clock, DAY, MINUTE } from './util';
+import { clock } from './util';
 import {
   computeFacets,
   computeView,

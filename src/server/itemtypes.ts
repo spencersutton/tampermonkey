@@ -11,6 +11,9 @@
 // failed request leaves the rest for the next run; lots without a type yet just
 // sort and categorize by title as before.
 import { brandModelKey } from '../shared/identity';
+import { cleanType } from '../shared/itemtype';
+import { byCode } from '../shared/sortKey';
+import { MINUTE } from '../shared/time';
 import { prop } from './json';
 import { log, Waker } from './log';
 import { USER_AGENT } from './site';
@@ -20,9 +23,8 @@ export const DEFAULT_URL = 'https://nano-gpt.com/api/v1';
 export const DEFAULT_MODEL = 'mistralai/ministral-14b-instruct-2512';
 export const BATCH = 40; // titles per request
 export const VOCAB = 100; // types already in use sent with each request
-export const RETRY_MS = 15 * 60_000; // how often to try again after a failure, with no pull to wake it
-const TIMEOUT_MS = 60_000;
-export const MAX_TYPE_LENGTH = 60;
+export const RETRY_MS = 15 * MINUTE; // how often to try again after a failure, with no pull to wake it
+const TIMEOUT_MS = MINUTE;
 
 const PROMPT = `You name the kind of item in lot titles from a liquidation auction (customer returns and overstock from home improvement and big-box stores).
 
@@ -42,19 +44,6 @@ Reply with one line per title, like "3: area rug", and nothing else.`;
 
 export class LabelError extends Error {}
 
-/** A reply's type, tidied: lowercase, no quotes or trailing punctuation, single spaces. */
-export function cleanType(text: string): string {
-  const t = text
-    .trim()
-    .replace(/^["'`*]+|["'`*]+$/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
-  return t
-    .replace(/[.,;:]+$/, '')
-    .trim()
-    .slice(0, MAX_TYPE_LENGTH);
-}
-
 /** {index: type} from lines like "3: area rug", for indexes 1..n. */
 export function parseReply(reply: string, n: number): Map<number, string> {
   const out = new Map<number, string>();
@@ -68,8 +57,6 @@ export function parseReply(reply: string, n: number): Map<number, string> {
   }
   return out;
 }
-
-const byCode = (a: string, b: string) => (a < b ? -1 : Number(a > b));
 
 export class Labeller {
   private readonly url: string;

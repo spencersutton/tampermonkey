@@ -41,15 +41,16 @@ import { bodyLimit } from 'hono/body-limit';
 import { compress } from 'hono/compress';
 import { getCookie } from 'hono/cookie';
 
+import { cleanType, MAX_TYPE_LENGTH } from '../shared/itemtype';
 import type { RawLotDetail } from '../shared/lot';
+import { SITE } from '../shared/site';
 import type { Catalog } from './catalog';
 import { HISTORY_LIMIT, type History } from './history';
-import { cleanType, MAX_TYPE_LENGTH } from './itemtypes';
 import { isRecord, prop } from './json';
 import { log } from './log';
 import { connectUpstream, relayData, type RelayData } from './relay';
 import type { SiteSession } from './session';
-import { SITE, VERSION, WS_URL } from './site';
+import { VERSION, WS_URL } from './site';
 import type { Store } from './store';
 import { PatternError, RuleError, TagTemplateError } from './tags';
 

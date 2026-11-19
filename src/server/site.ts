@@ -1,8 +1,8 @@
 // The site this server stands in for, and a client for its JSON API.
 import type { RawLot } from '../shared/lot';
+import { SITE } from '../shared/site';
 import { isRecord, prop } from './json';
 
-export const SITE = 'https://triangleliquidators.com';
 export const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';
 export const USER_AGENT = 'tlx-server/1.0 (+https://github.com/spencersutton/tampermonkey)';
 export const VERSION = '1.0.0';

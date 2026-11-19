@@ -8,8 +8,9 @@ import { Catalog } from '../../src/server/catalog';
 import { History } from '../../src/server/history';
 import { relayHandler, type RelayData } from '../../src/server/relay';
 import { SiteSession } from '../../src/server/session';
-import { BunWebSocket, SITE, SiteApi } from '../../src/server/site';
+import { BunWebSocket, SiteApi } from '../../src/server/site';
 import { Store } from '../../src/server/store';
+import { SITE } from '../../src/shared/site';
 
 interface Frame {
   dir: 'sent' | 'received';

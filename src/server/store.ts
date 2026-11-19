@@ -28,8 +28,10 @@ import { dirname } from 'node:path';
 import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
-import { endsAtMs, type LotImage, type Standing } from '../shared/lot';
+import { endsAtMs, type LotImage, type LotMetadata, type Standing } from '../shared/lot';
+import { byCode } from '../shared/sortKey';
 import { tagKey } from '../shared/tags';
+import { isRecord } from './json';
 import {
   cleanTags,
   CompiledRule,
@@ -185,14 +187,6 @@ export interface Detail {
   images?: LotImage[];
 }
 
-export interface LotMetadata {
-  description: string;
-  brand: string | null;
-  model: string | null;
-  lot_fee: number | null;
-  images?: LotImage[];
-}
-
 /** Ends at, as the epoch ms closed_lots keeps. */
 const endsAtColumn = (lot: Lot) => {
   const ms = endsAtMs(lot);
@@ -212,8 +206,6 @@ export interface CatalogChanges {
   ids: number[]; // every lot id currently stored
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown) => (typeof v === 'number' ? v : null);
 const now = () => Date.now() / 1000;
 /** A JSON list of strings, as tags are saved. */
@@ -310,7 +302,6 @@ function mostCommon<K>(counts: Map<K, number>): [K, number][] {
 }
 
 /** Code-unit order on lowercased text, like Python's str comparison. */
-const byCode = (a: string, b: string) => (a < b ? -1 : Number(a > b));
 
 export class Store {
   readonly db: Database;

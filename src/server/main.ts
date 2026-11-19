@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { MINUTE } from '../shared/time';
 import { createApp, LOCAL_HOSTS } from './app';
 import { Catalog } from './catalog';
 import { History } from './history';
@@ -27,7 +28,7 @@ export const DEFAULT_DB = join(
   'tlx-server',
   'tlx.db',
 );
-const TOKEN_CHECK_MS = 60_000; // refresh the token before it expires, for background pulls too
+const TOKEN_CHECK_MS = MINUTE; // refresh the token before it expires, for background pulls too
 
 const HELP = `Usage: npm run server -- [options]
 

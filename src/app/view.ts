@@ -15,10 +15,11 @@ import {
 } from '../shared/search';
 import { collator } from '../shared/sortKey';
 import { noneTag, tagGroup, tagKey, tagLabel } from '../shared/tags';
+import { HOUR } from '../shared/time';
 import { hasBidOn } from './bid';
 import { numericTagKey } from './filterOptions';
 import type { Lot } from './types';
-import { HOUR, memoize, memoizeWeak, memoLast } from './util';
+import { memoize, memoizeWeak, memoLast } from './util';
 
 /** A lot with everything the grid needs computed once. */
 export interface Row {
