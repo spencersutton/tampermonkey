@@ -120,7 +120,7 @@ export function nameTokens(title: string): Set<string> {
 }
 
 /** A token set as a map key: its words in order. */
-const tokensKey = (tokens: ReadonlySet<string>) => [...tokens].toSorted().join(' ');
+const tokensKey = (tokens: ReadonlySet<string>) => tokens.values().toArray().toSorted().join(' ');
 /** A title without words as a map key, distinct from every `tokensKey`. */
 const titleKey = (title: string) => `\0${title}`;
 
@@ -207,7 +207,10 @@ export class NameIndex {
 
   private prefix(set: ReadonlySet<string>): string[] {
     const freq = (t: string) => this.freq.get(t) ?? 0;
-    const ordered = [...set].toSorted((a, b) => freq(a) - freq(b) || byCode(a, b));
+    const ordered = set
+      .values()
+      .toArray()
+      .toSorted((a, b) => freq(a) - freq(b) || byCode(a, b));
     return ordered.slice(
       0,
       set.size - Math.ceil((set.size * Math.min(this.minPct, 100)) / 100) + 1,

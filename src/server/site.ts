@@ -95,7 +95,7 @@ export class SiteApi {
     return {
       count: Math.trunc(Number(prop(d, 'count')) || 0),
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lots (see tests/fixtures/site)
-      results: (Array.isArray(results) ? (results as RawLot[]) : []),
+      results: Array.isArray(results) ? (results as RawLot[]) : [],
     };
   }
 }

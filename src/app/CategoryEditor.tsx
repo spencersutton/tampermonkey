@@ -104,7 +104,11 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     return by;
   }, [lots]);
   const typeSuggestions = useMemo(
-    () => [...typeCounts].toSorted((a, b) => b[1] - a[1]),
+    () =>
+      typeCounts
+        .entries()
+        .toArray()
+        .toSorted((a, b) => b[1] - a[1]),
     [typeCounts],
   );
 

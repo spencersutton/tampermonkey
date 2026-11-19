@@ -303,7 +303,10 @@ const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(',
 
 /** Commonest first; ties keep the order first seen (Python's Counter.most_common). */
 function mostCommon<K>(counts: Map<K, number>): [K, number][] {
-  return [...counts].toSorted((a, b) => b[1] - a[1]);
+  return counts
+    .entries()
+    .toArray()
+    .toSorted((a, b) => b[1] - a[1]);
 }
 
 /** Code-unit order on lowercased text, like Python's str comparison. */
@@ -649,7 +652,9 @@ export class Store {
 
   /** Give lots whose assignment changed a new sequence; returns their new values, by lot id. */
   private touchChanges<V>(previous: Map<number, V>, current: Map<number, V>): Map<number, V> {
-    const changed = new Map(current.entries().filter(([i, v]) => !dequal(previous.get(i) ?? null, v)));
+    const changed = new Map(
+      current.entries().filter(([i, v]) => !dequal(previous.get(i) ?? null, v)),
+    );
     if (changed.size) {
       const seq = this.int('seq') + 1;
       const stmt = this.db.query('UPDATE lots SET seq = ? WHERE id = ?');
@@ -764,8 +769,14 @@ export class Store {
       .values()
       .filter((lot) => !dequal(old.get(lot.id), lot))
       .toArray();
-    const gone = old.keys().filter((i) => !fresh.has(i)).toArray();
-    const back = fresh.keys().filter((i) => !old.has(i)).toArray(); // usually new, but may have been taken for closed
+    const gone = old
+      .keys()
+      .filter((i) => !fresh.has(i))
+      .toArray();
+    const back = fresh
+      .keys()
+      .filter((i) => !old.has(i))
+      .toArray(); // usually new, but may have been taken for closed
     this.tx(() => {
       if (changed.length || gone.length) {
         seq += 1;
@@ -962,7 +973,10 @@ export class Store {
 
   /** Stored lots without an item type. */
   untypedItems(): Lot[] {
-    return this.load().values().filter((lot) => !lot.itemType).toArray();
+    return this.load()
+      .values()
+      .filter((lot) => !lot.itemType)
+      .toArray();
   }
 
   /** The item types given most often to titles in a site category. */
@@ -1249,9 +1263,10 @@ export class Store {
         });
       }
     }
-    const ranked = [...groups.values()].toSorted(
-      (a, b) => b.lots - a.lots || byCode(a.title.toLowerCase(), b.title.toLowerCase()),
-    );
+    const ranked = groups
+      .values()
+      .toArray()
+      .toSorted((a, b) => b.lots - a.lots || byCode(a.title.toLowerCase(), b.title.toLowerCase()));
     return {
       lots: ranked.reduce((n, g) => n + g.lots, 0),
       titles: ranked.length,

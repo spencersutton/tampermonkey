@@ -81,7 +81,14 @@ async function main() {
     process.env['TLX_LLM_URL'] ?? DEFAULT_URL,
     process.env['TLX_LLM_MODEL'] ?? DEFAULT_MODEL,
   );
-  let lots = new Map(store.allLots().values().map((lot) => [lot.title, lot])).values().toArray();
+  let lots = new Map(
+    store
+      .allLots()
+      .values()
+      .map((lot) => [lot.title, lot]),
+  )
+    .values()
+    .toArray();
   if (values.category) {
     lots = lots.filter((lot) => lot.category?.value === values.category);
   }
@@ -101,7 +108,10 @@ async function main() {
       const batch = titles.slice(start, start + BATCH);
       const vocab = [
         ...store.commonTypes(value, VOCAB),
-        ...[...seen.keys()].toSorted((a, b) => (seen.get(b) ?? 0) - (seen.get(a) ?? 0)),
+        ...seen
+          .keys()
+          .toArray()
+          .toSorted((a, b) => (seen.get(b) ?? 0) - (seen.get(a) ?? 0)),
       ].slice(0, VOCAB);
       const types = await labeller.ask(label, batch, vocab);
       batch.forEach((title, i) => {

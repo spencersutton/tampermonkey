@@ -132,7 +132,9 @@ export class Labeller {
             batch.map((lot) => lot.title),
             this.store.commonTypes(value, VOCAB),
           );
-          this.store.saveLotTypes(types.entries().map(([i, t]): [Lot, string] => [batch[i - 1]!, t]));
+          this.store.saveLotTypes(
+            types.entries().map(([i, t]): [Lot, string] => [batch[i - 1]!, t]),
+          );
           done += types.size;
         }
       }

@@ -17,9 +17,10 @@ const FIND_AT = 10;
 
 /** Tag facets by group, plain tags ('') last and attributes alphabetically. */
 function groups(tags: Facet<string>[]): [string, Facet<string>[]][] {
-  return [...Map.groupBy(tags, (f) => tagGroup(f.value))].toSorted(
-    ([a], [b]) => +!a - +!b || a.localeCompare(b),
-  );
+  return Map.groupBy(tags, (f) => tagGroup(f.value))
+    .entries()
+    .toArray()
+    .toSorted(([a], [b]) => +!a - +!b || a.localeCompare(b));
 }
 
 /** Whether the brand menu shows: more than one brand among the results, or one picked. */
