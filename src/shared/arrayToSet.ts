@@ -117,11 +117,30 @@ Object.defineProperty(Iterator.prototype, 'sumBy', {
 Object.defineProperty(Array.prototype, 'sortBy', {
   value: function sortBy<T>(
     this: readonly T[],
-    key: (value: T) => number,
+    key: (value: T) => T,
     order: 'asc' | 'desc' = 'asc',
   ): T[] {
     const sign = order === 'desc' ? -1 : 1;
-    return this.toSorted((a, b) => sign * (key(a) - key(b)));
+    return this.toSorted((a, b) => {
+      let keyA = key(a);
+      let keyB = key(b);
+      if (typeof keyA === 'number' && typeof keyB === 'number') {
+        return sign * (keyA - keyB);
+      }
+      if (typeof keyA === 'string' && typeof keyB === 'string') {
+        return sign * keyA.localeCompare(keyB);
+      }
+      if (typeof keyA === 'bigint' && typeof keyB === 'bigint') {
+        if (keyA > keyB) {
+          return sign;
+        }
+        if (keyA < keyB) {
+          return -sign;
+        }
+        return 0;
+      }
+      return 0;
+    });
   },
   configurable: true,
   writable: true,
