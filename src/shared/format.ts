@@ -1,11 +1,11 @@
 const numberFormat = new Intl.NumberFormat();
-const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
+const dateTimeFormat = new Intl.DateTimeFormat([], {
   dateStyle: 'short',
   timeStyle: 'medium',
 });
 const usd = { style: 'currency', currency: 'USD' } as const;
-const moneyFormat = new Intl.NumberFormat(undefined, usd);
-const dollarsFormat = new Intl.NumberFormat(undefined, { ...usd, maximumFractionDigits: 0 });
+const moneyFormat = new Intl.NumberFormat([], usd);
+const dollarsFormat = new Intl.NumberFormat([], { ...usd, maximumFractionDigits: 0 });
 const shortTimeFormat = new Intl.DateTimeFormat([], {
   weekday: 'short',
   hour: 'numeric',
