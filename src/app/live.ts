@@ -10,6 +10,7 @@ import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';
 import { onScreen, openId } from './state';
 import type { Lot } from './types';
+import '../shared/arrayToSet';
 
 /**
  * The tlx server's relay to the site's Centrifugo websocket, which only accepts the site's own
@@ -129,7 +130,7 @@ function onLotPublication(
 async function watchLots(ids: number[]) {
   watched = ids;
   const c = await connect();
-  const want = new Set(ids);
+  const want = ids.toSet();
   for (const [id, sub] of subs) {
     if (!want.has(id)) {
       drop(c, sub);

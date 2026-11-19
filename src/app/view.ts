@@ -21,6 +21,7 @@ import { hasBidOn } from './bid';
 import { numericTagKey } from './filterOptions';
 import type { Lot } from './types';
 import { memoize, memoizeWeak, memoLast } from './util';
+import '../shared/arrayToSet';
 
 /** A lot with everything the grid needs computed once. */
 export interface Row {
@@ -188,7 +189,7 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
-    tags: [...new Set(strings(view.tags).map(toLower))],
+    tags: strings(view.tags).map(toLower).toSet().toArray(),
     noCategories: !view.categories.length && view.noCategories,
     newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -444,9 +445,10 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
       bump(counts.tag, tag.toLowerCase());
     }
   }
-  const numericTags = new Set(
-    (lot.tags ?? []).map(numericTagKey).filter((tag): tag is string => tag != null),
-  );
+  const numericTags = (lot.tags ?? [])
+    .map(numericTagKey)
+    .filter((tag): tag is string => tag != null)
+    .toSet();
   for (const tag of numericTags) {
     if (only == null || only === `tag:${tagGroup(tag)}`) {
       bump(counts.numericTag, tag);
@@ -457,7 +459,7 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
   } else if (only.startsWith('tag:')) {
     bump(counts.tagOnly, only.slice(4));
   }
-  for (const group of new Set((lot.tags ?? []).map(tagGroup))) {
+  for (const group of (lot.tags ?? []).map(tagGroup).toSet()) {
     if (only == null || only === `tag:${group}`) {
       bump(counts.tagHas, group);
     }
@@ -659,7 +661,7 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row
 
 /** Predicate for "value is one of the selected", where selecting nothing allows everything. */
 function oneOf<T>(selected: T[]): (value: T) => boolean {
-  const set = new Set(selected);
+  const set = selected.toSet();
   return value => !set.size || set.has(value);
 }
 
@@ -771,11 +773,11 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
     dims.push(['location', r => location(r.lot.location.name)]);
   }
   if (v.types.length) {
-    const types = new Set(v.types);
+    const types = v.types.toSet();
     dims.push(['type', r => r.lot.itemType != null && types.has(r.lot.itemType)]);
   }
   if (v.brands.length) {
-    const brands = new Set(v.brands);
+    const brands = v.brands.toSet();
     dims.push([
       'brand',
       r => {
@@ -785,7 +787,7 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
     ]);
   }
   for (const [group, tags] of Map.groupBy(v.tags, tagGroup)) {
-    const wanted = new Set(tags);
+    const wanted = tags.toSet();
     // "None" picks lots without any tag of this attribute.
     const none = wanted.has(noneTag(group));
     dims.push([
@@ -932,9 +934,9 @@ export function computeFacets(
 /** Tag counts plus each attribute's "none" count (attributes found among the lots or selected). */
 function tagCounts(all: Facet<string>[], counts: FacetCounts, selected: string[]) {
   const m = new Map(counts.tag);
-  const groups = new Set(
-    [...all, ...selected.map(value => ({ value }))].map(f => tagGroup(f.value)),
-  );
+  const groups = [...all, ...selected.map(value => ({ value }))]
+    .map(f => tagGroup(f.value))
+    .toSet();
   for (const group of groups) {
     if (group) {
       m.set(noneTag(group), noneCount(counts, group));
@@ -953,7 +955,7 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
     facets.map(f => ({ ...f, count: m.get(f.value) ?? 0 }));
   const present = (facets: Facet<string>[], m: Map<string, number>, selected: string[]) => {
     const known = new Map(facets.map(f => [f.value, f.label]));
-    const values = new Set([...m.keys(), ...selected]);
+    const values = [...m.keys(), ...selected].toSet();
     return Array.from(values, value => ({
       value,
       label: known.get(value) ?? value,

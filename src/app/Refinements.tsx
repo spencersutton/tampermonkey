@@ -8,6 +8,7 @@ import { Icon } from './icons';
 import { groupCategories, groupFacets, type CategoryGroup } from './Sidebar/CategoryList';
 import { filterFacets, gridView, pickupName, setView, sidebarFacets, storedView } from './state';
 import { DEFAULT_VIEW, ENDING, MINE, type ViewState } from './view';
+import '../shared/arrayToSet';
 
 interface Chip {
   key: string;
@@ -37,7 +38,7 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
   }
   // A parent category gets one chip only when it and all its subcategories are selected;
   // otherwise each selected subcategory gets its own.
-  const pending = new Set(v.categories);
+  const pending = v.categories.toSet();
   const categoryChip = (value: string, label: string, values: string[]) => {
     for (const x of values) {
       pending.delete(x);

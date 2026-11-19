@@ -23,6 +23,7 @@ import {
 import { applySetting, setSaveHook, type Key } from './settings';
 import { toast } from './toast';
 import type { Lot, PastCloseDetail } from './types';
+import '../shared/arrayToSet';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
@@ -129,7 +130,7 @@ export function applyCatalog(r: CatalogReply) {
     if (r.full || r.lots.length || (r.ids && r.ids.length !== cur.size)) {
       const next = new Map(r.full ? [] : cur);
       if (r.ids) {
-        const keep = new Set(r.ids);
+        const keep = r.ids.toSet();
         next.forEach((_, id) => keep.has(id) || next.delete(id));
       }
       for (const fresh of r.lots) {

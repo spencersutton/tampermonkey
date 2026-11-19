@@ -53,6 +53,7 @@ import type { SiteSession } from './session';
 import { VERSION, WS_URL } from './site';
 import type { Store } from './store';
 import { PatternError, RuleError, TagTemplateError } from './tags';
+import '../shared/arrayToSet';
 
 const MAX_BODY = 4 * 1024 * 1024;
 const SESSION_COOKIE = 'tlx_session';
@@ -158,7 +159,7 @@ const samePassword = (a: string, b: string) => timingSafeEqual(digest(a), digest
 
 export function createApp(deps: Deps) {
   const { store, session, catalog, history, password } = deps;
-  const hosts = new Set([...LOCAL_HOSTS, ...(deps.allowHosts ?? []).map(hostname)]);
+  const hosts = [...LOCAL_HOSTS, ...(deps.allowHosts ?? []).map(hostname)].toSet();
   const siteFetch = deps.siteFetch ?? fetch;
   const staticDir = resolve(deps.staticDir);
   const app = new Hono<Env>();

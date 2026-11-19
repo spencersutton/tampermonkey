@@ -40,6 +40,7 @@ import {
   type TagRule,
   uniqueTags,
 } from './tags';
+import '../shared/arrayToSet';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS categories (value TEXT PRIMARY KEY, label TEXT);
@@ -321,12 +322,11 @@ export class Store {
     this.db.run('PRAGMA busy_timeout=5000');
     this.db.run(SCHEMA);
     const columns = (table: string) =>
-      new Set(
-        this.db
-          .query<{ name: string }, []>(`PRAGMA table_info(${table})`)
-          .all()
-          .map(r => r.name),
-      );
+      this.db
+        .query<{ name: string }, []>(`PRAGMA table_info(${table})`)
+        .all()
+        .map(r => r.name)
+        .toSet();
     if (!columns('item_types').has('manual')) {
       this.db.run('ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0');
     }
@@ -1241,7 +1241,7 @@ export class Store {
       const m = rule.rx.exec(lot.title);
       if (m) {
         const current = lot.tags ?? [];
-        const have = new Set(current.map(toLower));
+        const have = current.map(toLower).toSet();
         // Code points, which the tags page counts in.
         const codePoints = (end: number) => Array.from(lot.title.slice(0, end)).length;
         groups.set(lot.title, {

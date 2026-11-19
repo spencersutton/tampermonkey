@@ -1,6 +1,7 @@
 import { parseQuery, stem } from '../shared/search';
 import { effectiveSearch } from './state';
 import { memoLast } from './util';
+import '../shared/arrayToSet';
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -12,8 +13,8 @@ const termsRegex = memoLast((search: string): RegExp | null => {
   if (!words.length) {
     return null;
   }
-  const alternatives = new Set(words)
-    .values()
+  const alternatives = words
+    .toSet()
     .toArray()
     .toSorted((a, b) => b.length - a.length)
     .map(escape);

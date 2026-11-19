@@ -10,6 +10,7 @@ import { filteredOnly, openFiltered, openHidden } from '../state';
 import { openHandler } from '../util';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
+import '../../shared/arrayToSet';
 
 // Each "alternative|" is its own inline-block, so long alternations wrap
 // between alternatives (with "|" ending the line) rather than mid-word.
@@ -177,7 +178,14 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
               pattern={w}
               count={matchCounts.get(w) ?? 0}
               onRemove={() => setWords(words.filter(x => x !== w))}
-              onSave={next => setWords([...new Set(words.map(x => (x === w ? next : x)))])}
+              onSave={next =>
+                setWords(
+                  words
+                    .map(x => (x === w ? next : x))
+                    .toSet()
+                    .toArray(),
+                )
+              }
             />
           ))}
         </ul>

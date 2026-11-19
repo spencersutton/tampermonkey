@@ -20,6 +20,7 @@ import { modalActions, openLot, toggleHide } from './state';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
 import { clock, openHandler, parseNum, plural } from './util';
 import type { Row } from './view';
+import '../shared/arrayToSet';
 
 interface Props {
   row: Row;
@@ -270,7 +271,7 @@ function SameListings({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
-  const mixed = new Set(group.map(r => r.lot.condition.display_name)).size > 1;
+  const mixed = group.map(r => r.lot.condition.display_name).toSet().size > 1;
   return (
     <div>
       <h3>{format.num(group.length)} listings of this item</h3>

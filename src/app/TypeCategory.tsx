@@ -12,6 +12,7 @@ import { toast } from './toast';
 import type { Lot } from './types';
 import { plural } from './util';
 import { categoryIndex, compileCategories } from './view';
+import '../shared/arrayToSet';
 
 /** Similar types offered as checkboxes. */
 const SIMILAR_LIMIT = 12;
@@ -133,7 +134,7 @@ export function TypeCategory({
     ];
     const next = cats.flatMap(c => {
       if (c === existing) {
-        return [{ ...c, types: [...new Set([...c.types, ...types])] }];
+        return [{ ...c, types: [...c.types, ...types].toSet().toArray() }];
       }
       return losing.includes(c) ? without(c, types, names) : [c];
     });
