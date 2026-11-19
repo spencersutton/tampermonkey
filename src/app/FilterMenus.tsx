@@ -47,7 +47,9 @@ export function FilterMenus() {
   const facets = sidebarFacets.value;
   const tags = tagGroups(facets.tags, view.tags);
   const brands = showBrandMenu(facets.brands, view.brands);
-  if (!brands && !tags.length) return null;
+  if (!brands && !tags.length) {
+    return null;
+  }
   return (
     <div class="tag-menus" aria-label="Filter by brand and attribute">
       {brands && (
@@ -120,10 +122,14 @@ function FilterMenu({
   // Close on a click elsewhere or Esc while open. A new callback each render re-attaches with the
   // current state; Preact runs the returned cleanup first.
   const watch = (el: HTMLDivElement | null) => {
-    if (!el || !open) return;
+    if (!el || !open) {
+      return;
+    }
     const doc = el.ownerDocument;
     const onPointer = (e: PointerEvent) => {
-      if (!(e.target instanceof Node && el.contains(e.target))) setOpen(false);
+      if (!(e.target instanceof Node && el.contains(e.target))) {
+        setOpen(false);
+      }
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {

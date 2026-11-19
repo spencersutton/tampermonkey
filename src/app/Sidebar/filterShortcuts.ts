@@ -6,7 +6,9 @@ import { setAllCategoriesCollapsed } from './CategoryList';
 
 export function saveFilterDefaults() {
   const view = storedView.value;
-  if (sameDefaultFilters(view, getSetting(KEYS.defaultFilters))) return;
+  if (sameDefaultFilters(view, getSetting(KEYS.defaultFilters))) {
+    return;
+  }
   setSetting(KEYS.defaultFilters, {
     categories: [...view.categories],
     conditions: [...view.conditions],
@@ -15,7 +17,9 @@ export function saveFilterDefaults() {
 }
 
 export function filterShortcuts(element: HTMLDivElement | null) {
-  if (!element) return;
+  if (!element) {
+    return;
+  }
   const doc = element.ownerDocument;
   const onKeyDown = (event: KeyboardEvent) => {
     if (
@@ -34,21 +38,29 @@ export function filterShortcuts(element: HTMLDivElement | null) {
         'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
       );
     if (!event.altKey && (event.key === '?' || (event.shiftKey && event.code === 'Slash'))) {
-      if (inField()) return;
+      if (inField()) {
+        return;
+      }
       event.preventDefault();
       modalActions.showShortcuts();
       return;
     }
     if (!event.altKey && !event.shiftKey && event.key === '/') {
       const search = doc.querySelector<HTMLInputElement>('input.search');
-      if (inField() || !search) return;
+      if (inField() || !search) {
+        return;
+      }
       event.preventDefault();
       search.focus();
       search.select();
       return;
     }
-    if (!event.altKey || !event.shiftKey) return;
-    if (!['KeyD', 'KeyE', 'KeyC'].includes(event.code)) return;
+    if (!event.altKey || !event.shiftKey) {
+      return;
+    }
+    if (!['KeyD', 'KeyE', 'KeyC'].includes(event.code)) {
+      return;
+    }
     event.preventDefault();
     if (event.code === 'KeyD') {
       saveFilterDefaults();

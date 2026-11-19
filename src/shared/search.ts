@@ -65,10 +65,18 @@ export function formatQuery(terms: Term[]): string {
 
 /** Singular form of an English word, roughly ("batteries" → "battery", "boxes" → "box"). */
 export function stem(word: string): string {
-  if (word.length <= 3 || !/[a-z]$/.test(word)) return word;
-  if (word.endsWith('ies') && word.length > 4) return word.slice(0, -3) + 'y';
-  if (/(?:ss|sh|ch|x|z)es$/.test(word)) return word.slice(0, -2);
-  if (word.endsWith('s') && !/(?:ss|us|is)$/.test(word)) return word.slice(0, -1);
+  if (word.length <= 3 || !/[a-z]$/.test(word)) {
+    return word;
+  }
+  if (word.endsWith('ies') && word.length > 4) {
+    return word.slice(0, -3) + 'y';
+  }
+  if (/(?:ss|sh|ch|x|z)es$/.test(word)) {
+    return word.slice(0, -2);
+  }
+  if (word.endsWith('s') && !/(?:ss|us|is)$/.test(word)) {
+    return word.slice(0, -1);
+  }
   return word;
 }
 
@@ -125,15 +133,23 @@ const isWordChar = (c: string | undefined) => c != null && /[\p{L}\p{N}]/u.test(
  * word, 0.3 inside one, 0 not at all.
  */
 export function matchQuality(hay: string, needle: string): number {
-  if (!needle) return 0;
+  if (!needle) {
+    return 0;
+  }
   let best = 0;
   for (let i = hay.indexOf(needle); i !== -1; i = hay.indexOf(needle, i + 1)) {
     const start = !isWordChar(hay[i - 1]) || !isWordChar(needle[0]);
     const end = !isWordChar(hay[i + needle.length]) || !isWordChar(needle.at(-1));
     let q = 0.3;
-    if (start) q = end ? 1 : 0.7;
-    if (q > best) best = q;
-    if (best === 1) break;
+    if (start) {
+      q = end ? 1 : 0.7;
+    }
+    if (q > best) {
+      best = q;
+    }
+    if (best === 1) {
+      break;
+    }
   }
   return best;
 }
@@ -191,17 +207,27 @@ function termQuality(text: string, value: string): number {
 
 /** Best weighted score for one positive term in one field, or 0. */
 function termFieldScore(term: Term, text: string, stems: string | undefined, weight: number) {
-  if (!text) return 0;
+  if (!text) {
+    return 0;
+  }
   const exact = termQuality(text, term.value);
-  if (term.phrase || term.field === 'brand' || term.field === 'model') return exact * weight;
+  if (term.phrase || term.field === 'brand' || term.field === 'model') {
+    return exact * weight;
+  }
   let best = exact;
   const singular = stem(term.value);
-  if (singular !== term.value) best = Math.max(best, termQuality(text, singular) * 0.9);
+  if (singular !== term.value) {
+    best = Math.max(best, termQuality(text, singular) * 0.9);
+  }
   // Singular query, plural text ("battery" finds "batteries").
-  if (stems != null && best < 1) best = Math.max(best, termQuality(stems, singular) * 0.9);
+  if (stems != null && best < 1) {
+    best = Math.max(best, termQuality(stems, singular) * 0.9);
+  }
   for (const syn of synonymsOf(term.value)) {
     // Synonyms count only as whole words, so a short one like "ac" can't match inside "back".
-    if (matchQuality(text, syn) === 1) best = Math.max(best, 0.8);
+    if (matchQuality(text, syn) === 1) {
+      best = Math.max(best, 0.8);
+    }
   }
   return best * weight;
 }
@@ -242,19 +268,28 @@ export function compileQuery(query: string): CompiledQuery {
     score(doc) {
       let total = 0;
       for (const term of positive) {
-        if (!term.value) return null;
+        if (!term.value) {
+          return null;
+        }
         const s = termScore(term, doc);
-        if (!s) return null;
+        if (!s) {
+          return null;
+        }
         total += s;
       }
       for (const term of negative) {
         const text = term.field ? doc[FIELD_OF[term.field]] : doc.all;
-        if (matchQuality(text, term.value) >= 0.7) return null;
+        if (matchQuality(text, term.value) >= 0.7) {
+          return null;
+        }
       }
       // Bonus when the plain words appear together, in order, in the title or item type.
       if (words.includes(' ')) {
-        if (doc.itemType === words) total += 8;
-        else if (doc.title.includes(words) || doc.itemType.includes(words)) total += 4;
+        if (doc.itemType === words) {
+          total += 8;
+        } else if (doc.title.includes(words) || doc.itemType.includes(words)) {
+          total += 4;
+        }
       }
       return total;
     },
@@ -270,7 +305,9 @@ export function buildVocabulary(docs: Iterable<PreparedDoc>): Map<string, number
   const vocab = new Map<string, number>();
   for (const d of docs) {
     for (const w of `${d.title} ${d.brand} ${d.itemType} ${d.tags}`.split(/[^\p{L}\p{N}]+/u)) {
-      if (w.length >= 3 && !/^\d+$/.test(w)) vocab.set(w, (vocab.get(w) ?? 0) + 1);
+      if (w.length >= 3 && !/^\d+$/.test(w)) {
+        vocab.set(w, (vocab.get(w) ?? 0) + 1);
+      }
     }
   }
   return vocab;
@@ -278,7 +315,9 @@ export function buildVocabulary(docs: Iterable<PreparedDoc>): Map<string, number
 
 /** Optimal string alignment distance, giving up (returning max + 1) past `max`. */
 export function editDistance(a: string, b: string, max: number): number {
-  if (Math.abs(a.length - b.length) > max) return max + 1;
+  if (Math.abs(a.length - b.length) > max) {
+    return max + 1;
+  }
   let prev2: number[] = [];
   let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -291,9 +330,13 @@ export function editDistance(a: string, b: string, max: number): number {
         v = Math.min(v, prev2[j - 2]! + 1);
       }
       cur.push(v);
-      if (v < rowMin) rowMin = v;
+      if (v < rowMin) {
+        rowMin = v;
+      }
     }
-    if (rowMin > max) return max + 1;
+    if (rowMin > max) {
+      return max + 1;
+    }
     prev2 = prev;
     prev = cur;
   }
@@ -302,7 +345,9 @@ export function editDistance(a: string, b: string, max: number): number {
 
 /** The likeliest intended word for a misspelt one, or null if none is close. */
 function correctWord(word: string, vocab: Map<string, number>): string | null {
-  if (vocab.has(word) || word.length < 3 || /\d/.test(word)) return null;
+  if (vocab.has(word) || word.length < 3 || /\d/.test(word)) {
+    return null;
+  }
   const max = word.length <= 4 ? 1 : 2;
   let best: { word: string; dist: number; freq: number } | null = null;
   for (const [w, freq] of vocab) {
@@ -325,8 +370,12 @@ export function correctQuery(
 ): string | null {
   const terms = parseQuery(query);
   const fixed = terms.map(t => {
-    if (t.phrase || t.negate || t.field === 'model' || !t.value) return t;
-    if (docs.some(d => termScore(t, d) > 0)) return t;
+    if (t.phrase || t.negate || t.field === 'model' || !t.value) {
+      return t;
+    }
+    if (docs.some(d => termScore(t, d) > 0)) {
+      return t;
+    }
     const better = correctWord(t.value, vocab);
     return better ? { ...t, value: better } : t;
   });

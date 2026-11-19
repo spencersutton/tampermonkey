@@ -114,19 +114,25 @@ export function SearchBox() {
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.isComposing) return;
+    if (e.isComposing) {
+      return;
+    }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!open) {
         setOpen(true);
         return;
       }
-      if (!listed.length) return;
+      if (!listed.length) {
+        return;
+      }
       const step = e.key === 'ArrowDown' ? 1 : -1;
       // Cycle through the options and back to the text box (-1).
       setActive(i => {
         const next = i + step;
-        if (next >= listed.length) return -1;
+        if (next >= listed.length) {
+          return -1;
+        }
         return next < -1 ? listed.length - 1 : next;
       });
     } else if (e.key === 'Enter') {
@@ -148,8 +154,9 @@ export function SearchBox() {
   };
 
   let searchTitle = SEARCH_TIP;
-  if (badRegex) searchTitle = 'Invalid regex';
-  else if (view.searchRegex) {
+  if (badRegex) {
+    searchTitle = 'Invalid regex';
+  } else if (view.searchRegex) {
     searchTitle = 'Case-insensitive regex across title, lot number, brand, model and item type';
   }
   const optionId = (i: number) => `search-option-${i}`;

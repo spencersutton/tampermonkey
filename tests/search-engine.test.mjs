@@ -338,9 +338,9 @@ test('tags: "none" picks lots without an attribute and counts them per group', a
 });
 
 test('tags: case is kept for display but ignored when filtering and counting', async () => {
-  const { tagGroup, tagKey } = await vite.ssrLoadModule('/src/shared/tags.ts');
+  const { tagGroup, toLower } = await vite.ssrLoadModule('/src/shared/tags.ts');
   assert.equal(tagGroup('Battery System: M18'), 'battery system');
-  assert.equal(tagKey('Finish: Satin Nickel'), 'finish: satin nickel');
+  assert.equal(toLower('Finish: Satin Nickel'), 'finish: satin nickel');
 
   const items = [
     lot('Nickel Knob', { tags: ['Finish: Satin Nickel'] }),

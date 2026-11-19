@@ -114,13 +114,19 @@ export function applyCatalog(r: CatalogReply) {
     const brands = new Map(lotBrands.peek());
     const models = new Map(lotModels.peek());
     for (const lot of r.lots) {
-      if (lot.brand !== undefined) brands.set(lot.id, lot.brand?.trim() || null);
-      if (lot.model !== undefined) models.set(lot.id, lot.model?.trim() || null);
+      if (lot.brand !== undefined) {
+        brands.set(lot.id, lot.brand?.trim() || null);
+      }
+      if (lot.model !== undefined) {
+        models.set(lot.id, lot.model?.trim() || null);
+      }
     }
     lotBrands.value = brands;
     lotModels.value = models;
     for (const [id, edit] of typeEdits) {
-      if (r.seq >= edit.seq) typeEdits.delete(id);
+      if (r.seq >= edit.seq) {
+        typeEdits.delete(id);
+      }
     }
     const cur = lots.peek();
     if (r.full || r.lots.length || (r.ids && r.ids.length !== cur.size)) {
@@ -149,7 +155,9 @@ export function applyCatalog(r: CatalogReply) {
       for (const edit of typeEdits.values()) {
         for (const id of edit.lotIds) {
           const lot = next.get(id);
-          if (lot) next.set(id, { ...lot, itemType: edit.itemType });
+          if (lot) {
+            next.set(id, { ...lot, itemType: edit.itemType });
+          }
         }
       }
       lots.value = next;

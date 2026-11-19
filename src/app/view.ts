@@ -133,7 +133,7 @@ export interface ViewState {
   noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
   types: string[]; // item types (lowercase)
   brands: string[]; // brand keys (see brandKey)
-  tags: string[]; // tag keys (tagKey); OR within an attribute (or among plain tags), AND across them
+  tags: string[]; // tag keys (toLower); OR within an attribute (or among plain tags), AND across them
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -289,8 +289,12 @@ export function compareCategoryNames(a: string, b: string): number {
   const left = a.trim();
   const right = b.trim();
   const order = collator.compare(left, right);
-  if (order) return order;
-  if (left < right) return -1;
+  if (order) {
+    return order;
+  }
+  if (left < right) {
+    return -1;
+  }
   return left > right ? 1 : 0;
 }
 
@@ -416,31 +420,52 @@ function brandOf(lot: Lot, details?: ItemDetails): string | null {
 
 function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: ItemDetails) {
   const { lot } = row;
-  if (only == null || only === 'category') bump(counts.category, row.category.value);
-  if (only == null || only === 'condition') bump(counts.condition, lot.condition.value);
-  if (only == null || only === 'location') bump(counts.location, lot.location.name);
-  if ((only == null || only === 'type') && lot.itemType) bump(counts.type, lot.itemType);
+  if (only == null || only === 'category') {
+    bump(counts.category, row.category.value);
+  }
+  if (only == null || only === 'condition') {
+    bump(counts.condition, lot.condition.value);
+  }
+  if (only == null || only === 'location') {
+    bump(counts.location, lot.location.name);
+  }
+  if ((only == null || only === 'type') && lot.itemType) {
+    bump(counts.type, lot.itemType);
+  }
   if (only == null || only === 'brand') {
     const brand = brandOf(lot, details);
-    if (brand) bump(counts.brand, brandKey(brand));
+    if (brand) {
+      bump(counts.brand, brandKey(brand));
+    }
   }
   for (const tag of lot.tags ?? []) {
-    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.tag, tag.toLowerCase());
+    if (only == null || only === `tag:${tagGroup(tag)}`) {
+      bump(counts.tag, tag.toLowerCase());
+    }
   }
   const numericTags = new Set(
     (lot.tags ?? []).map(numericTagKey).filter((tag): tag is string => tag != null),
   );
   for (const tag of numericTags) {
-    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.numericTag, tag);
+    if (only == null || only === `tag:${tagGroup(tag)}`) {
+      bump(counts.numericTag, tag);
+    }
   }
-  if (only == null) counts.tagRows++;
-  else if (only.startsWith('tag:')) bump(counts.tagOnly, only.slice(4));
+  if (only == null) {
+    counts.tagRows++;
+  } else if (only.startsWith('tag:')) {
+    bump(counts.tagOnly, only.slice(4));
+  }
   for (const group of new Set((lot.tags ?? []).map(tagGroup))) {
-    if (only == null || only === `tag:${group}`) bump(counts.tagHas, group);
+    if (only == null || only === `tag:${group}`) {
+      bump(counts.tagHas, group);
+    }
   }
   if (only == null || only === 'price') {
     PRICE_BUCKETS.forEach((b, i) => {
-      if (inBucket(lot.current_price, b)) counts.price[i]!++;
+      if (inBucket(lot.current_price, b)) {
+        counts.price[i]!++;
+      }
     });
   }
 }
@@ -505,13 +530,17 @@ export function computeView(
     const rows: Row[] = [];
     for (const row of candidates) {
       const score = p.search(row.lot);
-      if (score == null || !p.base(row)) continue;
+      if (score == null || !p.base(row)) {
+        continue;
+      }
       let failed: Dim | null = null;
       let nFailed = 0;
       for (const [dim, test] of p.dims) {
         if (!test(row)) {
           failed = dim;
-          if (++nFailed > 1) break;
+          if (++nFailed > 1) {
+            break;
+          }
         }
       }
       if (nFailed === 0) {
@@ -661,7 +690,9 @@ const docCache = new WeakMap<
 export function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
   const { brand, model } = itemIdentity(lot, details);
   const hit = docCache.get(lot);
-  if (hit && hit.brand === brand && hit.model === model) return hit.doc;
+  if (hit && hit.brand === brand && hit.model === model) {
+    return hit.doc;
+  }
   const doc = prepareDoc({
     title: lot.title,
     lotNumber: lot.lot_number,
@@ -683,7 +714,9 @@ export function makeSearch(
   details?: ItemDetails,
 ): (lot: Lot) => number | null {
   if (v.searchRegex) {
-    if (!v.search.trim()) return () => 0;
+    if (!v.search.trim()) {
+      return () => 0;
+    }
     // An invalid regex matches nothing, so the mistake is obvious.
     let re: RegExp = /$^/;
     try {
@@ -706,7 +739,9 @@ export function makeSearch(
     };
   }
   const query = compileQuery(v.search);
-  if (query.empty) return () => 0;
+  if (query.empty) {
+    return () => 0;
+  }
   return lot => query.score(docOf(lot, details));
 }
 
@@ -900,7 +935,9 @@ function tagCounts(all: Facet<string>[], counts: FacetCounts, selected: string[]
     [...all, ...selected.map(value => ({ value }))].map(f => tagGroup(f.value)),
   );
   for (const group of groups) {
-    if (group) m.set(noneTag(group), noneCount(counts, group));
+    if (group) {
+      m.set(noneTag(group), noneCount(counts, group));
+    }
   }
   return m;
 }

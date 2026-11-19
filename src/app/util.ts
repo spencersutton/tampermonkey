@@ -81,7 +81,9 @@ const PLAIN_NUMBER = /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$/;
 /** Canonical plain decimal text, without rounding large numbers or precise fractions. */
 export function numericLabel(text: string): string | null {
   const value = text.trim();
-  if (!PLAIN_NUMBER.test(value)) return null;
+  if (!PLAIN_NUMBER.test(value)) {
+    return null;
+  }
   const [whole = '', fraction = ''] = value.replace(/^[-+]/, '').split('.');
   const integer = whole.replace(/^0+/, '') || '0';
   const decimal = fraction.replace(/0+$/, '');
@@ -95,7 +97,9 @@ export function numericLabel(text: string): string | null {
  */
 export function numericOrder<T>(items: T[], text: (item: T) => string): T[] | null {
   const nums = items.map(item => text(item).trim());
-  if (!nums.length || !nums.every(n => PLAIN_NUMBER.test(n))) return null;
+  if (!nums.length || !nums.every(n => PLAIN_NUMBER.test(n))) {
+    return null;
+  }
   return items
     .map((item, i) => ({ item, n: Number(nums[i]) }))
     .toSorted((a, b) => a.n - b.n)

@@ -39,7 +39,9 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
   // otherwise each selected subcategory gets its own.
   const pending = new Set(v.categories);
   const categoryChip = (value: string, label: string, values: string[]) => {
-    for (const x of values) pending.delete(x);
+    for (const x of values) {
+      pending.delete(x);
+    }
     chips.push({
       key: `cat:${value}`,
       label,
@@ -51,15 +53,21 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
     const full = labelOf([...facets.categories, ...facets.siteCategories], value);
     const values = groupFacets(g).map(f => f.value);
     if (!g.subs.length || values.every(x => pending.has(x))) {
-      if (pending.has(value)) categoryChip(value, full, values);
+      if (pending.has(value)) {
+        categoryChip(value, full, values);
+      }
       return;
     }
-    if (pending.has(value)) categoryChip(value, `${full} (other)`, [value]);
+    if (pending.has(value)) {
+      categoryChip(value, `${full} (other)`, [value]);
+    }
     g.subs.forEach(addGroup);
   };
   groupCategories(facets).forEach(addGroup);
   // Selections no longer among the lots' categories.
-  for (const c of pending) categoryChip(c, labelOf(facets.categories, c), [c]);
+  for (const c of pending) {
+    categoryChip(c, labelOf(facets.categories, c), [c]);
+  }
   for (const t of v.types) {
     chips.push({ key: `type:${t}`, label: t, remove: { types: without(v.types, t) } });
   }
@@ -92,8 +100,11 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
   }
   if (v.priceMin != null || v.priceMax != null) {
     let label = `Bid ${money(v.priceMin ?? 0)} – ${money(v.priceMax ?? 0)}`;
-    if (v.priceMin == null) label = `Bid ≤ ${money(v.priceMax ?? 0)}`;
-    else if (v.priceMax == null) label = `Bid ≥ ${money(v.priceMin)}`;
+    if (v.priceMin == null) {
+      label = `Bid ≤ ${money(v.priceMax ?? 0)}`;
+    } else if (v.priceMax == null) {
+      label = `Bid ≥ ${money(v.priceMin)}`;
+    }
     chips.push({ key: 'price', label, remove: { priceMin: null, priceMax: null } });
   }
   if (v.totalMax != null) {
@@ -141,7 +152,9 @@ export function Refinements() {
   const types = view.types.length ? [] : sidebarFacets.value.types.slice(0, MAX_TYPE_PILLS);
   const showTypes = result.rows.length > 0 && types.length > 1;
   const showMenus = hasFilterMenus();
-  if (!result.correctedSearch && !chips.length && !showTypes && !showMenus) return null;
+  if (!result.correctedSearch && !chips.length && !showTypes && !showMenus) {
+    return null;
+  }
   return (
     <div class="refinements">
       {result.correctedSearch && (

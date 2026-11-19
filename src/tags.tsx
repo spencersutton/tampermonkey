@@ -10,8 +10,12 @@ import { TagRulesPage } from './tags/TagRulesPage';
 
 function Root() {
   const state = me.value;
-  if (!state) return <p class="muted lock-page">Connecting…</p>;
-  if (state.app.locked) return <AppLock />;
+  if (!state) {
+    return <p class="muted lock-page">Connecting…</p>;
+  }
+  if (state.app.locked) {
+    return <AppLock />;
+  }
   return <TagRulesPage />;
 }
 

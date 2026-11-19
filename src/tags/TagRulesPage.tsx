@@ -53,7 +53,9 @@ async function refresh() {
 
 /** Open a rule (or a blank one) in the editor, after confirming unsaved changes are dropped. */
 function edit(next: Draft) {
-  if (dirty.peek() && !confirm('Discard your unsaved changes to this rule?')) return;
+  if (dirty.peek() && !confirm('Discard your unsaved changes to this rule?')) {
+    return;
+  }
   draft.value = next;
   saved.value = next;
   notice.value = null;
@@ -65,7 +67,9 @@ export function TagRulesPage() {
   useEffect(() => {
     void refresh();
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty.peek()) e.preventDefault();
+      if (dirty.peek()) {
+        e.preventDefault();
+      }
     };
     addEventListener('beforeunload', warn);
     return () => removeEventListener('beforeunload', warn);
@@ -229,7 +233,9 @@ function Editor() {
       return `Saved. ${lotsText(changed)} changed.`;
     });
   const remove = () => {
-    if (d.id == null || !confirm('Delete this rule? The tags it gave go away.')) return;
+    if (d.id == null || !confirm('Delete this rule? The tags it gave go away.')) {
+      return;
+    }
     const id = d.id;
     void run(async () => {
       const { changed } = await deleteRule(id);
@@ -245,7 +251,9 @@ function Editor() {
         class="tr-form"
         onSubmit={e => {
           e.preventDefault();
-          if (canSave) void save();
+          if (canSave) {
+            void save();
+          }
         }}
         onKeyDown={e => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSave) {
@@ -343,9 +351,13 @@ function TagInput({
     // Tags differing only in case are the same tag; the first spelling stays.
     const next = [...tags];
     for (const tag of raw.split(',').map(cleanTag)) {
-      if (tag && !next.some(t => t.toLowerCase() === tag.toLowerCase())) next.push(tag);
+      if (tag && !next.some(t => t.toLowerCase() === tag.toLowerCase())) {
+        next.push(tag);
+      }
     }
-    if (next.length > tags.length) onChange(next);
+    if (next.length > tags.length) {
+      onChange(next);
+    }
     setText('');
   };
   return (

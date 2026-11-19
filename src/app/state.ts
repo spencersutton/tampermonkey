@@ -147,7 +147,9 @@ export function resetSearch(text: string) {
 
 export function setView(patch: Partial<ViewState>) {
   batch(() => {
-    if (patch.search != null) resetSearch(patch.search);
+    if (patch.search != null) {
+      resetSearch(patch.search);
+    }
     setSetting(KEYS.view, { ...storedView.value, ...patch });
     page.value = 1;
     closed.value = null; // changing the filters goes back to the grid
@@ -176,13 +178,17 @@ export function hideCategory(value: string, from?: EventTarget | null) {
   const before = at >= 0 ? cards.slice(0, at).toReversed() : [];
   const beforeTops = new Map(before.map(card => [card, card.getBoundingClientRect().top]));
   setSetting(KEYS.view, { ...view, categories, noCategories: !categories.length });
-  if (anchorTop == null) return;
+  if (anchorTop == null) {
+    return;
+  }
   // Preact renders on a microtask, so this runs after the grid updates but before it's painted.
   requestAnimationFrame(() => {
     const next = after.find(card => card.isConnected);
     const prev = next ? undefined : before.find(card => card.isConnected);
     const target = next ?? prev;
-    if (!target) return;
+    if (!target) {
+      return;
+    }
     const want = next ? anchorTop : beforeTops.get(target)!;
     window.scrollBy(0, target.getBoundingClientRect().top - want);
   });
@@ -253,7 +259,9 @@ const RECENT_SEARCHES = 8;
 /** Remember a search the user settled on, most recent first. */
 export function rememberSearch(text: string) {
   const q = text.trim();
-  if (!q) return;
+  if (!q) {
+    return;
+  }
   const rest = getSetting(KEYS.recentSearches).filter(s => s.toLowerCase() !== q.toLowerCase());
   setSetting(KEYS.recentSearches, [q, ...rest].slice(0, RECENT_SEARCHES));
 }
@@ -322,7 +330,9 @@ function firstVisitSince(now: number): number {
     .values()
     .filter(l => endsAtMs(l) > newAfter)
     .reduce<number | null>((min, l) => Math.min(min ?? Infinity, l.firstSeenAt ?? 0), null);
-  if (first == null) return now;
+  if (first == null) {
+    return now;
+  }
   return Math.max(0, first - 1);
 }
 

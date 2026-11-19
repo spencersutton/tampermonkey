@@ -15,7 +15,9 @@ interface Props extends Omit<JSX.HTMLAttributes<HTMLDialogElement>, 'onClose'> {
  * was on close.
  */
 function showDialog(dialog: HTMLDialogElement | null) {
-  if (!dialog) return;
+  if (!dialog) {
+    return;
+  }
   const previous = document.activeElement;
   dialog.showModal();
   if (!dialog.querySelector('[autofocus]') && dialog.firstElementChild instanceof HTMLElement) {
@@ -23,7 +25,9 @@ function showDialog(dialog: HTMLDialogElement | null) {
   }
   return () => {
     dialog.close();
-    if (previous instanceof HTMLElement) previous.focus({ preventScroll: true });
+    if (previous instanceof HTMLElement) {
+      previous.focus({ preventScroll: true });
+    }
   };
 }
 

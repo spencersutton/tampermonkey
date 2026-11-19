@@ -32,7 +32,9 @@ export function tagMenuOptions(
       const { name, value } = parseTag(facet.label);
       const label = numericLabel(value);
       let display = facet.label;
-      if (label != null) display = name ? `${name}: ${label}` : label;
+      if (label != null) {
+        display = name ? `${name}: ${label}` : label;
+      }
       options.set(key, {
         value: key,
         label: display,
@@ -45,7 +47,9 @@ export function tagMenuOptions(
   for (const facet of allFacets) {
     const key = numericTagKey(facet.value);
     const option = key == null ? undefined : options.get(key);
-    if (option && !option.values.includes(facet.value)) option.values.push(facet.value);
+    if (option && !option.values.includes(facet.value)) {
+      option.values.push(facet.value);
+    }
   }
   return [...options.values()];
 }

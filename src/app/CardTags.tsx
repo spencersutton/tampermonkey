@@ -1,4 +1,4 @@
-import { tagGroup, toLower, tagLabel } from '../shared/tags';
+import { tagGroup, tagLabel } from '../shared/tags';
 import { setView, storedView } from './state';
 import type { Lot } from './types';
 
@@ -7,7 +7,9 @@ import type { Lot } from './types';
  * attribute).
  */
 export function CardTags({ lot }: { lot: Lot }) {
-  if (!lot.tags?.length) return null;
+  if (!lot.tags?.length) {
+    return null;
+  }
   return (
     <ul class="card-tags" aria-label="Tags">
       {lot.tags.map(tag => (

@@ -23,17 +23,22 @@ export function startBrandWatch() {
   let active = true;
 
   function pump() {
-    if (!active) return;
+    if (!active) {
+      return;
+    }
     for (const id of onScreen.peek()) {
-      if (pending.size >= CONCURRENCY) break;
+      if (pending.size >= CONCURRENCY) {
+        break;
+      }
       const lot = lots.peek().get(id);
       if (
         !lot ||
         pending.has(id) ||
         (lotBrands.peek().has(id) && lotModels.peek().has(id)) ||
         errors.peek().has(id)
-      )
+      ) {
         continue;
+      }
       pending.add(id);
       void loadDetail(lot)
         .catch((err: unknown) => {
@@ -68,7 +73,9 @@ export function CardBrandModel({ id }: { id: number }) {
   const model = lotModels.value.get(id);
   const error = errors.value.get(id);
   const failed = error && (!lotBrands.value.has(id) || !lotModels.value.has(id));
-  if (!brand && !model && !failed) return null;
+  if (!brand && !model && !failed) {
+    return null;
+  }
   return (
     <div class="card-identity">
       <BrandModel brand={brand ?? null} model={model ?? null} />
@@ -92,7 +99,9 @@ export function CardBrandModel({ id }: { id: number }) {
 
 /** Search the catalog by brand/model, with a separate link to Google. */
 export function BrandModel({ brand, model }: { brand: string | null; model: string | null }) {
-  if (!brand && !model) return null;
+  if (!brand && !model) {
+    return null;
+  }
   const sort = storedView.value.sort;
   const term = (field: string, value: string) => `${field}:"${value.replace(/["\\]/g, '\\$&')}"`;
   const brandQuery = brand ? term('brand', brand) : '';

@@ -30,11 +30,16 @@ function nameScore(label: string, words: string[], query: string): number {
   let score = 0;
   for (const w of words) {
     const q = Math.max(matchQuality(name, w), matchQuality(name, stem(w)));
-    if (q < 0.7) return 0;
+    if (q < 0.7) {
+      return 0;
+    }
     score += q;
   }
-  if (name === query) score += 3;
-  else if (name.startsWith(query)) score += 1.5;
+  if (name === query) {
+    score += 3;
+  } else if (name.startsWith(query)) {
+    score += 1.5;
+  }
   return score;
 }
 
@@ -66,15 +71,21 @@ export function suggest(
   const query = text.trim().toLowerCase().replace(/\s+/g, ' ');
   const none = { query, types: [], brands: [], tags: [], categories: [], lots: [] };
   // Qualifiers and phrases are precise searches already; suggest only for plain words.
-  if (!query || /[":]/.test(query) || /(?:^|\s)-/.test(query)) return none;
+  if (!query || /[":]/.test(query) || /(?:^|\s)-/.test(query)) {
+    return none;
+  }
   const words = query.split(' ');
 
   const score = makeSearch({ search: query, searchRegex: false }, details);
   const top: { lot: Lot; s: number }[] = [];
   for (const lot of lots) {
-    if (endsAtMs(lot) <= now || hidden[lot.id]) continue;
+    if (endsAtMs(lot) <= now || hidden[lot.id]) {
+      continue;
+    }
     const s = score(lot);
-    if (s == null) continue;
+    if (s == null) {
+      continue;
+    }
     top.push({ lot, s });
   }
   top.sort((a, b) => b.s - a.s || endsAtMs(a.lot) - endsAtMs(b.lot) || a.lot.id - b.lot.id);
@@ -83,10 +94,14 @@ export function suggest(
   const best: Lot[] = [];
   for (const { lot } of top) {
     const group = lot.groupId ?? lot.id;
-    if (seen.has(group)) continue;
+    if (seen.has(group)) {
+      continue;
+    }
     seen.add(group);
     best.push(lot);
-    if (best.length === MAX_LOTS) break;
+    if (best.length === MAX_LOTS) {
+      break;
+    }
   }
 
   return {

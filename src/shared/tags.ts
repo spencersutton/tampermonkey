@@ -2,7 +2,7 @@
 // ("cabinet knob") is a label; "name: value" ("finish: satin nickel") is an
 // attribute, filtered per name like a shop's "Finish" dropdown. The server
 // stores them tidied ("name: value"; see clean_tag in store.py) in any case;
-// they are compared ignoring case, by tagKey, and filters hold keys.
+// they are compared ignoring case, by toLower, and filters hold keys.
 
 export interface ParsedTag {
   name: string | null; // attribute name, or null for a plain tag
@@ -11,7 +11,9 @@ export interface ParsedTag {
 
 export function parseTag(tag: string): ParsedTag {
   const i = tag.indexOf(':');
-  if (i < 0) return { name: null, value: tag.trim() };
+  if (i < 0) {
+    return { name: null, value: tag.trim() };
+  }
   return { name: tag.slice(0, i).trim(), value: tag.slice(i + 1).trim() };
 }
 
