@@ -33,7 +33,7 @@ export function timeLabel(endsAt: number, now: number) {
   return { text: `${m}m ${pad2(s % 60)}s`, soon };
 }
 
-const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+const relative = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
 
 /**
  * How long ago `ts` was, in its largest whole unit: "now", "12 minutes ago", "5 hours ago",
@@ -60,8 +60,7 @@ export function countdown(ms: number) {
 }
 
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
-export const plural = (n: number, noun: string) =>
-  `${format.num(n)} ${noun}${n === 1 ? '' : 's'}`;
+export const plural = (n: number, noun: string) => `${format.num(n)} ${noun}${n === 1 ? '' : 's'}`;
 
 /** Parse user-typed money/number input ("$1,200") into a number, or null if it isn't one. */
 export function parseNum(s: string): number | null {
