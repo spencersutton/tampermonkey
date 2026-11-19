@@ -112,24 +112,21 @@ test('catalog pages and lot details have exactly the declared fields', () => {
 
 test('closed lists have exactly the fields ClosedLot declares', () => {
   // Captured by hand while logged in: `npm run capture-fixtures` is anonymous.
-  const { body } = fixture('closed-won.json');
-  check(body, {
+  const closed = {
+    lot_id: 'number',
+    auction_period: 'string',
+    hero_image: nullable('string'),
+    title: 'string',
+    lot_number: 'string',
+    location_name: 'string',
+    final_price: 'number',
+    user_id: 'number',
+  };
+  check(fixture('closed-won.json').body, {
     count: 'number',
-    results: [
-      {
-        lot_id: 'number',
-        auction_period: 'string',
-        hero_image: nullable('string'),
-        title: 'string',
-        lot_number: 'string',
-        location_name: 'string',
-        final_price: 'number',
-        user_id: 'number',
-        fulfillment_status: 'string',
-        collect_by_date: nullable('string'),
-      },
-    ],
+    results: [{ ...closed, fulfillment_status: 'string', collect_by_date: nullable('string') }],
   });
+  check(fixture('closed-lost.json').body, { count: 'number', results: [closed] });
 });
 
 test('real lots have valid end times and images in position order, as the code assumes', () => {

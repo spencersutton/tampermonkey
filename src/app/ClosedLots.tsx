@@ -17,7 +17,7 @@ import { LotModal } from './LotModal';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, openHandler, plural } from './util';
+import { clock, openHandler, plural, shortDate } from './util';
 import { makeRow, type Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */
@@ -224,6 +224,9 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
 /** A lot not at the account's pickup location was transferred there for the fee. */
 const transferFee = (c: ClosedLot) => (c.location_name === pickupName.value ? 0 : TRANSFER_FEE);
 
+/** A YYYY-MM-DD date as local midnight epoch ms. */
+const collectBy = (date: string) => new Date(`${date}T00:00`).getTime();
+
 const key = (c: ClosedLot) => `${c.auction_period}:${c.lot_id}`;
 
 function ClosedRow(props: {
@@ -254,6 +257,8 @@ function ClosedRow(props: {
           </a>
           <span class="muted small">
             {c.location_name} · Lot #{c.lot_number}
+            {c.fulfillment_status && ` · ${c.fulfillment_status}`}
+            {c.collect_by_date && ` · collect by ${shortDate(collectBy(c.collect_by_date))}`}
             {relisted && (
               <>
                 {' · '}

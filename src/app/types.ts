@@ -46,8 +46,8 @@ export interface ClosedLot {
   final_price: number;
   hero_image: string | null; // path on the CDN
   user_id: number;
-  fulfillment_status: string; // "Picked Up" in every capture
-  collect_by_date: string | null; // YYYY-MM-DD
+  fulfillment_status?: string; // won lots only; "Picked Up" in every capture
+  collect_by_date?: string | null; // won lots only; YYYY-MM-DD
   // Added by the tlx server's proxy:
   brand?: string | null | undefined; // saved identity, when it has one
   model?: string | null | undefined;

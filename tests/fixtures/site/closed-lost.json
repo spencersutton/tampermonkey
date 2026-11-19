@@ -1,0 +1,114 @@
+{
+  "request": {
+    "method": "GET",
+    "path": "/backend/v1/auctions/control-panel/closed/lost/?page=1&per_page=10"
+  },
+  "status": 200,
+  "contentType": "application/json",
+  "capturedAt": "2026-11-19T17:16:00.000Z",
+  "body": {
+    "count": 112,
+    "results": [
+      {
+        "lot_id": 198147,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/198147/1_card.webp",
+        "title": "Toggler 1/4 in. D X 6-5/8 in. L Round Steel Toggle Bolt 1 pk",
+        "lot_number": "22674529",
+        "location_name": "Anderson",
+        "final_price": 7,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200783,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200783/1_card.webp",
+        "title": "WeatherTech Indoor Mats 24 in to W X 39 in to L Gray Thermoplastic Door Mat",
+        "lot_number": "22714040",
+        "location_name": "Raleigh",
+        "final_price": 5,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 203069,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/203069/1_card.webp",
+        "title": "Kwikset San Clemente Front-Door Lock Set with Reversible Lever, Satin, SmartKey Rekey Deadbolt",
+        "lot_number": "22766792",
+        "location_name": "Raleigh",
+        "final_price": 81,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200782,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200782/1_card.webp",
+        "title": "WeatherTech Indoor Mats 24 in to W X 39 in to L Gray Thermoplastic Door Mat",
+        "lot_number": "22714028",
+        "location_name": "Raleigh",
+        "final_price": 6,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 202524,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/202524/1_card.webp",
+        "title": "1 Pc 430 Stainless Steel Sheet Metal 36 x 24 in, 24GA, #4, Brushed Finish, Magnetic Mount Board",
+        "lot_number": "22750728",
+        "location_name": "Raleigh",
+        "final_price": 12,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200267,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200267/1_card.webp",
+        "title": "GE Under Sink 5 Stage Premium Reverse Osmosis Water Filtration System",
+        "lot_number": "22696142",
+        "location_name": "Raleigh",
+        "final_price": 3,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200194,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200194/1_card.webp",
+        "title": "25W Equivalent T10 Dimmable Spiral Filament LED Light Bulb, Amber Glass E26, Warm White (Qty 4)",
+        "lot_number": "22695016",
+        "location_name": "Raleigh",
+        "final_price": 2,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200764,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200764/1_card.webp",
+        "title": "WeatherTech Indoor Mats 24 in to W X 39 in to L Gray Thermoplastic Door Mat",
+        "lot_number": "22713365",
+        "location_name": "Raleigh",
+        "final_price": 4,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200169,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200169/1_card.webp",
+        "title": "Philips Smart 120W Color PAR38 LED Bulb, 13W, Dimmable, Voice Control, 1200 Lumens, E26",
+        "lot_number": "22694617",
+        "location_name": "Raleigh",
+        "final_price": 2,
+        "user_id": 12627
+      },
+      {
+        "lot_id": 200356,
+        "auction_period": "2026-11-01",
+        "hero_image": "lots/2026/11/200356/1_card.webp",
+        "title": "500 ft. Gray 24/4 Solid CU CAT5e CMR (Riser) Data Cable",
+        "lot_number": "22697270",
+        "location_name": "Raleigh",
+        "final_price": 10,
+        "user_id": 12627
+      }
+    ]
+  }
+}
