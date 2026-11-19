@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import '../shared/arrayToSet';
 import { MINUTE } from '../shared/constants';
 import { createApp, LOCAL_HOSTS } from './app';
 import { Catalog } from './catalog';

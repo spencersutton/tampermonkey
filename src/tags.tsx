@@ -3,6 +3,8 @@
 // catalog.
 import { render } from 'preact';
 
+import './shared/arrayToSet';
+
 import './app/app.css';
 import './tags/tags.css';
 import { AppLock, me, startAuth } from './app/auth';

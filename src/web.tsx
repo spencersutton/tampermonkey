@@ -2,6 +2,7 @@
 // catalog UI behind the server's password prompt, with the site login form
 // available from anywhere.
 import 'temporal-polyfill/global';
+import './shared/arrayToSet';
 import { render } from 'preact';
 
 import './app/app.css';
