@@ -13,7 +13,7 @@
     "server": "bun src/server/main.ts",
     "server:watch": "bun --watch src/server/main.ts",
     "build:watch": "vite build --watch",
-    "watch": "bun run --parallel build:watch server:watch",
+    "watch": "bun scripts/watch.ts",
     "test:web": "node --test 'tests/*.test.mjs'",
     "test:server": "bun test ./tests/server/",
     "itemtypes": "bun src/server/itemtypes-cli.ts"
