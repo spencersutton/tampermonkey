@@ -20,6 +20,7 @@ import { clock, openHandler, plural, timeLabel } from './util';
 import type { Row } from './view';
 import { observeLot } from './viewport';
 import { canWatch, toggleWatch, watchPending } from './watch';
+import '../shared/arrayToSet';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
 export function TimeLeft({ endsAt }: { endsAt: number }) {
@@ -268,7 +269,7 @@ function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
 
 /** Median of a list of prices. */
 const median = (xs: number[]) => {
-  const s = xs.toSorted((a, b) => a - b);
+  const s = xs.sortBy(x => x);
   const m = s.length >> 1;
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 };

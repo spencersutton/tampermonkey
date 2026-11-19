@@ -12,6 +12,7 @@ import { getSetting, setSetting } from './settings';
 import type { Lot } from './types';
 import { plural } from './util';
 import { categoryIndex, compareCategoryNames, compileCategories } from './view';
+import '../shared/arrayToSet';
 
 /** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
 interface Draft {
@@ -109,7 +110,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       typeCounts
         .entries()
         .toArray()
-        .toSorted((a, b) => b[1] - a[1]),
+        .sortBy(([, n]) => n, 'desc'),
     [typeCounts],
   );
 

@@ -12,6 +12,8 @@
 // in common, ignoring case, punctuation and word order, and no number that only
 // one title has.
 
+import './arrayToSet';
+
 export const DEFAULT_NAME_MATCH = 90;
 
 export interface Item {
@@ -258,7 +260,7 @@ export function groupLots(
   // Lots with the same identity and the same words (or, without words, the same title) always
   // match: one entry each.
   const entries = new Map<string, Entry>();
-  for (const lot of [...lots].toSorted((a, b) => a.id - b.id)) {
+  for (const lot of [...lots].sortBy(l => l.id)) {
     const tokens = nameTokens(lot.title);
     const words = tokens.size ? tokens : lot.title.replace(EDGES, '').toLowerCase();
     const condition = lot.condition?.value ?? null;
@@ -397,8 +399,6 @@ export class ItemIndex<R extends Row = Row> {
         }
       }
     }
-    return rows
-      .filter(row => row.id !== item.id)
-      .toSorted((a, b) => (b.endsAt || 0) - (a.endsAt || 0));
+    return rows.filter(row => row.id !== item.id).sortBy(l => l.endsAt || 0, 'desc');
   }
 }

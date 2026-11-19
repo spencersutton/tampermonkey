@@ -1,16 +1,18 @@
-// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, toUnique() (deduplicated array) sum() and sumBy() to Array and Iterator; imported for its side effect by each entry point.
+// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, toUnique() (deduplicated array) sum(), sumBy() and sortBy() (numeric key, sorted copy) to Array and Iterator; imported for its side effect by each entry point.
 declare global {
   interface Array<T> {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: readonly number[]): number;
     sumBy(fn: (value: T, index: number) => number): number;
+    sortBy(key: (value: T) => number, order?: 'asc' | 'desc'): T[];
   }
   interface ReadonlyArray<T> {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: readonly number[]): number;
     sumBy(fn: (value: T, index: number) => number): number;
+    sortBy(key: (value: T) => number, order?: 'asc' | 'desc'): T[];
   }
   interface Set<T> {
     toArray(): T[];
@@ -105,6 +107,21 @@ Object.defineProperty(Iterator.prototype, 'sumBy', {
     fn: (value: T, index: number) => number,
   ): number {
     return this.reduce((n, x, i) => n + fn(x, i), 0);
+  },
+  configurable: true,
+  writable: true,
+});
+
+// A sorted copy, ordered by a numeric key (ascending unless `order` is 'desc').
+// oxlint-disable-next-line no-extend-native -- deliberate
+Object.defineProperty(Array.prototype, 'sortBy', {
+  value: function sortBy<T>(
+    this: readonly T[],
+    key: (value: T) => number,
+    order: 'asc' | 'desc' = 'asc',
+  ): T[] {
+    const sign = order === 'desc' ? -1 : 1;
+    return this.toSorted((a, b) => sign * (key(a) - key(b)));
   },
   configurable: true,
   writable: true,

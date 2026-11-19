@@ -342,7 +342,7 @@ export function createApp(deps: Deps) {
       lotIds: ids
         .values()
         .toArray()
-        .toSorted((a, b) => a - b),
+        .sortBy(n => n),
       itemType,
       seq: store.seq(),
     });

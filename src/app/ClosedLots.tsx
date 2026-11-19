@@ -91,7 +91,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         .map(id => catalogLots.value.get(id))
         .filter((l): l is Lot => l !== undefined && endsAtMs(l) > now)
         .map(l => makeRow(l, pickup, exclusions))
-        .toSorted((a, b) => a.total - b.total);
+        .sortBy(r => r.total);
       if (rows.length) {
         out.set(key(c), rows);
       }
