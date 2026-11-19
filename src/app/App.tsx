@@ -101,11 +101,8 @@ function AppSidebar({
 }) {
   const saved = getSetting(KEYS.savedSearches);
   const view = storedView.value;
-  const pickup = pickupName.value;
-  const result = gridView.value;
   const facets = sidebarFacets.value;
   const savedStats = searchStats.value;
-  const accountPickup = accountPickupName.value;
   const curClosed = closed.value;
   const curFiltered = filteredOnly.value;
   const search = searchDraft.value;
@@ -164,9 +161,9 @@ function AppSidebar({
       <Sidebar
         view={view}
         facets={facets}
-        matchCounts={result.matchCounts}
-        pickup={pickup}
-        accountPickup={accountPickup}
+        matchCounts={gridView.value.matchCounts}
+        pickup={pickupName.value}
+        accountPickup={accountPickupName.value}
         authed={authed}
         saved={savedProps}
       />
@@ -209,7 +206,6 @@ function AppHeader() {
 function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null } }) {
   const view = storedView.value;
   const result = gridView.value;
-  const curClosed = closed.value;
   const curFiltered = filteredOnly.value;
   const titleLines = getSetting(KEYS.titleLines);
   const saved = getSetting(KEYS.savedSearches);
@@ -227,7 +223,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
 
   // Kept mounted under the Won / Lost page so its scroll observers keep working.
   return (
-    <div hidden={curClosed != null}>
+    <div hidden={closed.value != null}>
       {curFiltered && (
         <>
           <div class="closed-head">
