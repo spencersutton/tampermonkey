@@ -269,7 +269,7 @@ function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
 
 /** Median of a list of prices. */
 const median = (xs: number[]) => {
-  const s = xs.sortBy(x => x);
+  const s = xs.toNumericSorted();
   const m = s.length >> 1;
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 };

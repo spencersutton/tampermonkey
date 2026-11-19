@@ -339,10 +339,7 @@ export function createApp(deps: Deps) {
         .map(([i]) => i),
     ].toSet();
     return json({
-      lotIds: ids
-        .values()
-        .toArray()
-        .sortBy(n => n),
+      lotIds: ids.values().toArray().toNumericSorted(),
       itemType,
       seq: store.seq(),
     });

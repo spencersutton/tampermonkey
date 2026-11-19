@@ -91,7 +91,7 @@ export function numericOrder<T>(items: T[], text: (item: T) => string): T[] | nu
   }
   return items
     .map((item, i) => ({ item, n: Number(nums[i]) }))
-    .toSorted((a, b) => a.n - b.n)
+    .sortBy(x => x.n)
     .map(x => x.item);
 }
 
