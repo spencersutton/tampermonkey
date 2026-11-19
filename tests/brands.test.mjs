@@ -148,10 +148,14 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
     seq: 1,
     full: true,
     ids: null,
-    lots: [...lots.peek().values()].map(item => ({
-      ...item,
-      ends_at: item.ends_at,
-    })),
+    lots: lots
+      .peek()
+      .values()
+      .toArray()
+      .map(item => ({
+        ...item,
+        ends_at: item.ends_at,
+      })),
   });
   onScreen.value = [1, 2, 3];
   assert.deepEqual(

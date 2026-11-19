@@ -51,7 +51,7 @@ export function tagMenuOptions(
       option.values.push(facet.value);
     }
   }
-  return [...options.values()];
+  return options.values().toArray();
 }
 
 export function toggleFilterOption(selected: string[], values: string[]): string[] {

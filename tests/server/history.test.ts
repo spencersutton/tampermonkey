@@ -245,9 +245,11 @@ describe('identity', () => {
     expect(store.lot(2)?.itemType).toBe('driver');
     expect(store.changes(before).lots.map(l => l.id)).toContain(2);
     before = store.seq();
-    const pulled = [...store.allLots().values()].map(
-      ({ brand: _b, model: _m, itemType: _t, ...rest }) => rest,
-    );
+    const pulled = store
+      .allLots()
+      .values()
+      .toArray()
+      .map(({ brand: _b, model: _m, itemType: _t, ...rest }) => rest);
     store.replaceAll(pulled);
     expect(store.seq()).toBe(before);
     store.saveLotDetail(sold(2, 'Other title', { model: 'Different' }));

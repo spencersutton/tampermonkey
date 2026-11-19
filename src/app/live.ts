@@ -46,7 +46,7 @@ onAuthChange(() => {
   if (!old) {
     return;
   }
-  const oldSubs = [...subs.values()];
+  const oldSubs = subs.values().toArray();
   subs.clear();
   connecting = null;
   void old.then(c => {

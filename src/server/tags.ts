@@ -33,7 +33,7 @@ export function uniqueTags(tags: Iterable<string>): string[] {
       seen.set(tag.toLowerCase(), tag);
     }
   }
-  return [...seen.values()];
+  return seen.values().toArray();
 }
 
 /** Tidied tags without blanks or repeats (ignoring case), in their original order. */

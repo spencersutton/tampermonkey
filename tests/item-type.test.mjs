@@ -68,7 +68,11 @@ test('title corrections replace the catalog Map and update category matching and
   updateItemType([1, 2], 'drill driver');
   assert.notEqual(lots.peek(), previous);
   assert.deepEqual(
-    [...lots.peek().values()].map(l => l.itemType),
+    lots
+      .peek()
+      .values()
+      .toArray()
+      .map(l => l.itemType),
     ['drill driver', 'drill driver', 'saw', 'battery'],
   );
   assert.equal(previous.get(1).itemType, 'battery');

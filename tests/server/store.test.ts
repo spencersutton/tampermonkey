@@ -210,9 +210,15 @@ describe('item types', () => {
     store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
     const reopened = new Store(path);
     reopened.replaceAll([item(1, 'Drill', { current_price: 20 }), item(4)]);
-    expect(new Set([...reopened.allLots().values()].map(l => l.itemType))).toEqual(
-      new Set(['drill driver']),
-    );
+    expect(
+      new Set(
+        reopened
+          .allLots()
+          .values()
+          .toArray()
+          .map(l => l.itemType),
+      ),
+    ).toEqual(new Set(['drill driver']));
     expect(reopened.untypedItems()).toEqual([]);
   });
 

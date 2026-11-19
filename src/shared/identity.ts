@@ -269,7 +269,7 @@ export function groupLots(
       .getOrInsertComputed(key, () => ({ condition, identity, words, ids: [] }))
       .ids.push(lot.id);
   }
-  const keys = [...entries.values()];
+  const keys = entries.values().toArray();
   const parent = keys.map((_, i) => i);
   const identity = keys.map(entry => entry.identity);
 

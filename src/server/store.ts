@@ -799,7 +799,7 @@ export class Store {
     const from = since > seq ? 0 : since; // the client saw a newer (since reset) database: send everything
     return {
       seq,
-      lots: [...this.load('WHERE l.seq > ?', from).values()],
+      lots: this.load('WHERE l.seq > ?', from).values().toArray(),
       ids: this.all<{ id: number }>('SELECT id FROM lots').map(r => r.id),
     };
   }
@@ -811,7 +811,7 @@ export class Store {
   updateLots(fn: (lots: Lot[]) => void): number {
     const seq = this.int('seq') + 1;
     const old = this.load();
-    const lots = structuredClone([...old.values()]);
+    const lots = structuredClone(old.values().toArray());
     fn(lots);
     const changed = lots.filter(lot => !dequal(lot, old.get(lot.id)));
     if (changed.length) {
