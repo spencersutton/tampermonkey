@@ -7,3 +7,6 @@ latest desktop Chrome and current iOS Safari matter, so use modern JavaScript
 and browser APIs freely. Don't spend effort on, or caveat changes with,
 concerns that only matter for many users or other environments (older
 browsers, broad compatibility, migration paths for other people's data).
+
+When you finish a piece of work, commit it (after typecheck, lint and tests
+pass) without waiting to be asked.
