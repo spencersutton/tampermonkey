@@ -1,13 +1,13 @@
 import { signal, type Signal } from '@preact/signals';
 
 import { DAY, HOUR, MINUTE } from '../shared/constants';
-import { formatShortDate, formatShortTime, num } from '../shared/format';
+import * as format from '../shared/format';
 
 /** Weekday and time, e.g. "Tue 3:45 PM". */
-export const shortTime = formatShortTime;
+export const shortTime = format.shortTime;
 
 /** "Oct 22": a date in the past. */
-export const shortDate = formatShortDate;
+export const shortDate = format.shortDate;
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -61,7 +61,7 @@ export function countdown(ms: number) {
 
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
 export const plural = (n: number, noun: string) =>
-  `${num(n)} ${noun}${n === 1 ? '' : 's'}`;
+  `${format.num(n)} ${noun}${n === 1 ? '' : 's'}`;
 
 /** Parse user-typed money/number input ("$1,200") into a number, or null if it isn't one. */
 export function parseNum(s: string): number | null {

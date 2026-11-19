@@ -1,7 +1,7 @@
 // Above the grid, as on a shop's results page: the spelling correction used
 // for a search that matched nothing, a removable chip per active filter, and
 // the item types among the results to narrow by in one click.
-import { num } from '../shared/format';
+import * as format from '../shared/format';
 import { tagLabel } from '../shared/tags';
 import { FilterMenus, hasFilterMenus } from './FilterMenus';
 import { Icon } from './icons';
@@ -23,7 +23,7 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
   const labelOf = <T,>(list: { value: T; label: string }[], value: T) =>
     list.find(f => f.value === value)?.label ?? String(value);
   const without = <T,>(list: T[], value: T) => list.filter(x => x !== value);
-  const money = (n: number) => `$${num(n)}`;
+  const money = (n: number) => `$${format.num(n)}`;
   const chips: Chip[] = [];
   if (v.search.trim()) {
     chips.push({ key: 'search', label: `“${v.search.trim()}”`, remove: { search: '' } });
@@ -202,7 +202,7 @@ export function Refinements() {
               class="type-pill"
               onClick={() => setView({ types: [t.value] })}
             >
-              {t.label} <span class="count">{num(t.count)}</span>
+              {t.label} <span class="count">{format.num(t.count)}</span>
             </button>
           ))}
         </div>

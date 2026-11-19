@@ -2,7 +2,7 @@
 import { batch } from '@preact/signals';
 import { useRef } from 'preact/hooks';
 
-import { num } from '../shared/format';
+import * as format from '../shared/format';
 import { KEYS } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
 import { isAuthenticated, LoginLink } from './auth';
@@ -199,7 +199,7 @@ function AppHeader() {
       >
         <Icon name="filter" /> Filters{nFilters ? ` (${nFilters})` : ''}
         {totalNew.value > 0 && (
-          <span class="pill pill-new">{num(totalNew.value)} new</span>
+          <span class="pill pill-new">{format.num(totalNew.value)} new</span>
         )}
       </button>
     </header>
@@ -250,13 +250,13 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
             !progress.value &&
             (curFiltered ? 'No filtered lots match' : 'No lots match')}
           {result.removed > 0 && (
-            <span class="muted"> · {num(result.removed)} hidden or removed</span>
+            <span class="muted"> · {format.num(result.removed)} hidden or removed</span>
           )}
           {result.filteredOut > 0 && (
-            <span class="muted"> · {num(result.filteredOut)} outside filters</span>
+            <span class="muted"> · {format.num(result.filteredOut)} outside filters</span>
           )}
           {result.combined > 0 && (
-            <span class="muted"> · {num(result.combined)} duplicates combined</span>
+            <span class="muted"> · {format.num(result.combined)} duplicates combined</span>
           )}
         </span>
         {view.newSince != null && (
@@ -269,7 +269,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
         )}
         {freshMatches > 0 && (
           <span class="new-line">
-            {num(freshMatches)} new since your last{' '}
+            {format.num(freshMatches)} new since your last{' '}
             {sinceSaved ? `look at “${activeSaved.name}”` : 'visit'}
             <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
               Show only new
@@ -416,10 +416,10 @@ function StatusBar() {
     text = 'Loading catalog…';
   } else if (pull) {
     text = pull.total
-      ? `Refreshing catalog… ${num(pull.done)} of ${num(pull.total)}`
+      ? `Refreshing catalog… ${format.num(pull.done)} of ${format.num(pull.total)}`
       : 'Refreshing catalog…';
   } else if (lastFetch) {
-    text = `${num(lots.value.size)} lots · refreshed ${ago(lastFetch, now)}`;
+    text = `${format.num(lots.value.size)} lots · refreshed ${ago(lastFetch, now)}`;
   }
 
   const pct = pull?.total ? Math.round((pull.done / pull.total) * 100) : 0;

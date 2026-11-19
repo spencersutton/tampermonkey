@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { CDN } from '../shared/constants';
 import { costBreakdown, dollars, money } from '../shared/cost';
-import { num } from '../shared/format';
+import * as format from '../shared/format';
 import { lotHref } from '../shared/keys';
 import { endsAtMs, type LotMetadata } from '../shared/lot';
 import { isAuthenticated, LoginLink } from './auth';
@@ -273,7 +273,7 @@ function SameListings({
   const mixed = new Set(group.map(r => r.lot.condition.display_name)).size > 1;
   return (
     <div>
-      <h3>{num(group.length)} listings of this item</h3>
+      <h3>{format.num(group.length)} listings of this item</h3>
       <ol class="dupes">
         {group.map(r => (
           <ListingRow
@@ -366,7 +366,7 @@ function PastCloses({ lot }: { lot: Lot }) {
   return (
     <div>
       <h3>
-        Closed before ({num(lot.pastCloses!.n)})
+        Closed before ({format.num(lot.pastCloses!.n)})
         {p && (
           <span class="muted small">
             {' '}

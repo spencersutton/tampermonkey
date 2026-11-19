@@ -5,7 +5,7 @@
 // narrow by (or a selection).
 import { useState } from 'preact/hooks';
 
-import { num } from '../shared/format';
+import * as format from '../shared/format';
 import { groupLabel, isNoneTag, parseTag, tagGroup } from '../shared/tags';
 import { tagMenuOptions, toggleFilterOption, type FilterOption } from './filterOptions';
 import { Icon } from './icons';
@@ -191,7 +191,7 @@ function FilterMenu({
                   onChange={() => onToggle(f.values)}
                 />
                 <span>{none ? 'None' : valueLabel(f)}</span>
-                <span class="count">{num(f.count)}</span>
+                <span class="count">{format.num(f.count)}</span>
               </label>
             );
           })}

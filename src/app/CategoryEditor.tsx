@@ -3,7 +3,7 @@
 import { dequal } from 'dequal';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 
-import { num } from '../shared/format';
+import * as format from '../shared/format';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { saveCustomCategories } from './categories';
 import { Dialog } from './Dialog';
@@ -257,7 +257,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                 ))}
                 {selLots.length > PREVIEW_LIMIT && (
                   <li class="muted small">
-                    …and {num(selLots.length - PREVIEW_LIMIT)} more
+                    …and {format.num(selLots.length - PREVIEW_LIMIT)} more
                   </li>
                 )}
               </ul>
@@ -344,7 +344,7 @@ function TypeChips({
               class={`type-chip ${n ? '' : 'type-chip-none'}`}
               title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}
             >
-              {t} <span class="count">{n ? num(n) : 'none'}</span>
+              {t} <span class="count">{n ? format.num(n) : 'none'}</span>
               <button
                 type="button"
                 class="filter-remove"

@@ -1,4 +1,4 @@
-import { formatDollars, formatMoney } from './format';
+import * as format from './format';
 
 // Estimated total cost = (bid + buyer's premium + lot fee [+ transfer fee]) × (1 + sales tax)
 const FEES = {
@@ -22,6 +22,6 @@ export function costBreakdown(bid: number, transferFee = 0): string {
 }
 
 /** Format as US dollars with cents, e.g. "$1,234.50". */
-export const money = formatMoney;
+export const money = format.money;
 /** Format as whole US dollars, e.g. "$1,235". */
-export const dollars = formatDollars;
+export const dollars = format.dollars;

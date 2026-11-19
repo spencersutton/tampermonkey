@@ -1,4 +1,4 @@
-import { num } from '../../shared/format';
+import * as format from '../../shared/format';
 import { Icon } from '../icons';
 import type { SavedSearch, SavedSearchStats } from '../view';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
@@ -128,14 +128,14 @@ export function SavedSearchesSection({
                   title="Show only the new matches"
                   onClick={() => onOpen(s, true)}
                 >
-                  {num(st.fresh)} new
+                  {format.num(st.fresh)} new
                 </button>
               )}
               <span
                 class="count"
                 title="Open lots matching, not counting hidden or regex-filtered lots"
               >
-                {num(st.total)}
+                {format.num(st.total)}
               </span>
             </li>
           );

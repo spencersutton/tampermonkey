@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 
 import { compileFilter } from '../../shared/filters';
-import { num } from '../../shared/format';
+import * as format from '../../shared/format';
 import { KEYS, siteUrl } from '../../shared/keys';
 import { Icon } from '../icons';
 import { getSetting, setSetting } from '../settings';
@@ -84,7 +84,7 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
           <PatternText pattern={pattern} />
         </button>
       )}
-      {ok && !editing && <span class="count">{num(count)}</span>}
+      {ok && !editing && <span class="count">{format.num(count)}</span>}
     </li>
   );
 }
