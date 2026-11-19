@@ -39,19 +39,19 @@ const lot = (id, fields = {}) => ({
   model: 'D-100',
   ends_at: new Date(now + 2 * 3_600_000).toISOString(),
   current_price: 10,
-  category: null,
-  condition: null,
-  location: null,
+  category: { value: 'tools', label: 'Tools' },
+  condition: { value: 3, display_name: 'Used' },
+  location: { id: 1, name: 'Raleigh' },
   transfer_fee: 0,
   is_transferable: false,
-  estimated_retail_price: null,
+  estimated_retail_price: 0,
   bid_count: 0,
   images: [],
   version: 1,
   ...fields,
 });
 const view = (items, changes = {}, details) =>
-  computeView(items, { ...DEFAULT_VIEW, ...changes }, '', ex, now, details);
+  computeView(items, { ...DEFAULT_VIEW, ...changes }, 'Raleigh', ex, now, details);
 
 test('lots the server grouped fold into one card; ungrouped lots keep their own', () => {
   const items = [
@@ -83,7 +83,7 @@ test('dedupe preserves condition, cost ordering, and independent bid/hidden/filt
   const result = computeView(
     items,
     DEFAULT_VIEW,
-    '',
+    'Raleigh',
     {
       ...ex,
       hidden: { 5: {} },

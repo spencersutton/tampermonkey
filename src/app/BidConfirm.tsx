@@ -38,7 +38,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const stale = amount < min;
   const disabled = pending || blocker != null || stale;
   // Only shown when the lot isn't at your pickup location.
-  const elsewhere = lot.location?.name;
+  const elsewhere = lot.location.name;
 
   const confirm = async () => {
     if (!disabled && (await submitBid({ ...req, amount }))) {

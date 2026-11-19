@@ -44,12 +44,12 @@ const fixture = (id, value, label, itemType) => ({
   lot_number: `${id}`,
   auction_period: 'test',
   category: { value, label },
-  condition: null,
-  location: null,
+  condition: { value: 1, display_name: 'New' },
+  location: { id: 1, name: 'Raleigh' },
   itemType,
   ends_at: new Date(now + 2 * 3_600_000).toISOString(),
   current_price: 10,
-  estimated_retail_price: null,
+  estimated_retail_price: 0,
   transfer_fee: 0,
   is_transferable: false,
   images: [],
@@ -170,11 +170,6 @@ test('the card exposes a labeled category hide button targeting its assigned cus
   assert.equal(button.props.title, button.props['aria-label']);
   button.props.onClick();
   assert.deepEqual(visibleIds(), [1, 3]);
-  const uncategorized = renderCard({ ...fixtures[0], category: null });
-  assert.equal(
-    nodes(uncategorized).some(n => n.props?.class === 'icon-btn category-hide'),
-    false,
-  );
 });
 
 test('clicking a card category selects only its assigned category and preserves other filters', () => {
@@ -200,12 +195,6 @@ test('clicking a card category selects only its assigned category and preserves 
     assert.equal(storedView.value.noCategories, false);
     assert.deepEqual(visibleIds(), expected);
   }
-  assert.equal(
-    nodes(renderCard({ ...fixtures[0], category: null })).some(
-      n => n.props?.class === 'btn-text category-only',
-    ),
-    false,
-  );
 });
 
 test('explicit empty categories round-trip through URLs and browser history', () => {

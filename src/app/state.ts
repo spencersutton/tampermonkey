@@ -120,7 +120,7 @@ export const accountPickupName = computed(() => {
     return acct?.name ?? null;
   }
   // The account may only give the location's id; find its name among the lots.
-  return lots.value.values().find(l => l.location?.id === acct.id)?.location?.name ?? null;
+  return lots.value.values().find(l => l.location.id === acct.id)?.location.name ?? null;
 });
 export const pickupName = computed(() => accountPickupName.value || 'Raleigh');
 

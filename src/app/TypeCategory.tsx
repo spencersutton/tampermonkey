@@ -80,7 +80,7 @@ export function TypeCategory({
   // The lot's custom category is the default parent.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories nested under this lot's site category first, then A–Z.
-  const near = (c: CustomCategory) => site != null && c.name.startsWith(`${site.label} - `);
+  const near = (c: CustomCategory) => c.name.startsWith(`${site.label} - `);
   const choices = cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
   const preferred = cats.find(c => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>(() => (cats.length ? 'add' : 'new'));
@@ -94,7 +94,7 @@ export function TypeCategory({
     : (preferred?.name ?? '');
   const pick = filteredChoices.some(c => c.name === selected) ? selected : '';
   const defaultName = () => {
-    const parent = current?.name ?? site?.label;
+    const parent = current?.name ?? site.label;
     return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
   };
   const [name, setName] = useState(defaultName);

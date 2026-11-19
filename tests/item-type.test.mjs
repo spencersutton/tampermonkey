@@ -30,8 +30,8 @@ const lot = (id, title, itemType, fields = {}) => ({
   firstSeenAt: 5,
   ends_at: new Date(2000).toISOString(),
   category: { value: 'tools', label: 'Tools' },
-  condition: null,
-  location: null,
+  condition: { value: 1, display_name: 'New' },
+  location: { id: 1, name: 'Raleigh' },
   ...fields,
 });
 const catalogLot = (id, title, itemType, fields = {}) => {

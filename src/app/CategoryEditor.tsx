@@ -251,7 +251,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                 {selLots.slice(0, PREVIEW_LIMIT).map(l => (
                   <li key={l.id}>
                     <span>{l.title}</span>
-                    {l.category && <span class="muted small">{l.category.label}</span>}
+                    <span class="muted small">{l.category.label}</span>
                   </li>
                 ))}
                 {selLots.length > PREVIEW_LIMIT && (

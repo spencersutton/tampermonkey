@@ -41,7 +41,7 @@ export function StandingBadge({ lot }: { lot: Lot }) {
 
 /** Lot location, noting when it is pickup-only or needs a transfer. */
 export function LocationText({ row }: { row: Row }) {
-  const name = row.lot.location?.name ?? 'Unknown';
+  const name = row.lot.location.name;
   if (row.pickupOnly) {
     return <span title="Not transferable – pick up at this location">{name} only</span>;
   }
@@ -150,11 +150,9 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
       </div>
       <div class="card-body">
         <div class="card-kicker">
-          {lot.condition && (
-            <span class="card-condition" title={conditions.get(lot.condition.value)?.description}>
-              {lot.condition.display_name}
-            </span>
-          )}
+          <span class="card-condition" title={conditions.get(lot.condition.value)?.description}>
+            {lot.condition.display_name}
+          </span>
           <span class="card-location">
             <LocationText row={row} />
           </span>
@@ -164,28 +162,26 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         </a>
         <CardBrandModel id={lot.id} />
         <div class="card-chips">
-          {category && (
-            <span class="card-category">
-              <button
-                type="button"
-                class="btn-text category-only"
-                title={`Show only ${category.label}`}
-                aria-label={`Show only ${category.label}`}
-                onClick={() => setView({ categories: [category.value], noCategories: false })}
-              >
-                {category.label}
-              </button>
-              <button
-                type="button"
-                class="icon-btn category-hide"
-                title={`Hide category: ${category.label}`}
-                aria-label={`Hide category: ${category.label}`}
-                onClick={(e?: MouseEvent) => hideCategory(category.value, e?.currentTarget)}
-              >
-                <Icon name="visibilityOff" size={14} />
-              </button>
-            </span>
-          )}
+          <span class="card-category">
+            <button
+              type="button"
+              class="btn-text category-only"
+              title={`Show only ${category.label}`}
+              aria-label={`Show only ${category.label}`}
+              onClick={() => setView({ categories: [category.value], noCategories: false })}
+            >
+              {category.label}
+            </button>
+            <button
+              type="button"
+              class="icon-btn category-hide"
+              title={`Hide category: ${category.label}`}
+              aria-label={`Hide category: ${category.label}`}
+              onClick={(e?: MouseEvent) => hideCategory(category.value, e?.currentTarget)}
+            >
+              <Icon name="visibilityOff" size={14} />
+            </button>
+          </span>
           <ItemTypeActions lot={lot} />
           <CardTags lot={lot} />
         </div>
@@ -231,8 +227,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
 function DupeCount({ row }: { row: Row }) {
   const list = row.others
     .map(
-      r =>
-        `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(endsAtMs(r.lot))}`,
+      r => `${money(r.total)} total · ${r.lot.location.name} · ends ${shortTime(endsAtMs(r.lot))}`,
     )
     .join('\n');
   return (
@@ -252,8 +247,8 @@ function DupeCount({ row }: { row: Row }) {
  * lot.
  */
 function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
-  const condition = cheaper.lot.condition?.display_name ?? 'Unknown condition';
-  const where = cheaper.lot.location?.name ?? 'Unknown';
+  const condition = cheaper.lot.condition.display_name;
+  const where = cheaper.lot.location.name;
   return (
     <button
       type="button"
@@ -282,7 +277,7 @@ export function pastPrice(
   lot: Lot,
 ): { median: number; count: number; sameCondition: boolean } | null {
   const sold = lot.pastCloses?.recent.filter(c => c.sold) ?? [];
-  const same = sold.filter(c => c.condition === (lot.condition?.display_name ?? null));
+  const same = sold.filter(c => c.condition === lot.condition.display_name);
   const use = same.length ? same : sold;
   return use.length
     ? { median: median(use.map(c => c.price)), count: use.length, sameCondition: same.length > 0 }

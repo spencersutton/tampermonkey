@@ -47,7 +47,7 @@ const lot = (title, patch = {}) => ({
   ends_at: new Date(now + 2 * 3_600_000).toISOString(),
   firstSeenAt: now,
   current_price: 20,
-  estimated_retail_price: null,
+  estimated_retail_price: 0,
   transfer_fee: 0,
   is_transferable: false,
   images: [],

@@ -32,7 +32,11 @@ const lot = id => ({
   title: `Item ${id}`,
   images: [],
   version: 2,
+  category: { value: 'tools', label: 'Tools' },
+  condition: { value: 1, display_name: 'New' },
+  location: { id: 1, name: 'Raleigh' },
   current_price: 20,
+  estimated_retail_price: 0,
   bid_count: 0,
   ends_at: '2030-01-01T00:00:00Z',
 });
@@ -122,7 +126,7 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
   assert.deepEqual(identity(1), { brand: 'Acme & Co.', model: 'D-100' });
   assert.equal(lotModels.peek().get(1), 'D-100');
 
-  replies.get(2)(null);
+  replies.get(2)('');
   replies.get(3)('   ', '   ');
   await settle();
   assert.equal(CardBrandModel({ id: 2 }), null);
@@ -537,10 +541,6 @@ test('cards show condition, location, lot number, pricing, retail comparison and
   assert.match(text(byClass('card-sub')), /3 bids/);
   assert.ok(nodes(byClass('card-sub')).some(node => node.type === TimeLeft));
   const sparse = card(rowOf(lot(83)))();
-  assert.equal(
-    nodes(sparse).some(node => node.props?.class === 'card-condition'),
-    false,
-  );
   assert.equal(
     nodes(sparse).some(node => node.props?.class === 'card-lot-number'),
     false,

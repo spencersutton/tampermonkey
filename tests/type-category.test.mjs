@@ -134,23 +134,6 @@ function dialog(t, categories, item = lot(), lots = [item]) {
   };
 }
 
-test('a type without a site category defaults to an unrestricted new category', t => {
-  const d = dialog(t, [], lot('cordless drill', null));
-  const rows = d.render();
-  assert.equal(
-    rows.find(n => n.type === 'input' && n.props.type === 'text').props.value,
-    'Cordless Drills',
-  );
-  assert.equal(
-    rows.some(n => n.props?.class === 'switch-row'),
-    false,
-  );
-  submit(rows, 'Create');
-  assert.deepEqual(getSetting(KEYS.customCategories), [
-    { name: 'Cordless Drills', types: ['cordless drill'] },
-  ]);
-});
-
 test('existing categories default to add mode and retain the preferred category', t => {
   const categories = [
     { name: 'Tools - Drills', types: ['drill'] },

@@ -229,8 +229,8 @@ test('facets retain empty custom ancestors but not unrelated empty categories or
     itemType,
     ends_at: new Date(endsAt).toISOString(),
     category: { value: 'tools', label: 'Tools' },
-    condition: null,
-    location: null,
+    condition: { value: 1, display_name: 'New' },
+    location: { id: 1, name: 'Raleigh' },
   });
   const facets = computeFacets([lot('cordless drill'), lot('corded drill', 0)], 1, cats);
   assert.deepEqual(facets.categories, [

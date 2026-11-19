@@ -117,7 +117,7 @@ export function loadDetail(
       });
       details.set(lot.id, { at: Date.now(), data: d });
       batch(() => {
-        lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
+        lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand.trim() || null);
         lotModels.value = new Map(lotModels.peek()).set(lot.id, d.model?.trim() || null);
       });
       // oxlint-disable-next-line no-unused-vars

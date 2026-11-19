@@ -157,12 +157,10 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           {metadata && <BrandModel brand={metadata.brand} model={metadata.model} />}
           <div class="card-meta">
             <LocationText row={row} />
-            {lot.condition && (
-              <span title={conditions.get(lot.condition.value)?.description}>
-                {lot.condition.display_name}
-              </span>
-            )}
-            {row.category && <span>{row.category.label}</span>}
+            <span title={conditions.get(lot.condition.value)?.description}>
+              {lot.condition.display_name}
+            </span>
+            <span>{row.category.label}</span>
             <span>Lot #{lot.lot_number}</span>
           </div>
           {getLot(lot.id) && <ItemTypeActions lot={lot} />}
@@ -191,12 +189,10 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
                 Your max bid {dollars(lot.your_standing.your_max_bid)}
               </span>
             )}
-            {lot.estimated_retail_price != null && (
-              <span class="muted small">
-                Retail {dollars(lot.estimated_retail_price)}
-                {row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`}
-              </span>
-            )}
+            <span class="muted small">
+              Retail {dollars(lot.estimated_retail_price)}
+              {row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`}
+            </span>
             <span class="muted small">Next min bid {dollars(lot.next_min_increment)}</span>
           </div>
           <BidPanel key={`${lot.id}:${lot.your_standing?.your_max_bid}`} row={row} />
@@ -265,7 +261,7 @@ function SameListings({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
-  const mixed = new Set(group.map(r => r.lot.condition?.display_name)).size > 1;
+  const mixed = new Set(group.map(r => r.lot.condition.display_name)).size > 1;
   return (
     <div>
       <h3>{fmtCount(group.length)} listings of this item</h3>
@@ -366,7 +362,7 @@ function PastCloses({ lot }: { lot: Lot }) {
           <span class="muted small">
             {' '}
             · usually {dollars(p.median)}
-            {p.sameCondition && lot.condition ? ` (${lot.condition.display_name})` : ''}
+            {p.sameCondition ? ` (${lot.condition.display_name})` : ''}
           </span>
         )}
       </h3>

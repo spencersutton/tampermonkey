@@ -1,28 +1,8 @@
-import type { LotImage, RawLotDetail, Standing } from '../shared/lot';
+import type { LotImage, RawLot, RawLotDetail } from '../shared/lot';
 
 // A lot as the tlx server sends it: the site's fields (snake_case, see RawLot in
 // shared/lot.ts) plus the server's own (camelCase).
-export interface Lot {
-  id: number;
-  auction_period: string;
-  title: string;
-  lot_number: string;
-  category: { value: string; label: string } | null;
-  condition: { value: number; display_name: string } | null;
-  location: { id: number; name: string } | null;
-  is_transferable: boolean;
-  transfer_fee: number;
-  current_price: number;
-  estimated_retail_price: number | null;
-  ends_at: string; // ISO 8601
-  status: string;
-  version: number;
-  bid_count: number;
-  next_min_increment: number;
-  your_standing: Standing | null;
-  is_watchlisted: boolean;
-  has_bid: boolean;
-  images: LotImage[];
+export interface Lot extends RawLot {
   brand?: string | null | undefined; // server-cached detail; absent until fetched, null when no brand is provided
   model?: string | null | undefined; // same cache semantics as brand
   firstSeenAt?: number | undefined; // epoch ms when a full pull first saw this lot (0 = already there on the first pull)
@@ -61,12 +41,7 @@ export interface LotMetadata {
   images?: LotImage[] | undefined; // older server cache entries may not have saved images
 }
 
-export interface LotDetail extends Lot {
-  description: string;
-  brand: string | null;
-  model: string | null;
-  lot_fee: number | null;
-  bid_history: RawLotDetail['bid_history'];
+export interface LotDetail extends RawLotDetail, Omit<Lot, keyof RawLotDetail> {
   similar: Lot[]; // the site's "Similar Auctions" for this lot
 }
 

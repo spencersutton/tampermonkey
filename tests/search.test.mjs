@@ -43,12 +43,12 @@ const fixture = (patch = {}) => ({
   lot_number: 'A-123',
   auction_period: 'test',
   category: { value: 'tools', label: 'Tools' },
-  condition: null,
-  location: null,
+  condition: { value: 1, display_name: 'New' },
+  location: { id: 1, name: 'Raleigh' },
   ends_at: new Date(now + 2 * 3_600_000).toISOString(),
   firstSeenAt: now,
   current_price: 20,
-  estimated_retail_price: null,
+  estimated_retail_price: 0,
   transfer_fee: 0,
   is_transferable: false,
   images: [],
@@ -59,7 +59,7 @@ const fixture = (patch = {}) => ({
   ...patch,
 });
 const matches = (search, lot = fixture(), view = {}, details) =>
-  makeMatcher({ ...DEFAULT_VIEW, search, ...view }, now, details)(makeRow(lot, '', ex));
+  makeMatcher({ ...DEFAULT_VIEW, search, ...view }, now, details)(makeRow(lot, 'Raleigh', ex));
 
 beforeEach(() => {
   storage.clear();
@@ -249,6 +249,6 @@ test('qualifiers survive stored views, saved searches and shared URLs unchanged'
   const shared = navFromUrl(`?${new URLSearchParams({ search })}`).view;
   for (const view of [stored, saved, shared]) {
     assert.equal(view.search, search);
-    assert.equal(makeMatcher(view, now)(makeRow(fixture(), '', ex)), true);
+    assert.equal(makeMatcher(view, now)(makeRow(fixture(), 'Raleigh', ex)), true);
   }
 });

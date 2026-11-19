@@ -87,16 +87,14 @@ test('shared listing rows preserve selection and suppress identical titles', () 
   }
 });
 
-test('relisted rows show condition text with an unknown fallback', () => {
-  for (const condition of [{ display_name: 'New' }, null]) {
-    const row = {
-      lot: { title: 'Drill', current_price: 1, bid_count: 0, condition },
-      transferFee: 0,
-      total: totalCost(1),
-    };
-    const tree = ListingRow({ row, currentTitle: 'Drill', showCondition: true, onOpen: () => {} });
-    assert.ok(text(tree).includes(`${condition?.display_name ?? 'Unknown'} · `));
-  }
+test('relisted rows show condition text', () => {
+  const row = {
+    lot: { title: 'Drill', current_price: 1, bid_count: 0, condition: { display_name: 'New' } },
+    transferFee: 0,
+    total: totalCost(1),
+  };
+  const tree = ListingRow({ row, currentTitle: 'Drill', showCondition: true, onOpen: () => {} });
+  assert.ok(text(tree).includes('New · '));
 });
 
 test('closed lots are deduplicated and reported as pages arrive', async t => {

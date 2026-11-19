@@ -30,7 +30,7 @@ export function ListingRow({ row, currentTitle, selected, showCondition = false,
         </span>
         <span class="muted small">
           {lot.title !== currentTitle && <span class="dupe-title">{lot.title}</span>}
-          {showCondition && <>{lot.condition?.display_name ?? 'Unknown'} · </>}
+          {showCondition && <>{lot.condition.display_name} · </>}
           <LocationText row={row} /> · {plural(lot.bid_count, 'bid')}
         </span>
         <TimeLeft endsAt={endsAtMs(lot)} />

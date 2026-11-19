@@ -74,11 +74,11 @@ export const SORTS = {
     label: 'Best deal (% of retail)',
     compare: (a, b) =>
       (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) ||
-      (b.lot.estimated_retail_price ?? 0) - (a.lot.estimated_retail_price ?? 0),
+      b.lot.estimated_retail_price - a.lot.estimated_retail_price,
   },
   'retail-desc': {
     label: 'Retail price: high to low',
-    compare: (a, b) => (b.lot.estimated_retail_price ?? -1) - (a.lot.estimated_retail_price ?? -1),
+    compare: (a, b) => b.lot.estimated_retail_price - a.lot.estimated_retail_price,
   },
   random: { label: 'Random', compare: (a, b) => shuffleKey(a.lot.id) - shuffleKey(b.lot.id) },
 } satisfies Record<string, { label: string; compare: Compare }>;
@@ -329,7 +329,7 @@ export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
  * state.
  */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
-  const elsewhere = lot.location != null && lot.location.name !== pickup;
+  const elsewhere = lot.location.name !== pickup;
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   return {
     lot,
@@ -415,9 +415,9 @@ function brandOf(lot: Lot, details?: ItemDetails): string | null {
 
 function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: ItemDetails) {
   const { lot } = row;
-  if (only == null || only === 'category') bump(counts.category, row.category?.value ?? '');
-  if (only == null || only === 'condition') bump(counts.condition, lot.condition?.value ?? -1);
-  if (only == null || only === 'location') bump(counts.location, lot.location?.name ?? '');
+  if (only == null || only === 'category') bump(counts.category, row.category.value);
+  if (only == null || only === 'condition') bump(counts.condition, lot.condition.value);
+  if (only == null || only === 'location') bump(counts.location, lot.location.name);
   if ((only == null || only === 'type') && lot.itemType) bump(counts.type, lot.itemType);
   if (only == null || only === 'brand') {
     const brand = brandOf(lot, details);
@@ -579,7 +579,7 @@ const CONDITION_RANK: Record<string, number> = { new: 0, 'like new': 1, used: 2,
 
 /** How good a lot's condition is: New 0, Like New 1, Used 2, As-is 3; unknown ones last. */
 export function conditionRank(lot: Lot): number {
-  return CONDITION_RANK[lot.condition?.display_name.trim().toLowerCase() ?? ''] ?? 4;
+  return CONDITION_RANK[lot.condition.display_name.trim().toLowerCase()] ?? 4;
 }
 
 /**
@@ -723,15 +723,15 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
   const dims: Predicates['dims'] = [];
   if (v.noCategories || v.categories.length) {
     const category = oneOf(v.categories);
-    dims.push(['category', r => !v.noCategories && category(r.category?.value ?? '')]);
+    dims.push(['category', r => !v.noCategories && category(r.category.value)]);
   }
   if (v.conditions.length) {
     const condition = oneOf(v.conditions);
-    dims.push(['condition', r => condition(r.lot.condition?.value ?? -1)]);
+    dims.push(['condition', r => condition(r.lot.condition.value)]);
   }
   if (v.locations.length) {
     const location = oneOf(v.locations);
-    dims.push(['location', r => location(r.lot.location?.name ?? '')]);
+    dims.push(['location', r => location(r.lot.location.name)]);
   }
   if (v.types.length) {
     const types = new Set(v.types);
@@ -774,7 +774,7 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
       (newSince == null || firstSeenAfter(lot, newSince)) &&
       !(v.reachable && pickupOnly) &&
       (v.totalMax == null || total <= v.totalMax) &&
-      (v.retailMin == null || (lot.estimated_retail_price ?? 0) >= v.retailMin) &&
+      (v.retailMin == null || lot.estimated_retail_price >= v.retailMin) &&
       (!win || (endsAtMs(lot) >= win[0] && endsAtMs(lot) < win[1])) &&
       mine(lot),
   };
@@ -870,11 +870,11 @@ export function computeFacets(
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map(l => l.category)),
     conditions: tally(
-      open.map(l => l.condition && { value: l.condition.value, label: l.condition.display_name }),
+      open.map(l => ({ value: l.condition.value, label: l.condition.display_name })),
     ).toSorted((a, b) => a.value - b.value),
-    locations: tally(
-      open.map(l => l.location && { value: l.location.name, label: l.location.name }),
-    ).toSorted((a, b) => b.count - a.count),
+    locations: tally(open.map(l => ({ value: l.location.name, label: l.location.name }))).toSorted(
+      (a, b) => b.count - a.count,
+    ),
     types: tally(
       open.map(l => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
     ).toSorted(byCountThenLabel),
