@@ -26,7 +26,7 @@ const { tagMenuOptions, toggleFilterOption } = await vite.ssrLoadModule(
   '/src/app/filterOptions.ts',
 );
 
-const now = Temporal.Now.instant();
+const now = Date.now();
 const ex = {
   words: [],
   filterOn: false,
@@ -44,7 +44,7 @@ const lot = (title, patch = {}) => ({
   category: { value: 'tools', label: 'Tools' },
   condition: { value: 1, label: 'New' },
   location: { id: 1, name: 'Raleigh' },
-  endsAt: now.add({ hours: 2 }),
+  endsAt: now + 2 * 3_600_000,
   firstSeenAt: now,
   currentPrice: 20,
   estimatedRetailPrice: null,
@@ -117,7 +117,7 @@ test('negated words exclude lots', () => {
 test('best match ranks item type and whole-word matches above incidental ones', () => {
   const items = [
     lot('Drill Bit Set 100pc', { itemType: 'drill bit set' }),
-    lot('Sawhorse Pair', { endsAt: now.add({ minutes: 5 }) }),
+    lot('Sawhorse Pair', { endsAt: now + 5 * 60_000 }),
     lot('20V Compact Saw Kit', { itemType: 'circular saw' }),
     lot('Miter Saw', { itemType: 'miter saw' }),
   ];

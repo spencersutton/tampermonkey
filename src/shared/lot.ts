@@ -1,6 +1,5 @@
 // The site's raw API lots (snake_case) as the camelCase shape the app and the
-// tlx server work with. Times are epoch milliseconds, as the server sends them;
-// the app turns them into Temporal.Instants (see app/api.ts).
+// tlx server work with. Times are epoch milliseconds, as the server sends them.
 //
 // The API isn't ours, so every field is treated as possibly missing or
 // malformed.

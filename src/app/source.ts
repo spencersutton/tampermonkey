@@ -1,6 +1,6 @@
 import { batch, signal } from '@preact/signals';
 
-import { DEFAULTS, KEYS, SERVER_KEYS } from '../shared/keys';
+import { DEFAULTS, SERVER_KEYS } from '../shared/keys';
 // Catalog source for the web app, which the tlx server (src/server/) serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
 // keeps the SERVER_KEYS settings, so every device using it shares filters,
@@ -24,8 +24,8 @@ import {
 } from './catalog';
 import { applySetting, setSaveHook, type Key } from './settings';
 import { toast } from './toast';
-import type { Lot, PastClose, PastCloseDetail } from './types';
-import { instantFromEpochMilliseconds } from './util';
+import type { Lot, PastCloseDetail } from './types';
+import { requireEpochMs } from './util';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
@@ -80,52 +80,33 @@ interface Status {
   error: string | null;
 }
 
-type ServerPastClose = Omit<PastClose, 'endsAt'> & { endsAt: number };
-type ServerPastCloseDetail = Omit<PastCloseDetail, 'endsAt'> & { endsAt: number };
-type ServerLot = Omit<Lot, 'endsAt' | 'firstSeenAt' | 'pastCloses'> & {
-  endsAt: number;
-  firstSeenAt?: number;
-  pastCloses?: { n: number; recent: ServerPastClose[] };
-};
-
 interface CatalogReply extends Status {
   seq: number;
   full: boolean;
   ids: number[] | null; // every current lot id (delta replies only)
-  lots: ServerLot[]; // lots changed since the requested sequence
+  lots: Lot[]; // lots changed since the requested sequence
 }
 
-function normalizePastClose<T extends ServerPastClose>(
-  close: T,
-): Omit<T, 'endsAt'> & { endsAt: Temporal.Instant } {
-  return { ...close, endsAt: instantFromEpochMilliseconds(close.endsAt) };
-}
-
-function normalizeCatalogLot(lot: ServerLot): Lot {
-  return {
-    ...lot,
-    endsAt: instantFromEpochMilliseconds(lot.endsAt),
-    firstSeenAt:
-      lot.firstSeenAt == null ? undefined : instantFromEpochMilliseconds(lot.firstSeenAt),
-    pastCloses: lot.pastCloses && {
-      ...lot.pastCloses,
-      recent: lot.pastCloses.recent.map(normalizePastClose),
-    },
-  };
+/** The lot, after checking that its times are valid epoch ms. */
+function checkLot(lot: Lot): Lot {
+  requireEpochMs(lot.endsAt);
+  if (lot.firstSeenAt != null) requireEpochMs(lot.firstSeenAt);
+  lot.pastCloses?.recent.forEach((c) => requireEpochMs(c.endsAt));
+  return lot;
 }
 
 /** Last catalog sequence applied here (0 = have nothing). */
 let seq = 0;
 /** When the server allows the next pull, in our clock. */
-let nextAt: Temporal.Instant | null = null;
+let nextAt = 0;
 /** Local corrections not yet included in a catalog poll; protect them from an older in-flight reply. */
 const typeEdits = new Map<number, { lotIds: number[]; itemType: string; seq: number }>();
 
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
-  const next = instantFromEpochMilliseconds(s.nextPullAt - skew);
-  const fetched = s.meta.fetchedAt ? instantFromEpochMilliseconds(s.meta.fetchedAt) : null;
+  const next = requireEpochMs(s.nextPullAt - skew);
+  const fetched = s.meta.fetchedAt ? requireEpochMs(s.meta.fetchedAt) : null;
   batch(() => {
     nextAt = next;
     fetchedAt.value = fetched;
@@ -136,7 +117,7 @@ function applyStatus(s: Status) {
 
 /** Merge a catalog reply into memory. */
 export function applyCatalog(r: CatalogReply) {
-  const pulled = r.lots.map(normalizeCatalogLot);
+  const pulled = r.lots.map(checkLot);
   batch(() => {
     applyStatus(r);
     const brands = new Map(lotBrands.peek());
@@ -234,13 +215,11 @@ export async function pullCatalog() {
 }
 
 /** When the next full pull is allowed. */
-export const nextPullAt = () => nextAt ?? Temporal.Instant.from('1970-01-01T00:00:00Z');
+export const nextPullAt = () => nextAt;
 
 /** Every closed lot matching this item's identity or title fallback, most recent first. */
 export const fetchPastCloses = (id: number) =>
-  call<{ closes: ServerPastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) =>
-    r.closes.map(normalizePastClose),
-  );
+  call<{ closes: PastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes);
 
 /** Persist an item correction and update cards, sorting and category matching immediately. */
 export async function setItemType(lotId: number, itemType: string): Promise<string> {
@@ -265,58 +244,10 @@ let markSettingsReady: () => void;
 /** Resolves once settings and the initial catalog have loaded. */
 export const settingsReady = new Promise<void>((resolve) => (markSettingsReady = resolve));
 
-function decodeSetting(key: Key, value: unknown): unknown {
-  if (key === KEYS.lastVisit) {
-    if (value == null) return null;
-    if (typeof value !== 'number') throw new TypeError('Invalid last visit from the tlx server');
-    return instantFromEpochMilliseconds(value);
-  }
-  if (key === KEYS.savedSearches) {
-    if (!Array.isArray(value)) throw new TypeError('Invalid saved searches from the tlx server');
-    return value.map((search: unknown) => {
-      if (
-        !search ||
-        typeof search !== 'object' ||
-        !('lastViewedAt' in search) ||
-        typeof search.lastViewedAt !== 'number'
-      ) {
-        throw new TypeError('Invalid saved search timestamp from the tlx server');
-      }
-      return { ...search, lastViewedAt: instantFromEpochMilliseconds(search.lastViewedAt) };
-    });
-  }
-  return value;
-}
-
-function encodeSetting(key: Key, value: unknown): unknown {
-  if (key === KEYS.lastVisit) {
-    if (value == null) return null;
-    if (!(value instanceof Temporal.Instant))
-      throw new TypeError('Invalid last visit for the tlx server');
-    return value.epochMilliseconds;
-  }
-  if (key === KEYS.savedSearches) {
-    if (!Array.isArray(value)) throw new TypeError('Invalid saved searches for the tlx server');
-    return value.map((search: unknown) => {
-      if (
-        !search ||
-        typeof search !== 'object' ||
-        !('lastViewedAt' in search) ||
-        !(search.lastViewedAt instanceof Temporal.Instant)
-      ) {
-        throw new TypeError('Invalid saved search timestamp for the tlx server');
-      }
-      return { ...search, lastViewedAt: search.lastViewedAt.epochMilliseconds };
-    });
-  }
-  return value;
-}
-
 /** Persist a shared setting without keeping a browser copy or retry queue. */
 async function sendSetting(key: Key, value: unknown) {
   try {
-    const serverValue = encodeSetting(key, value);
-    await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value: serverValue });
+    await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value });
   } catch (err) {
     toast(
       'bad',
@@ -332,11 +263,7 @@ async function loadSettings() {
   }
   const r = await call<{ values: Record<string, unknown> }>('GET', '/api/settings');
   const values = SERVER_KEYS.map(
-    (key) =>
-      [
-        key,
-        decodeSetting(key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key]),
-      ] as const,
+    (key) => [key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key]] as const,
   );
   batch(() => {
     for (const [key, value] of values) {

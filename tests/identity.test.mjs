@@ -21,7 +21,7 @@ const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/source.
 const { fetchClosed } = await vite.ssrLoadModule('/src/app/api.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
 
-const now = Temporal.Now.instant();
+const now = Date.now();
 const ex = {
   words: [],
   filterOn: false,
@@ -37,7 +37,7 @@ const lot = (id, fields = {}) => ({
   lotNumber: `${id}`,
   brand: 'Acme',
   model: 'D-100',
-  endsAt: now.add({ hours: 2 }),
+  endsAt: now + 2 * 3_600_000,
   currentPrice: 10,
   category: null,
   condition: null,
@@ -170,10 +170,10 @@ test('item-type corrections apply to exactly the lots the server names', () => {
 test('item-type sort groups types case-insensitively, uses ending time for ties, and puts unassigned lots last', () => {
   const items = [
     lot(1, { itemType: 'Saw' }),
-    lot(2, { itemType: 'drill', endsAt: now.add({ hours: 3 }) }),
-    lot(3, { itemType: 'Drill', endsAt: now.add({ hours: 1 }) }),
-    lot(4, { endsAt: now.add({ minutes: 1 }) }),
-    lot(5, { itemType: '', endsAt: now.add({ minutes: 2 }) }),
+    lot(2, { itemType: 'drill', endsAt: now + 3 * 3_600_000 }),
+    lot(3, { itemType: 'Drill', endsAt: now + 1 * 3_600_000 }),
+    lot(4, { endsAt: now + 1 * 60_000 }),
+    lot(5, { itemType: '', endsAt: now + 2 * 60_000 }),
   ].map((item) => ({ ...item, model: `D-${item.id}` }));
   const settings = { sort: 'item-type-asc' };
   assert.deepEqual(
@@ -218,7 +218,7 @@ test('identity correction survives stale polls without leaking to another model'
       meta: { fetchedAt: 0 },
       progress: null,
       error: null,
-      lots: items.map((item) => ({ ...item, endsAt: item.endsAt.epochMilliseconds })),
+      lots: items,
     });
   poll(4);
   assert.equal(lots.value.get(31).itemType, 'driver');
@@ -253,7 +253,7 @@ test('closed-page normalization preserves cached identity and past-price updates
     meta: { fetchedAt: 0 },
     progress: null,
     error: null,
-    lots: [{ ...lot(1), endsAt: now.epochMilliseconds, pastCloses: { n: 1, recent: [] } }],
+    lots: [{ ...lot(1), endsAt: now, pastCloses: { n: 1, recent: [] } }],
   });
   assert.equal(lots.value.get(1).currentPrice, 50);
   assert.equal(lots.value.get(1).pastCloses.n, 1);

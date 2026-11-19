@@ -127,7 +127,7 @@ function AppSidebar({
       updateSaved((l) =>
         l.some((x) => sameFilters(view, x.view))
           ? l
-          : [...l, { id, name, view: savedFilters(view), lastViewedAt: Temporal.Now.instant() }],
+          : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }],
       );
     },
     onOpen: (s: SavedSearch, newOnly: boolean) => {
@@ -140,9 +140,7 @@ function AppSidebar({
         closed.value = null;
         filteredOnly.value = false;
         highlight.value = { id: s.id, since: s.lastViewedAt };
-        updateSaved((l) =>
-          l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Temporal.Now.instant() } : x)),
-        );
+        updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
         sidebarOpen.value = false;
       });
       resetSearch(s.view.search);
@@ -326,7 +324,7 @@ function AppDialogs() {
         <CategoryEditor
           lots={lots.value
             .values()
-            .filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0)
+            .filter((l) => l.endsAt > now30)
             .toArray()}
           onClose={() => modalActions.close(curModal)}
         />
@@ -336,7 +334,7 @@ function AppDialogs() {
           lot={curModal.lot}
           lots={lots.value
             .values()
-            .filter((l) => Temporal.Instant.compare(l.endsAt, now30) > 0)
+            .filter((l) => l.endsAt > now30)
             .toArray()}
           onClose={() => modalActions.close(curModal)}
         />
@@ -410,8 +408,8 @@ function StatusBar() {
   const pull = progress.value;
   const lastFetch = fetchedAt.value;
   const nextPull = nextPullAt();
-  const wait = nextPull.epochMilliseconds - now.epochMilliseconds;
-  const due = Temporal.Instant.compare(nextPull, now) <= 0;
+  const wait = nextPull - now;
+  const due = wait <= 0;
 
   let text = 'No cached catalog yet';
   if (!loaded.value) {

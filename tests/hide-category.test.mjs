@@ -36,7 +36,7 @@ const {
 const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/history.ts');
 const { LotCard } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
 
-const now = Temporal.Now.instant();
+const now = Date.now();
 const custom = 'custom:Tools - Drills';
 const fixture = (id, value, label, itemType) => ({
   id,
@@ -47,7 +47,7 @@ const fixture = (id, value, label, itemType) => ({
   condition: null,
   location: null,
   itemType,
-  endsAt: now.add({ hours: 2 }),
+  endsAt: now + 2 * 3_600_000,
   currentPrice: 10,
   estimatedRetailPrice: null,
   transferFee: 0,

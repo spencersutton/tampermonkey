@@ -30,7 +30,7 @@ export const lots = signal(new Map<number, Lot>());
 /** Bumps on every in-place lot update; read it (or getLot) to follow live prices. */
 export const rev = signal(0);
 /** When the last complete pull finished. */
-export const fetchedAt = signal<Temporal.Instant | null>(null);
+export const fetchedAt = signal<number | null>(null);
 /** A pull running. */
 export const progress = signal<SyncProgress | null>(null);
 export const error = signal<string | null>(null);

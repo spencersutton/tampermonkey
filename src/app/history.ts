@@ -25,8 +25,7 @@ interface NavState {
  * can just go back), 'search' typed in the search box (so further typing replaces it rather than
  * adding an entry per pause).
  */
-interface Entry extends Omit<NavState, 'view'> {
-  view: Omit<ViewState, 'newSince'> & { newSince: string | null };
+interface Entry extends NavState {
   tlx: true;
   kind: 'lot' | 'search' | 'other';
   scrollY?: number;
@@ -126,7 +125,6 @@ function record(nav: NavState) {
   const entry: Entry = {
     tlx: true,
     ...nav,
-    view: { ...nav.view, newSince: nav.view.newSince?.toString() ?? null },
     kind: 'other',
   };
   if (!isEntry(prev)) {

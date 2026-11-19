@@ -261,7 +261,7 @@ export const rowOf = (lot: Lot) => makeRow(lot, pickupName.value, exclusionRules
 // Saved searches and visit tracking
 
 /** The saved search opened last, and when it had been viewed before that. */
-export const highlight = signal<{ id: string; since: Temporal.Instant } | null>(null);
+export const highlight = signal<{ id: string; since: number } | null>(null);
 
 export const searchStats = computed(() => {
   void rev.value;
@@ -287,11 +287,11 @@ const FIRST_VISIT_NEW_LEFT = 2 * DAY;
  * coming back after VISIT_GAP hidden), shared by all devices. null until the synced settings have
  * arrived.
  */
-export const visitSince = signal<Temporal.Instant | null>(null);
+export const visitSince = signal<number | null>(null);
 
 function trackVisits() {
   const visit = () => {
-    const now = Temporal.Now.instant();
+    const now = Date.now();
     const lastVisit = getSetting(KEYS.lastVisit);
     visitSince.value = lastVisit ?? firstVisitSince(now);
     setSetting(KEYS.lastVisit, now);
@@ -313,19 +313,15 @@ function trackVisits() {
  * With no previous visit, start just before the earliest-seen lot that still has over
  * FIRST_VISIT_NEW_LEFT to go.
  */
-function firstVisitSince(now: Temporal.Instant): Temporal.Instant {
-  const newAfter = now.add({ milliseconds: FIRST_VISIT_NEW_LEFT });
-  const epoch = Temporal.Instant.from('1970-01-01T00:00:00Z');
+function firstVisitSince(now: number): number {
+  const newAfter = now + FIRST_VISIT_NEW_LEFT;
   const first = lots
     .peek()
     .values()
-    .filter((l) => Temporal.Instant.compare(l.endsAt, newAfter) > 0)
-    .reduce<Temporal.Instant | null>((min, l) => {
-      const seen = l.firstSeenAt ?? epoch;
-      return min == null || Temporal.Instant.compare(seen, min) < 0 ? seen : min;
-    }, null);
+    .filter((l) => l.endsAt > newAfter)
+    .reduce<number | null>((min, l) => Math.min(min ?? Infinity, l.firstSeenAt ?? 0), null);
   if (first == null) return now;
-  return Temporal.Instant.compare(first, epoch) <= 0 ? epoch : first.subtract({ milliseconds: 1 });
+  return Math.max(0, first - 1);
 }
 
 // App initialization

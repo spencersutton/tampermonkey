@@ -37,7 +37,7 @@ test('shared listing rows preserve prices, location, countdown and caller naviga
     title: 'Drill kit',
     currentPrice: 100,
     bidCount: 2,
-    endsAt: Temporal.Instant.from('2026-12-01T00:00:00Z'),
+    endsAt: Date.parse('2026-12-01T00:00:00Z'),
   };
   const row = { lot, transferFee: 8, total: totalCost(100, 8) };
   let opened;

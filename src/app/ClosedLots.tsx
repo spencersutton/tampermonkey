@@ -85,7 +85,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     for (const c of data?.lots ?? []) {
       const rows = (c.relisted ?? [])
         .map((id) => catalogLots.value.get(id))
-        .filter((l): l is Lot => l !== undefined && Temporal.Instant.compare(l.endsAt, now) > 0)
+        .filter((l): l is Lot => l !== undefined && l.endsAt > now)
         .map((l) => makeRow(l, pickup, exclusions))
         .toSorted((a, b) => a.total - b.total);
       if (rows.length) {

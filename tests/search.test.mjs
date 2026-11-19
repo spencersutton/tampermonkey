@@ -26,7 +26,7 @@ const { gridView, searchStats, setView, storedView } =
 const { applyCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
 
-const now = Temporal.Now.instant();
+const now = Date.now();
 const ex = {
   words: [],
   filterOn: false,
@@ -43,7 +43,7 @@ const fixture = (patch = {}) => ({
   category: { value: 'tools', label: 'Tools' },
   condition: null,
   location: null,
-  endsAt: now.add({ hours: 2 }),
+  endsAt: now + 2 * 3_600_000,
   firstSeenAt: now,
   currentPrice: 20,
   estimatedRetailPrice: null,
@@ -171,7 +171,7 @@ test('cached details and subsequent changes update grid and saved-search counts 
     {
       id: 'drills',
       view: savedFilters(storedView.value),
-      lastViewedAt: now.subtract({ hours: 1 }),
+      lastViewedAt: now - 1 * 3_600_000,
     },
   ]);
   const reply = (lot, seq) => ({
@@ -186,8 +186,8 @@ test('cached details and subsequent changes update grid and saved-search counts 
     lots: [
       {
         ...lot,
-        endsAt: lot.endsAt.epochMilliseconds,
-        firstSeenAt: lot.firstSeenAt.epochMilliseconds,
+        endsAt: lot.endsAt,
+        firstSeenAt: lot.firstSeenAt,
       },
     ],
   });
@@ -213,7 +213,7 @@ test('newly loaded details become searchable without a price-version update', as
     {
       id: 'new-details',
       view: savedFilters(storedView.value),
-      lastViewedAt: now.subtract({ hours: 1 }),
+      lastViewedAt: now - 1 * 3_600_000,
     },
   ]);
   assert.equal(gridView.value.rows.length, 0);
@@ -226,7 +226,7 @@ test('newly loaded details become searchable without a price-version update', as
       lot_number: 'A-123',
       brand: 'Acme',
       model: 'D-50',
-      ends_at: now.add({ hours: 2 }).toString(),
+      ends_at: new Date(now + 2 * 3_600_000).toISOString(),
       images: [],
       version: 1,
     }),

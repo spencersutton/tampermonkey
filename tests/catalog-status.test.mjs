@@ -41,10 +41,10 @@ test('catalog polling and manual refresh preserve the visible pull status', asyn
   startCatalog();
   await settingsReady;
   assert.equal(loaded.peek(), true);
-  assert.equal(fetchedAt.peek().epochMilliseconds, 12_000);
+  assert.equal(fetchedAt.peek(), 12_000);
   assert.equal(progress.peek(), null);
   assert.equal(error.peek(), null);
-  assert.ok(nextPullAt().epochMilliseconds > now);
+  assert.ok(nextPullAt() > now);
   await pullCatalog();
   assert.deepEqual(progress.peek(), { done: 2, total: 3 });
   assert.deepEqual(requests, [

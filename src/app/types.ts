@@ -13,7 +13,7 @@ export interface Lot {
   transferFee: number;
   currentPrice: number;
   estimatedRetailPrice: number | null;
-  endsAt: Temporal.Instant;
+  endsAt: number; // epoch ms
   status: string;
   version: number;
   bidCount: number;
@@ -24,7 +24,7 @@ export interface Lot {
   images: LotImage[];
   brand?: string | null | undefined; // server-cached detail; absent until fetched, null when no brand is provided
   model?: string | null | undefined; // same cache semantics as brand
-  firstSeenAt?: Temporal.Instant | undefined; // when a full pull first saw this lot (Unix epoch = already there on the first pull)
+  firstSeenAt?: number | undefined; // epoch ms when a full pull first saw this lot (0 = already there on the first pull)
   tags?: string[] | undefined; // labels beyond the item type; "name: value" ones are attributes (see shared/tags.ts)
   itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
@@ -35,7 +35,7 @@ export interface Lot {
 export interface PastClose {
   id: number;
   price: number;
-  endsAt: Temporal.Instant;
+  endsAt: number; // epoch ms
   condition: string | null; // label, e.g. "Like New"
   sold: boolean; // had a winning bid
   final: boolean; // the site's final price; else the last price seen before it closed

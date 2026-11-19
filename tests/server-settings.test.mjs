@@ -135,8 +135,8 @@ test('startup uses server values and defaults without uploading stale browser se
   assert.equal(source.settingsLoaded.value, true);
   assert.deepEqual(settings.getSetting(KEYS.words), []);
   assert.deepEqual(settings.getSetting(KEYS.customCategories), []);
-  assert.equal(settings.getSetting(KEYS.lastVisit).epochMilliseconds, 123);
-  assert.equal(settings.getSetting(KEYS.savedSearches)[0].lastViewedAt.epochMilliseconds, 456);
+  assert.equal(settings.getSetting(KEYS.lastVisit), 123);
+  assert.equal(settings.getSetting(KEYS.savedSearches)[0].lastViewedAt, 456);
   assert.deepEqual(settings.getSetting(KEYS.view), { search: 'local view' });
   assert.deepEqual(reads, [`tlx:${KEYS.view}`]);
   assert.deepEqual(writes, []);
@@ -155,9 +155,9 @@ test('edits save directly to the server with timestamps encoded and no local cop
   source.startCatalog();
   await source.settingsReady;
   settings.setSetting(KEYS.words, ['drill']);
-  settings.setSetting(KEYS.lastVisit, Temporal.Instant.fromEpochMilliseconds(123));
+  settings.setSetting(KEYS.lastVisit, 123);
   settings.setSetting(KEYS.savedSearches, [
-    { id: 'new', name: 'New', view: {}, lastViewedAt: Temporal.Instant.fromEpochMilliseconds(456) },
+    { id: 'new', name: 'New', view: {}, lastViewedAt: 456 },
   ]);
   await settle();
   assert.deepEqual(values.filterWords, ['drill']);
@@ -186,7 +186,7 @@ test('Update replaces only the chosen saved search and persists the latest draft
     categories: ['tools'],
     priceMax: 50,
     sort: 'total-asc',
-    newSince: Temporal.Instant.fromEpochMilliseconds(100),
+    newSince: 100,
   });
   setSearchDraft('brand:dewalt drill');
   assert.equal(storedView.value.search, 'drill', 'the typed search is still debounced');
@@ -209,7 +209,7 @@ test('Update replaces only the chosen saved search and persists the latest draft
   assert.equal(controls().buttons[0].props.disabled, true);
   const request = requests.findLast(({ path }) => path === '/api/settings/tlxSavedSearches');
   assert.deepEqual(request.body.value[0].view, expected);
-  assert.equal(request.body.value[0].lastViewedAt, before[0].lastViewedAt.epochMilliseconds);
+  assert.equal(request.body.value[0].lastViewedAt, before[0].lastViewedAt);
   assert.deepEqual(values.tlxSavedSearches, request.body.value);
 });
 
@@ -229,7 +229,7 @@ test('Update detects sort-only and draft changes but ignores new-only and unavai
   const sort = storedView.value.sort;
   setView({ sort: 'total-asc' });
   assert.equal(controls().buttons[0].props.disabled, false);
-  setView({ sort, newSince: Temporal.Instant.fromEpochMilliseconds(100) });
+  setView({ sort, newSince: 100 });
   assert.equal(controls().buttons[0].props.disabled, true);
   setSearchDraft('drill kit');
   assert.equal(controls().buttons[0].props.disabled, false);

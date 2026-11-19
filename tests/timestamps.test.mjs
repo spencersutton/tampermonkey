@@ -33,21 +33,22 @@ test('ignores browser copies of server-backed timestamp settings', () => {
 });
 
 test('restores serialized new-since filters', () => {
-  assert.equal(
-    normalizeView({ newSince: '1970-01-01T00:00:00.123Z' }).newSince.epochMilliseconds,
-    123,
-  );
+  assert.equal(normalizeView({ newSince: 123 }).newSince, 123);
+  assert.equal(normalizeView({ newSince: '1970-01-01T00:00:00.123Z' }).newSince, 123);
 });
 
-test('compares and formats instant timestamps', () => {
-  const now = Temporal.Instant.fromEpochMilliseconds(120_000);
+test('compares and formats epoch-ms timestamps', () => {
+  const S = 1000;
+  const M = 60 * S;
+  const H = 60 * M;
+  const now = 120_000;
   assert.equal(firstSeenAfter({ firstSeenAt: now }, now), false);
-  assert.equal(firstSeenAfter({ firstSeenAt: now.add({ milliseconds: 1 }) }, now), true);
-  assert.deepEqual(timeLabel(now.add({ seconds: 61 }), now), { text: '1m 01s', soon: true });
-  assert.equal(ago(now.subtract({ seconds: 59 }), now), 'now');
-  assert.equal(ago(now.subtract({ minutes: 2 }), now), '2 minutes ago');
-  assert.equal(ago(now.subtract({ hours: 5, minutes: 59 }), now), '5 hours ago');
-  assert.equal(ago(now.subtract({ hours: 24 }), now), 'yesterday');
-  assert.equal(ago(now.subtract({ hours: 72 }), now), '3 days ago');
+  assert.equal(firstSeenAfter({ firstSeenAt: now + 1 }, now), true);
+  assert.deepEqual(timeLabel(now + 61 * S, now), { text: '1m 01s', soon: true });
+  assert.equal(ago(now - 59 * S, now), 'now');
+  assert.equal(ago(now - 2 * M, now), '2 minutes ago');
+  assert.equal(ago(now - (5 * H + 59 * M), now), '5 hours ago');
+  assert.equal(ago(now - 24 * H, now), 'yesterday');
+  assert.equal(ago(now - 72 * H, now), '3 days ago');
   assert.equal(countdown(61_000), '1:01');
 });

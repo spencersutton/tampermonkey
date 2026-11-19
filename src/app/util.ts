@@ -5,16 +5,16 @@ export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 
 /** Weekday and time, e.g. "Tue 3:45 PM". */
-export const shortTime = (ts: Temporal.Instant) =>
-  new Date(ts.epochMilliseconds).toLocaleString([], {
+export const shortTime = (ts: number) =>
+  new Date(ts).toLocaleString([], {
     weekday: 'short',
     hour: 'numeric',
     minute: '2-digit',
   });
 
 /** "Oct 22": a date in the past. */
-export const shortDate = (ts: Temporal.Instant) =>
-  new Date(ts.epochMilliseconds).toLocaleDateString([], { month: 'short', day: 'numeric' });
+export const shortDate = (ts: number) =>
+  new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -22,8 +22,8 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
  * Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within
  * the last hour.
  */
-export function timeLabel(endsAt: Temporal.Instant, now: Temporal.Instant) {
-  const ms = endsAt.epochMilliseconds - now.epochMilliseconds;
+export function timeLabel(endsAt: number, now: number) {
+  const ms = endsAt - now;
   if (ms <= 0) {
     return { text: 'Closed', soon: true };
   }
@@ -46,8 +46,8 @@ const relative = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
  * How long ago `ts` was, in its largest whole unit: "now", "12 minutes ago", "5 hours ago",
  * "yesterday".
  */
-export function ago(ts: Temporal.Instant, now: Temporal.Instant) {
-  const ms = now.epochMilliseconds - ts.epochMilliseconds;
+export function ago(ts: number, now: number) {
+  const ms = now - ts;
   if (ms < MINUTE) {
     return relative.format(0, 'second');
   }
@@ -60,12 +60,12 @@ export function ago(ts: Temporal.Instant, now: Temporal.Instant) {
   return relative.format(-Math.floor(ms / DAY), 'day');
 }
 
-/** An epoch-millisecond time from the tlx server or the site's API as an Instant. */
-export function instantFromEpochMilliseconds(ms: number | null): Temporal.Instant {
+/** An epoch-millisecond time from the tlx server or the site's API, which must be present and valid. */
+export function requireEpochMs(ms: number | null): number {
   if (ms === null || !Number.isSafeInteger(ms)) {
     throw new TypeError('Invalid epoch-millisecond timestamp');
   }
-  return Temporal.Instant.fromEpochMilliseconds(ms);
+  return ms;
 }
 
 /** Remaining time as "m:ss", or "Ns" under a minute. */
@@ -130,20 +130,20 @@ export function observableSet<T>() {
 }
 
 /** One clock signal per interval; its timer runs only while something reads it. */
-const clocks = new Map<number, Signal<Temporal.Instant>>();
+const clocks = new Map<number, Signal<number>>();
 
 /**
  * Current time, updated every `every` ms; read in a component or computed, it re-runs them on each
  * tick.
  */
-export function clock(every = 1000): Temporal.Instant {
+export function clock(every = 1000): number {
   let s = clocks.get(every);
   if (!s) {
     let timer = 0;
-    s = signal(Temporal.Now.instant(), {
+    s = signal(Date.now(), {
       watched() {
-        this.value = Temporal.Now.instant();
-        timer = window.setInterval(() => (this.value = Temporal.Now.instant()), every);
+        this.value = Date.now();
+        timer = window.setInterval(() => (this.value = Date.now()), every);
       },
       unwatched: () => clearInterval(timer),
     });

@@ -184,7 +184,7 @@ test('category shortcuts expand and collapse all nested groups without changing 
       1,
       {
         id: 1,
-        endsAt: Temporal.Now.instant().add({ hours: 1 }),
+        endsAt: Date.now() + 3_600_000,
         category: { value: 'tools', label: 'Tools' },
         itemType: 'drill',
       },

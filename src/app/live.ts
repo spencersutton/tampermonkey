@@ -114,11 +114,12 @@ function onLotPublication(
   if (typeof data?.id !== 'number') {
     return;
   }
+  const endsAt = data.ends_at ? Date.parse(data.ends_at) : Number.NaN;
   const patch: Partial<Lot> = {
     ...(data.current_price == null ? {} : { currentPrice: data.current_price }),
     ...(data.bid_count == null ? {} : { bidCount: data.bid_count }),
     ...(data.next_min_increment == null ? {} : { nextMinIncrement: data.next_min_increment }),
-    ...(data.ends_at ? { endsAt: Temporal.Instant.from(data.ends_at) } : {}),
+    ...(Number.isNaN(endsAt) ? {} : { endsAt }),
     ...(data.status == null ? {} : { status: data.status }),
     ...(data.version == null ? {} : { version: data.version }),
   };

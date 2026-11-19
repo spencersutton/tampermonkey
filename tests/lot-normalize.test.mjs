@@ -50,7 +50,7 @@ test('raw lots normalize defensively, with times as epoch ms', () => {
   assert.equal(wire.normalizeLot({ id: 8, ends_at: 'not a time' }).endsAt, null);
 });
 
-test('details add their item fields, and the app turns times into Instants', () => {
+test('details add their item fields, and the app keeps times as epoch ms', () => {
   const raw = {
     id: 9,
     ends_at: '2026-01-02T03:04:05Z',
@@ -65,6 +65,6 @@ test('details add their item fields, and the app turns times into Instants', () 
   assert.equal(detail.lotFee, null);
   assert.deepEqual(detail.bidHistory, [{ bidderLabel: 'You', amount: 12, isYou: false }]);
   const lot = api.normalizeLot(raw);
-  assert.ok(lot.endsAt.equals(Temporal.Instant.from('2026-01-02T03:04:05Z')));
+  assert.equal(lot.endsAt, Date.parse('2026-01-02T03:04:05Z'));
   assert.throws(() => api.normalizeLot({ id: 10 }), TypeError);
 });

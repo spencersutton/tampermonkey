@@ -294,7 +294,7 @@ function Similar({
   const now = clock(30_000);
   const open = lots
     .map((l) => getLot(l.id) ?? l)
-    .filter((l) => l.id !== current.id && Temporal.Instant.compare(l.endsAt, now) > 0);
+    .filter((l) => l.id !== current.id && l.endsAt > now);
   if (!open.length) {
     return null;
   }

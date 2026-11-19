@@ -58,7 +58,7 @@ export function suggest(
   text: string,
   facets: Facets,
   lots: Iterable<Lot>,
-  now: Temporal.Instant,
+  now: number,
   hidden: Record<string, HiddenLot>,
   details?: ItemDetails,
 ): Suggestions {
@@ -71,15 +71,12 @@ export function suggest(
   const score = makeSearch({ search: query, searchRegex: false }, details);
   const top: { lot: Lot; s: number }[] = [];
   for (const lot of lots) {
-    if (Temporal.Instant.compare(lot.endsAt, now) <= 0 || hidden[lot.id]) continue;
+    if (lot.endsAt <= now || hidden[lot.id]) continue;
     const s = score(lot);
     if (s == null) continue;
     top.push({ lot, s });
   }
-  top.sort(
-    (a, b) =>
-      b.s - a.s || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id,
-  );
+  top.sort((a, b) => b.s - a.s || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
   // One card per duplicate group.
   const seen = new Set<number>();
   const best: Lot[] = [];

@@ -101,7 +101,7 @@ const lot = (itemType = 'cordless drill', category = { value: 'tools', label: 'T
   itemType,
   category,
   title: 'Cordless drill kit',
-  endsAt: Temporal.Now.instant().add({ seconds: 10 }),
+  endsAt: Date.now() + 10_000,
 });
 
 function dialog(t, categories, item = lot(), lots = [item]) {

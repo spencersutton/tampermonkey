@@ -38,8 +38,8 @@ const catalogLot = (id, title, itemType, fields = {}) => {
   const raw = lot(id, title, itemType, fields);
   return {
     ...raw,
-    endsAt: Temporal.Instant.from('1970-01-01T00:00:02Z'),
-    firstSeenAt: Temporal.Instant.from('1970-01-01T00:00:00.005Z'),
+    endsAt: 2000,
+    firstSeenAt: 5,
   };
 };
 const reply = (seq, rows, fields = {}) => ({
@@ -75,11 +75,9 @@ test('title corrections replace the catalog Map and update category matching and
   const cats = [{ name: 'Tools - Drills', types: ['drill driver'] }];
   assert.equal(categoryOf(lots.peek().get(1), cats).value, 'custom:Tools - Drills');
   assert.equal(
-    computeFacets(
-      lots.peek().values(),
-      Temporal.Instant.from('1970-01-01T00:00:01Z'),
-      cats,
-    ).categories.find((f) => f.value === 'custom:Tools - Drills').count,
+    computeFacets(lots.peek().values(), 1000, cats).categories.find(
+      (f) => f.value === 'custom:Tools - Drills',
+    ).count,
     2,
   );
 });
@@ -89,7 +87,7 @@ test('server type corrections win over a newer websocket price version, includin
   applyCatalog(reply(2, [lot(1, 'Drill', 'drill driver', { firstSeenAt: 7 })]));
   assert.equal(lots.peek().get(1).currentPrice, 42);
   assert.equal(lots.peek().get(1).version, 9);
-  assert.equal(lots.peek().get(1).firstSeenAt.toString(), '1970-01-01T00:00:00.007Z');
+  assert.equal(lots.peek().get(1).firstSeenAt, 7);
   assert.equal(lots.peek().get(1).itemType, 'drill driver');
   applyCatalog(reply(3, [lot(1, 'Drill', undefined)]));
   assert.equal(lots.peek().get(1).itemType, undefined);

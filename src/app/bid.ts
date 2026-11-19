@@ -16,8 +16,7 @@ export interface BidRequest {
 }
 
 /** Whether the lot can no longer be bid on. */
-export const isClosed = (lot: Lot, now = Temporal.Now.instant()) =>
-  lot.status !== 'live' || Temporal.Instant.compare(lot.endsAt, now) <= 0;
+export const isClosed = (lot: Lot, now = Date.now()) => lot.status !== 'live' || lot.endsAt <= now;
 /** Whether you have bid on the lot (winning or not). */
 export const hasBidOn = (lot: Lot) => lot.hasBid || lot.yourStanding != null;
 /** Whether you are currently the high bidder (and the price is still within your max). */
@@ -35,7 +34,7 @@ export function minMaxBid(lot: Lot): number {
 }
 
 /** Why bidding is unavailable for this row, or null if it's allowed. */
-export function bidBlocker(row: Row, now = Temporal.Now.instant()): string | null {
+export function bidBlocker(row: Row, now = Date.now()): string | null {
   if (row.hidden) {
     return 'Bidding is disabled for hidden lots';
   }

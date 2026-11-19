@@ -41,7 +41,7 @@ const lot = (id) => ({
   version: 2,
   currentPrice: 20,
   bidCount: 0,
-  endsAt: Temporal.Instant.from('2030-01-01T00:00:00Z'),
+  endsAt: Date.parse('2030-01-01T00:00:00Z'),
 });
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 function nodes(node) {
@@ -154,7 +154,7 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
     ids: null,
     lots: [...lots.peek().values()].map((item) => ({
       ...item,
-      endsAt: item.endsAt.epochMilliseconds,
+      endsAt: item.endsAt,
     })),
   });
   onScreen.value = [1, 2, 3];
@@ -295,7 +295,7 @@ test('brands and known missing brands survive a fresh app module load without de
     ids: null,
     lots: [90, 91].map((id) => ({
       ...lot(id),
-      endsAt: lot(id).endsAt.epochMilliseconds,
+      endsAt: lot(id).endsAt,
       brand: id === 90 ? 'Persisted' : null,
       model: id === 90 ? 'D-90' : null,
     })),
@@ -324,7 +324,7 @@ test('brands and known missing brands survive a fresh app module load without de
       {
         ...lot(90),
         version: 1,
-        endsAt: lot(90).endsAt.epochMilliseconds,
+        endsAt: lot(90).endsAt,
         brand: 'Updated on another device',
         model: 'D-91',
       },
@@ -358,7 +358,7 @@ test('brands and known missing brands survive a fresh app module load without de
     lots: [
       {
         ...lot(90),
-        endsAt: lot(90).endsAt.epochMilliseconds,
+        endsAt: lot(90).endsAt,
         brand: 'Updated on another device',
         model: null,
       },
@@ -463,7 +463,7 @@ test('brand/model navigation clears filters and the popup, with quoted field-spe
       categories: ['garden'],
       priceMax: 1,
       mine: 'watch',
-      newSince: Temporal.Now.instant(),
+      newSince: Date.now(),
       sort: 'total-desc',
     });
     openId.value = 90;
@@ -498,7 +498,7 @@ test('brand/model navigation clears filters and the popup, with quoted field-spe
     assert.equal(filteredOnly.value, false);
     assert.equal(sidebarOpen.value, false);
     assert.equal(page.value, 1);
-    const matches = makeMatcher(storedView.value, Temporal.Now.instant());
+    const matches = makeMatcher(storedView.value, Date.now());
     assert.equal(matches(rowOf({ ...lot(90), brand, model })), true);
     assert.equal(matches(rowOf({ ...lot(91), brand, model: 'Different model' })), label === brand);
     assert.equal(matches(rowOf({ ...lot(92), brand: 'Other brand', model })), false);

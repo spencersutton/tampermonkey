@@ -35,13 +35,13 @@ function setup(categories, selected) {
       id: 'one',
       name: 'Search',
       view: { ...DEFAULT_VIEW, categories: selected },
-      lastViewedAt: Temporal.Instant.from('1970-01-01T00:00:00.123Z'),
+      lastViewedAt: 123,
     },
     {
       id: 'old',
       name: 'Old search',
       view: { search: 'old' },
-      lastViewedAt: Temporal.Instant.from('1970-01-01T00:00:00.456Z'),
+      lastViewedAt: 456,
     },
   ]);
   const saves = [];
@@ -66,7 +66,7 @@ test('renames and deletions update current and saved filters without changing ot
   assert.equal(getSetting(KEYS.view).search, 'drill');
   const searches = getSetting(KEYS.savedSearches);
   assert.deepEqual(searches[0].view.categories, ['custom:Power Drills', 'tools', 'custom:Tools']);
-  assert.equal(searches[0].lastViewedAt.toString(), '1970-01-01T00:00:00.123Z');
+  assert.equal(searches[0].lastViewedAt, 123);
   assert.deepEqual(searches[1].view.categories, []);
   assert.deepEqual(
     saves.map(([key]) => key),
@@ -225,18 +225,14 @@ test('facets retain empty custom ancestors but not unrelated empty categories or
     { name: 'Unused', types: ['saw'] },
     { name: 'Tools - Drills - Corded', types: ['corded drill'] },
   ];
-  const lot = (itemType, endsAt = '1970-01-01T00:00:00.002Z') => ({
+  const lot = (itemType, endsAt = 2) => ({
     itemType,
-    endsAt: Temporal.Instant.from(endsAt),
+    endsAt,
     category: { value: 'tools', label: 'Tools' },
     condition: null,
     location: null,
   });
-  const facets = computeFacets(
-    [lot('cordless drill'), lot('corded drill', '1970-01-01T00:00:00Z')],
-    Temporal.Instant.from('1970-01-01T00:00:00.001Z'),
-    cats,
-  );
+  const facets = computeFacets([lot('cordless drill'), lot('corded drill', 0)], 1, cats);
   assert.deepEqual(facets.categories, [
     facet('Tools - Drills'),
     facet('Tools - Drills - Cordless', 1),

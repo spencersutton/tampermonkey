@@ -21,7 +21,7 @@ const { filteredOnly, gridView, openFiltered, openClosed, closed, page, setView,
   await vite.ssrLoadModule('/src/app/state.ts');
 const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/history.ts');
 
-const now = Temporal.Now.instant();
+const now = Date.now();
 const lot = (id, title, extra = {}) => ({
   id,
   title,
@@ -30,7 +30,7 @@ const lot = (id, title, extra = {}) => ({
   category: null,
   condition: null,
   location: null,
-  endsAt: now.add({ hours: 2 }),
+  endsAt: now + 2 * 3_600_000,
   currentPrice: 10,
   estimatedRetailPrice: null,
   transferFee: 0,
@@ -55,7 +55,7 @@ beforeEach(() => {
     [1, lot(1, 'Cordless drill')],
     [2, lot(2, 'Garden rake')],
     [3, lot(3, 'Circular saw')],
-    [4, lot(4, 'Old drill', { endsAt: now.subtract({ hours: 1 }) })],
+    [4, lot(4, 'Old drill', { endsAt: now - 1 * 3_600_000 })],
   ]);
 });
 

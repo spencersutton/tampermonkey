@@ -122,7 +122,7 @@ test('real lots normalize for the server and the app', () => {
       lot.images.map((i) => i.card),
       raw.images.toSorted((a, b) => a.position - b.position).map((i) => i.image_card),
     );
-    assert.ok(api.normalizeLot(raw).endsAt.equals(Temporal.Instant.from(raw.ends_at)));
+    assert.equal(api.normalizeLot(raw).endsAt, Date.parse(raw.ends_at));
   }
   const detail = wire.normalizeDetail(details[0].body);
   assert.equal(detail.brand, details[0].body.brand);

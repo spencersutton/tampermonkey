@@ -83,21 +83,23 @@ export const SORTS = {
 } satisfies Record<string, { label: string; compare: Compare }>;
 export type SortId = keyof typeof SORTS;
 
-type Window = [start: Temporal.Instant, end: Temporal.Instant];
+type Window = [start: number, end: number];
 
 /** The next `h` hours. */
 function nextHours(h: number) {
-  return (now: Temporal.Instant): Window => [now, now.add({ milliseconds: h * HOUR })];
+  return (now: number): Window => [now, now + h * HOUR];
 }
 
 /** The calendar day `offset` days from today, minus the part already past. */
 function day(offset: number) {
-  return (now: Temporal.Instant): Window => {
-    const today = now.toZonedDateTimeISO(Temporal.Now.timeZoneId()).startOfDay();
-    const start = today.add({ days: offset });
-    const end = start.add({ days: 1 }).toInstant();
-    const startInstant = start.toInstant();
-    return [Temporal.Instant.compare(startInstant, now) < 0 ? now : startInstant, end];
+  return (now: number): Window => {
+    // Temporal handles DST-length days and the local time zone.
+    const start = Temporal.Instant.fromEpochMilliseconds(now)
+      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+      .startOfDay()
+      .add({ days: offset });
+    const end = start.add({ days: 1 });
+    return [Math.max(now, start.epochMilliseconds), end.epochMilliseconds];
   };
 }
 
@@ -108,7 +110,7 @@ export const ENDING = {
   '3h': { label: 'Within 3 hours', window: nextHours(3) },
   today: { label: 'Today', window: day(0) },
   tomorrow: { label: 'Tomorrow', window: day(1) },
-} satisfies Record<string, { label: string; window: ((now: Temporal.Instant) => Window) | null }>;
+} satisfies Record<string, { label: string; window: ((now: number) => Window) | null }>;
 export type EndingId = keyof typeof ENDING;
 
 /** "My lots" filter options. */
@@ -139,7 +141,7 @@ export interface ViewState {
   retailMin: number | null;
   ending: EndingId;
   mine: MineId;
-  newSince: Temporal.Instant | null; // only lots first seen after this time (not saved with searches)
+  newSince: number | null; // epoch ms; only lots first seen after this time (not saved with searches)
 }
 
 /** View with no filters, sorted by ending soonest. */
@@ -171,11 +173,11 @@ export function normalizeView(v: unknown): ViewState {
     ...(v && typeof v === 'object' ? (v as Partial<ViewState>) : {}),
   };
   const rawNewSince: unknown = view.newSince;
-  let newSince: Temporal.Instant | null = null;
-  if (typeof rawNewSince === 'string') {
-    newSince = Temporal.Instant.from(rawNewSince);
-  } else if (rawNewSince instanceof Temporal.Instant) {
+  let newSince: number | null = null;
+  if (typeof rawNewSince === 'number') {
     newSince = rawNewSince;
+  } else if (typeof rawNewSince === 'string') {
+    newSince = Date.parse(rawNewSince); // ISO text from older history entries
   }
   const strings = (a: unknown): string[] =>
     Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
@@ -461,7 +463,7 @@ export function computeView(
   view: ViewState,
   pickup: string,
   ex: Exclusions,
-  now: Temporal.Instant,
+  now: number,
   details?: ItemDetails,
   filteredOnly = false,
 ): ViewResult {
@@ -474,7 +476,7 @@ export function computeView(
   let open = 0;
   let removed = 0;
   for (const lot of lots) {
-    if (Temporal.Instant.compare(lot.endsAt, now) <= 0) {
+    if (lot.endsAt <= now) {
       continue;
     }
     open++;
@@ -550,10 +552,7 @@ export function computeView(
           return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
         }
       : SORTS[view.sort].compare;
-  cards.sort(
-    (a, b) =>
-      compare(a, b) || Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) || a.lot.id - b.lot.id,
-  );
+  cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
   return {
     rows: cards,
     open,
@@ -574,7 +573,7 @@ export function computeView(
 const byCost = (a: Row, b: Row) =>
   +a.pickupOnly - +b.pickupOnly ||
   a.total - b.total ||
-  Temporal.Instant.compare(a.lot.endsAt, b.lot.endsAt) ||
+  a.lot.endsAt - b.lot.endsAt ||
   a.lot.id - b.lot.id;
 
 const CONDITION_RANK: Record<string, number> = { new: 0, 'like new': 1, used: 2, 'as-is': 3 };
@@ -635,13 +634,8 @@ function oneOf<T>(selected: T[]): (value: T) => boolean {
 }
 
 /** Whether the lot was first seen strictly after the given instant. */
-export function firstSeenAfter(lot: Lot, since: Temporal.Instant): boolean {
-  return (
-    Temporal.Instant.compare(
-      lot.firstSeenAt ?? Temporal.Instant.from('1970-01-01T00:00:00Z'),
-      since,
-    ) > 0
-  );
+export function firstSeenAfter(lot: Lot, since: number): boolean {
+  return (lot.firstSeenAt ?? 0) > since;
 }
 
 /** The search box's regex in regex mode, or null when it's blank or invalid. */
@@ -717,7 +711,7 @@ interface Predicates {
 }
 
 /** The view's filters split into search, plain filters and facet filters. */
-function makePredicates(v: ViewState, now: Temporal.Instant, details?: ItemDetails): Predicates {
+function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predicates {
   const win = ENDING[v.ending].window?.(now);
   const newSince = v.newSince;
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
@@ -776,9 +770,7 @@ function makePredicates(v: ViewState, now: Temporal.Instant, details?: ItemDetai
       !(v.reachable && pickupOnly) &&
       (v.totalMax == null || total <= v.totalMax) &&
       (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) &&
-      (!win ||
-        (Temporal.Instant.compare(lot.endsAt, win[0]) >= 0 &&
-          Temporal.Instant.compare(lot.endsAt, win[1]) < 0)) &&
+      (!win || (lot.endsAt >= win[0] && lot.endsAt < win[1])) &&
       mine(lot),
   };
 }
@@ -786,7 +778,7 @@ function makePredicates(v: ViewState, now: Temporal.Instant, details?: ItemDetai
 /** Predicate for the view's own filters (not hide / regex exclusions). */
 export function makeMatcher(
   v: ViewState,
-  now: Temporal.Instant,
+  now: number,
   details?: ItemDetails,
 ): (row: Row) => boolean {
   const p = makePredicates(v, now, details);
@@ -853,11 +845,11 @@ function tallyBrands(brands: (string | null)[]): Facet<string>[] {
  */
 export function computeFacets(
   lots: Iterable<Lot>,
-  now: Temporal.Instant,
+  now: number,
   customCategories: CustomCategory[],
   details?: ItemDetails,
 ): Facets {
-  const open = Array.from(lots).filter((l) => Temporal.Instant.compare(l.endsAt, now) > 0);
+  const open = Array.from(lots).filter((l) => l.endsAt > now);
   const categories = tally(open.map((l) => categoryOf(l, customCategories)));
   // Keep custom parents visible when all their open lots moved into descendants.
   for (const c of customCategories) {
@@ -941,7 +933,7 @@ export interface SavedSearch {
   id: string;
   name: string;
   view: Omit<ViewState, 'newSince'>;
-  lastViewedAt: Temporal.Instant; // lots first seen after this count as new
+  lastViewedAt: number; // epoch ms; lots first seen after this count as new
 }
 
 /** The parts of a view that a saved search stores. */
@@ -983,7 +975,7 @@ export function savedSearchStats(
   searches: SavedSearch[],
   pickup: string,
   ex: Exclusions,
-  now: Temporal.Instant,
+  now: number,
   details?: ItemDetails,
 ): Map<string, SavedSearchStats> {
   const matchers = searches.map((s) => ({
@@ -993,7 +985,7 @@ export function savedSearchStats(
     stats: { total: 0, fresh: 0 },
   }));
   for (const lot of lots) {
-    if (Temporal.Instant.compare(lot.endsAt, now) <= 0) {
+    if (lot.endsAt <= now) {
       continue;
     }
     const row = makeRow(lot, pickup, ex);

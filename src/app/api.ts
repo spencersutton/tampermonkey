@@ -4,7 +4,7 @@
 import * as wire from '../shared/lot';
 import { authedFetch, isAuthenticated } from './auth';
 import type { ClosedLot, Lot, LotDetail, LotMetadata } from './types';
-import { instantFromEpochMilliseconds } from './util';
+import { requireEpochMs } from './util';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
@@ -75,7 +75,7 @@ interface RawBidResponse {
 /** Convert a raw API lot (snake_case) into a Lot. */
 export function normalizeLot(r: wire.RawLot): Lot {
   const lot = wire.normalizeLot(r);
-  return { ...lot, endsAt: instantFromEpochMilliseconds(lot.endsAt) };
+  return { ...lot, endsAt: requireEpochMs(lot.endsAt) };
 }
 
 /** Fetch one lot's full detail: description, brand/model, bid history and the site's similar lots. */
@@ -88,7 +88,7 @@ export async function fetchLotDetail(
   const detail = wire.normalizeDetail(r);
   return {
     ...detail,
-    endsAt: instantFromEpochMilliseconds(detail.endsAt),
+    endsAt: requireEpochMs(detail.endsAt),
     similar: (r.similar ?? []).map(normalizeLot),
   };
 }
