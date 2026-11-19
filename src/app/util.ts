@@ -164,27 +164,13 @@ export function openHandler(open: () => void) {
  */
 export function memoizeWeak<T extends object, R>(fn: (arg: T) => R): (arg: T) => R {
   const cache = new WeakMap<T, R>();
-  return (arg) => {
-    if (cache.has(arg)) return cache.get(arg)!;
-    const result = fn(arg);
-    cache.set(arg, result);
-    return result;
-  };
+  return (arg) => cache.getOrInsertComputed(arg, fn);
 }
 
 /** `fn`, cached per argument forever: only for keys from a small or short-lived set. */
 export function memoize<T, R>(fn: (arg: T) => R): (arg: T) => R {
   const cache = new Map<T, R>();
-
-  return function (arg1: T) {
-    if (cache.has(arg1)) {
-      return cache.get(arg1)!;
-    }
-
-    const result = fn(arg1);
-    cache.set(arg1, result);
-    return result;
-  };
+  return (arg) => cache.getOrInsertComputed(arg, fn);
 }
 
 /**

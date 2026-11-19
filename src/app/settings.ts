@@ -34,12 +34,7 @@ function store(key: Key, value: unknown) {
 const signals = new Map<Key, Signal<unknown>>();
 
 function setting(key: Key): Signal<unknown> {
-  let s = signals.get(key);
-  if (!s) {
-    s = signal(load(key));
-    signals.set(key, s);
-  }
-  return s;
+  return signals.getOrInsertComputed(key, () => signal(load(key)));
 }
 
 /**

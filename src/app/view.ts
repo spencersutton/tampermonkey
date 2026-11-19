@@ -301,9 +301,7 @@ export function compileCategories(cats: CustomCategory[]): CompiledCategories {
     .toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
   for (const { category: c, index: i } of ordered) {
     for (const t of c.types) {
-      if (!byType.has(t)) {
-        byType.set(t, i);
-      }
+      byType.getOrInsert(t, i);
     }
   }
   return { byType };

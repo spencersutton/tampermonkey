@@ -72,9 +72,9 @@ export class ItemTypeIndex<R extends ItemTypeRecord = ItemTypeRecord> {
     for (const record of records) {
       const identity = brandModelKey(record);
       if (identity) {
-        push(this.byIdentity, identity, record);
+        this.byIdentity.getOrInsertComputed(identity, () => []).push(record);
       }
-      push(this.byTitle, record.title, record);
+      this.byTitle.getOrInsertComputed(record.title, () => []).push(record);
     }
   }
 
@@ -200,7 +200,7 @@ export class NameIndex {
     }
     this.sets.forEach((set, i) => {
       for (const t of this.prefix(set)) {
-        push(this.postings, t, i);
+        this.postings.getOrInsertComputed(t, () => []).push(i);
       }
     });
   }
@@ -262,12 +262,9 @@ export function groupLots(
     const identity = brandModelKey(lot);
     const wordsKey = typeof words === 'string' ? titleKey(words) : tokensKey(words);
     const key = JSON.stringify([condition, identity, wordsKey]);
-    const entry = entries.get(key);
-    if (entry) {
-      entry.ids.push(lot.id);
-    } else {
-      entries.set(key, { condition, identity, words, ids: [lot.id] });
-    }
+    entries
+      .getOrInsertComputed(key, () => ({ condition, identity, words, ids: [] }))
+      .ids.push(lot.id);
   }
   const keys = [...entries.values()];
   const parent = keys.map((_, i) => i);
@@ -292,16 +289,14 @@ export function groupLots(
   const known = new Map<string, number>();
   keys.forEach((entry, i) => {
     if (entry.identity) {
-      const first = known.get(entry.identity);
-      if (first === undefined) {
-        known.set(entry.identity, i);
-      } else {
+      const first = known.getOrInsert(entry.identity, i);
+      if (first !== i) {
         join(first, i);
       }
     }
   });
   const byCondition = new Map<number | null, number[]>();
-  keys.forEach((entry, i) => push(byCondition, entry.condition, i));
+  keys.forEach((entry, i) => byCondition.getOrInsertComputed(entry.condition, () => []).push(i));
   for (const members of byCondition.values()) {
     const byWords = new Map<string, number[]>();
     const sets: Set<string>[] = [];
@@ -311,7 +306,7 @@ export function groupLots(
       if (typeof words !== 'string' && !byWords.has(key)) {
         sets.push(words);
       }
-      push(byWords, key, i);
+      byWords.getOrInsertComputed(key, () => []).push(i);
     }
     const names = new NameIndex(sets, minPct);
     for (const i of members) {
@@ -379,10 +374,10 @@ export class ItemIndex<R extends Row = Row> {
       if (!this.byTitle.has(key)) {
         sets.push(tokens);
       }
-      push(this.byTitle, key, row);
+      this.byTitle.getOrInsertComputed(key, () => []).push(row);
       const identity = brandModelKey(row);
       if (identity) {
-        push(this.byIdentity, identity, row);
+        this.byIdentity.getOrInsertComputed(identity, () => []).push(row);
       }
     }
     this.names = new NameIndex(sets, minPct);
@@ -402,14 +397,5 @@ export class ItemIndex<R extends Row = Row> {
     return rows
       .filter((row) => row.id !== item.id)
       .toSorted((a, b) => (b.endsAt || 0) - (a.endsAt || 0));
-  }
-}
-
-function push<K, V>(map: Map<K, V[]>, key: K, value: V) {
-  const list = map.get(key);
-  if (list) {
-    list.push(value);
-  } else {
-    map.set(key, [value]);
   }
 }
