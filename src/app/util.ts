@@ -5,8 +5,10 @@ import * as format from '../shared/format';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
+const duration = new Intl.DurationFormat(undefined, { style: 'narrow' });
+
 /**
- * Time left until `endsAt` as a short label ("2d 3h", "1h 05m", "4m 09s"); `soon` is true within
+ * Time left until `endsAt` as a short label ("2d 3h", "1h 5m", "4m 9s"); `soon` is true within
  * the last hour.
  */
 export function timeLabel(endsAt: number, now: number) {
@@ -19,12 +21,12 @@ export function timeLabel(endsAt: number, now: number) {
   const h = Math.floor(m / 60);
   const soon = ms <= HOUR;
   if (h >= 24) {
-    return { text: `${Math.floor(h / 24)}d ${h % 24}h`, soon };
+    return { text: duration.format({ days: Math.floor(h / 24), hours: h % 24 }), soon };
   }
   if (h >= 1) {
-    return { text: `${h}h ${pad2(m % 60)}m`, soon };
+    return { text: duration.format({ hours: h, minutes: m % 60 }), soon };
   }
-  return { text: `${m}m ${pad2(s % 60)}s`, soon };
+  return { text: duration.format({ minutes: m, seconds: s % 60 }), soon };
 }
 
 const relative = new Intl.RelativeTimeFormat([], { numeric: 'auto' });

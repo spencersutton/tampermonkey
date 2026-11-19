@@ -44,7 +44,7 @@ test('compares and formats epoch-ms timestamps', () => {
   const now = 120_000;
   assert.equal(firstSeenAfter({ firstSeenAt: now }, now), false);
   assert.equal(firstSeenAfter({ firstSeenAt: now + 1 }, now), true);
-  assert.deepEqual(timeLabel(now + 61 * S, now), { text: '1m 01s', soon: true });
+  assert.deepEqual(timeLabel(now + 61 * S, now), { text: '1m 1s', soon: true });
   assert.equal(ago(now - 59 * S, now), 'now');
   assert.equal(ago(now - 2 * M, now), '2 minutes ago');
   assert.equal(ago(now - (5 * H + 59 * M), now), '5 hours ago');

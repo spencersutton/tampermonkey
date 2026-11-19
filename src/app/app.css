@@ -1340,6 +1340,9 @@ h3 {
 }
 
 .time {
+  display: inline-block;
+  min-width: 7ch; /* fits "23h 59m" so the label doesn't resize as it counts down */
+  text-align: end;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
