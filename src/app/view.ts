@@ -118,9 +118,9 @@ export type EndingId = keyof typeof ENDING;
 export const MINE = {
   '': { label: 'All lots', test: () => true },
   bid: { label: 'Lots I bid on', test: hasBidOn },
-  leading: { label: 'I’m winning', test: (l) => Boolean(l.your_standing?.is_leading) },
-  outbid: { label: 'I’m outbid', test: (l) => hasBidOn(l) && !l.your_standing?.is_leading },
-  watch: { label: 'Watchlist', test: (l) => l.is_watchlisted && !hasBidOn(l) },
+  leading: { label: 'I’m winning', test: l => Boolean(l.your_standing?.is_leading) },
+  outbid: { label: 'I’m outbid', test: l => hasBidOn(l) && !l.your_standing?.is_leading },
+  watch: { label: 'Watchlist', test: l => l.is_watchlisted && !hasBidOn(l) },
 } satisfies Record<string, { label: string; test: (lot: Lot) => boolean }>;
 export type MineId = keyof typeof MINE;
 
@@ -216,7 +216,7 @@ export function initialView(stored: unknown, defaults: DefaultFilters): ViewStat
 
 /** Compare category and condition selections without depending on their order. */
 export function sameDefaultFilters(view: DefaultFilters, defaults: DefaultFilters): boolean {
-  const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every((v) => b.includes(v));
+  const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every(v => b.includes(v));
   return (
     Boolean(view.noCategories) === Boolean(defaults.noCategories) &&
     same(view.categories, defaults.categories) &&
@@ -265,7 +265,7 @@ const lotMatcher = memoLast((words: string[]) => {
     const cut = key.indexOf('\u0000');
     const itemType = key.slice(0, cut),
       title = key.slice(cut + 1);
-    return compiled.filter((f) => filterMatches(f, title, itemType)).map(({ word }) => word);
+    return compiled.filter(f => filterMatches(f, title, itemType)).map(({ word }) => word);
   });
   return (lot: Lot) => byKey(titleKey(lot));
 });
@@ -466,7 +466,7 @@ export function computeView(
   details?: ItemDetails,
   filteredOnly = false,
 ): ViewResult {
-  const matchCounts = new Map(ex.words.map((w) => [w, 0]));
+  const matchCounts = new Map(ex.words.map(w => [w, 0]));
   const lotMatches = lotMatcher(ex.words);
   const rowRules = filteredOnly ? { ...ex, filterOn: true } : ex;
 
@@ -526,7 +526,7 @@ export function computeView(
   let correctedSearch: string | null = null;
   let { rows, counts } = run(view);
   if (!rows.length && !view.searchRegex && view.search.trim() && candidates.length) {
-    const docs = candidates.map((r) => docOf(r.lot, details));
+    const docs = candidates.map(r => docOf(r.lot, details));
     const fixed = correctQuery(view.search, docs, buildVocabulary(docs));
     if (fixed) {
       const retry = run({ ...view, search: fixed });
@@ -600,7 +600,7 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row
   const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
-  const candidates = rows.filter((row) => !ownCard(row));
+  const candidates = rows.filter(row => !ownCard(row));
   const buckets = Map.groupBy(candidates, ({ lot }) => lot.groupId ?? lot.id);
   for (const bucket of buckets.values()) {
     if (bucket.length === 1) {
@@ -610,18 +610,18 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row
     bucket.sort(byConditionThenCost);
     const lead = bucket[0]!;
     const others = bucket.slice(1);
-    const score = Math.max(...bucket.map((r) => r.score));
+    const score = Math.max(...bucket.map(r => r.score));
     const cheaper =
       others
         .filter(
-          (r) =>
+          r =>
             conditionRank(r.lot) > conditionRank(lead.lot) &&
             r.total < lead.total &&
             (lead.pickupOnly || !r.pickupOnly),
         )
         .toSorted(byCost)[0] ?? null;
     cards.push({ ...lead, others, cheaper, score });
-    bucket.forEach((r) => groups.set(r.lot.id, bucket));
+    bucket.forEach(r => groups.set(r.lot.id, bucket));
   }
   return { cards, groups };
 }
@@ -629,7 +629,7 @@ function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row
 /** Predicate for "value is one of the selected", where selecting nothing allows everything. */
 function oneOf<T>(selected: T[]): (value: T) => boolean {
   const set = new Set(selected);
-  return (value) => !set.size || set.has(value);
+  return value => !set.size || set.has(value);
 }
 
 /** Whether the lot was first seen strictly after the given instant. */
@@ -690,7 +690,7 @@ export function makeSearch(
     } catch {
       // keep the never-matching pattern
     }
-    return (lot) => {
+    return lot => {
       const { brand, model } = itemIdentity(lot, details);
       const hay = [
         `${lot.title} ${lot.lot_number}`,
@@ -706,7 +706,7 @@ export function makeSearch(
   }
   const query = compileQuery(v.search);
   if (query.empty) return () => 0;
-  return (lot) => query.score(docOf(lot, details));
+  return lot => query.score(docOf(lot, details));
 }
 
 interface Predicates {
@@ -723,25 +723,25 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
   const dims: Predicates['dims'] = [];
   if (v.noCategories || v.categories.length) {
     const category = oneOf(v.categories);
-    dims.push(['category', (r) => !v.noCategories && category(r.category?.value ?? '')]);
+    dims.push(['category', r => !v.noCategories && category(r.category?.value ?? '')]);
   }
   if (v.conditions.length) {
     const condition = oneOf(v.conditions);
-    dims.push(['condition', (r) => condition(r.lot.condition?.value ?? -1)]);
+    dims.push(['condition', r => condition(r.lot.condition?.value ?? -1)]);
   }
   if (v.locations.length) {
     const location = oneOf(v.locations);
-    dims.push(['location', (r) => location(r.lot.location?.name ?? '')]);
+    dims.push(['location', r => location(r.lot.location?.name ?? '')]);
   }
   if (v.types.length) {
     const types = new Set(v.types);
-    dims.push(['type', (r) => r.lot.itemType != null && types.has(r.lot.itemType)]);
+    dims.push(['type', r => r.lot.itemType != null && types.has(r.lot.itemType)]);
   }
   if (v.brands.length) {
     const brands = new Set(v.brands);
     dims.push([
       'brand',
-      (r) => {
+      r => {
         const b = brandOf(r.lot, details);
         return b != null && brands.has(brandKey(b));
       },
@@ -753,16 +753,16 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
     const none = wanted.has(noneTag(group));
     dims.push([
       `tag:${group}`,
-      (r) => {
-        const own = (r.lot.tags ?? []).filter((t) => tagGroup(t) === group);
-        return own.some((t) => wanted.has(tagKey(t))) || (none && !own.length);
+      r => {
+        const own = (r.lot.tags ?? []).filter(t => tagGroup(t) === group);
+        return own.some(t => wanted.has(tagKey(t))) || (none && !own.length);
       },
     ]);
   }
   if (v.priceMin != null || v.priceMax != null) {
     dims.push([
       'price',
-      (r) =>
+      r =>
         (v.priceMin == null || r.lot.current_price >= v.priceMin) &&
         (v.priceMax == null || r.lot.current_price <= v.priceMax),
     ]);
@@ -787,7 +787,7 @@ export function makeMatcher(
   details?: ItemDetails,
 ): (row: Row) => boolean {
   const p = makePredicates(v, now, details);
-  return (row) => p.search(row.lot) != null && p.base(row) && p.dims.every(([, test]) => test(row));
+  return row => p.search(row.lot) != null && p.base(row) && p.dims.every(([, test]) => test(row));
 }
 
 export interface Facet<T> {
@@ -810,10 +810,10 @@ export interface Facets {
 /** Distinct values with how often each occurs (the first label seen wins). */
 function tally<T>(items: ({ value: T; label: string } | null)[]): Facet<T>[] {
   const groups = Map.groupBy(
-    items.filter((i) => i != null),
-    (i) => i.value,
+    items.filter(i => i != null),
+    i => i.value,
   );
-  return Array.from(groups.values(), (g) => ({
+  return Array.from(groups.values(), g => ({
     value: g[0]!.value,
     label: g[0]!.label,
     count: g.length,
@@ -839,7 +839,7 @@ function tallySpellings(values: string[], keyOf: (v: string) => string): Facet<s
 /** Brands among lots, labelled with each brand's most common spelling. */
 function tallyBrands(brands: (string | null)[]): Facet<string>[] {
   return tallySpellings(
-    brands.filter((b): b is string => Boolean(b)).map((b) => b.trim().replace(/\s+/g, ' ')),
+    brands.filter((b): b is string => Boolean(b)).map(b => b.trim().replace(/\s+/g, ' ')),
     brandKey,
   );
 }
@@ -854,40 +854,40 @@ export function computeFacets(
   customCategories: CustomCategory[],
   details?: ItemDetails,
 ): Facets {
-  const open = Array.from(lots).filter((l) => endsAtMs(l) > now);
-  const categories = tally(open.map((l) => categoryOf(l, customCategories)));
+  const open = Array.from(lots).filter(l => endsAtMs(l) > now);
+  const categories = tally(open.map(l => categoryOf(l, customCategories)));
   // Keep custom parents visible when all their open lots moved into descendants.
   for (const c of customCategories) {
     const value = customCategoryValue(c.name);
     if (
-      !categories.some((f) => f.value === value) &&
-      categories.some((f) => isCustomCategory(f.value) && f.label.startsWith(c.name + ' - '))
+      !categories.some(f => f.value === value) &&
+      categories.some(f => isCustomCategory(f.value) && f.label.startsWith(c.name + ' - '))
     ) {
       categories.push({ value, label: c.name, count: 0 });
     }
   }
   return {
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
-    siteCategories: tally(open.map((l) => l.category)),
+    siteCategories: tally(open.map(l => l.category)),
     conditions: tally(
-      open.map((l) => l.condition && { value: l.condition.value, label: l.condition.display_name }),
+      open.map(l => l.condition && { value: l.condition.value, label: l.condition.display_name }),
     ).toSorted((a, b) => a.value - b.value),
     locations: tally(
-      open.map((l) => l.location && { value: l.location.name, label: l.location.name }),
+      open.map(l => l.location && { value: l.location.name, label: l.location.name }),
     ).toSorted((a, b) => b.count - a.count),
     types: tally(
-      open.map((l) => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
+      open.map(l => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
     ).toSorted(byCountThenLabel),
-    brands: tallyBrands(open.map((l) => brandOf(l, details))),
+    brands: tallyBrands(open.map(l => brandOf(l, details))),
     // Tags differing only in case are one value, shown in its most common spelling.
     tags: tallySpellings(
-      open.flatMap((l) => l.tags ?? []),
+      open.flatMap(l => l.tags ?? []),
       tagKey,
     ),
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,
       label: b.label,
-      count: open.filter((l) => inBucket(l.current_price, b)).length,
+      count: open.filter(l => inBucket(l.current_price, b)).length,
     })),
   };
 }
@@ -896,7 +896,7 @@ export function computeFacets(
 function tagCounts(all: Facet<string>[], counts: FacetCounts, selected: string[]) {
   const m = new Map(counts.tag);
   const groups = new Set(
-    [...all, ...selected.map((value) => ({ value }))].map((f) => tagGroup(f.value)),
+    [...all, ...selected.map(value => ({ value }))].map(f => tagGroup(f.value)),
   );
   for (const group of groups) {
     if (group) m.set(noneTag(group), noneCount(counts, group));
@@ -911,11 +911,11 @@ function tagCounts(all: Facet<string>[], counts: FacetCounts, selected: string[]
  */
 export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewState): Facets {
   const recount = <T>(facets: Facet<T>[], m: Map<T, number>) =>
-    facets.map((f) => ({ ...f, count: m.get(f.value) ?? 0 }));
+    facets.map(f => ({ ...f, count: m.get(f.value) ?? 0 }));
   const present = (facets: Facet<string>[], m: Map<string, number>, selected: string[]) => {
-    const known = new Map(facets.map((f) => [f.value, f.label]));
+    const known = new Map(facets.map(f => [f.value, f.label]));
     const values = new Set([...m.keys(), ...selected]);
-    return Array.from(values, (value) => ({
+    return Array.from(values, value => ({
       value,
       label: known.get(value) ?? value,
       count: m.get(value) ?? 0,
@@ -929,7 +929,7 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
     types: present(all.types, counts.type, view.types),
     brands: present(all.brands, counts.brand, view.brands),
     tags: present(all.tags, tagCounts(all.tags, counts, view.tags), view.tags),
-    prices: all.prices.map((f) => ({ ...f, count: counts.price[f.value] ?? 0 })),
+    prices: all.prices.map(f => ({ ...f, count: counts.price[f.value] ?? 0 })),
   };
 }
 
@@ -960,10 +960,10 @@ export function suggestName(v: ViewState, facets: Facets): string {
   const parts = [
     v.search.trim(),
     v.noCategories && 'No categories',
-    ...v.categories.map((c) => facets.categories.find((f) => f.value === c)?.label ?? c),
+    ...v.categories.map(c => facets.categories.find(f => f.value === c)?.label ?? c),
     ...v.types,
-    ...v.brands.map((b) => facets.brands.find((f) => f.value === b)?.label ?? b),
-    ...v.tags.map((t) => tagLabel(facets.tags.find((f) => f.value === t)?.label ?? t)),
+    ...v.brands.map(b => facets.brands.find(f => f.value === b)?.label ?? b),
+    ...v.tags.map(t => tagLabel(facets.tags.find(f => f.value === t)?.label ?? t)),
     v.locations.join('/'),
     v.priceMax != null && `≤ $${v.priceMax}`,
     v.totalMax != null && `total ≤ $${v.totalMax}`,
@@ -985,7 +985,7 @@ export function savedSearchStats(
   now: number,
   details?: ItemDetails,
 ): Map<string, SavedSearchStats> {
-  const matchers = searches.map((s) => ({
+  const matchers = searches.map(s => ({
     s,
     since: s.lastViewedAt,
     matches: makeMatcher(normalizeView(s.view), now, details),

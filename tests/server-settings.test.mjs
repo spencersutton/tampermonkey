@@ -6,7 +6,7 @@ import { Component, h, options } from 'preact';
 import { createServer } from 'vite';
 
 const servers = [];
-after(() => Promise.all(servers.map((server) => server.close())));
+after(() => Promise.all(servers.map(server => server.close())));
 const settle = async () => {
   for (let i = 0; i < 5; i++) await new Promise(setImmediate);
 };
@@ -32,13 +32,13 @@ async function savedSearchControls(vite) {
   const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
   const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar/index.tsx');
   return () => {
-    const appSidebar = nodes(renderComponent(App)).find((node) => node.type?.name === 'AppSidebar');
+    const appSidebar = nodes(renderComponent(App)).find(node => node.type?.name === 'AppSidebar');
     const sidebar = nodes(renderComponent(appSidebar.type, appSidebar.props)).find(
-      (node) => node.type === Sidebar,
+      node => node.type === Sidebar,
     );
     const section = Sidebar(sidebar.props).props.children[0];
     const buttons = nodes(renderComponent(section.type, section.props)).filter(
-      (node) =>
+      node =>
         node.type === 'button' && node.props['aria-label']?.startsWith('Update saved search '),
     );
     return { saved: sidebar.props.saved, buttons };
@@ -110,7 +110,7 @@ async function setup(t, values = {}) {
   return { vite, settings, ...keys, source, storage, reads, writes, requests, callbacks };
 }
 
-test('shared settings never read or write localStorage, while browser-only UI state still does', async (t) => {
+test('shared settings never read or write localStorage, while browser-only UI state still does', async t => {
   const { settings, SERVER_KEYS, KEYS, DEFAULTS, reads, writes, storage } = await setup(t);
   for (const key of SERVER_KEYS) {
     assert.deepEqual(settings.getSetting(key), DEFAULTS[key]);
@@ -123,7 +123,7 @@ test('shared settings never read or write localStorage, while browser-only UI st
   assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.view}`)), { search: 'new local view' });
 });
 
-test('startup uses server values and defaults without uploading stale browser settings', async (t) => {
+test('startup uses server values and defaults without uploading stale browser settings', async t => {
   const { settings, source, KEYS, reads, writes, requests } = await setup(t, {
     filterWords: [],
     tlxLastVisit: 123,
@@ -149,7 +149,7 @@ test('startup uses server values and defaults without uploading stale browser se
   );
 });
 
-test('edits save directly to the server with timestamps encoded and no local copy', async (t) => {
+test('edits save directly to the server with timestamps encoded and no local copy', async t => {
   const values = { filterWords: [] };
   const { settings, source, KEYS, writes, requests } = await setup(t, values);
   source.startCatalog();
@@ -167,7 +167,7 @@ test('edits save directly to the server with timestamps encoded and no local cop
   assert.deepEqual(writes, []);
 });
 
-test('Update replaces only the chosen saved search and persists the latest draft and filters', async (t) => {
+test('Update replaces only the chosen saved search and persists the latest draft and filters', async t => {
   const values = {
     tlxSavedSearches: [
       { id: 'drills', name: 'Drills', view: { search: 'drill' }, lastViewedAt: 123 },
@@ -191,7 +191,7 @@ test('Update replaces only the chosen saved search and persists the latest draft
   setSearchDraft('brand:dewalt drill');
   assert.equal(storedView.value.search, 'drill', 'the typed search is still debounced');
   const update = controls().buttons.find(
-    (node) => node.props['aria-label'] === 'Update saved search Drills',
+    node => node.props['aria-label'] === 'Update saved search Drills',
   );
   assert.equal(update.props.disabled, false);
   update.props.onClick();
@@ -213,7 +213,7 @@ test('Update replaces only the chosen saved search and persists the latest draft
   assert.deepEqual(values.tlxSavedSearches, request.body.value);
 });
 
-test('Update detects sort-only and draft changes but ignores new-only and unavailable catalog modes', async (t) => {
+test('Update detects sort-only and draft changes but ignores new-only and unavailable catalog modes', async t => {
   const { source, settings, KEYS, vite } = await setup(t, {
     tlxSavedSearches: [
       { id: 'drills', name: 'Drills', view: { search: 'drill' }, lastViewedAt: 123 },
@@ -244,13 +244,13 @@ test('Update detects sort-only and draft changes but ignores new-only and unavai
   assert.equal(controls().buttons[0].props.disabled, false);
 });
 
-test('failed saves show an explicit error and are not silently queued or persisted locally', async (t) => {
+test('failed saves show an explicit error and are not silently queued or persisted locally', async t => {
   const { settings, source, KEYS, writes, callbacks, vite } = await setup(t, { filterWords: [] });
   source.startCatalog();
   await source.settingsReady;
   await settle();
   let saves = 0;
-  t.mock.method(globalThis, 'fetch', async (path) => {
+  t.mock.method(globalThis, 'fetch', async path => {
     if (path === '/api/settings/filterWords') {
       saves++;
       return Response.json({ error: 'Database unavailable' }, { status: 500 });
@@ -288,10 +288,10 @@ test('failed saves show an explicit error and are not silently queued or persist
   assert.deepEqual(writes, []);
 });
 
-test('failed startup leaves settings unready and retries the server instead of using browser copies', async (t) => {
+test('failed startup leaves settings unready and retries the server instead of using browser copies', async t => {
   const { source, settings, KEYS, callbacks, vite } = await setup(t);
   let attempts = 0;
-  t.mock.method(globalThis, 'fetch', async (path) => {
+  t.mock.method(globalThis, 'fetch', async path => {
     if (path.startsWith('/api/catalog?')) {
       return Response.json({
         now: Date.now(),

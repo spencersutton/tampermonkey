@@ -20,11 +20,11 @@ after(() => vite.close());
 const wire = await vite.ssrLoadModule('/src/shared/lot.ts');
 
 const DIR = new URL('fixtures/site/', import.meta.url);
-const fixture = (name) => JSON.parse(readFileSync(new URL(name, DIR), 'utf8'));
+const fixture = name => JSON.parse(readFileSync(new URL(name, DIR), 'utf8'));
 
 // A small schema language: 'string' | 'number' | 'boolean' | 'null', `nullable(x)`,
 // `[item]` for arrays and `{ key: schema }` for objects with exactly those keys.
-const nullable = (schema) => ({ nullable: schema });
+const nullable = schema => ({ nullable: schema });
 function check(value, schema, path = '$') {
   if (typeof schema === 'string') {
     const actual = value === null ? 'null' : typeof value;
@@ -90,7 +90,7 @@ const details = ['lot-detail-with-brand-model.json', 'lot-detail-without-brand-m
 );
 
 test('every capture is a successful JSON reply except the deliberate failures', () => {
-  for (const name of readdirSync(DIR).filter((n) => !n.startsWith('ws-'))) {
+  for (const name of readdirSync(DIR).filter(n => !n.startsWith('ws-'))) {
     const f = fixture(name);
     const failure = ['lot-detail-not-found.json', 'auth-me-anonymous.json'].includes(name);
     assert.equal(f.status, failure ? (name.includes('not-found') ? 404 : 401) : 200, name);
@@ -112,12 +112,12 @@ test('catalog pages and lot details have exactly the declared fields', () => {
 
 test('real lots have valid end times and images in position order, as the code assumes', () => {
   const raws = [
-    ...lists.flatMap((p) => p.body.results),
-    ...details.flatMap((d) => [d.body, ...d.body.similar]),
+    ...lists.flatMap(p => p.body.results),
+    ...details.flatMap(d => [d.body, ...d.body.similar]),
   ];
   for (const raw of raws) {
     assert.ok(Number.isFinite(wire.endsAtMs(raw)), `lot ${raw.id}: ends_at ${raw.ends_at}`);
-    const positions = raw.images.map((i) => i.position);
+    const positions = raw.images.map(i => i.position);
     assert.deepEqual(
       positions,
       positions.toSorted((a, b) => a - b),
@@ -145,12 +145,12 @@ test('filter-config has the condition descriptions fetchConditions reads', () =>
 
 test('websocket frames: connect and subscribe replies, pings, and lot publications live.ts reads', () => {
   const { frames } = fixture('ws-anonymous-lot-channels.json');
-  const received = frames.filter((f) => f.dir === 'received').map((f) => f.data);
+  const received = frames.filter(f => f.dir === 'received').map(f => f.data);
   check(received[0], {
     id: 'number',
     connect: { client: 'string', version: 'string', ping: 'number', pong: 'boolean' },
   });
-  const subscribed = received.filter((d) => d.subscribe);
+  const subscribed = received.filter(d => d.subscribe);
   assert.ok(subscribed.length > 0);
   for (const d of subscribed) {
     check(d, {
@@ -164,10 +164,10 @@ test('websocket frames: connect and subscribe replies, pings, and lot publicatio
     });
   }
   assert.ok(
-    received.some((d) => Object.keys(d).length === 0),
+    received.some(d => Object.keys(d).length === 0),
     'the server pings with {}',
   );
-  const pushes = received.filter((d) => d.push);
+  const pushes = received.filter(d => d.push);
   assert.ok(pushes.length > 0, 'recapture near closing time if no lot got a bid');
   for (const { push } of pushes) {
     // onLotPublication in src/app/live.ts

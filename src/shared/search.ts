@@ -55,7 +55,7 @@ export function parseQuery(query: string): Term[] {
 /** Write terms back as a query string. */
 export function formatQuery(terms: Term[]): string {
   return terms
-    .map((t) => {
+    .map(t => {
       const needsQuotes = t.phrase || /\s/.test(t.value);
       const value = needsQuotes ? `"${t.value.replace(/(["\\])/g, '\\$1')}"` : t.value;
       return `${t.negate ? '-' : ''}${t.field ? `${t.field}:` : ''}${value}`;
@@ -107,7 +107,7 @@ for (const group of SYNONYM_GROUPS) {
     if (!word.includes(' ')) {
       SYNONYMS.set(
         word,
-        group.filter((w) => w !== word),
+        group.filter(w => w !== word),
       );
     }
   }
@@ -230,11 +230,11 @@ export interface CompiledQuery {
 /** Compile a plain (non-regex) query. */
 export function compileQuery(query: string): CompiledQuery {
   const terms = parseQuery(query);
-  const positive = terms.filter((t) => !t.negate);
-  const negative = terms.filter((t) => t.negate && t.value);
+  const positive = terms.filter(t => !t.negate);
+  const negative = terms.filter(t => t.negate && t.value);
   const words = positive
-    .filter((t) => !t.field)
-    .map((t) => t.value)
+    .filter(t => !t.field)
+    .map(t => t.value)
     .join(' ');
   return {
     terms,
@@ -324,9 +324,9 @@ export function correctQuery(
   vocab: Map<string, number>,
 ): string | null {
   const terms = parseQuery(query);
-  const fixed = terms.map((t) => {
+  const fixed = terms.map(t => {
     if (t.phrase || t.negate || t.field === 'model' || !t.value) return t;
-    if (docs.some((d) => termScore(t, d) > 0)) return t;
+    if (docs.some(d => termScore(t, d) > 0)) return t;
     const better = correctWord(t.value, vocab);
     return better ? { ...t, value: better } : t;
   });

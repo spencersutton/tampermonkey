@@ -85,7 +85,7 @@ function parseSetCookie(header: string, now: number): Cookie | null {
         cookie.expires = now + Number(value) * 1000;
         break;
       case 'expires':
-        if (!attrs.some((a) => a.trim().toLowerCase().startsWith('max-age='))) {
+        if (!attrs.some(a => a.trim().toLowerCase().startsWith('max-age='))) {
           cookie.expires = Date.parse(value);
         }
         break;
@@ -130,9 +130,7 @@ export class SiteSession {
       : saved;
     this.cookies = [];
     for (const c of Array.isArray(list) ? (list as unknown[]) : []) {
-      const [name, value, domain, path] = ['name', 'value', 'domain', 'path'].map((k) =>
-        field(c, k),
-      );
+      const [name, value, domain, path] = ['name', 'value', 'domain', 'path'].map(k => field(c, k));
       if (name != null && value != null && domain != null && path != null) {
         this.cookies.push({ name, value, domain, path });
       }
@@ -149,11 +147,11 @@ export class SiteSession {
 
   private live(): Cookie[] {
     const now = Date.now();
-    return this.cookies.filter((c) => c.expires === undefined || c.expires > now);
+    return this.cookies.filter(c => c.expires === undefined || c.expires > now);
   }
 
   private cookie(name: string): string | null {
-    return this.live().find((c) => c.name === name && c.value)?.value ?? null;
+    return this.live().find(c => c.name === name && c.value)?.value ?? null;
   }
 
   private clearCookies() {
@@ -167,7 +165,7 @@ export class SiteSession {
       if (cookie) {
         const same = (c: Cookie) =>
           c.name === cookie.name && c.domain === cookie.domain && c.path === cookie.path;
-        this.cookies = this.cookies.filter((c) => !same(c));
+        this.cookies = this.cookies.filter(c => !same(c));
         if (cookie.expires === undefined || cookie.expires > now) {
           this.cookies.push(cookie);
         }
@@ -177,13 +175,13 @@ export class SiteSession {
 
   private cookieHeader(path: string): string {
     return this.live()
-      .filter((c) => {
+      .filter(c => {
         const domain = c.domain.replace(/^\./, '');
         return (
           (SITE_HOST === domain || SITE_HOST.endsWith(`.${domain}`)) && path.startsWith(c.path)
         );
       })
-      .map((c) => `${c.name}=${c.value}`)
+      .map(c => `${c.name}=${c.value}`)
       .join('; ');
   }
 

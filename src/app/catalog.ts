@@ -80,7 +80,7 @@ export function loadMetadata(lot: Pick<Lot, 'id' | 'auction_period'>): Promise<L
   const pending = metadataRequests.get(lot.id);
   if (pending) return pending;
   const promise = fetchLotMetadata(lot.auction_period, lot.id)
-    .then((saved) => {
+    .then(saved => {
       // A concurrent live response is newer than the saved copy.
       const current = metadata.get(lot.id);
       if (current) return current;
@@ -106,7 +106,7 @@ export function loadDetail(
   const cached = cachedDetail(lot.id);
   if (cached) return Promise.resolve(cached);
   const promise = fetchLotDetail(lot.auction_period, lot.id, signal).then(
-    (d) => {
+    d => {
       if (details.get(lot.id)?.promise !== promise) return d;
       metadata.set(lot.id, {
         description: d.description,
@@ -129,7 +129,7 @@ export function loadDetail(
       }
       return d;
     },
-    (err) => {
+    err => {
       if (details.get(lot.id)?.promise === promise) details.delete(lot.id);
       throw err;
     },

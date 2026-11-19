@@ -21,8 +21,8 @@ const MAX_TYPE_PILLS = 10;
 function chipsFor(v: ViewState, pickup: string): Chip[] {
   const facets = filterFacets.value;
   const labelOf = <T,>(list: { value: T; label: string }[], value: T) =>
-    list.find((f) => f.value === value)?.label ?? String(value);
-  const without = <T,>(list: T[], value: T) => list.filter((x) => x !== value);
+    list.find(f => f.value === value)?.label ?? String(value);
+  const without = <T,>(list: T[], value: T) => list.filter(x => x !== value);
   const money = (n: number) => `$${fmtCount(n)}`;
   const chips: Chip[] = [];
   if (v.search.trim()) {
@@ -43,14 +43,14 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
     chips.push({
       key: `cat:${value}`,
       label,
-      remove: { categories: v.categories.filter((x) => !values.includes(x)) },
+      remove: { categories: v.categories.filter(x => !values.includes(x)) },
     });
   };
   const addGroup = (g: CategoryGroup) => {
     const { value } = g.facet;
     const full = labelOf([...facets.categories, ...facets.siteCategories], value);
-    const values = groupFacets(g).map((f) => f.value);
-    if (!g.subs.length || values.every((x) => pending.has(x))) {
+    const values = groupFacets(g).map(f => f.value);
+    if (!g.subs.length || values.every(x => pending.has(x))) {
       if (pending.has(value)) categoryChip(value, full, values);
       return;
     }
@@ -125,7 +125,7 @@ export function Refinements() {
   const chips = chipsFor(view, pickupName.value);
   const isCategory = (c: Chip) => c.key.startsWith('cat:');
   const catChips = chips.filter(isCategory);
-  const otherChips = chips.filter((c) => !isCategory(c));
+  const otherChips = chips.filter(c => !isCategory(c));
   const chipButton = (c: Chip) => (
     <button
       type="button"
@@ -182,7 +182,7 @@ export function Refinements() {
       {showTypes && (
         <div class="type-pills" aria-label="Narrow by item type">
           <span class="muted">Item type:</span>
-          {types.map((t) => (
+          {types.map(t => (
             <button
               type="button"
               key={t.value}

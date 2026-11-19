@@ -70,7 +70,7 @@ function mountDialog(t) {
   const root = new Element();
   let vnode;
   const diffed = options.diffed;
-  options.diffed = (node) => {
+  options.diffed = node => {
     diffed?.(node);
     if (node.type === 'dialog') vnode = node;
   };
@@ -90,7 +90,7 @@ function mountDialog(t) {
   };
 }
 
-test('dialog combines the backdrop class with plain and signal class values', (t) => {
+test('dialog combines the backdrop class with plain and signal class values', t => {
   const { update } = mountDialog(t);
   const props = { onClose: () => {}, children: null };
   assert.equal(update(props).props.class, 'backdrop ');
@@ -99,7 +99,7 @@ test('dialog combines the backdrop class with plain and signal class values', (t
   assert.equal(update({ ...props, class: signal(undefined) }).props.class, 'backdrop ');
 });
 
-test('dialog refs own opening, focus and cleanup without component effects', (t) => {
+test('dialog refs own opening, focus and cleanup without component effects', t => {
   const { previous, update } = mountDialog(t);
   const content = new Element();
   let open = false;
@@ -128,11 +128,11 @@ test('dialog refs own opening, focus and cleanup without component effects', (t)
   assert.equal(content.focused, 1, 'explicit autofocus is left to the browser');
 });
 
-test('closing a category dialog restores focus without scrolling to the updated lot', (t) => {
+test('closing a category dialog restores focus without scrolling to the updated lot', t => {
   const { root, previous, update } = mountDialog(t);
   let scrollY = 1800;
   let lotTop = 1900;
-  previous.focus = (options) => {
+  previous.focus = options => {
     previous.focused++;
     if (!options?.preventScroll) scrollY = lotTop;
   };
@@ -145,7 +145,7 @@ test('closing a category dialog restores focus without scrolling to the updated 
   assert.equal(scrollY, 1800);
 });
 
-test('dialog events use the current callback and ignore close events after removal', (t) => {
+test('dialog events use the current callback and ignore close events after removal', t => {
   const { update } = mountDialog(t);
   let first = 0;
   let latest = 0;
@@ -191,10 +191,10 @@ test('dialog events use the current callback and ignore close events after remov
   assert.equal(latest, 3);
 });
 
-test('stacked dialogs keep independent ref cleanup across rerenders and unmounts', (t) => {
+test('stacked dialogs keep independent ref cleanup across rerenders and unmounts', t => {
   const { root } = mountDialog(t);
   let closed = 0;
-  const dialog = (key) =>
+  const dialog = key =>
     h(Dialog, {
       key,
       onClose: () => {

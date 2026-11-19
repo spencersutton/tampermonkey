@@ -19,9 +19,9 @@ const { frames } = JSON.parse(
   readFileSync(new URL('../fixtures/site/ws-anonymous-lot-channels.json', import.meta.url), 'utf8'),
 ) as { frames: Frame[] };
 const replies = new Map(
-  frames.filter((f) => f.dir === 'received' && 'id' in f.data).map((f) => [f.data['id'], f.data]),
+  frames.filter(f => f.dir === 'received' && 'id' in f.data).map(f => [f.data['id'], f.data]),
 );
-const push = frames.find((f) => 'push' in f.data)!.data;
+const push = frames.find(f => 'push' in f.data)!.data;
 
 const upstreamSeen: { origin: string | null; messages: string[]; closed: number[] } = {
   origin: null,
@@ -84,15 +84,15 @@ function deps(wsUrl: string) {
 function open(headers: Record<string, string> = {}) {
   const ws = new BunWebSocket(`ws://127.0.0.1:${front.port}/ws`, { headers });
   const received: unknown[] = [];
-  const closed = new Promise<{ code: number; reason: string }>((resolve) =>
-    ws.addEventListener('close', (e) => resolve({ code: e.code, reason: e.reason })),
+  const closed = new Promise<{ code: number; reason: string }>(resolve =>
+    ws.addEventListener('close', e => resolve({ code: e.code, reason: e.reason })),
   );
   const message = () =>
-    new Promise<unknown>((resolve) =>
-      ws.addEventListener('message', (e) => resolve(JSON.parse(String(e.data))), { once: true }),
+    new Promise<unknown>(resolve =>
+      ws.addEventListener('message', e => resolve(JSON.parse(String(e.data))), { once: true }),
     );
-  ws.addEventListener('message', (e) => received.push(JSON.parse(String(e.data))));
-  const opened = new Promise<boolean>((resolve) => {
+  ws.addEventListener('message', e => received.push(JSON.parse(String(e.data))));
+  const opened = new Promise<boolean>(resolve => {
     ws.addEventListener('open', () => resolve(true));
     ws.addEventListener('error', () => resolve(false));
   });
@@ -102,7 +102,7 @@ function open(headers: Record<string, string> = {}) {
 test("messages pass both ways unchanged, upstream sees the site's Origin", async () => {
   const client = open({ Origin: `http://127.0.0.1:${front.port}` });
   expect(await client.opened).toBe(true);
-  const sent = frames.filter((f) => f.dir === 'sent' && 'id' in f.data).slice(0, 2);
+  const sent = frames.filter(f => f.dir === 'sent' && 'id' in f.data).slice(0, 2);
   for (const frame of sent) {
     const next = client.message();
     client.ws.send(JSON.stringify(frame.data));
@@ -111,7 +111,7 @@ test("messages pass both ways unchanged, upstream sees the site's Origin", async
   await Bun.sleep(50);
   expect(client.received.at(-1)).toEqual(push);
   expect(upstreamSeen.origin).toBe(SITE);
-  expect(upstreamSeen.messages).toEqual(sent.map((f) => JSON.stringify(f.data)));
+  expect(upstreamSeen.messages).toEqual(sent.map(f => JSON.stringify(f.data)));
 
   client.ws.close(3000, 'bye');
   await client.closed;

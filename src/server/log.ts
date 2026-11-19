@@ -36,7 +36,7 @@ export class Waker {
   async wait(ms?: number): Promise<void> {
     if (!this.pending) {
       let timer: ReturnType<typeof setTimeout> | undefined;
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         this.resolve = resolve;
         if (ms !== undefined) {
           timer = setTimeout(resolve, ms);

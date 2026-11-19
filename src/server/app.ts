@@ -143,7 +143,7 @@ function ruleBody(body: Record<string, unknown>): [string, string[]] {
   if (
     typeof pattern !== 'string' ||
     !Array.isArray(tags) ||
-    !tags.every((t) => typeof t === 'string')
+    !tags.every(t => typeof t === 'string')
   ) {
     throw new BadRequest('Expected {"pattern": string, "tags": [string]}');
   }
@@ -189,7 +189,7 @@ export function createApp(deps: Deps) {
     };
   };
 
-  app.onError((e) => {
+  app.onError(e => {
     if (e instanceof BadRequest || e instanceof RuleError) {
       return error(400, e.message);
     }
@@ -223,7 +223,7 @@ export function createApp(deps: Deps) {
     if (!['GET', 'HEAD'].includes(c.req.method) && !c.req.header('X-TLX-Client')) {
       return error(403, 'Missing X-TLX-Client header');
     }
-    const guarded = ['/api/', '/backend/', '/ws'].some((p) => path.startsWith(p));
+    const guarded = ['/api/', '/backend/', '/ws'].some(p => path.startsWith(p));
     if (guarded && !PUBLIC_PATHS.has(path) && !unlocked(c)) {
       return error(401, 'app_locked');
     }
@@ -232,8 +232,8 @@ export function createApp(deps: Deps) {
 
   // -- this server's API ------------------------------------------------------
   app.get('/api/health', () => json({ ok: true, version: VERSION }));
-  app.get('/api/me', (c) => json(me(c)));
-  app.post('/api/app-login', async (c) => {
+  app.get('/api/me', c => json(me(c)));
+  app.post('/api/app-login', async c => {
     const given = text(prop(await readJson(c.req.raw), 'password'));
     if (!password || samePassword(given, password)) {
       const sid = randomBytes(32).toString('base64url');
@@ -245,7 +245,7 @@ export function createApp(deps: Deps) {
     await Bun.sleep(deps.wrongPasswordDelayMs ?? 1000);
     return error(401, 'Wrong password.');
   });
-  app.post('/api/app-logout', (c) => {
+  app.post('/api/app-logout', c => {
     const sid = sessionId(c);
     if (sid) {
       store.dropSession(sid);
@@ -254,7 +254,7 @@ export function createApp(deps: Deps) {
     res.headers.set('Set-Cookie', cookie(c, '', 0));
     return res;
   });
-  app.post('/api/site-login', async (c) => {
+  app.post('/api/site-login', async c => {
     const d = await readJson(c.req.raw);
     const failed = await session.login(text(prop(d, 'email')).trim(), text(prop(d, 'password')));
     if (!failed) {
@@ -262,12 +262,12 @@ export function createApp(deps: Deps) {
     }
     return json({ error: failed, ...me(c) });
   });
-  app.post('/api/site-logout', async (c) => {
+  app.post('/api/site-logout', async c => {
     await session.logout();
     return json(me(c));
   });
 
-  app.get('/api/catalog', (c) => {
+  app.get('/api/catalog', c => {
     catalog.heartbeat(c.req.header('X-TLX-Active') === '1');
     const since = Math.max(0, Number.parseInt(c.req.query('since') ?? '0', 10) || 0);
     const changes = store.changes(since);
@@ -280,7 +280,7 @@ export function createApp(deps: Deps) {
       lots: changes.lots,
     });
   });
-  app.get('/api/lot-metadata', (c) => {
+  app.get('/api/lot-metadata', c => {
     const id = integer(c.req.query('id'));
     const period = c.req.query('auctionPeriod') ?? '';
     if (id === null || id <= 0 || id > MAX_ID || !period) {
@@ -290,7 +290,7 @@ export function createApp(deps: Deps) {
   });
   app.post('/api/pull', () => json({ result: catalog.requestPull(), ...status() }));
   app.get('/api/settings', () => json(store.settings()));
-  app.put('/api/settings/:key', async (c) => {
+  app.put('/api/settings/:key', async c => {
     const key = c.req.param('key');
     if (!SETTING_KEY.test(key)) {
       throw new BadRequest(`Bad setting key '${key}'`);
@@ -301,7 +301,7 @@ export function createApp(deps: Deps) {
     }
     return json({ rev: store.putSetting(key, body['value']) });
   });
-  app.get('/api/history', (c) => {
+  app.get('/api/history', c => {
     const id = integer(c.req.query('id'));
     const lot = id === null ? null : store.lot(id);
     if (!lot) {
@@ -309,7 +309,7 @@ export function createApp(deps: Deps) {
     }
     return json({ closes: history.closesFor(lot).slice(0, HISTORY_LIMIT) });
   });
-  app.put('/api/item-type', async (c) => {
+  app.put('/api/item-type', async c => {
     const body = await readJson(c.req.raw);
     const id = prop(body, 'lotId');
     if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0 || id > MAX_ID) {
@@ -350,7 +350,7 @@ export function createApp(deps: Deps) {
     const { rules, tags } = store.tagOverview();
     return json({ rules: rules.map(([rule, lots]) => ({ ...rule, lots })), tags });
   });
-  app.get('/api/tag-rules/preview', (c) => {
+  app.get('/api/tag-rules/preview', c => {
     try {
       return json(
         store.previewTagRule(
@@ -369,11 +369,11 @@ export function createApp(deps: Deps) {
       throw e;
     }
   });
-  app.post('/api/tag-rules', async (c) => {
+  app.post('/api/tag-rules', async c => {
     const [rule, changed] = store.addTagRule(...ruleBody(await readJson(c.req.raw)));
     return json({ rule, changed: changed.size });
   });
-  app.put('/api/tag-rules/:id{[0-9]{1,9}}', async (c) => {
+  app.put('/api/tag-rules/:id{[0-9]{1,9}}', async c => {
     const updated = store.updateTagRule(
       Number(c.req.param('id')),
       ...ruleBody(await readJson(c.req.raw)),
@@ -382,14 +382,14 @@ export function createApp(deps: Deps) {
       ? json({ rule: updated[0], changed: updated[1].size })
       : error(404, 'No such tag rule');
   });
-  app.delete('/api/tag-rules/:id{[0-9]{1,9}}', (c) => {
+  app.delete('/api/tag-rules/:id{[0-9]{1,9}}', c => {
     const changed = store.removeTagRule(Number(c.req.param('id')));
     return changed ? json({ changed: changed.size }) : error(404, 'No such tag rule');
   });
   app.all('/api/*', () => error(404, 'Not found'));
 
   // -- the site's API ---------------------------------------------------------
-  app.all('/backend/v1/*', async (c) => {
+  app.all('/backend/v1/*', async c => {
     const url = new URL(c.req.url);
     if (url.pathname.split('/').includes('..')) {
       return error(404, 'Not found');
@@ -474,7 +474,7 @@ export function createApp(deps: Deps) {
   }
 
   // -- the site's websocket -----------------------------------------------------
-  app.get('/ws', async (c) => {
+  app.get('/ws', async c => {
     const server = c.env as Server<RelayData> | undefined; // absent outside Bun.serve (tests)
     if (c.req.header('Upgrade')?.toLowerCase() !== 'websocket' || !server) {
       return error(400, 'Expected a websocket upgrade');
@@ -493,7 +493,7 @@ export function createApp(deps: Deps) {
     }
     const protocols = (c.req.header('Sec-WebSocket-Protocol') ?? '')
       .split(',')
-      .map((p) => p.trim())
+      .map(p => p.trim())
       .filter(Boolean);
     let upstream: WebSocket;
     try {
@@ -512,7 +512,7 @@ export function createApp(deps: Deps) {
   });
 
   // -- the app itself -----------------------------------------------------------
-  app.on(['GET', 'HEAD'], '*', async (c) => {
+  app.on(['GET', 'HEAD'], '*', async c => {
     const name = PAGES[c.req.path] ?? c.req.path.replace(/^\/+/, '');
     const path = resolve(staticDir, name);
     const file = Bun.file(path);

@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
+  getItem: key => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
 };
 
@@ -119,7 +119,7 @@ function shortcut(t, view) {
   };
 }
 
-test('Alt+Shift+D saves the same defaults as the button through the shared persistence hook', (t) => {
+test('Alt+Shift+D saves the same defaults as the button through the shared persistence hook', t => {
   const view = {
     ...DEFAULT_VIEW,
     categories: ['custom:Drills'],
@@ -140,7 +140,7 @@ test('Alt+Shift+D saves the same defaults as the button through the shared persi
   assert.equal(keys.saves.length, 1);
 });
 
-test('default shortcut ignores unrelated keys, repeats, composition and open popups', (t) => {
+test('default shortcut ignores unrelated keys, repeats, composition and open popups', t => {
   const keys = shortcut(t, { ...DEFAULT_VIEW, noCategories: true });
   for (const event of [
     { code: 'KeyS' },
@@ -166,13 +166,13 @@ test('default shortcut ignores unrelated keys, repeats, composition and open pop
   ]);
 });
 
-test('default shortcut respects the disabled save button when selections already match', (t) => {
+test('default shortcut respects the disabled save button when selections already match', t => {
   const keys = shortcut(t, DEFAULT_VIEW);
   assert.equal(keys.press(), true);
   assert.deepEqual(keys.saves, []);
 });
 
-test('category shortcuts expand and collapse all nested groups without changing filters', (t) => {
+test('category shortcuts expand and collapse all nested groups without changing filters', t => {
   const view = { ...DEFAULT_VIEW, categories: ['tools'], search: 'drill', conditions: [2] };
   const keys = shortcut(t, view);
   applySetting(KEYS.customCategories, [
@@ -222,7 +222,7 @@ test('category shortcuts expand and collapse all nested groups without changing 
   ]);
 });
 
-test('question mark opens a dismissible guide but leaves text entry and popups alone', (t) => {
+test('question mark opens a dismissible guide but leaves text entry and popups alone', t => {
   const keys = shortcut(t, DEFAULT_VIEW);
   const question = { code: 'Slash', key: '?', altKey: false };
   keys.ownerDocument.activeElement = { closest: () => ({}) };
@@ -251,14 +251,14 @@ test('question mark opens a dismissible guide but leaves text entry and popups a
   const tree = App(vnode.props);
   options.diffed(vnode);
   options.unmount?.(vnode);
-  const dialogs = nodes(tree).find((n) => n.type?.name === 'AppDialogs');
+  const dialogs = nodes(tree).find(n => n.type?.name === 'AppDialogs');
   const guide = nodes(dialogs.type(dialogs.props)).find(
-    (n) => n.props?.['aria-labelledby'] === 'shortcuts-title',
+    n => n.props?.['aria-labelledby'] === 'shortcuts-title',
   );
   assert.ok(guide);
   const labels = nodes(guide)
-    .filter((n) => n.type === 'kbd')
-    .map((n) => n.props.children);
+    .filter(n => n.type === 'kbd')
+    .map(n => n.props.children);
   assert.deepEqual(labels, ['/', 'Alt+Shift+D', 'Alt+Shift+E', 'Alt+Shift+C', '?', 'Esc']);
   guide.props.onClose();
   assert.equal(modal.value, null);

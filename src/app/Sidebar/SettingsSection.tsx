@@ -24,7 +24,7 @@ export function SettingsSection() {
         <NumberInput
           label={`Full catalog refresh at most every (minutes, min ${MIN_SYNC_MINUTES})`}
           value={minutes}
-          parse={(text) =>
+          parse={text =>
             Math.max(MIN_SYNC_MINUTES, Math.round(parseNum(text) ?? DEFAULT_SYNC_MINUTES))
           }
           onChange={setMinutes}
@@ -35,7 +35,7 @@ export function SettingsSection() {
         <NumberInput
           label="Lot title lines in the grid (0 = show in full)"
           value={titleLines}
-          parse={(text) => Math.max(0, Math.round(parseNum(text) ?? DEFAULT_TITLE_LINES))}
+          parse={text => Math.max(0, Math.round(parseNum(text) ?? DEFAULT_TITLE_LINES))}
           onChange={setTitleLines}
           type="number"
           min={0}

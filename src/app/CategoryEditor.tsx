@@ -39,10 +39,10 @@ export function rowError(d: Draft, drafts: Draft[]): string | null {
   if (!name) {
     return 'Name is required';
   }
-  if (drafts.some((o) => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
+  if (drafts.some(o => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
     return 'Another category has this name';
   }
-  if (!d.types.length && !drafts.some((o) => o !== d && o.name.trim().startsWith(`${name} - `))) {
+  if (!d.types.length && !drafts.some(o => o !== d && o.name.trim().startsWith(`${name} - `))) {
     return 'Add item types';
   }
   return null;
@@ -62,8 +62,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   } | null>(null);
 
   const dirty = !dequal(drafts.map(clean), baseline);
-  const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
-  const valid = errors.values().every((e) => !e);
+  const errors = new Map(drafts.map(d => [d.key, rowError(d, drafts)]));
+  const valid = errors.values().every(e => !e);
 
   const close = () => {
     if (!dirty || confirm('Discard your changes to custom categories?')) {
@@ -83,7 +83,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   const taken = useMemo(() => {
     const cats = drafts.map(clean);
     const compiled = compileCategories(cats);
-    const taken = new Map<number, Lot[]>(drafts.map((d) => [d.key, []]));
+    const taken = new Map<number, Lot[]>(drafts.map(d => [d.key, []]));
     for (const lot of lots) {
       const owner = categoryIndex(lot, compiled);
       if (owner >= 0) {
@@ -113,15 +113,15 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   );
 
   const update = (key: number, patch: Partial<Draft>) =>
-    setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...patch } : d)));
+    setDrafts(ds => ds.map(d => (d.key === key ? { ...d, ...patch } : d)));
   const add = () => {
     const d: Draft = { key: nextKey++, from: null, name: '', types: [] };
-    setDrafts((ds) => [...ds, d]);
+    setDrafts(ds => [...ds, d]);
     setSelected(d.key);
     focusKey.current = d.key;
   };
   const remove = (d: Draft) => {
-    setDrafts((ds) => ds.filter((x) => x.key !== d.key));
+    setDrafts(ds => ds.filter(x => x.key !== d.key));
     if (selected === d.key) {
       setSelected(null);
     }
@@ -130,21 +130,21 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     if (!valid) {
       return;
     }
-    const renames = new Map<string, string | null>(initial.map((c) => [c.name, null]));
+    const renames = new Map<string, string | null>(initial.map(c => [c.name, null]));
     for (const d of drafts) {
       if (d.from != null) {
         renames.set(d.from, d.name.trim());
       }
     }
     saveCustomCategories(drafts.map(clean), renames);
-    const created = drafts.findLast((d) => d.from == null);
+    const created = drafts.findLast(d => d.from == null);
     if (created) {
       setSetting(KEYS.lastCategory, created.name.trim());
     }
     onClose();
   };
 
-  const sel = drafts.find((d) => d.key === selected);
+  const sel = drafts.find(d => d.key === selected);
   const selLots = sel ? taken.get(sel.key)! : [];
   const selectedTypes = new Set(sel?.types.map(normalizeType));
 
@@ -173,7 +173,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <ol class="cat-list">
               {[...drafts]
                 .toSorted((a, b) => compareCategoryNames(a.name, b.name))
-                .map((d) => {
+                .map(d => {
                   const err = errors.get(d.key);
                   const count = taken.get(d.key)!.length;
                   const label = d.name.trim() || 'New category';
@@ -188,7 +188,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       onMouseDown={() => setSelected(d.key)}
                     >
                       <input
-                        ref={(input) => {
+                        ref={input => {
                           if (input && focusKey.current === d.key) {
                             focusKey.current = null;
                             input.focus();
@@ -204,7 +204,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                           err && d.key === selected ? 'cat-editor-error' : undefined
                         }
                         title={err ?? undefined}
-                        onInput={(e) => {
+                        onInput={e => {
                           const input = e.currentTarget;
                           editedName.current = {
                             input,
@@ -219,7 +219,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                         counts={typeCounts}
                         listId={`cat-types-${d.key}`}
                         category={label}
-                        onChange={(patch) => update(d.key, patch)}
+                        onChange={patch => update(d.key, patch)}
                       />
                       <span class="cat-count">{plural(count, 'lot')}</span>
                       <button
@@ -248,7 +248,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             </h3>
             {selLots.length ? (
               <ul>
-                {selLots.slice(0, PREVIEW_LIMIT).map((l) => (
+                {selLots.slice(0, PREVIEW_LIMIT).map(l => (
                   <li key={l.id}>
                     <span>{l.title}</span>
                     {l.category && <span class="muted small">{l.category.label}</span>}
@@ -325,7 +325,7 @@ function TypeChips({
     const fresh = raw
       .split(',')
       .map(normalizeType)
-      .filter((t) => t && !existing.has(t));
+      .filter(t => t && !existing.has(t));
     if (fresh.length) {
       onChange({ types: [...new Set([...types, ...fresh])] });
     }
@@ -334,7 +334,7 @@ function TypeChips({
   return (
     <div class="cat-types">
       <div class="type-chips">
-        {types.map((t) => {
+        {types.map(t => {
           const n = counts.get(t) ?? 0;
           return (
             <span
@@ -346,7 +346,7 @@ function TypeChips({
                 type="button"
                 class="filter-remove"
                 aria-label={`Remove ${t}`}
-                onClick={() => onChange({ types: types.filter((x) => x !== t) })}
+                onClick={() => onChange({ types: types.filter(x => x !== t) })}
               >
                 <Icon name="cancel" size={14} />
               </button>
@@ -360,7 +360,7 @@ function TypeChips({
           aria-label={`Add item type to ${category}`}
           placeholder={types.length ? 'Add type…' : 'e.g. pressure washer'}
           spellcheck={false}
-          onInput={(e) => {
+          onInput={e => {
             const v = e.currentTarget.value;
             // Picking a suggestion fills in a whole known type: add it straight away.
             if (
@@ -377,7 +377,7 @@ function TypeChips({
               setText(v);
             }
           }}
-          onKeyDown={(e) => {
+          onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault();
               add(text);

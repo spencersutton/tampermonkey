@@ -81,7 +81,7 @@ export class ItemTypeIndex<R extends ItemTypeRecord = ItemTypeRecord> {
   match(item: Item): R | null {
     const identity = brandModelKey(item);
     const candidates = (this.byTitle.get(item.title) ?? []).filter(
-      (record) => !identity || !brandModelKey(record),
+      record => !identity || !brandModelKey(record),
     );
     if (identity) {
       candidates.push(...(this.byIdentity.get(identity) ?? []));
@@ -271,7 +271,7 @@ export function groupLots(
   }
   const keys = [...entries.values()];
   const parent = keys.map((_, i) => i);
-  const identity = keys.map((entry) => entry.identity);
+  const identity = keys.map(entry => entry.identity);
 
   const find = (i: number): number => {
     while (parent[i] !== i) {
@@ -398,7 +398,7 @@ export class ItemIndex<R extends Row = Row> {
       }
     }
     return rows
-      .filter((row) => row.id !== item.id)
+      .filter(row => row.id !== item.id)
       .toSorted((a, b) => (b.endsAt || 0) - (a.endsAt || 0));
   }
 }

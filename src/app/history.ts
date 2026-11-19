@@ -91,7 +91,7 @@ export function navFromUrl(search = location.search): NavState | null {
     conditions: q.getAll('condition').map(Number).filter(Number.isFinite),
     locations: q.getAll('location'),
     reachable: q.has('reachable') && q.get('reachable') !== '0',
-    ...Object.fromEntries(NUMBERS.map((f) => [f, num(f)])),
+    ...Object.fromEntries(NUMBERS.map(f => [f, num(f)])),
     ending: q.get('ending') ?? undefined,
     mine: q.get('mine') ?? undefined,
   });
@@ -192,7 +192,7 @@ export function startHistory() {
     }
   });
 
-  window.addEventListener('popstate', (e) => {
+  window.addEventListener('popstate', e => {
     if (!isEntry(e.state)) {
       return;
     }

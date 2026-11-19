@@ -22,8 +22,8 @@ interface CompiledFilter {
 /** Compile every non-blank filter word; invalid patterns keep `re: null` so the UI can flag them. */
 export function buildRegexes(words: string[]): CompiledFilter[] {
   return words
-    .filter((w) => w.trim())
-    .map((w) => {
+    .filter(w => w.trim())
+    .map(w => {
       const re = compileFilter(w);
       return { word: w, re, exact: re && new RegExp(`^(?:${w})$`, 'i') };
     });

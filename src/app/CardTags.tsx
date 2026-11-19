@@ -10,7 +10,7 @@ export function CardTags({ lot }: { lot: Lot }) {
   if (!lot.tags?.length) return null;
   return (
     <ul class="card-tags" aria-label="Tags">
-      {lot.tags.map((tag) => (
+      {lot.tags.map(tag => (
         <li key={tag}>
           <button
             type="button"
@@ -18,7 +18,7 @@ export function CardTags({ lot }: { lot: Lot }) {
             title={`Show only ${tagLabel(tag)}`}
             onClick={() => {
               const group = tagGroup(tag);
-              const rest = storedView.peek().tags.filter((t) => tagGroup(t) !== group);
+              const rest = storedView.peek().tags.filter(t => tagGroup(t) !== group);
               setView({ tags: [...rest, tagKey(tag)] });
             }}
           >

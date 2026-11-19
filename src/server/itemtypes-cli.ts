@@ -85,12 +85,12 @@ async function main() {
     store
       .allLots()
       .values()
-      .map((lot) => [lot.title, lot]),
+      .map(lot => [lot.title, lot]),
   )
     .values()
     .toArray();
   if (values.category) {
-    lots = lots.filter((lot) => lot.category?.value === values.category);
+    lots = lots.filter(lot => lot.category?.value === values.category);
   }
   const byCategory = new Map<string | null, Lot[]>();
   for (const lot of sample(lots, Number(values.n), seeded(0))) {
@@ -100,7 +100,7 @@ async function main() {
   for (const [value, group] of byCategory) {
     const label = group[0]?.category?.label || 'Other';
     const titles = group
-      .map((lot) => lot.title)
+      .map(lot => lot.title)
       .toSorted((a, b) => byCode(a.toLowerCase(), b.toLowerCase()));
     console.log(`\n## ${label}`);
     const seen = new Map<string, number>(); // types given so far in this run, standing in for the ones a real run saves

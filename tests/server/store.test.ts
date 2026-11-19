@@ -15,12 +15,12 @@ const dir = mkdtempSync(join(tmpdir(), 'tlx-store-'));
 afterAll(() => rmSync(dir, { recursive: true }));
 let n = 0;
 const dbPath = () => join(dir, `${++n}.db`);
-const byId = (lots: Lot[]) => new Map(lots.map((lot) => [lot.id, lot]));
+const byId = (lots: Lot[]) => new Map(lots.map(lot => [lot.id, lot]));
 
 describe('brands and models from lot details', () => {
   let path: string;
   let store: Store;
-  const lots = [1, 2, 3].map((i) => rawLot({ id: i, title: `Item ${i}` }));
+  const lots = [1, 2, 3].map(i => rawLot({ id: i, title: `Item ${i}` }));
   beforeEach(() => {
     path = dbPath();
     store = new Store(path);
@@ -36,7 +36,7 @@ describe('brands and models from lot details', () => {
     expect(catalog.get(2)).toMatchObject({ brand: null, model: null });
     expect(catalog.get(3)).not.toHaveProperty('brand');
     expect(catalog.get(3)).not.toHaveProperty('model');
-    expect(new Set(store.changes(before).lots.map((l) => l.id))).toEqual(new Set([1, 2]));
+    expect(new Set(store.changes(before).lots.map(l => l.id))).toEqual(new Set([1, 2]));
   });
 
   test('details survive reopening the database and catalog refreshes', () => {
@@ -50,7 +50,7 @@ describe('brands and models from lot details', () => {
     const catalog = byId(reopened.changes(0).lots);
     expect(catalog.get(1)).toMatchObject({ brand: 'Acme', model: 'D-1' });
     expect(catalog.get(2)?.brand).toBeNull();
-    reopened.replaceAll(lots.map((lot) => ({ ...lot, current_price: 25 })));
+    reopened.replaceAll(lots.map(lot => ({ ...lot, current_price: 25 })));
     expect(reopened.changes(before).lots[0]).toMatchObject({ brand: 'Acme', model: 'D-1' });
   });
 
@@ -60,10 +60,10 @@ describe('brands and models from lot details', () => {
     store.saveLotDetail({ id: 1, brand: 'Acme', description: 'Updated' });
     expect(store.seq()).toBe(before);
     store.saveLotDetail({ id: 1, brand: 'Other' });
-    expect(store.changes(before).lots.map((l) => [l.id, l.brand])).toEqual([[1, 'Other']]);
+    expect(store.changes(before).lots.map(l => [l.id, l.brand])).toEqual([[1, 'Other']]);
     before = store.seq();
     store.saveLotDetail({ id: 1, brand: '' });
-    expect(store.changes(before).lots.map((l) => [l.id, l.brand])).toEqual([[1, null]]);
+    expect(store.changes(before).lots.map(l => [l.id, l.brand])).toEqual([[1, null]]);
   });
 
   test('cached details are there when a lot enters the catalog', () => {
@@ -80,10 +80,10 @@ describe('brands and models from lot details', () => {
     store.saveLotDetail({ id: 1, brand: null, model: ' D-1 ', description: 'Updated' });
     expect(store.seq()).toBe(before);
     store.saveLotDetail({ id: 1, brand: null, model: 'D-2' });
-    expect(store.changes(before).lots.map((l) => [l.id, l.model])).toEqual([[1, 'D-2']]);
+    expect(store.changes(before).lots.map(l => [l.id, l.model])).toEqual([[1, 'D-2']]);
     before = store.seq();
     store.saveLotDetail({ id: 1, brand: null, model: null });
-    expect(store.changes(before).lots.map((l) => [l.id, l.model])).toEqual([[1, null]]);
+    expect(store.changes(before).lots.map(l => [l.id, l.model])).toEqual([[1, null]]);
   });
 });
 
@@ -201,8 +201,8 @@ describe('item types', () => {
     const before = store.seq();
     store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
     const changes = store.changes(before);
-    expect(new Set(changes.lots.map((l) => l.id))).toEqual(new Set([1, 2]));
-    expect(changes.lots.every((l) => l.itemType === 'drill driver')).toBe(true);
+    expect(new Set(changes.lots.map(l => l.id))).toEqual(new Set([1, 2]));
+    expect(changes.lots.every(l => l.itemType === 'drill driver')).toBe(true);
     expect(store.itemTypes(['Drill', 'Saw'])).toEqual({ Drill: 'drill driver', Saw: 'saw' });
   });
 
@@ -210,7 +210,7 @@ describe('item types', () => {
     store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
     const reopened = new Store(path);
     reopened.replaceAll([item(1, 'Drill', { current_price: 20 }), item(4)]);
-    expect(new Set([...reopened.allLots().values()].map((l) => l.itemType))).toEqual(
+    expect(new Set([...reopened.allLots().values()].map(l => l.itemType))).toEqual(
       new Set(['drill driver']),
     );
     expect(reopened.untypedItems()).toEqual([]);
@@ -223,7 +223,7 @@ describe('item types', () => {
     expect(store.seq()).toBe(before);
     expect(store.itemTypes(['Drill'])).toEqual({ Drill: 'drill driver' });
     store.saveItemTypes({ Drill: ['battery', 'tools'], Saw: ['saw', 'tools'] });
-    expect(store.changes(before).lots.map((l) => l.id)).toEqual([3]);
+    expect(store.changes(before).lots.map(l => l.id)).toEqual([3]);
   });
 
   test('the same type can be marked manual, then corrected, without an unneeded delta', () => {
@@ -243,7 +243,7 @@ describe('item types', () => {
     const before = store.seq();
     expect(store.resetItemTypes()).toBe(2);
     expect(store.itemTypes(['Drill', 'Saw'])).toEqual({});
-    expect(new Set(store.changes(before).lots.map((l) => l.id))).toEqual(new Set([1, 2, 3]));
+    expect(new Set(store.changes(before).lots.map(l => l.id))).toEqual(new Set([1, 2, 3]));
   });
 
   test('common types are counted per site category', () => {
@@ -295,7 +295,7 @@ describe('tags', () => {
         ]),
       );
       const changes = store.changes(seq);
-      expect(changes.lots.map((l) => l.id).toSorted()).toEqual([1, 2]);
+      expect(changes.lots.map(l => l.id).toSorted()).toEqual([1, 2]);
       expect(changes.lots[0]?.tags).toEqual(tags);
       expect(store.lot(3)).not.toHaveProperty('tags');
     });
@@ -341,7 +341,7 @@ describe('tags', () => {
       expect(
         store
           .changes(seq)
-          .lots.map((l) => l.id)
+          .lots.map(l => l.id)
           .toSorted(),
       ).toEqual([1, 2]);
       expect(tags(3)).toBeUndefined();

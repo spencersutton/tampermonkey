@@ -15,7 +15,7 @@ const conditions = signal(new Map<number, ConditionInfo>(), {
     if (!loading && !this.peek().size) {
       loading = true;
       fetchConditions().then(
-        (list) => (this.value = new Map(list.map((c) => [c.value, c]))),
+        list => (this.value = new Map(list.map(c => [c.value, c]))),
         () => (loading = false),
       );
     }

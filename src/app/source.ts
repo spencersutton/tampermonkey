@@ -209,7 +209,7 @@ export const nextPullAt = () => nextAt;
 
 /** Every closed lot matching this item's identity or title fallback, most recent first. */
 export const fetchPastCloses = (id: number) =>
-  call<{ closes: PastCloseDetail[] }>('GET', `/api/history?id=${id}`).then((r) => r.closes);
+  call<{ closes: PastCloseDetail[] }>('GET', `/api/history?id=${id}`).then(r => r.closes);
 
 /** Persist an item correction and update cards, sorting and category matching immediately. */
 export async function setItemType(lotId: number, itemType: string): Promise<string> {
@@ -232,7 +232,7 @@ const serverKeys = new Set<Key>(SERVER_KEYS);
 export const settingsLoaded = signal(false);
 let markSettingsReady: () => void;
 /** Resolves once settings and the initial catalog have loaded. */
-export const settingsReady = new Promise<void>((resolve) => (markSettingsReady = resolve));
+export const settingsReady = new Promise<void>(resolve => (markSettingsReady = resolve));
 
 /** Persist a shared setting without keeping a browser copy or retry queue. */
 async function sendSetting(key: Key, value: unknown) {
@@ -253,7 +253,7 @@ async function loadSettings() {
   }
   const r = await call<{ values: Record<string, unknown> }>('GET', '/api/settings');
   const values = SERVER_KEYS.map(
-    (key) => [key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key]] as const,
+    key => [key, Object.hasOwn(r.values, key) ? r.values[key] : DEFAULTS[key]] as const,
   );
   batch(() => {
     for (const [key, value] of values) {

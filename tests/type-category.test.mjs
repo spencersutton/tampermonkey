@@ -52,12 +52,12 @@ function nodes(node) {
 }
 
 function submit(rows, label) {
-  const buttons = rows.filter((n) => n.type === 'button' && n.props.type === 'submit');
+  const buttons = rows.filter(n => n.type === 'button' && n.props.type === 'submit');
   assert.equal(buttons.length, 1);
   assert.equal(buttons[0].props.children, label);
   let prevented = false;
   rows
-    .find((n) => n.type === 'form')
+    .find(n => n.type === 'form')
     .props.onSubmit({
       preventDefault: () => {
         prevented = true;
@@ -79,7 +79,7 @@ function pressKey(rows, target, overrides = {}) {
   globalThis.HTMLElement = Element;
   try {
     rows
-      .find((n) => n.props.onKeyDownCapture)
+      .find(n => n.props.onKeyDownCapture)
       .props.onKeyDownCapture({
         key: 'Enter',
         target: new Element(),
@@ -134,15 +134,15 @@ function dialog(t, categories, item = lot(), lots = [item]) {
   };
 }
 
-test('a type without a site category defaults to an unrestricted new category', (t) => {
+test('a type without a site category defaults to an unrestricted new category', t => {
   const d = dialog(t, [], lot('cordless drill', null));
   const rows = d.render();
   assert.equal(
-    rows.find((n) => n.type === 'input' && n.props.type === 'text').props.value,
+    rows.find(n => n.type === 'input' && n.props.type === 'text').props.value,
     'Cordless Drills',
   );
   assert.equal(
-    rows.some((n) => n.props?.class === 'switch-row'),
+    rows.some(n => n.props?.class === 'switch-row'),
     false,
   );
   submit(rows, 'Create');
@@ -151,7 +151,7 @@ test('a type without a site category defaults to an unrestricted new category', 
   ]);
 });
 
-test('existing categories default to add mode and retain the preferred category', (t) => {
+test('existing categories default to add mode and retain the preferred category', t => {
   const categories = [
     { name: 'Tools - Drills', types: ['drill'] },
     { name: 'Workshop', types: ['saw'] },
@@ -159,10 +159,10 @@ test('existing categories default to add mode and retain the preferred category'
   const d = dialog(t, categories);
   applySetting(KEYS.lastCategory, 'Workshop');
   const rows = d.render();
-  const modes = rows.filter((n) => n.props.role === 'radio');
+  const modes = rows.filter(n => n.props.role === 'radio');
   assert.equal(modes[0].props['aria-checked'], false);
   assert.equal(modes[1].props['aria-checked'], true);
-  assert.equal(rows.find((n) => n.type === 'select').props.value, 'Workshop');
+  assert.equal(rows.find(n => n.type === 'select').props.value, 'Workshop');
   submit(rows, 'Add');
   assert.deepEqual(getSetting(KEYS.customCategories), [
     categories[0],
@@ -171,14 +171,14 @@ test('existing categories default to add mode and retain the preferred category'
   assert.equal(d.closed(), true);
 });
 
-test('default form submission does not save when the category search has no selection', (t) => {
+test('default form submission does not save when the category search has no selection', t => {
   const categories = [{ name: 'Workshop', types: ['saw'] }];
   const d = dialog(t, categories);
   d.render()
-    .find((n) => n.type === 'input' && n.props.type === 'search')
+    .find(n => n.type === 'input' && n.props.type === 'search')
     .props.onInput({ currentTarget: { value: 'no matches' } });
   const rows = d.render();
-  assert.equal(rows.find((n) => n.type === 'select').props.value, '');
+  assert.equal(rows.find(n => n.type === 'select').props.value, '');
   assert.equal(pressKey(rows, { tagName: 'INPUT', type: 'search' }), true);
   submit(rows, 'Add');
   assert.deepEqual(getSetting(KEYS.customCategories), categories);
@@ -186,10 +186,10 @@ test('default form submission does not save when the category search has no sele
   assert.equal(d.closed(), false);
 });
 
-test('default form submission does not create a category with an empty name', (t) => {
+test('default form submission does not create a category with an empty name', t => {
   const d = dialog(t, []);
   d.render()
-    .find((n) => n.type === 'input' && n.props.type === 'text')
+    .find(n => n.type === 'input' && n.props.type === 'text')
     .props.onInput({ currentTarget: { value: ' ' } });
   const rows = d.render();
   assert.equal(pressKey(rows, { tagName: 'INPUT', type: 'text' }), true);
@@ -206,7 +206,7 @@ for (const mode of ['add', 'new']) {
     { tagName: 'INPUT', type: 'search' },
     { tagName: 'INPUT', type: 'text' },
   ]) {
-    test(`Enter triggers ${mode} from the dialog or text field: ${JSON.stringify(target)}`, (t) => {
+    test(`Enter triggers ${mode} from the dialog or text field: ${JSON.stringify(target)}`, t => {
       const categories = mode === 'add' ? [{ name: 'Workshop', types: ['saw'] }] : [];
       const d = dialog(t, categories);
       assert.equal(pressKey(d.render(), target), true);
@@ -232,7 +232,7 @@ for (const target of [
   { tagName: 'TEXTAREA' },
   { tagName: 'A' },
 ]) {
-  test(`Enter preserves the focused control's native action: ${JSON.stringify(target)}`, (t) => {
+  test(`Enter preserves the focused control's native action: ${JSON.stringify(target)}`, t => {
     const d = dialog(t, [{ name: 'Workshop', types: ['saw'] }]);
     assert.equal(pressKey(d.render(), target), false);
     assert.deepEqual(d.saves, []);
@@ -240,7 +240,7 @@ for (const target of [
   });
 }
 
-test('Enter shortcut ignores composition and repeats, leaving other keys alone', (t) => {
+test('Enter shortcut ignores composition and repeats, leaving other keys alone', t => {
   const d = dialog(t, []);
   const rows = d.render();
   assert.equal(pressKey(rows, { tagName: 'FORM' }, { isComposing: true }), false);

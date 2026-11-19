@@ -19,7 +19,7 @@ const USER_AGENT = 'tlx-server/1.0 (+https://github.com/spencersutton/tampermonk
 const OUT = new URL('../tests/fixtures/site/', import.meta.url);
 const PAUSE_MS = 500;
 const arg = (name: string, fallback: number) =>
-  Number(process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1] ?? fallback);
+  Number(process.argv.find(a => a.startsWith(`--${name}=`))?.split('=')[1] ?? fallback);
 const WS_SECONDS = arg('ws-seconds', 180);
 const WS_LOTS = 100; // the soonest-ending lots get the most bids
 
@@ -93,7 +93,7 @@ async function captureHttp(): Promise<RawLot[]> {
   save('auth-session-logged-out.json', await capture('/api/auth/session'));
   save(
     'auth-csrf.json',
-    await capture('/api/auth/csrf', (body) => ({
+    await capture('/api/auth/csrf', body => ({
       ...(typeof body === 'object' ? body : {}),
       csrfToken: '<redacted>',
     })),
@@ -119,14 +119,14 @@ async function captureWs(lots: RawLot[]) {
   };
   let id = 0;
   let publications = 0;
-  const done = new Promise<void>((resolve) => {
+  const done = new Promise<void>(resolve => {
     ws.addEventListener('open', () => {
       send({ id: ++id, connect: { name: 'js', version: '5.7.4' } });
       for (const lot of lots) {
         send({ id: ++id, subscribe: { channel: `lot:${lot.id}` } });
       }
     });
-    ws.addEventListener('message', (event) => {
+    ws.addEventListener('message', event => {
       // Centrifugo's JSON protocol may batch replies, one per line.
       for (const line of String(event.data).split('\n').filter(Boolean)) {
         const data: unknown = JSON.parse(line);

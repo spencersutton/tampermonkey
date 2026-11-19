@@ -131,7 +131,7 @@ describe('/api/item-type', () => {
       200,
       { lotIds: [1, 2], itemType: 'drill driver', seq: before + 1 },
     ]);
-    expect(new Set([...s.store.allLots().values()].map((l) => l.itemType))).toEqual(
+    expect(new Set([...s.store.allLots().values()].map(l => l.itemType))).toEqual(
       new Set(['drill driver']),
     );
     s.store.saveItemTypes({ Drill: ['battery', 'tools'] });

@@ -34,10 +34,10 @@ function CheckList<T>(props: {
 }) {
   const { facets, selected, onChange, titleOf } = props;
   const toggle = (v: T) =>
-    onChange(selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v]);
+    onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
   return (
     <>
-      {facets.map((f) => (
+      {facets.map(f => (
         <label
           class={`check ${f.count || selected.includes(f.value) ? '' : 'zero'}`}
           title={titleOf?.(f.value)}
@@ -70,9 +70,9 @@ function FacetList(props: {
   const [expanded, setExpanded] = useState(false);
   const INITIAL = 8;
   const q = query.trim().toLowerCase();
-  const picked = facets.filter((f) => selected.includes(f.value));
+  const picked = facets.filter(f => selected.includes(f.value));
   const rest = facets.filter(
-    (f) => !selected.includes(f.value) && (!q || f.label.toLowerCase().includes(q)),
+    f => !selected.includes(f.value) && (!q || f.label.toLowerCase().includes(q)),
   );
   const shown = expanded || q ? rest : rest.slice(0, Math.max(0, INITIAL - picked.length));
   return (
@@ -84,7 +84,7 @@ function FacetList(props: {
           placeholder={`Find ${name}`}
           aria-label={`Find ${name}`}
           value={query}
-          onInput={(e) => setQuery(e.currentTarget.value)}
+          onInput={e => setQuery(e.currentTarget.value)}
         />
       )}
       <CheckList facets={[...picked, ...shown]} selected={selected} onChange={onChange} />
@@ -164,7 +164,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         {/* Picking one of my lots clears the other filters so none of them hide it. */}
         <select
           value={view.mine}
-          onChange={(e) => {
+          onChange={e => {
             const mine = e.currentTarget.value as ViewState['mine'];
             setView(mine ? { ...DEFAULT_VIEW, sort: view.sort, mine } : { mine });
           }}
@@ -178,7 +178,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
       </label>
       <div class="closed-links">
         <span class="muted">Closed:</span>
-        {(['won', 'lost'] as const).map((s) => (
+        {(['won', 'lost'] as const).map(s => (
           <button
             type="button"
             class={`btn-text ${closed.value === s ? 'on' : ''}`}
@@ -195,7 +195,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         <span>Ending</span>
         <select
           value={view.ending}
-          onChange={(e) => setView({ ending: e.currentTarget.value as ViewState['ending'] })}
+          onChange={e => setView({ ending: e.currentTarget.value as ViewState['ending'] })}
         >
           {Object.entries(ENDING).map(([k, { label }]) => (
             <option value={k}>{label}</option>
@@ -207,7 +207,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         <CheckList
           facets={facets.locations}
           selected={view.locations}
-          onChange={(locations) => setView({ locations })}
+          onChange={locations => setView({ locations })}
         />
         <label class="check">
           <input
@@ -235,8 +235,8 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         <CategoryList
           facets={facets}
           selected={view.categories}
-          onChange={(categories) => setView({ categories, noCategories: false })}
-          onOnly={(categories) => setView({ ...DEFAULT_VIEW, sort: view.sort, categories })}
+          onChange={categories => setView({ categories, noCategories: false })}
+          onOnly={categories => setView({ ...DEFAULT_VIEW, sort: view.sort, categories })}
         />
         <button type="button" class="btn-text cat-edit-btn" onClick={modalActions.editCategories}>
           <Icon name="edit" size={16} />{' '}
@@ -250,7 +250,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
             name="item types"
             facets={facets.types}
             selected={view.types}
-            onChange={(types) => setView({ types })}
+            onChange={types => setView({ types })}
           />
         </Collapsible>
       )}
@@ -261,7 +261,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
             name="brands"
             facets={facets.brands}
             selected={view.brands}
-            onChange={(brands) => setView({ brands })}
+            onChange={brands => setView({ brands })}
           />
           <p class="muted small">Only lots whose brand has loaded are listed.</p>
         </Collapsible>
@@ -271,8 +271,8 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         <CheckList
           facets={facets.conditions}
           selected={view.conditions}
-          onChange={(conditions) => setView({ conditions })}
-          titleOf={(v) => conditions.get(v)?.description}
+          onChange={conditions => setView({ conditions })}
+          titleOf={v => conditions.get(v)?.description}
         />
         {conditions.size > 0 && (
           <details class="about-conditions">
@@ -280,7 +280,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
             <dl>
               {conditions
                 .values()
-                .map((c) => (
+                .map(c => (
                   <div>
                     <dt>{c.label}</dt>
                     <dd>{c.description}</dd>
@@ -305,7 +305,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
 
       <Collapsible id="f-price" title="Price">
         <div class="price-buckets" role="group" aria-label="Current bid ranges">
-          {facets.prices.map((f) => {
+          {facets.prices.map(f => {
             const b = PRICE_BUCKETS[f.value]!;
             const on = view.priceMin === b.min && view.priceMax === b.max;
             return (
@@ -329,24 +329,24 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
           <PriceField
             label="Bid min"
             value={view.priceMin}
-            onChange={(priceMin) => setView({ priceMin })}
+            onChange={priceMin => setView({ priceMin })}
           />
           <PriceField
             label="Bid max"
             value={view.priceMax}
-            onChange={(priceMax) => setView({ priceMax })}
+            onChange={priceMax => setView({ priceMax })}
           />
         </div>
         <div class="field-row">
           <PriceField
             label="Max est. total"
             value={view.totalMax}
-            onChange={(totalMax) => setView({ totalMax })}
+            onChange={totalMax => setView({ totalMax })}
           />
           <PriceField
             label="Min retail"
             value={view.retailMin}
-            onChange={(retailMin) => setView({ retailMin })}
+            onChange={retailMin => setView({ retailMin })}
           />
         </div>
       </Collapsible>

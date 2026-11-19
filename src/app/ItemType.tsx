@@ -66,7 +66,7 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
   const catalog = lots.value;
   const suggestions = useMemo(
     () =>
-      new Set(catalog.values().flatMap((l) => (l.itemType ? [l.itemType] : [])))
+      new Set(catalog.values().flatMap(l => (l.itemType ? [l.itemType] : [])))
         .values()
         .toArray()
         .toSorted(collator.compare),
@@ -98,7 +98,7 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
       <form
         class="confirm"
         tabIndex={-1}
-        onSubmit={(e) => {
+        onSubmit={e => {
           e.preventDefault();
           void save();
         }}
@@ -118,13 +118,13 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
               disabled={saving}
               aria-describedby={`item-type-help${error || validation ? ' item-type-error' : ''}`}
               aria-invalid={Boolean(validation)}
-              onInput={(e) => {
+              onInput={e => {
                 setName(e.currentTarget.value);
                 setError(null);
               }}
             />
             <datalist id="item-type-options">
-              {suggestions.map((type) => (
+              {suggestions.map(type => (
                 <option key={type} value={type} />
               ))}
             </datalist>

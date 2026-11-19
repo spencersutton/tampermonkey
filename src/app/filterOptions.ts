@@ -18,9 +18,9 @@ export function tagMenuOptions(
   numericCounts: Map<string, number>,
   allFacets: Facet<string>[] = facets,
 ): FilterOption[] {
-  const values = facets.filter((f) => !isNoneTag(f.value));
-  if (!values.length || values.some((f) => numericTagKey(f.value) == null)) {
-    return facets.map((f) => ({ ...f, values: [f.value] }));
+  const values = facets.filter(f => !isNoneTag(f.value));
+  if (!values.length || values.some(f => numericTagKey(f.value) == null)) {
+    return facets.map(f => ({ ...f, values: [f.value] }));
   }
   const options = new Map<string, FilterOption>();
   for (const facet of facets) {
@@ -51,7 +51,7 @@ export function tagMenuOptions(
 }
 
 export function toggleFilterOption(selected: string[], values: string[]): string[] {
-  return values.some((value) => selected.includes(value))
-    ? selected.filter((value) => !values.includes(value))
+  return values.some(value => selected.includes(value))
+    ? selected.filter(value => !values.includes(value))
     : [...selected, ...values];
 }

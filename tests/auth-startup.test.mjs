@@ -14,7 +14,7 @@ after(() => vite.close());
 const { appUnlocked, authedFetch, lockApp, me, onAuthChange, refreshSession, unlockApp } =
   await vite.ssrLoadModule('/src/app/auth.tsx');
 
-test('authenticated fetch preserves request options and supports every HeadersInit form', async (t) => {
+test('authenticated fetch preserves request options and supports every HeadersInit form', async t => {
   const response = new Response();
   const fetch = t.mock.method(globalThis, 'fetch', async () => response);
   for (const supplied of [
@@ -42,7 +42,7 @@ test('authenticated fetch preserves request options and supports every HeadersIn
   assert.equal(fetch.mock.calls.at(-1).arguments[1].headers.get('X-TLX-Client'), '1');
 });
 
-test('startup waits for unlock and runs only once across subsequent lock and login changes', async (t) => {
+test('startup waits for unlock and runs only once across subsequent lock and login changes', async t => {
   let locked = true;
   let loggedIn = false;
   let starts = 0;

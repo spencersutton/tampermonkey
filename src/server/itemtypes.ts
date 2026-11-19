@@ -129,7 +129,7 @@ export class Labeller {
           const batch = items.slice(start, start + BATCH);
           const types = await this.ask(
             labels.get(value) ?? 'Other',
-            batch.map((lot) => lot.title),
+            batch.map(lot => lot.title),
             this.store.commonTypes(value, VOCAB),
           );
           this.store.saveLotTypes(

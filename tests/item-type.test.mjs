@@ -62,13 +62,13 @@ test('title corrections replace the catalog Map and update category matching and
       catalogLot(2, 'Drill', 'battery'),
       catalogLot(3, 'Saw', 'saw'),
       catalogLot(4, 'DRILL', 'battery'),
-    ].map((l) => [l.id, l]),
+    ].map(l => [l.id, l]),
   );
   const previous = lots.peek();
   updateItemType([1, 2], 'drill driver');
   assert.notEqual(lots.peek(), previous);
   assert.deepEqual(
-    [...lots.peek().values()].map((l) => l.itemType),
+    [...lots.peek().values()].map(l => l.itemType),
     ['drill driver', 'drill driver', 'saw', 'battery'],
   );
   assert.equal(previous.get(1).itemType, 'battery');
@@ -76,7 +76,7 @@ test('title corrections replace the catalog Map and update category matching and
   assert.equal(categoryOf(lots.peek().get(1), cats).value, 'custom:Tools - Drills');
   assert.equal(
     computeFacets(lots.peek().values(), 1000, cats).categories.find(
-      (f) => f.value === 'custom:Tools - Drills',
+      f => f.value === 'custom:Tools - Drills',
     ).count,
     2,
   );
@@ -116,7 +116,7 @@ test('invalid catalog timestamps leave the previous catalog intact', () => {
 
 test('saving uses the guarded endpoint and applies the canonical server response to the lots it names', async () => {
   lots.value = new Map(
-    [catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery')].map((l) => [l.id, l]),
+    [catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery')].map(l => [l.id, l]),
   );
   globalThis.fetch = async (path, init) => {
     assert.equal(path, '/api/item-type');

@@ -95,7 +95,7 @@ export class History {
           this.store
             .allLots()
             .values()
-            .map((lot) => ({ ...lot, endsAt: endsAtMs(lot) })),
+            .map(lot => ({ ...lot, endsAt: endsAtMs(lot) })),
           DEFAULT_NAME_MATCH,
         ),
       };
@@ -113,15 +113,15 @@ export class History {
       };
       c['relisted'] = index
         .matches(item)
-        .filter((lot) => lot.endsAt > now)
-        .map((lot) => lot.id);
+        .filter(lot => lot.endsAt > now)
+        .map(lot => lot.id);
     }
   }
 
   /** Re-annotate the stored lots after closes or identities change. */
   refresh(): void {
     const index = this.index();
-    const n = this.store.updateLots((lots) => {
+    const n = this.store.updateLots(lots => {
       for (const lot of lots) {
         this.annotateOne(lot, index);
       }

@@ -19,7 +19,7 @@ const { error, fetchedAt, loaded, progress } = await vite.ssrLoadModule('/src/ap
 const { nextPullAt, pullCatalog, settingsReady, startCatalog } =
   await vite.ssrLoadModule('/src/app/source.ts');
 
-test('catalog polling and manual refresh preserve the visible pull status', async (t) => {
+test('catalog polling and manual refresh preserve the visible pull status', async t => {
   const now = Date.now();
   const status = {
     now,

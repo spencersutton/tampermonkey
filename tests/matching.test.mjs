@@ -94,7 +94,7 @@ test('title fallback ignores case and order but never differing numbers', () => 
   ];
   const groups = groupLots(titles.map((t, i) => item(i, t, { brand: null })));
   assert.equal(groups.get(0), groups.get(1));
-  assert.equal(new Set([0, 2, 3, 4].map((i) => groups.get(i))).size, 4);
+  assert.equal(new Set([0, 2, 3, 4].map(i => groups.get(i))).size, 4);
 });
 
 test('"Qty" only joins its number at the start of a word', () => {
@@ -132,7 +132,7 @@ test('the same brand and model groups across conditions, and only shared groups 
   ];
   setGroups(lots);
   assert.deepEqual(
-    lots.map((lot) => lot.groupId),
+    lots.map(lot => lot.groupId),
     [3, 3, 3, undefined],
   );
   assert.equal('groupId' in lots[3], false);
@@ -186,7 +186,7 @@ test('past closes prefer identity, fall back to titles in either direction, and 
     ],
     90,
   );
-  const ids = (lot) => index.matches(lot).map((row) => row.id);
+  const ids = lot => index.matches(lot).map(row => row.id);
   assert.deepEqual(ids(item(10)), [4, 3, 1]);
   assert.deepEqual(ids(item(10, undefined, { model: null })), [4, 3, 2]);
   assert.deepEqual(ids(item(4)), [3, 1], 'the same lot is never its own history');
@@ -200,7 +200,7 @@ test('incomplete title fallback keeps numeric and fuzzy rules', () => {
     90,
   );
   assert.deepEqual(
-    index.matches(item(3)).map((row) => row.id),
+    index.matches(item(3)).map(row => row.id),
     [2],
   );
   assert.deepEqual(index.matches(item(3, 'Cordless drill Qty 3')), []);

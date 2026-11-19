@@ -50,16 +50,16 @@ const saved = {
   lot_fee: 2,
   images: [],
 };
-const lot = (id) => ({ id, auction_period: 'test' });
+const lot = id => ({ id, auction_period: 'test' });
 
-test('saved metadata arrives before live details, without changing price or account state', async (t) => {
+test('saved metadata arrives before live details, without changing price or account state', async t => {
   let live;
   const requests = [];
-  t.mock.method(globalThis, 'fetch', (url) => {
+  t.mock.method(globalThis, 'fetch', url => {
     requests.push(url);
     if (url.startsWith('/api/lot-metadata?'))
       return Promise.resolve(Response.json({ metadata: saved }));
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       live = resolve;
     });
   });
@@ -83,7 +83,7 @@ test('saved metadata arrives before live details, without changing price or acco
   ]);
 });
 
-test('auction expiry and bid invalidation retain reusable metadata but not stale bid history', async (t) => {
+test('auction expiry and bid invalidation retain reusable metadata but not stale bid history', async t => {
   t.mock.method(globalThis, 'fetch', async () => Response.json(raw(102)));
   await loadDetail(lot(102));
   const item = cachedMetadata(102);
@@ -96,7 +96,7 @@ test('auction expiry and bid invalidation retain reusable metadata but not stale
   assert.equal(cachedDetail(102), undefined);
 });
 
-test('new live versions bypass the short-lived auction cache and never roll prices backward', async (t) => {
+test('new live versions bypass the short-lived auction cache and never roll prices backward', async t => {
   let version = 2;
   let requests = 0;
   t.mock.method(globalThis, 'fetch', async () => {
@@ -118,11 +118,11 @@ test('new live versions bypass the short-lived auction cache and never roll pric
   assert.equal(cachedDetail(103).version, 4);
 });
 
-test('late cached responses cannot replace freshly fetched metadata', async (t) => {
+test('late cached responses cannot replace freshly fetched metadata', async t => {
   let resolveSaved;
-  t.mock.method(globalThis, 'fetch', (url) =>
+  t.mock.method(globalThis, 'fetch', url =>
     url.startsWith('/api/')
-      ? new Promise((resolve) => {
+      ? new Promise(resolve => {
           resolveSaved = resolve;
         })
       : Promise.resolve(Response.json(raw(104))),
@@ -134,9 +134,9 @@ test('late cached responses cannot replace freshly fetched metadata', async (t) 
   assert.equal(cachedMetadata(104).description, 'Fresh description');
 });
 
-test('metadata errors are explicit, retryable, and do not erase saved details after a live refresh failure', async (t) => {
+test('metadata errors are explicit, retryable, and do not erase saved details after a live refresh failure', async t => {
   let failCache = true;
-  t.mock.method(globalThis, 'fetch', async (url) => {
+  t.mock.method(globalThis, 'fetch', async url => {
     if (url.startsWith('/api/'))
       return failCache
         ? new Response('Unavailable', { status: 503 })
@@ -151,11 +151,11 @@ test('metadata errors are explicit, retryable, and do not erase saved details af
   assert.equal(cachedDetail(105), undefined);
 });
 
-test('login changes invalidate auction data and late requests without losing static details', async (t) => {
+test('login changes invalidate auction data and late requests without losing static details', async t => {
   const replies = [];
-  t.mock.method(globalThis, 'fetch', () => new Promise((resolve) => replies.push(resolve)));
+  t.mock.method(globalThis, 'fetch', () => new Promise(resolve => replies.push(resolve)));
   const initial = loadDetail(lot(106));
-  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
   replies.shift()(Response.json(raw(106)));
   await initial;
   const item = cachedMetadata(106);
@@ -163,7 +163,7 @@ test('login changes invalidate auction data and late requests without losing sta
   assert.equal(cachedDetail(106), undefined);
   assert.equal(cachedMetadata(106), item);
   const old = loadDetail(lot(106));
-  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
   me.value = { ...me.peek(), site: { loggedIn: false } };
   replies.shift()(
     Response.json(raw(106, { your_standing: { is_leading: true, your_max_bid: 100 } })),

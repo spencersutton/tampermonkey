@@ -49,8 +49,8 @@ onAuthChange(() => {
   const oldSubs = [...subs.values()];
   subs.clear();
   connecting = null;
-  void old.then((c) => {
-    oldSubs.forEach((sub) => drop(c, sub));
+  void old.then(c => {
+    oldSubs.forEach(sub => drop(c, sub));
     c.disconnect();
   });
   void watchLots(watched).catch(() => {});
@@ -65,7 +65,7 @@ async function open(): Promise<Centrifuge> {
   c.on('connected', () => setState('connected'));
   c.on('disconnected', () => setState('disconnected'));
   // Server-side subscriptions (user:…) arrive as client-level publications.
-  c.on('publication', (ctx) => {
+  c.on('publication', ctx => {
     if (ctx.channel.startsWith('user:')) {
       onUserPublication(ctx.data ?? {});
     }
@@ -139,8 +139,8 @@ async function watchLots(ids: number[]) {
   // Lots on screen that aren't subscribed yet.
   for (const id of want.difference(subs)) {
     const sub = c.getSubscription(`lot:${id}`) ?? c.newSubscription(`lot:${id}`);
-    sub.on('publication', (ctx) => onLotPublication(ctx.data));
-    sub.on('subscribed', (ctx) => catchUp(id, ctx));
+    sub.on('publication', ctx => onLotPublication(ctx.data));
+    sub.on('subscribed', ctx => catchUp(id, ctx));
     sub.subscribe();
     subs.set(id, sub);
   }

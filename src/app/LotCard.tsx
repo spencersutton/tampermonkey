@@ -231,7 +231,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
 function DupeCount({ row }: { row: Row }) {
   const list = row.others
     .map(
-      (r) =>
+      r =>
         `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(endsAtMs(r.lot))}`,
     )
     .join('\n');
@@ -281,11 +281,11 @@ const median = (xs: number[]) => {
 export function pastPrice(
   lot: Lot,
 ): { median: number; count: number; sameCondition: boolean } | null {
-  const sold = lot.pastCloses?.recent.filter((c) => c.sold) ?? [];
-  const same = sold.filter((c) => c.condition === (lot.condition?.display_name ?? null));
+  const sold = lot.pastCloses?.recent.filter(c => c.sold) ?? [];
+  const same = sold.filter(c => c.condition === (lot.condition?.display_name ?? null));
   const use = same.length ? same : sold;
   return use.length
-    ? { median: median(use.map((c) => c.price)), count: use.length, sameCondition: same.length > 0 }
+    ? { median: median(use.map(c => c.price)), count: use.length, sameCondition: same.length > 0 }
     : null;
 }
 

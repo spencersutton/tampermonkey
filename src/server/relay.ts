@@ -54,7 +54,7 @@ export function relayData(upstream: WebSocket): RelayData {
       data.early.push(event.data);
     }
   });
-  upstream.addEventListener('close', (event) =>
+  upstream.addEventListener('close', event =>
     data.client?.close(serverCode(event.code), event.reason),
   );
   return data;

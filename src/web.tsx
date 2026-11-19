@@ -20,7 +20,7 @@ import { KEYS } from './shared/keys';
 const fromUrl = navFromUrl();
 if (fromUrl) {
   // A link to just the Won / Lost page (/tlx?closed=won) keeps the current view.
-  if (new URLSearchParams(location.search).keys().some((k) => k !== 'closed')) {
+  if (new URLSearchParams(location.search).keys().some(k => k !== 'closed')) {
     setSetting(KEYS.view, fromUrl.view);
   }
   page.value = fromUrl.page;

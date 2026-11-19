@@ -96,12 +96,12 @@ export function numericLabel(text: string): string | null {
  * "-.25"); null when any isn't (or there are none). Equal numbers keep their order.
  */
 export function numericOrder<T>(items: T[], text: (item: T) => string): T[] | null {
-  const nums = items.map((item) => text(item).trim());
-  if (!nums.length || !nums.every((n) => PLAIN_NUMBER.test(n))) return null;
+  const nums = items.map(item => text(item).trim());
+  if (!nums.length || !nums.every(n => PLAIN_NUMBER.test(n))) return null;
   return items
     .map((item, i) => ({ item, n: Number(nums[i]) }))
     .toSorted((a, b) => a.n - b.n)
-    .map((x) => x.item);
+    .map(x => x.item);
 }
 
 /**
@@ -164,13 +164,13 @@ export function openHandler(open: () => void) {
  */
 export function memoizeWeak<T extends object, R>(fn: (arg: T) => R): (arg: T) => R {
   const cache = new WeakMap<T, R>();
-  return (arg) => cache.getOrInsertComputed(arg, fn);
+  return arg => cache.getOrInsertComputed(arg, fn);
 }
 
 /** `fn`, cached per argument forever: only for keys from a small or short-lived set. */
 export function memoize<T, R>(fn: (arg: T) => R): (arg: T) => R {
   const cache = new Map<T, R>();
-  return (arg) => cache.getOrInsertComputed(arg, fn);
+  return arg => cache.getOrInsertComputed(arg, fn);
 }
 
 /**

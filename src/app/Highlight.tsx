@@ -7,8 +7,8 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** A regex matching the plain words and phrases of a search, or null when there are none. */
 const termsRegex = memoLast((search: string): RegExp | null => {
   const words = parseQuery(search)
-    .filter((t) => !t.negate && !t.field && t.value)
-    .flatMap((t) => (t.phrase ? [t.value] : [t.value, stem(t.value)]));
+    .filter(t => !t.negate && !t.field && t.value)
+    .flatMap(t => (t.phrase ? [t.value] : [t.value, stem(t.value)]));
   if (!words.length) return null;
   const alternatives = new Set(words)
     .values()

@@ -44,10 +44,10 @@ function matchFacets(
   words: string[],
   query: string,
   max: number,
-  nameOf: (f: Facet<string>) => string = (f) => f.label,
+  nameOf: (f: Facet<string>) => string = f => f.label,
 ) {
   return facets
-    .map((f) => ({ f, s: nameScore(nameOf(f), words, query) }))
+    .map(f => ({ f, s: nameScore(nameOf(f), words, query) }))
     .filter(({ s, f }) => s > 0 && f.count > 0)
     .toSorted((a, b) => b.s - a.s || b.f.count - a.f.count)
     .slice(0, max)
@@ -94,7 +94,7 @@ export function suggest(
     types: matchFacets(facets.types, words, query, MAX_TYPES),
     brands: matchFacets(facets.brands, words, query, MAX_BRANDS),
     // Tags match on their value ("nickel" finds "finish: satin nickel").
-    tags: matchFacets(facets.tags, words, query, MAX_TAGS, (f) => parseTag(f.value).value),
+    tags: matchFacets(facets.tags, words, query, MAX_TAGS, f => parseTag(f.value).value),
     categories: matchFacets(facets.categories, words, query, MAX_CATEGORIES),
     lots: best,
   };

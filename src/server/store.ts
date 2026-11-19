@@ -334,7 +334,7 @@ export class Store {
         this.db
           .query<{ name: string }, []>(`PRAGMA table_info(${table})`)
           .all()
-          .map((r) => r.name),
+          .map(r => r.name),
       );
     if (!columns('item_types').has('manual')) {
       this.db.run('ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0');
@@ -551,7 +551,7 @@ export class Store {
       }>(
         `SELECT title, type, category, at, manual, NULL AS brand, NULL AS model FROM item_types
          UNION ALL SELECT title, type, category, at, manual, brand, model FROM identity_item_types`,
-      ).map((r) => ({ ...r, manual: Boolean(r.manual) })),
+      ).map(r => ({ ...r, manual: Boolean(r.manual) })),
     );
     return this.typeIndexCache;
   }
@@ -566,7 +566,7 @@ export class Store {
         manual: number;
         brand: string;
         model: string;
-      }>('SELECT title, tags, at, manual, brand, model FROM item_tags').map((r) => ({
+      }>('SELECT title, tags, at, manual, brand, model FROM item_tags').map(r => ({
         title: r.title,
         type: r.tags,
         at: r.at,
@@ -579,7 +579,7 @@ export class Store {
   }
 
   private compiledRules(): CompiledRule[] {
-    this.rulesCache ??= this.tagRules().map((r) => new CompiledRule(r.pattern, r.tags));
+    this.rulesCache ??= this.tagRules().map(r => new CompiledRule(r.pattern, r.tags));
     return this.rulesCache;
   }
 
@@ -643,11 +643,11 @@ export class Store {
   }
 
   private typeAssignments(): Map<number, string | null> {
-    return new Map(this.titles().map((lot) => [lot.id!, lot.itemType ?? null]));
+    return new Map(this.titles().map(lot => [lot.id!, lot.itemType ?? null]));
   }
 
   private tagAssignments(): Map<number, string[] | null> {
-    return new Map(this.titles().map((lot) => [lot.id!, lot.tags ?? null]));
+    return new Map(this.titles().map(lot => [lot.id!, lot.tags ?? null]));
   }
 
   /** Give lots whose assignment changed a new sequence; returns their new values, by lot id. */
@@ -675,19 +675,19 @@ export class Store {
         'categories',
         'value',
         'label',
-        (l) => (l.category ? [l.category.value, l.category.label ?? null] : null),
+        l => (l.category ? [l.category.value, l.category.label ?? null] : null),
       ],
       [
         'conditions',
         'value',
         'label',
-        (l) => (l.condition ? [l.condition.value, l.condition.display_name ?? null] : null),
+        l => (l.condition ? [l.condition.value, l.condition.display_name ?? null] : null),
       ],
       [
         'locations',
         'id',
         'name',
-        (l) => (l.location ? [l.location.id, l.location.name ?? null] : null),
+        l => (l.location ? [l.location.id, l.location.name ?? null] : null),
       ],
     ];
     for (const [table, key, label, pick] of lookups) {
@@ -763,19 +763,19 @@ export class Store {
   replaceAll(lots: Iterable<Lot>, meta: Partial<CatalogMeta> = {}): number {
     const old = this.load();
     let seq = this.int('seq');
-    const fresh = new Map([...lots].map((lot) => [lot.id, lot]));
+    const fresh = new Map([...lots].map(lot => [lot.id, lot]));
     this.annotateItems(fresh.values());
     const changed = fresh
       .values()
-      .filter((lot) => !dequal(old.get(lot.id), lot))
+      .filter(lot => !dequal(old.get(lot.id), lot))
       .toArray();
     const gone = old
       .keys()
-      .filter((i) => !fresh.has(i))
+      .filter(i => !fresh.has(i))
       .toArray();
     const back = fresh
       .keys()
-      .filter((i) => !old.has(i))
+      .filter(i => !old.has(i))
       .toArray(); // usually new, but may have been taken for closed
     this.tx(() => {
       if (changed.length || gone.length) {
@@ -809,7 +809,7 @@ export class Store {
     return {
       seq,
       lots: [...this.load('WHERE l.seq > ?', from).values()],
-      ids: this.all<{ id: number }>('SELECT id FROM lots').map((r) => r.id),
+      ids: this.all<{ id: number }>('SELECT id FROM lots').map(r => r.id),
     };
   }
 
@@ -822,7 +822,7 @@ export class Store {
     const old = this.load();
     const lots = structuredClone([...old.values()]);
     fn(lots);
-    const changed = lots.filter((lot) => !dequal(lot, old.get(lot.id)));
+    const changed = lots.filter(lot => !dequal(lot, old.get(lot.id)));
     if (changed.length) {
       this.tx(() => {
         this.writeLots(changed, seq);
@@ -844,7 +844,7 @@ export class Store {
       `SELECT c.id, c.title, c.auction_period AS auctionPeriod, c.ends_at AS endsAt, c.price, c.bid_count AS bidCount,
         c.sold, c.final, c.condition, c.location, c.category, c.retail, d.brand, d.model
       FROM closed_lots c LEFT JOIN lot_details d ON d.lot_id = c.id`,
-    ).map((r) => ({ ...r, sold: Boolean(r.sold), final: r.final === 1 }));
+    ).map(r => ({ ...r, sold: Boolean(r.sold), final: r.final === 1 }));
   }
 
   /**
@@ -975,7 +975,7 @@ export class Store {
   untypedItems(): Lot[] {
     return this.load()
       .values()
-      .filter((lot) => !lot.itemType)
+      .filter(lot => !lot.itemType)
       .toArray();
   }
 
@@ -987,7 +987,7 @@ export class Store {
        ) WHERE category IS ? GROUP BY type ORDER BY count(*) DESC, type LIMIT ?`,
       category,
       limit,
-    ).map((r) => r.type);
+    ).map(r => r.type);
   }
 
   /**
@@ -1122,7 +1122,7 @@ export class Store {
   tagRules(): TagRule[] {
     return this.all<{ id: number; pattern: string; tags: string }>(
       'SELECT id, pattern, tags FROM tag_rules ORDER BY id',
-    ).map((r) => ({ id: r.id, pattern: r.pattern, tags: jsonList(r.tags) }));
+    ).map(r => ({ id: r.id, pattern: r.pattern, tags: jsonList(r.tags) }));
   }
 
   /**
@@ -1259,7 +1259,7 @@ export class Store {
           lots: 1,
           span: [codePoints(m.index), codePoints(m.index + m[0].length)],
           tags: current,
-          adds: (rule.tagsFor(lot.title) ?? []).filter((t) => !have.has(tagKey(t))),
+          adds: (rule.tagsFor(lot.title) ?? []).filter(t => !have.has(tagKey(t))),
         });
       }
     }
@@ -1282,7 +1282,7 @@ export class Store {
       'SELECT key, value FROM settings WHERE rev > ?',
       since > rev ? 0 : since,
     );
-    return { rev, values: Object.fromEntries(rows.map((r) => [r.key, JSON.parse(r.value)])) };
+    return { rev, values: Object.fromEntries(rows.map(r => [r.key, JSON.parse(r.value)])) };
   }
 
   setting(key: string): unknown {

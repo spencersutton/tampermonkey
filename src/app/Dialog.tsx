@@ -36,14 +36,14 @@ export function Dialog({ onClose, children, class: cls, ...rest }: Props) {
       {...rest}
       ref={ref}
       class={`backdrop ${className ?? ''}`}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-      onCancel={(e) => {
+      onMouseDown={e => e.target === e.currentTarget && onClose()}
+      onCancel={e => {
         e.preventDefault();
         onClose();
       }}
       // The browser may close it without a cancel event (repeated Escape); keep
       // it open until the caller unmounts it, since a caller can refuse to close.
-      onClose={(e) => {
+      onClose={e => {
         if (e.currentTarget.isConnected) {
           e.currentTarget.showModal();
           onClose();

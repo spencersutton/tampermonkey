@@ -138,7 +138,7 @@ describe('/backend proxy', () => {
     let rejected = '';
     const { request, fake, siteCalls } = await setup({
       loggedIn: true,
-      site: (call) =>
+      site: call =>
         call.headers.get('Authorization') === `Bearer ${rejected}`
           ? Response.json(ANONYMOUS_ME.body, { status: 401 })
           : Response.json({ pickup_location: null }),
@@ -147,7 +147,7 @@ describe('/backend proxy', () => {
     fake.token = jwt(Date.now() / 1000 + 7200);
     const res = await request('/backend/v1/auth/me/');
     expect(res.status).toBe(200);
-    expect(siteCalls.map((c) => c.headers.get('Authorization'))).toEqual([
+    expect(siteCalls.map(c => c.headers.get('Authorization'))).toEqual([
       `Bearer ${rejected}`,
       `Bearer ${fake.token}`,
     ]);
@@ -156,14 +156,14 @@ describe('/backend proxy', () => {
   test('still rejected, a GET falls back to anonymous data but a POST does not', async () => {
     const { request, post, siteCalls, fake } = await setup({
       loggedIn: true,
-      site: (call) =>
+      site: call =>
         call.headers.has('Authorization')
           ? Response.json(ANONYMOUS_ME.body, { status: 401 })
           : Response.json({ anonymous: true }),
     });
     fake.token = jwt(Date.now() / 1000 + 7200); // the refresh gets a new token, rejected too
     expect(await (await request('/backend/v1/auth/me/')).json()).toEqual({ anonymous: true });
-    expect(siteCalls.map((c) => c.headers.has('Authorization'))).toEqual([true, true, false]);
+    expect(siteCalls.map(c => c.headers.has('Authorization'))).toEqual([true, true, false]);
     const res = await post('/backend/v1/auctions/lots/5/bids', { amount: 1 });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual(ANONYMOUS_ME.body);
@@ -188,7 +188,7 @@ describe('/backend proxy', () => {
   test('Won/Lost pages get saved identities and the open lots relisting each item', async () => {
     const closedPage = (results: unknown[]) => Response.json({ count: results.length, results });
     const { request, store } = await setup({
-      site: (call) =>
+      site: call =>
         call.path.startsWith('/backend/v1/auctions/control-panel/closed/won/')
           ? closedPage([
               { lot_id: 90, title: 'Something else' },

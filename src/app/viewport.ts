@@ -9,7 +9,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 export function observeLot(element: HTMLElement | null) {
   if (!element) return;
   cards ??= new IntersectionObserver(
-    (entries) => {
+    entries => {
       for (const entry of entries) {
         if (!entry.target.isConnected) continue;
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -48,8 +48,8 @@ let endObserver: IntersectionObserver | undefined;
 export function observeEnd(element: HTMLElement | null) {
   if (!element) return;
   endObserver ??= new IntersectionObserver(
-    (entries) => {
-      nearEnd.value = entries.some((entry) => entry.isIntersecting);
+    entries => {
+      nearEnd.value = entries.some(entry => entry.isIntersecting);
     },
     { rootMargin: '0px 0px 1200px 0px' },
   );

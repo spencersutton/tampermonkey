@@ -8,7 +8,7 @@ import { rawDetail } from './raw-lot.mjs';
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
+  getItem: key => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
 };
 const vite = await createServer({
@@ -163,7 +163,7 @@ test('newer detail maps override stale lot fields, including explicitly missing 
   assert.equal(matches('brand:black', fixture({ id: 2 }), {}, details), true);
 });
 
-test('cached details and subsequent changes update grid and saved-search counts without fetching', (t) => {
+test('cached details and subsequent changes update grid and saved-search counts without fetching', t => {
   t.mock.method(globalThis, 'fetch', () => {
     throw new Error('Searching must not fetch');
   });
@@ -195,7 +195,7 @@ test('cached details and subsequent changes update grid and saved-search counts 
   });
   applyCatalog(reply(fixture(), 1));
   assert.deepEqual(
-    gridView.value.rows.map((r) => r.lot.id),
+    gridView.value.rows.map(r => r.lot.id),
     [1],
   );
   assert.deepEqual(searchStats.value.get('drills'), { total: 1, fresh: 1 });
@@ -208,7 +208,7 @@ test('cached details and subsequent changes update grid and saved-search counts 
   assert.deepEqual(searchStats.value.get('drills'), { total: 1, fresh: 1 });
 });
 
-test('newly loaded details become searchable without a price-version update', async (t) => {
+test('newly loaded details become searchable without a price-version update', async t => {
   lots.value = new Map([[50, fixture({ id: 50, brand: undefined, model: undefined })]]);
   setView({ search: 'brand:acme model:d-50' });
   applySetting(KEYS.savedSearches, [
@@ -234,7 +234,7 @@ test('newly loaded details become searchable without a price-version update', as
   );
   await loadDetail(lots.value.get(50));
   assert.deepEqual(
-    gridView.value.rows.map((r) => r.lot.id),
+    gridView.value.rows.map(r => r.lot.id),
     [50],
   );
   assert.deepEqual(searchStats.value.get('new-details'), { total: 1, fresh: 1 });

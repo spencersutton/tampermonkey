@@ -73,7 +73,7 @@ export async function setup(options: Options = {}) {
     if (options.site) {
       return options.site(call);
     }
-    const captured = CAPTURED.find((c) => c.request.path === call.path) ?? NOT_FOUND;
+    const captured = CAPTURED.find(c => c.request.path === call.path) ?? NOT_FOUND;
     return new Response(JSON.stringify(captured.body), {
       status: captured.status,
       headers: { 'Content-Type': captured.contentType },

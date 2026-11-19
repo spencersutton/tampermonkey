@@ -34,7 +34,7 @@ export function SavedSearchesSection({
   // Editor ids: 'new' names a new saved search; otherwise it's the id being renamed.
   const edit = useInlineEdit();
   const naming = edit.editing === 'new';
-  const saveNew: SaveFn = (name) => onSave(name);
+  const saveNew: SaveFn = name => onSave(name);
 
   return (
     <section class="panel">
@@ -66,7 +66,7 @@ export function SavedSearchesSection({
           <button
             type="button"
             class="btn-text"
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={e => e.preventDefault()}
             onClick={() => edit.save('new', saveNew)}
           >
             Save
@@ -80,7 +80,7 @@ export function SavedSearchesSection({
         </p>
       )}
       <ul class="filter-list">
-        {searches.map((s) => {
+        {searches.map(s => {
           const st = stats.get(s.id) ?? { total: 0, fresh: 0 };
           return (
             <li class={`filter-row saved-row ${s.id === activeId ? 'active' : ''}`}>
@@ -98,7 +98,7 @@ export function SavedSearchesSection({
                   class="rename"
                   type="text"
                   aria-label="Rename saved search"
-                  {...edit.boxProps(s.id, (name) => onRename(s.id, name))}
+                  {...edit.boxProps(s.id, name => onRename(s.id, name))}
                 />
               ) : (
                 <button

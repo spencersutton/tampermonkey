@@ -97,7 +97,7 @@ function RuleList() {
   const data = overview.value;
   const q = filter.trim().toLowerCase();
   const rules = (data?.rules ?? []).filter(
-    (r) => !q || r.pattern.toLowerCase().includes(q) || r.tags.some((t) => t.includes(q)),
+    r => !q || r.pattern.toLowerCase().includes(q) || r.tags.some(t => t.includes(q)),
   );
   const current = draft.value.id;
   return (
@@ -116,7 +116,7 @@ function RuleList() {
           type="search"
           placeholder="Find a rule by pattern or tag"
           value={filter}
-          onInput={(e) => setFilter(e.currentTarget.value)}
+          onInput={e => setFilter(e.currentTarget.value)}
         />
       )}
       {loadError.value && <p class="error small">{loadError.value}</p>}
@@ -127,7 +127,7 @@ function RuleList() {
         </p>
       )}
       <ul class="tr-rule-list">
-        {rules.map((r) => (
+        {rules.map(r => (
           <li key={r.id}>
             <button
               type="button"
@@ -137,7 +137,7 @@ function RuleList() {
             >
               <code class="tr-pattern">{r.pattern}</code>
               <span class="tr-rule-tags">
-                {r.tags.map((t) => (
+                {r.tags.map(t => (
                   <span key={t} class="tr-tag">
                     {tagLabel(t)}
                   </span>
@@ -167,10 +167,10 @@ function usePreview(pattern: string, tags: string[], rev: number) {
       return;
     }
     const ctl = new AbortController();
-    setState((s) => ({ ...s, busy: true }));
+    setState(s => ({ ...s, busy: true }));
     const timer = setTimeout(() => {
       previewRule(pattern, tagKey ? tagKey.split('\n') : [], ctl.signal).then(
-        (preview) => setState({ preview, error: null, errorField: null, busy: false }),
+        preview => setState({ preview, error: null, errorField: null, busy: false }),
         (e: unknown) => {
           if (!ctl.signal.aborted) {
             setState({
@@ -243,11 +243,11 @@ function Editor() {
     <section class="tr-pane tr-editor" aria-labelledby="tr-editor-title">
       <form
         class="tr-form"
-        onSubmit={(e) => {
+        onSubmit={e => {
           e.preventDefault();
           if (canSave) void save();
         }}
-        onKeyDown={(e) => {
+        onKeyDown={e => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSave) {
             e.preventDefault();
             void save();
@@ -267,7 +267,7 @@ function Editor() {
             autocomplete="off"
             placeholder={String.raw`e.g. satin nickel   or   \bcabinet (knob|pull)s?\b`}
             value={d.pattern}
-            onInput={(e) => update({ pattern: e.currentTarget.value })}
+            onInput={e => update({ pattern: e.currentTarget.value })}
             aria-invalid={Boolean(patternError)}
             aria-describedby="tr-pattern-help"
           />
@@ -281,7 +281,7 @@ function Editor() {
           <TagInput
             tags={d.tags}
             invalid={Boolean(tagsError)}
-            onChange={(tags) => update({ tags })}
+            onChange={tags => update({ tags })}
           />
           {tagsError && <small class="error">{tagsError}</small>}
           <small class="muted">
@@ -343,7 +343,7 @@ function TagInput({
     // Tags differing only in case are the same tag; the first spelling stays.
     const next = [...tags];
     for (const tag of raw.split(',').map(cleanTag)) {
-      if (tag && !next.some((t) => tagKey(t) === tagKey(tag))) next.push(tag);
+      if (tag && !next.some(t => tagKey(t) === tagKey(tag))) next.push(tag);
     }
     if (next.length > tags.length) onChange(next);
     setText('');
@@ -351,15 +351,15 @@ function TagInput({
   return (
     <div
       class={`tr-tag-input${invalid ? ' invalid' : ''}`}
-      onClick={(e) => e.currentTarget.querySelector('input')?.focus()}
+      onClick={e => e.currentTarget.querySelector('input')?.focus()}
     >
-      {tags.map((t) => (
+      {tags.map(t => (
         <button
           type="button"
           key={t}
           class="chip"
           title={`Remove ${tagLabel(t)}`}
-          onClick={() => onChange(tags.filter((x) => x !== t))}
+          onClick={() => onChange(tags.filter(x => x !== t))}
         >
           <span>{tagLabel(t)}</span>
           <Icon name="close" size={14} />
@@ -370,7 +370,7 @@ function TagInput({
         aria-labelledby="tr-tags-label"
         placeholder={tags.length ? 'Add another' : 'e.g. finish: satin nickel'}
         value={text}
-        onInput={(e) => {
+        onInput={e => {
           // A comma ends a tag (typed or pasted); what follows the last one stays in the box.
           const v = e.currentTarget.value;
           const cut = v.lastIndexOf(',');
@@ -381,7 +381,7 @@ function TagInput({
           add(v.slice(0, cut));
           setText(v.slice(cut + 1));
         }}
-        onKeyDown={(e) => {
+        onKeyDown={e => {
           if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && text.trim()) {
             e.preventDefault();
             add(text);
@@ -430,7 +430,7 @@ function PreviewList({
         <p class="muted tr-empty">No current lot titles match this pattern.</p>
       )}
       <ul class="tr-matches">
-        {preview?.matches.map((m) => (
+        {preview?.matches.map(m => (
           <MatchRow key={m.title} m={m} />
         ))}
       </ul>
@@ -451,12 +451,12 @@ function MatchRow({ m }: { m: PreviewMatch }) {
       </a>
       {m.lots > 1 && <span class="tr-count">×{fmtCount(m.lots)}</span>}
       <span class="tr-match-tags">
-        {m.tags.map((t) => (
+        {m.tags.map(t => (
           <span key={t} class="tr-tag">
             {tagLabel(t)}
           </span>
         ))}
-        {m.adds.map((t) => (
+        {m.adds.map(t => (
           <span key={t} class="tr-tag new" title="This rule would add it">
             + {tagLabel(t)}
           </span>

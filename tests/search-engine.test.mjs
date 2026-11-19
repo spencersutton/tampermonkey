@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
+  getItem: key => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
 };
 const vite = await createServer({
@@ -57,7 +57,7 @@ const lot = (title, patch = {}) => ({
 });
 const run = (items, view = {}) =>
   computeView(items, { ...DEFAULT_VIEW, ...view }, 'Raleigh', ex, now);
-const titles = (result) => result.rows.map((r) => r.lot.title);
+const titles = result => result.rows.map(r => r.lot.title);
 
 beforeEach(() => {
   storage.clear();
@@ -160,7 +160,7 @@ test('facet counts follow the results, each ignoring its own selection', () => {
   assert.deepEqual(titles(result).toSorted(), ['Drill A', 'Drill B']);
   const all = computeFacets(items, now, []);
   assert.deepEqual(
-    all.brands.map((f) => [f.value, f.label, f.count]),
+    all.brands.map(f => [f.value, f.label, f.count]),
     [
       ['dewalt', 'DeWalt', 2],
       ['ryobi', 'Ryobi', 2],
@@ -169,25 +169,25 @@ test('facet counts follow the results, each ignoring its own selection', () => {
   const facets = contextualFacets(all, result.facetCounts, view);
   // Other brands still count (so you can add them), limited by the search.
   assert.deepEqual(
-    facets.brands.map((f) => [f.value, f.count]),
+    facets.brands.map(f => [f.value, f.count]),
     [
       ['dewalt', 2],
       ['ryobi', 1],
     ],
   );
   assert.deepEqual(
-    facets.types.map((f) => [f.value, f.count]),
+    facets.types.map(f => [f.value, f.count]),
     [['drill driver', 2]],
   );
   assert.deepEqual(
-    facets.conditions.map((f) => [f.label, f.count]),
+    facets.conditions.map(f => [f.label, f.count]),
     [
       ['New', 2],
       ['Used', 0],
     ],
   );
   assert.deepEqual(
-    facets.prices.slice(0, 3).map((f) => f.count),
+    facets.prices.slice(0, 3).map(f => f.count),
     [1, 0, 1],
   );
 });
@@ -220,16 +220,16 @@ test('typeahead suggests matching item types, brands, categories and top lots', 
   const facets = computeFacets(items, now, []);
   const s = suggest('press', facets, items, now, { 5: {} });
   assert.deepEqual(
-    s.types.map((f) => [f.label, f.count]),
+    s.types.map(f => [f.label, f.count]),
     [
       ['pressure washer', 4],
       ['pressure washer hose', 1],
     ],
   );
   assert.equal(s.lots.length, 3, 'one lot per duplicate group, hidden lots left out');
-  assert.ok(!s.lots.some((l) => l.title === 'Hidden washer'));
+  assert.ok(!s.lots.some(l => l.title === 'Hidden washer'));
   assert.deepEqual(
-    suggest('ryo', facets, items, now, {}).brands.map((f) => f.label),
+    suggest('ryo', facets, items, now, {}).brands.map(f => f.label),
     ['Ryobi'],
   );
   assert.deepEqual(suggest('brand:ryobi', facets, items, now, {}).lots, []);
@@ -257,7 +257,7 @@ test('tags: attributes filter OR within a group and AND across groups, with per-
     'Round Knob 10 Pack',
   ]);
   const facets = contextualFacets(computeFacets(items, now, []), result.facetCounts, view);
-  const count = (tag) => facets.tags.find((f) => f.value === tag)?.count ?? 0;
+  const count = tag => facets.tags.find(f => f.value === tag)?.count ?? 0;
   // Finish counts ignore the finish selection but keep the plain-tag one…
   assert.equal(count('finish: satin nickel'), 1);
   assert.equal(count('finish: brass'), 1);
@@ -284,7 +284,7 @@ test('tags: attributes filter OR within a group and AND across groups, with per-
 
   const s = suggest('nick', computeFacets(items, now, []), items, now, {});
   assert.deepEqual(
-    s.tags.map((f) => [f.value, f.count]),
+    s.tags.map(f => [f.value, f.count]),
     [['finish: satin nickel', 2]],
   );
 });
@@ -302,9 +302,9 @@ test('tags: "none" picks lots without an attribute and counts them per group', a
     lot('Mystery Knob', { tags: ['cabinet knob', 'shape: round'] }),
     lot('Plain Hinge'),
   ];
-  const facetsFor = (view) =>
+  const facetsFor = view =>
     contextualFacets(computeFacets(items, now, []), run(items, view).facetCounts, view);
-  const count = (facets, tag) => facets.tags.find((f) => f.value === tag)?.count;
+  const count = (facets, tag) => facets.tags.find(f => f.value === tag)?.count;
 
   // Nothing selected: two lots lack a finish, one lacks a shape.
   let facets = facetsFor(DEFAULT_VIEW);
@@ -348,7 +348,7 @@ test('tags: case is kept for display but ignored when filtering and counting', a
     lot('Brass Pull', { tags: ['FINISH: Brass'] }),
   ];
   const all = computeFacets(items, now, []);
-  const nickel = all.tags.find((f) => f.value === 'finish: satin nickel');
+  const nickel = all.tags.find(f => f.value === 'finish: satin nickel');
   assert.deepEqual(nickel, {
     value: 'finish: satin nickel',
     label: 'Finish: Satin Nickel',
@@ -363,15 +363,15 @@ test('tags: case is kept for display but ignored when filtering and counting', a
   assert.deepEqual(view.tags, ['finish: satin nickel']);
   assert.deepEqual(titles(run(items, view)).toSorted(), ['Nickel Knob', 'Nickel Pull']);
   const facets = contextualFacets(all, run(items, view).facetCounts, view);
-  assert.equal(facets.tags.find((f) => f.value === 'finish: brass')?.count, 1);
-  assert.equal(facets.tags.find((f) => f.value === 'finish:')?.count, 0);
+  assert.equal(facets.tags.find(f => f.value === 'finish: brass')?.count, 1);
+  assert.equal(facets.tags.find(f => f.value === 'finish:')?.count, 0);
   assert.deepEqual(navFromUrl(`?${new URLSearchParams([['tag', 'Finish: Brass']])}`).view.tags, [
     'finish: brass',
   ]);
 });
 
 test('filter values that are all numbers sort by value', () => {
-  const label = (x) => x;
+  const label = x => x;
   assert.deepEqual(numericOrder(['10', '2.5', '8', '.5', '-1', '12'], label), [
     '-1',
     '.5',
@@ -400,41 +400,41 @@ test('numeric tag menus merge equivalent options, count lots once and toggle eve
     return tagMenuOptions(facets.tags, result.facetCounts.numericTag, all.tags);
   };
   const options = menu();
-  const four = options.find((f) => f.value === 'size: 4');
+  const four = options.find(f => f.value === 'size: 4');
   assert.equal(options.length, 3);
   assert.equal(four.label, 'Size: 4');
   assert.equal(four.count, 3);
   assert.deepEqual(four.values.toSorted(), ['size: 4', 'size: 4.0']);
-  assert.equal(options.find((f) => f.value === 'size: 4.5').label, 'size: 4.5');
-  assert.equal(options.find((f) => f.value === 'size:').count, 1);
+  assert.equal(options.find(f => f.value === 'size: 4.5').label, 'size: 4.5');
+  assert.equal(options.find(f => f.value === 'size:').count, 1);
 
   const tags = toggleFilterOption([], four.values);
   assert.deepEqual(titles(run(items, { tags })).toSorted(), ['Both', 'Four', 'Four decimal']);
-  assert.equal(menu({ ...DEFAULT_VIEW, tags }).find((f) => f.value === 'size: 4').count, 3);
+  assert.equal(menu({ ...DEFAULT_VIEW, tags }).find(f => f.value === 'size: 4').count, 3);
   assert.deepEqual(toggleFilterOption(['finish: brass', 'size: 4.0'], four.values), [
     'finish: brass',
   ]);
   assert.deepEqual(toggleFilterOption(tags, four.values), []);
-  const cheap = menu({ ...DEFAULT_VIEW, priceMax: 25 }).find((f) => f.value === 'size: 4');
+  const cheap = menu({ ...DEFAULT_VIEW, priceMax: 25 }).find(f => f.value === 'size: 4');
   assert.equal(cheap.count, 2);
   assert.deepEqual(cheap.values.toSorted(), ['size: 4', 'size: 4.0']);
-  const decimalOnly = menu({ ...DEFAULT_VIEW, priceMin: 40 }).find((f) => f.value === 'size: 4');
+  const decimalOnly = menu({ ...DEFAULT_VIEW, priceMin: 40 }).find(f => f.value === 'size: 4');
   assert.equal(decimalOnly.count, 1);
   assert.deepEqual(decimalOnly.values.toSorted(), ['size: 4', 'size: 4.0']);
 });
 
 test('numeric menu normalization leaves mixed values alone and preserves decimal precision', () => {
-  const facets = ['size: 4', 'size: 4.0', 'size: large', 'size:'].map((value) => ({
+  const facets = ['size: 4', 'size: 4.0', 'size: large', 'size:'].map(value => ({
     value,
     label: value,
     count: 1,
   }));
   assert.deepEqual(
-    tagMenuOptions(facets, new Map()).map((f) => [f.label, f.values]),
-    facets.map((f) => [f.label, [f.value]]),
+    tagMenuOptions(facets, new Map()).map(f => [f.label, f.values]),
+    facets.map(f => [f.label, [f.value]]),
   );
   const values = ['+04.00', '-0.0', '.500', '9007199254740992', '9007199254740993'];
-  const numeric = values.map((value) => ({ value, label: value, count: 1 }));
+  const numeric = values.map(value => ({ value, label: value, count: 1 }));
   const counts = new Map([
     ['4', 1],
     ['0', 1],
@@ -443,7 +443,7 @@ test('numeric menu normalization leaves mixed values alone and preserves decimal
     ['9007199254740993', 1],
   ]);
   assert.deepEqual(
-    tagMenuOptions(numeric, counts).map((f) => f.label),
+    tagMenuOptions(numeric, counts).map(f => f.label),
     [...counts.keys()],
   );
 });
@@ -460,7 +460,7 @@ test('a combined card leads with the best condition and notes a cheaper worse on
   const [card] = run(items).rows;
   assert.equal(card.lot.title, 'Drill new cheap', 'New first, cheapest within it');
   assert.deepEqual(
-    card.others.map((r) => r.lot.title),
+    card.others.map(r => r.lot.title),
     ['Drill new', 'Drill like new', 'Drill used', 'Drill as-is'],
   );
   assert.equal(card.cheaper.lot.title, 'Drill as-is', 'the cheapest worse-condition listing');

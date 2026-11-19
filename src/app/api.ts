@@ -128,7 +128,7 @@ export async function fetchConditions(): Promise<ConditionInfo[]> {
   }
 
   const d = await get<CriteriaDescriptor>('/v1/auctions/filter-config/');
-  return (d.conditions ?? []).map((c) => ({
+  return (d.conditions ?? []).map(c => ({
     value: c.value,
     label: c.label,
     description: c.description,

@@ -62,11 +62,11 @@ test('lots the server grouped fold into one card; ungrouped lots keep their own'
   const result = view(items);
   assert.equal(result.combined, 1);
   assert.deepEqual(
-    result.groups.get(1).map((row) => row.lot.id),
+    result.groups.get(1).map(row => row.lot.id),
     [1, 2],
   );
   assert.deepEqual(
-    result.rows.map((row) => row.lot.id),
+    result.rows.map(row => row.lot.id),
     [1, 3],
   );
 });
@@ -94,14 +94,14 @@ test('dedupe preserves condition, cost ordering, and independent bid/hidden/filt
     now,
   );
   assert.equal(result.combined, 1);
-  const combined = result.rows.find((row) => row.others.length);
+  const combined = result.rows.find(row => row.others.length);
   assert.equal(combined.lot.id, 2);
   assert.deepEqual(
-    combined.others.map((row) => row.lot.id),
+    combined.others.map(row => row.lot.id),
     [1],
   );
   assert.deepEqual(
-    result.groups.get(1).map((row) => row.lot.id),
+    result.groups.get(1).map(row => row.lot.id),
     [2, 1],
   );
   assert.equal(result.rows.length, 5);
@@ -116,7 +116,7 @@ test('live identity changes re-sort by brand/model without a price update', () =
   lotModels.value = new Map();
   setView({ ...DEFAULT_VIEW, sort: 'brand-model-asc' });
   assert.deepEqual(
-    gridView.value.rows.map((row) => row.lot.id),
+    gridView.value.rows.map(row => row.lot.id),
     [11, 10],
   );
   lotBrands.value = new Map([
@@ -128,7 +128,7 @@ test('live identity changes re-sort by brand/model without a price update', () =
     [11, 'D-3'],
   ]);
   assert.deepEqual(
-    gridView.value.rows.map((row) => row.lot.id),
+    gridView.value.rows.map(row => row.lot.id),
     [10, 11],
   );
 });
@@ -142,11 +142,11 @@ test('brand/model sort uses natural model order, title fallback, and persists in
   ];
   const settings = { sort: 'brand-model-asc' };
   assert.deepEqual(
-    view(items, settings).rows.map((row) => row.lot.id),
+    view(items, settings).rows.map(row => row.lot.id),
     [3, 2, 1, 4],
   );
   assert.deepEqual(
-    view(items, { sort: 'title-asc' }).rows.map((row) => row.lot.id),
+    view(items, { sort: 'title-asc' }).rows.map(row => row.lot.id),
     [4, 3, 2, 1],
   );
   const saved = normalizeView(savedFilters({ ...DEFAULT_VIEW, ...settings }));
@@ -174,10 +174,10 @@ test('item-type sort groups types case-insensitively, uses ending time for ties,
     lot(3, { itemType: 'Drill', ends_at: new Date(now + 1 * 3_600_000).toISOString() }),
     lot(4, { ends_at: new Date(now + 1 * 60_000).toISOString() }),
     lot(5, { itemType: '', ends_at: new Date(now + 2 * 60_000).toISOString() }),
-  ].map((item) => ({ ...item, model: `D-${item.id}` }));
+  ].map(item => ({ ...item, model: `D-${item.id}` }));
   const settings = { sort: 'item-type-asc' };
   assert.deepEqual(
-    view(items, settings).rows.map((row) => row.lot.id),
+    view(items, settings).rows.map(row => row.lot.id),
     [3, 2, 1, 4, 5],
   );
   assert.equal(normalizeView(savedFilters({ ...DEFAULT_VIEW, ...settings })).sort, settings.sort);
@@ -191,24 +191,24 @@ test('item-type corrections immediately reorder the grid when sorting by item ty
   ]);
   setView({ ...DEFAULT_VIEW, sort: 'item-type-asc' });
   assert.deepEqual(
-    gridView.value.rows.map((row) => row.lot.id),
+    gridView.value.rows.map(row => row.lot.id),
     [61, 60],
   );
   updateItemType([60], 'battery');
   assert.deepEqual(
-    gridView.value.rows.map((row) => row.lot.id),
+    gridView.value.rows.map(row => row.lot.id),
     [60, 61],
   );
 });
 
-test('identity correction survives stale polls without leaking to another model', async (t) => {
+test('identity correction survives stale polls without leaking to another model', async t => {
   const items = [lot(30), lot(31, { title: 'Another listing' }), lot(32, { model: 'D-200' })];
-  lots.value = new Map(items.map((item) => [item.id, item]));
+  lots.value = new Map(items.map(item => [item.id, item]));
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({ lotIds: [30, 31], itemType: 'driver', seq: 5 }),
   );
   await setItemType(30, 'driver');
-  const poll = (seq) =>
+  const poll = seq =>
     applyCatalog({
       seq,
       full: true,
@@ -226,7 +226,7 @@ test('identity correction survives stale polls without leaking to another model'
   poll(5);
 });
 
-test('closed pages keep cached identity and past-price updates beat stale price versions', async (t) => {
+test('closed pages keep cached identity and past-price updates beat stale price versions', async t => {
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
       count: 1,

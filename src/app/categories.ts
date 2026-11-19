@@ -9,11 +9,11 @@ export function saveCustomCategories(
   categories: CustomCategory[],
   renames: ReadonlyMap<string, string | null> = new Map(),
 ) {
-  const names = new Set(categories.map((c) => c.name));
+  const names = new Set(categories.map(c => c.name));
   const changes = new Map<string, string | null>(
     getSetting(KEYS.customCategories)
-      .filter((c) => !names.has(c.name))
-      .map((c) => [c.name, null] as const),
+      .filter(c => !names.has(c.name))
+      .map(c => [c.name, null] as const),
   );
   for (const [from, to] of renames) {
     if (from !== to) {
@@ -46,7 +46,7 @@ export function saveCustomCategories(
       ]),
   );
   const fix = (cats: string[]) =>
-    cats.flatMap((v) => {
+    cats.flatMap(v => {
       const next = byValue.get(v);
       if (next === undefined) {
         return [v];
@@ -66,7 +66,7 @@ export function saveCustomCategories(
   const searches = getSetting(KEYS.savedSearches);
   setSetting(
     KEYS.savedSearches,
-    searches.map((s) => ({
+    searches.map(s => ({
       ...s,
       view: { ...s.view, categories: fix(normalizeView(s.view).categories) },
     })),

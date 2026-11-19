@@ -27,7 +27,7 @@ export function categoryName(type: string): string {
   } else if (/[^aeiou]y$/.test(last)) {
     many = `${last.slice(0, -1)}ies`;
   }
-  return [...words, many].map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return [...words, many].map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 export function categoryError(
@@ -43,7 +43,7 @@ export function categoryError(
   if (!trimmed) {
     return 'Name is required';
   }
-  if (cats.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+  if (cats.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
     return 'There’s already a category with this name – use “Add to existing”';
   }
   return null;
@@ -51,15 +51,15 @@ export function categoryError(
 
 /** Words of a type worth comparing ("of", "and" and the like don't count). */
 const typeWords = (t: string) =>
-  t.split(/[\s/-]+/).filter((w) => w.length > 2 && !['and', 'for', 'with'].includes(w));
+  t.split(/[\s/-]+/).filter(w => w.length > 2 && !['and', 'for', 'with'].includes(w));
 
 /** Whether saving takes any of `types` from `c`. */
-const loses = (c: CustomCategory, types: string[]) => c.types.some((t) => types.includes(t));
+const loses = (c: CustomCategory, types: string[]) => c.types.some(t => types.includes(t));
 
 /** `c` without `types`, retaining empty parents of child categories. */
 function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
-  const rest = c.types.filter((t) => !types.includes(t));
-  return rest.length || names.some((name) => name.startsWith(`${c.name} - `))
+  const rest = c.types.filter(t => !types.includes(t));
+  return rest.length || names.some(name => name.startsWith(`${c.name} - `))
     ? [{ ...c, types: rest }]
     : [];
 }
@@ -82,17 +82,17 @@ export function TypeCategory({
   // Categories nested under this lot's site category first, then A–Z.
   const near = (c: CustomCategory) => site != null && c.name.startsWith(`${site.label} - `);
   const choices = cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
-  const preferred = cats.find((c) => c.name === lastCategory) ?? current ?? choices[0];
+  const preferred = cats.find(c => c.name === lastCategory) ?? current ?? choices[0];
   const [mode, setMode] = useState<'new' | 'add'>(() => (cats.length ? 'add' : 'new'));
   const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
   const [categorySearch, setCategorySearch] = useState('');
-  const filteredChoices = choices.filter((c) =>
+  const filteredChoices = choices.filter(c =>
     c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()),
   );
-  const selected = cats.some((category) => category.name === selectedCategory)
+  const selected = cats.some(category => category.name === selectedCategory)
     ? selectedCategory
     : (preferred?.name ?? '');
-  const pick = filteredChoices.some((c) => c.name === selected) ? selected : '';
+  const pick = filteredChoices.some(c => c.name === selected) ? selected : '';
   const defaultName = () => {
     const parent = current?.name ?? site?.label;
     return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
@@ -100,17 +100,17 @@ export function TypeCategory({
   const [name, setName] = useState(defaultName);
   const [extra, setExtra] = useState<string[]>([]);
 
-  const existing = mode === 'add' ? cats.find((c) => c.name === pick) : undefined;
+  const existing = mode === 'add' ? cats.find(c => c.name === pick) : undefined;
   // Other types sharing a word with this one, those sharing its last word ("washer") first.
   const similar = useMemo(() => {
     const words = typeWords(type);
     const head = words.at(-1);
     const counts = Map.groupBy(
       lots.filter(
-        (l) =>
-          l.itemType && l.itemType !== type && typeWords(l.itemType).some((w) => words.includes(w)),
+        l =>
+          l.itemType && l.itemType !== type && typeWords(l.itemType).some(w => words.includes(w)),
       ),
-      (l) => l.itemType!,
+      l => l.itemType!,
     );
     return counts
       .entries()
@@ -123,14 +123,14 @@ export function TypeCategory({
   // The categories after saving, and the open lots the target would then take.
   const { next, target, taken, losing, types } = useMemo(() => {
     const types = [type, ...extra];
-    const losing = cats.filter((c) => c !== existing && loses(c, types));
+    const losing = cats.filter(c => c !== existing && loses(c, types));
     const names = [
       ...cats
-        .filter((c) => !losing.includes(c) || c.types.some((t) => !types.includes(t)))
-        .map((c) => c.name),
+        .filter(c => !losing.includes(c) || c.types.some(t => !types.includes(t)))
+        .map(c => c.name),
       ...(mode === 'new' ? [name.trim()] : []),
     ];
-    const next = cats.flatMap((c) => {
+    const next = cats.flatMap(c => {
       if (c === existing) {
         return [{ ...c, types: [...new Set([...c.types, ...types])] }];
       }
@@ -141,12 +141,12 @@ export function TypeCategory({
     }
     let target = -1;
     if (existing) {
-      target = next.findIndex((c) => c.name === existing.name);
+      target = next.findIndex(c => c.name === existing.name);
     } else if (mode === 'new') {
       target = next.length - 1;
     }
     const compiled = compileCategories(next);
-    const taken = target < 0 ? [] : lots.filter((l) => categoryIndex(l, compiled) === target);
+    const taken = target < 0 ? [] : lots.filter(l => categoryIndex(l, compiled) === target);
     return { next, target, taken, losing, types };
   }, [cats, mode, existing, name, type, extra, lots]);
 
@@ -172,7 +172,7 @@ export function TypeCategory({
     <Dialog
       onClose={onClose}
       aria-labelledby="type-cat-title"
-      onKeyDownCapture={(e) => {
+      onKeyDownCapture={e => {
         if (e.key !== 'Enter' || e.isComposing) return;
         if (
           !(e.target instanceof HTMLElement) ||
@@ -186,7 +186,7 @@ export function TypeCategory({
       <form
         class="confirm type-cat"
         tabIndex={-1}
-        onSubmit={(e) => {
+        onSubmit={e => {
           e.preventDefault();
           save();
         }}
@@ -221,7 +221,7 @@ export function TypeCategory({
                   type="search"
                   placeholder="Filter by category name"
                   value={categorySearch}
-                  onInput={(e) => setCategorySearch(e.currentTarget.value)}
+                  onInput={e => setCategorySearch(e.currentTarget.value)}
                 />
               </label>
               <label class="field">
@@ -231,14 +231,14 @@ export function TypeCategory({
                   class="type-cat-choices"
                   size={6}
                   value={pick}
-                  onChange={(e) => setPick(e.currentTarget.value)}
+                  onChange={e => setPick(e.currentTarget.value)}
                 >
                   {!pick && (
                     <option value="" disabled>
                       Pick a category
                     </option>
                   )}
-                  {filteredChoices.map((c) => (
+                  {filteredChoices.map(c => (
                     <option key={c.name} value={c.name}>
                       {c.name}
                     </option>
@@ -254,7 +254,7 @@ export function TypeCategory({
           ) : (
             <label class="field">
               <span>Name</span>
-              <input type="text" value={name} onInput={(e) => setName(e.currentTarget.value)} />
+              <input type="text" value={name} onInput={e => setName(e.currentTarget.value)} />
             </label>
           )}
           <fieldset class="type-cat-types">
@@ -268,8 +268,8 @@ export function TypeCategory({
                   type="checkbox"
                   checked={extra.includes(t) || Boolean(existing?.types.includes(t))}
                   disabled={existing?.types.includes(t)}
-                  onChange={(e) =>
-                    setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter((x) => x !== t))
+                  onChange={e =>
+                    setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter(x => x !== t))
                   }
                 />{' '}
                 {t} <span class="muted small">{fmtCount(count)}</span>
@@ -279,7 +279,7 @@ export function TypeCategory({
           {losing.length > 0 && (
             <p class="muted small">
               Moves {plural(types.length, 'type')} out of{' '}
-              {losing.map((c) => `“${c.name}”`).join(', ')}.
+              {losing.map(c => `“${c.name}”`).join(', ')}.
             </p>
           )}
           {error && <p class="error small">{error}</p>}

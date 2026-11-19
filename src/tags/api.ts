@@ -75,7 +75,7 @@ async function call<T>(method: string, path: string, body?: unknown, signal?: Ab
 export const loadOverview = () => call<Overview>('GET', '/api/tag-rules');
 
 export function previewRule(pattern: string, tags: string[], signal: AbortSignal) {
-  const query = new URLSearchParams([['pattern', pattern], ...tags.map((t) => ['tag', t])]);
+  const query = new URLSearchParams([['pattern', pattern], ...tags.map(t => ['tag', t])]);
   return call<Preview>('GET', `/api/tag-rules/preview?${query}`, undefined, signal);
 }
 

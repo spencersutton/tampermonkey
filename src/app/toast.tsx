@@ -22,7 +22,7 @@ export function toast(kind: ToastKind, text: string, ms = kind === 'bad' ? 8000 
 
 /** Remove a toast early (clicked) or when its time is up. */
 function dismiss(id: number) {
-  toasts.value = toasts.value.filter((t) => t.id !== id);
+  toasts.value = toasts.value.filter(t => t.id !== id);
 }
 
 /** Renders the toast stack; mounted once by App. */
@@ -41,7 +41,7 @@ export function Toasts() {
   }, [list]);
   return (
     <div class="toasts" popover="manual" role="status" aria-live="polite" ref={box}>
-      {list.map((t) => (
+      {list.map(t => (
         <button
           type="button"
           key={t.id}

@@ -17,7 +17,7 @@ const FIND_AT = 10;
 
 /** Tag facets by group, plain tags ('') last and attributes alphabetically. */
 function groups(tags: Facet<string>[]): [string, Facet<string>[]][] {
-  return Map.groupBy(tags, (f) => tagGroup(f.value))
+  return Map.groupBy(tags, f => tagGroup(f.value))
     .entries()
     .toArray()
     .toSorted(([a], [b]) => +!a - +!b || a.localeCompare(b));
@@ -25,13 +25,13 @@ function groups(tags: Facet<string>[]): [string, Facet<string>[]][] {
 
 /** Whether the brand menu shows: more than one brand among the results, or one picked. */
 export function showBrandMenu(brands: Facet<string>[], selected: string[]): boolean {
-  return selected.length > 0 || brands.filter((f) => f.count > 0).length > 1;
+  return selected.length > 0 || brands.filter(f => f.count > 0).length > 1;
 }
 
 /** Tag groups with values among the results, or a selection. */
 function tagGroups(tags: Facet<string>[], selected: string[]) {
   return groups(tags).filter(([, facets]) =>
-    facets.some((f) => (f.count > 0 && !isNoneTag(f.value)) || selected.includes(f.value)),
+    facets.some(f => (f.count > 0 && !isNoneTag(f.value)) || selected.includes(f.value)),
   );
 }
 
@@ -53,15 +53,15 @@ export function FilterMenus() {
       {brands && (
         <FilterMenu
           label="Brand"
-          facets={facets.brands.map((f) => ({ ...f, values: [f.value] }))}
+          facets={facets.brands.map(f => ({ ...f, values: [f.value] }))}
           selected={view.brands}
-          onToggle={(b) => setView({ brands: toggleFilterOption(view.brands, b) })}
+          onToggle={b => setView({ brands: toggleFilterOption(view.brands, b) })}
           onClear={() => setView({ brands: [] })}
         />
       )}
       {tags.map(([group, list]) => {
         // The attribute name as tags write it ("Battery system"); the group itself is lowercase.
-        const written = list.find((f) => !isNoneTag(f.value))?.label;
+        const written = list.find(f => !isNoneTag(f.value))?.label;
         return (
           <FilterMenu
             key={`tag:${group}`}
@@ -73,9 +73,9 @@ export function FilterMenus() {
             )}
             selected={view.tags}
             isNone={isNoneTag}
-            valueLabel={(f) => parseTag(f.label).value}
-            onToggle={(t) => setView({ tags: toggleFilterOption(view.tags, t) })}
-            onClear={() => setView({ tags: view.tags.filter((t) => tagGroup(t) !== group) })}
+            valueLabel={f => parseTag(f.label).value}
+            onToggle={t => setView({ tags: toggleFilterOption(view.tags, t) })}
+            onClear={() => setView({ tags: view.tags.filter(t => tagGroup(t) !== group) })}
           />
         );
       })}
@@ -90,7 +90,7 @@ function FilterMenu({
   onToggle,
   onClear,
   isNone = () => false,
-  valueLabel = (f) => f.label,
+  valueLabel = f => f.label,
 }: {
   label: string;
   facets: FilterOption[];
@@ -104,17 +104,17 @@ function FilterMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [find, setFind] = useState('');
-  const isSelected = (f: FilterOption) => f.values.some((value) => selected.includes(value));
+  const isSelected = (f: FilterOption) => f.values.some(value => selected.includes(value));
   const picked = facets.filter(isSelected).length;
   const needle = find.trim().toLowerCase();
   // Most lots first, or by value when every value is a number ("Size ▾": 8, 10, 12.5); "None" last.
-  const values = facets.filter((f) => !isNone(f.value));
+  const values = facets.filter(f => !isNone(f.value));
   const ordered = [
     ...(numericOrder(values, valueLabel) ?? values),
-    ...facets.filter((f) => isNone(f.value)),
+    ...facets.filter(f => isNone(f.value)),
   ];
   const shown = ordered.filter(
-    (f) => !needle || isSelected(f) || valueLabel(f).toLowerCase().includes(needle),
+    f => !needle || isSelected(f) || valueLabel(f).toLowerCase().includes(needle),
   );
 
   // Close on a click elsewhere or Esc while open. A new callback each render re-attaches with the
@@ -165,12 +165,12 @@ function FilterMenu({
               placeholder={`Find ${label.toLowerCase()}`}
               aria-label={`Find ${label.toLowerCase()}`}
               value={find}
-              onInput={(e) => setFind(e.currentTarget.value)}
+              onInput={e => setFind(e.currentTarget.value)}
               // oxlint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
           )}
-          {shown.map((f) => {
+          {shown.map(f => {
             const none = isNone(f.value);
             return (
               <label

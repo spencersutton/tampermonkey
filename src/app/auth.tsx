@@ -25,7 +25,7 @@ export interface Me {
 export const me = signal<Me | null>(null);
 let markUnlocked: () => void;
 /** Resolves on the first unlocked session, including after the password prompt. */
-export const appUnlocked = new Promise<void>((resolve) => (markUnlocked = resolve));
+export const appUnlocked = new Promise<void>(resolve => (markUnlocked = resolve));
 /** Whether the login form is open. */
 const loginOpen = signal(false);
 const authed = computed(() => Boolean(me.value?.site?.loggedIn));
@@ -208,7 +208,7 @@ export function AppLock() {
               autocomplete="current-password"
               required
               value={password}
-              onInput={(e) => setPassword(e.currentTarget.value)}
+              onInput={e => setPassword(e.currentTarget.value)}
             />
           </label>
         }
@@ -249,7 +249,7 @@ function LoginForm() {
                 autocomplete="username"
                 required
                 value={email}
-                onInput={(e) => setEmail(e.currentTarget.value)}
+                onInput={e => setEmail(e.currentTarget.value)}
               />
             </label>
             <label class="field">
@@ -259,7 +259,7 @@ function LoginForm() {
                 autocomplete="current-password"
                 required
                 value={password}
-                onInput={(e) => setPassword(e.currentTarget.value)}
+                onInput={e => setPassword(e.currentTarget.value)}
               />
             </label>
           </>

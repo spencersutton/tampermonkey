@@ -109,7 +109,7 @@ function AppSidebar({
   const curClosed = closed.value;
   const curFiltered = filteredOnly.value;
   const search = searchDraft.value;
-  const activeSaved = curFiltered ? null : (saved.find((s) => sameFilters(view, s.view)) ?? null);
+  const activeSaved = curFiltered ? null : (saved.find(s => sameFilters(view, s.view)) ?? null);
 
   const updateSaved = (fn: (list: SavedSearch[]) => SavedSearch[]) =>
     setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches)));
@@ -125,8 +125,8 @@ function AppSidebar({
     suggestedName: suggestName(view, facets),
     onSave: (name: string) => {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      updateSaved((l) =>
-        l.some((x) => sameFilters(view, x.view))
+      updateSaved(l =>
+        l.some(x => sameFilters(view, x.view))
           ? l
           : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }],
       );
@@ -141,20 +141,20 @@ function AppSidebar({
         closed.value = null;
         filteredOnly.value = false;
         highlight.value = { id: s.id, since: s.lastViewedAt };
-        updateSaved((l) => l.map((x) => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
+        updateSaved(l => l.map(x => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
         sidebarOpen.value = false;
       });
       resetSearch(s.view.search);
       gridTop.current?.scrollIntoView({ block: 'start' });
     },
-    onDelete: (id: string) => updateSaved((l) => l.filter((x) => x.id !== id)),
+    onDelete: (id: string) => updateSaved(l => l.filter(x => x.id !== id)),
     onRename: (id: string, name: string) =>
-      updateSaved((l) => l.map((x) => (x.id === id ? { ...x, name } : x))),
+      updateSaved(l => l.map(x => (x.id === id ? { ...x, name } : x))),
     onUpdate: (id: string) => {
       // Include text typed just before clicking, without waiting for the search debounce.
       setView({ search: searchDraft.value });
-      updateSaved((l) =>
-        l.map((x) => (x.id === id ? { ...x, view: savedFilters(storedView.value) } : x)),
+      updateSaved(l =>
+        l.map(x => (x.id === id ? { ...x, view: savedFilters(storedView.value) } : x)),
       );
     },
   };
@@ -187,7 +187,7 @@ function AppHeader() {
         class="sort"
         aria-label="Sort"
         value={view.sort}
-        onChange={(e) => setView({ sort: e.currentTarget.value as ViewState['sort'] })}
+        onChange={e => setView({ sort: e.currentTarget.value as ViewState['sort'] })}
       >
         {Object.entries(SORTS).map(([k, { label }]) => (
           <option value={k}>{label}</option>
@@ -213,7 +213,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
   const curFiltered = filteredOnly.value;
   const titleLines = getSetting(KEYS.titleLines);
   const saved = getSetting(KEYS.savedSearches);
-  const activeSaved = curFiltered ? null : (saved.find((s) => sameFilters(view, s.view)) ?? null);
+  const activeSaved = curFiltered ? null : (saved.find(s => sameFilters(view, s.view)) ?? null);
   // Lots that are new since the previous visit get a badge; while a saved
   // search is open, since that search's previous visit instead.
   const hl = highlight.value;
@@ -221,7 +221,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
   const newSince = view.newSince ?? (sinceSaved ? hl.since : visitSince.value);
   const isNew = (lot: Lot) => newSince != null && firstSeenAfter(lot, newSince);
   const freshMatches =
-    view.newSince == null && newSince != null ? result.rows.filter((r) => isNew(r.lot)).length : 0;
+    view.newSince == null && newSince != null ? result.rows.filter(r => isNew(r.lot)).length : 0;
   const pages = Math.max(1, Math.ceil(result.rows.length / PAGE_SIZE));
   const curPage = Math.min(page.value, pages);
 
@@ -283,7 +283,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
         class={`grid ${titleLines ? '' : 'full-titles'}`}
         style={titleLines ? { '--title-lines': titleLines } : undefined}
       >
-        {shownRows.value.map((row) => (
+        {shownRows.value.map(row => (
           <LotCard key={row.lot.id} row={row} isNew={isNew(row.lot)} />
         ))}
       </div>
@@ -325,7 +325,7 @@ function AppDialogs() {
         <CategoryEditor
           lots={lots.value
             .values()
-            .filter((l) => endsAtMs(l) > now30)
+            .filter(l => endsAtMs(l) > now30)
             .toArray()}
           onClose={() => modalActions.close(curModal)}
         />
@@ -335,7 +335,7 @@ function AppDialogs() {
           lot={curModal.lot}
           lots={lots.value
             .values()
-            .filter((l) => endsAtMs(l) > now30)
+            .filter(l => endsAtMs(l) > now30)
             .toArray()}
           onClose={() => modalActions.close(curModal)}
         />

@@ -38,9 +38,9 @@ describe('SiteSession', () => {
   test('cookies the site sets go back with later requests on their path', async () => {
     const { site, session } = setup();
     await session().login('user@example.test', 'right');
-    const callback = site.requests.find((r) => r.path === '/api/auth/callback/credentials');
+    const callback = site.requests.find(r => r.path === '/api/auth/callback/credentials');
     expect(callback?.cookie).toBe('csrf=csrf-1');
-    const refresh = site.requests.find((r) => r.path === '/api/auth/session');
+    const refresh = site.requests.find(r => r.path === '/api/auth/session');
     expect(refresh?.cookie).toBe('csrf=csrf-1; session=session-1');
   });
 
@@ -60,7 +60,7 @@ describe('SiteSession', () => {
     const cookies = store.getMeta('siteCookies') as { name: string; value: string }[];
     store.setMeta(
       'siteCookies',
-      cookies.map((c) => (c.name === 'token' ? { ...c, value: jwt(Date.now() / 1000 + 10) } : c)),
+      cookies.map(c => (c.name === 'token' ? { ...c, value: jwt(Date.now() / 1000 + 10) } : c)),
     );
     expect(await session().token()).toBe(site.token);
   });
@@ -103,7 +103,7 @@ describe('SiteSession', () => {
     const cookies = store.getMeta('siteCookies') as { name: string; value: string }[];
     store.setMeta(
       'siteCookies',
-      cookies.map((c) => (c.name === 'token' ? { ...c, value: jwt(Date.now() / 1000 + 10) } : c)),
+      cookies.map(c => (c.name === 'token' ? { ...c, value: jwt(Date.now() / 1000 + 10) } : c)),
     );
     const s = session();
     const before = site.requests.length;

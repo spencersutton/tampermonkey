@@ -1074,7 +1074,6 @@ h3 {
   font-weight: 600;
 }
 
-
 /* Brand and model on one line, labelled for screen readers only. */
 .card-identity .brand-model {
   display: flex;

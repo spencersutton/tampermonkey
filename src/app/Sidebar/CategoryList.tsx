@@ -17,7 +17,7 @@ const SUB = ' - ';
 /** Nest custom categories under the longest matching site or custom category name. */
 export function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
   const all = new Map(
-    [...siteCategories.map((f) => ({ ...f, count: 0 })), ...categories].map((f) => [f.value, f]),
+    [...siteCategories.map(f => ({ ...f, count: 0 })), ...categories].map(f => [f.value, f]),
   );
   const parents = all
     .values()
@@ -29,7 +29,7 @@ export function groupCategories({ categories, siteCategories }: Facets): Categor
   const top: CategoryGroup[] = [];
   for (const f of categories) {
     const p = isCustomCategory(f.value)
-      ? parents.find((s) => f.label.startsWith(s.label + SUB))
+      ? parents.find(s => f.label.startsWith(s.label + SUB))
       : undefined;
     const group = groups.get(f.value)!;
     if (p) {
@@ -49,7 +49,7 @@ export function groupCategories({ categories, siteCategories }: Facets): Categor
   const sort = (rows: CategoryGroup[]): CategoryGroup[] =>
     rows
       .toSorted((a, b) => collator.compare(a.facet.label, b.facet.label))
-      .map((g) => ({ ...g, subs: sort(g.subs) }));
+      .map(g => ({ ...g, subs: sort(g.subs) }));
   return sort(top);
 }
 
@@ -113,7 +113,7 @@ export function CategoryList({
           Collapse all
         </button>
       </div>
-      {groups.map((group) => (
+      {groups.map(group => (
         <CategoryGroupRow
           key={group.facet.value}
           group={group}
@@ -148,7 +148,7 @@ export function CategoryGroupRow({
   const toggle = () =>
     onChange(
       selected.includes(facet.value)
-        ? selected.filter((v) => v !== facet.value)
+        ? selected.filter(v => v !== facet.value)
         : [...selected, facet.value],
     );
   if (!subs.length) {
@@ -162,9 +162,9 @@ export function CategoryGroupRow({
     );
   }
   const rows = groupFacets(group);
-  const values = rows.map((r) => r.value);
-  const all = values.every((v) => selected.includes(v));
-  const some = values.some((v) => selected.includes(v));
+  const values = rows.map(r => r.value);
+  const all = values.every(v => selected.includes(v));
+  const some = values.some(v => selected.includes(v));
   // Subcategory lists start closed; `collapsed[id] === false` means opened.
   const id = categoryCollapseId(facet.value);
   const open = collapsed[id] === false;
@@ -181,7 +181,7 @@ export function CategoryGroupRow({
             onChange={() =>
               onChange(
                 all
-                  ? selected.filter((v) => !values.includes(v))
+                  ? selected.filter(v => !values.includes(v))
                   : [...new Set([...selected, ...values])],
               )
             }
@@ -217,7 +217,7 @@ export function CategoryGroupRow({
             onOnly={() => onOnly([facet.value])}
             onlyLabel={`Show only lots directly in ${facet.label}`}
           />
-          {subs.map((sub) => (
+          {subs.map(sub => (
             <CategoryGroupRow
               key={sub.facet.value}
               group={sub}

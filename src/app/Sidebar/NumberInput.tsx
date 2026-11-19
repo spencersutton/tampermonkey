@@ -35,9 +35,9 @@ function NumberInputDraft<T extends number | null>({
       <input
         {...input}
         value={text}
-        onInput={(e) => setText(e.currentTarget.value)}
+        onInput={e => setText(e.currentTarget.value)}
         onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && commit()}
+        onKeyDown={e => e.key === 'Enter' && commit()}
       />
     </label>
   );

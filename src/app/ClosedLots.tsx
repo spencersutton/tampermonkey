@@ -55,8 +55,8 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
       (lots, count) => put({ lots, count, done: false, at: Date.now() }),
       ac.signal,
     ).then(
-      (lots) => put({ lots, count: lots.length, done: true, at: Date.now() }),
-      (e) =>
+      lots => put({ lots, count: lots.length, done: true, at: Date.now() }),
+      e =>
         !ac.signal.aborted &&
         put({
           lots: hit?.lots ?? [],
@@ -85,9 +85,9 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     const out = new Map<string, Row[]>();
     for (const c of data?.lots ?? []) {
       const rows = (c.relisted ?? [])
-        .map((id) => catalogLots.value.get(id))
+        .map(id => catalogLots.value.get(id))
         .filter((l): l is Lot => l !== undefined && endsAtMs(l) > now)
-        .map((l) => makeRow(l, pickup, exclusions))
+        .map(l => makeRow(l, pickup, exclusions))
         .toSorted((a, b) => a.total - b.total);
       if (rows.length) {
         out.set(key(c), rows);
@@ -97,9 +97,9 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   }, [data?.lots, catalogLots.value, rev.value, now, pickup, exclusions]);
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
-  const lots = (data?.lots ?? []).filter((c) => {
+  const lots = (data?.lots ?? []).filter(c => {
     const hay = `${c.title} ${c.lot_number} ${c.location_name}`.toLowerCase();
-    return words.every((w) => hay.includes(w));
+    return words.every(w => hay.includes(w));
   });
   const bids = lots.reduce((n, c) => n + c.final_price, 0);
   const total = lots.reduce((n, c) => n + totalCost(c.final_price), 0);
@@ -112,11 +112,11 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     }
     setOpening(c.lot_id);
     loadDetail({ id: c.lot_id, auction_period: c.auction_period }).then(
-      (lot) => {
+      lot => {
         setOpening(null);
         setModalLot(lot);
       },
-      (e) => {
+      e => {
         setOpening(null);
         toast('bad', `Couldn’t load the lot: ${e instanceof Error ? e.message : String(e) || e}`);
       },
@@ -132,7 +132,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         <h1>Closed auctions</h1>
       </div>
       <div class="tabs" role="tablist">
-        {(['won', 'lost'] as const).map((s) => {
+        {(['won', 'lost'] as const).map(s => {
           const d = s === section ? data : cache.get(s);
           return (
             <button
@@ -161,7 +161,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
               placeholder={`Filter ${TITLES[section].toLowerCase()} lots`}
               aria-label="Filter lots"
               value={filter}
-              onInput={(e) => setFilter(e.currentTarget.value)}
+              onInput={e => setFilter(e.currentTarget.value)}
             />
             {data && !data.error && (
               <span class="muted small">
@@ -190,7 +190,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
             </p>
           )}
           <ol class="closed-list">
-            {lots.map((c) => (
+            {lots.map(c => (
               <ClosedRow
                 key={key(c)}
                 lot={c}
@@ -208,7 +208,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         <LotModal
           row={rowOf(modalLot)}
           onClose={() => setModalLot(null)}
-          onOpenLot={(l) => {
+          onOpenLot={l => {
             setModalLot(null);
             openLot(l);
           }}
@@ -275,7 +275,7 @@ function ClosedRow(props: {
       </div>
       {showRelisted && relisted && (
         <ol class="dupes closed-relisted">
-          {relisted.map((r) => (
+          {relisted.map(r => (
             <ListingRow
               key={r.lot.id}
               row={r}

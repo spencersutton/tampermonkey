@@ -20,11 +20,11 @@ export class FakeSite {
       cookie
         .split('; ')
         .filter(Boolean)
-        .map((c) => c.split('=', 2)),
+        .map(c => c.split('=', 2)),
     );
     const reply = (status: number, data?: unknown, setCookies: string[] = []) => {
       const h = new Headers({ 'Content-Type': 'application/json' });
-      setCookies.forEach((c) => h.append('Set-Cookie', c));
+      setCookies.forEach(c => h.append('Set-Cookie', c));
       return new Response(data === undefined ? null : JSON.stringify(data), { status, headers: h });
     };
     switch (url.pathname) {

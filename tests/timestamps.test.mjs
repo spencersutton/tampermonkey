@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
+  getItem: key => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
 };
 

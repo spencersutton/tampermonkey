@@ -7,7 +7,7 @@ import { createServer } from 'vite';
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
+  getItem: key => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
 };
 
@@ -67,7 +67,7 @@ beforeEach(() => {
   applySetting(KEYS.defaultFilters, { categories: [], conditions: [] });
   applySetting(KEYS.customCategories, [{ name: 'Tools - Drills', types: ['drill'] }]);
   applySetting(KEYS.hidden, {});
-  lots.value = new Map(fixtures.map((lot) => [lot.id, lot]));
+  lots.value = new Map(fixtures.map(lot => [lot.id, lot]));
 });
 
 const visibleIds = () =>
@@ -77,7 +77,7 @@ const visibleIds = () =>
     'Raleigh',
     exclusionRules.value,
     now,
-  ).rows.map((r) => r.lot.id);
+  ).rows.map(r => r.lot.id);
 
 test('hiding from an unfiltered view selects all other assigned categories', () => {
   hideCategory(custom);
@@ -164,7 +164,7 @@ function renderCard(lot) {
 
 test('the card exposes a labeled category hide button targeting its assigned custom category', () => {
   const tree = renderCard(fixtures[1]);
-  const button = nodes(tree).find((n) => n.props?.class === 'icon-btn category-hide');
+  const button = nodes(tree).find(n => n.props?.class === 'icon-btn category-hide');
   assert.equal(button.props.type, 'button');
   assert.equal(button.props['aria-label'], 'Hide category: Tools - Drills');
   assert.equal(button.props.title, button.props['aria-label']);
@@ -172,7 +172,7 @@ test('the card exposes a labeled category hide button targeting its assigned cus
   assert.deepEqual(visibleIds(), [1, 3]);
   const uncategorized = renderCard({ ...fixtures[0], category: null });
   assert.equal(
-    nodes(uncategorized).some((n) => n.props?.class === 'icon-btn category-hide'),
+    nodes(uncategorized).some(n => n.props?.class === 'icon-btn category-hide'),
     false,
   );
 });
@@ -185,7 +185,7 @@ test('clicking a card category selects only its assigned category and preserves 
     const view = { ...DEFAULT_VIEW, search: 'Fixture', sort: 'total-desc', priceMax: 20 };
     applySetting(KEYS.view, { ...view, categories: ['garden'] });
     page.value = 4;
-    const button = nodes(renderCard(lot)).find((n) => n.props?.class === 'btn-text category-only');
+    const button = nodes(renderCard(lot)).find(n => n.props?.class === 'btn-text category-only');
     assert.equal(button.type, 'button');
     assert.equal(button.props.type, 'button');
     assert.equal(button.props['aria-label'], `Show only ${rowOf(lot).category.label}`);
@@ -202,7 +202,7 @@ test('clicking a card category selects only its assigned category and preserves 
   }
   assert.equal(
     nodes(renderCard({ ...fixtures[0], category: null })).some(
-      (n) => n.props?.class === 'btn-text category-only',
+      n => n.props?.class === 'btn-text category-only',
     ),
     false,
   );

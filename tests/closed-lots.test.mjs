@@ -46,24 +46,24 @@ test('shared listing rows preserve prices, location, countdown and caller naviga
   const tree = ListingRow({
     row,
     currentTitle: 'Drill',
-    onOpen: (value) => {
+    onOpen: value => {
       opened = value;
     },
   });
   const all = nodes(tree);
   assert.equal(tree.type, 'li');
-  const button = all.find((n) => n.type === 'button');
+  const button = all.find(n => n.type === 'button');
   assert.equal(button.props.type, 'button');
   assert.equal(button.props.class, undefined);
   assert.equal(button.props['aria-current'], undefined);
   button.props.onClick();
   assert.equal(opened, lot);
-  assert.equal(all.find((n) => n.props.class === 'price').props.title, costBreakdown(100, 8));
+  assert.equal(all.find(n => n.props.class === 'price').props.title, costBreakdown(100, 8));
   assert.match(text(tree), /\$100.*≈ \$132\.99/);
-  assert.equal(text(all.find((n) => n.props.class === 'dupe-title')), 'Drill kit');
+  assert.equal(text(all.find(n => n.props.class === 'dupe-title')), 'Drill kit');
   assert.match(text(tree), /2 bids/);
-  assert.equal(all.find((n) => n.type === LocationText).props.row, row);
-  assert.equal(all.find((n) => n.type === TimeLeft).props.endsAt, Date.parse(lot.ends_at));
+  assert.equal(all.find(n => n.type === LocationText).props.row, row);
+  assert.equal(all.find(n => n.type === TimeLeft).props.endsAt, Date.parse(lot.ends_at));
 });
 
 test('shared listing rows preserve selection and suppress identical titles', () => {
@@ -75,11 +75,11 @@ test('shared listing rows preserve selection and suppress identical titles', () 
   for (const selected of [true, false]) {
     const tree = ListingRow({ row, currentTitle: 'Drill', selected, onOpen: () => {} });
     const all = nodes(tree);
-    const button = all.find((n) => n.type === 'button');
+    const button = all.find(n => n.type === 'button');
     assert.equal(button.props.class ?? '', selected ? 'on' : '');
     assert.equal(button.props['aria-current'], selected ? 'true' : undefined);
     assert.equal(
-      all.some((n) => n.props.class === 'dupe-title'),
+      all.some(n => n.props.class === 'dupe-title'),
       false,
     );
     assert.doesNotMatch(text(tree), /New/);
@@ -99,7 +99,7 @@ test('relisted rows show condition text with an unknown fallback', () => {
   }
 });
 
-test('closed lots are deduplicated and reported as pages arrive', async (t) => {
+test('closed lots are deduplicated and reported as pages arrive', async t => {
   const first = {
     lot_id: 1,
     auction_period: 'a',
@@ -115,7 +115,7 @@ test('closed lots are deduplicated and reported as pages arrive', async (t) => {
     { count: 2, results: [first, second] },
   ];
   const urls = [];
-  t.mock.method(globalThis, 'fetch', async (url) => {
+  t.mock.method(globalThis, 'fetch', async url => {
     urls.push(url);
     return new Response(JSON.stringify(pages[urls.length - 1]), { status: 200 });
   });
@@ -172,7 +172,7 @@ test('estimated costs use the supplied transfer fee', () => {
   assert.doesNotMatch(costBreakdown(100), /transfer/);
 });
 
-test('a fetched closed lot detail can be used as a row and reused by the modal', async (t) => {
+test('a fetched closed lot detail can be used as a row and reused by the modal', async t => {
   const raw = rawDetail({
     id: 4321,
     auction_period: 'a',

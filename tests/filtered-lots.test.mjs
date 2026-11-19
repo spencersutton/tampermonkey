@@ -39,7 +39,7 @@ const lot = (id, title, extra = {}) => ({
   bid_count: 0,
   ...extra,
 });
-const ids = () => gridView.value.rows.map((row) => row.lot.id);
+const ids = () => gridView.value.rows.map(row => row.lot.id);
 
 beforeEach(() => {
   filteredOnly.value = false;
@@ -68,7 +68,7 @@ test('filtered page shows only rule matches, including removed and hidden lots, 
   assert.equal(sidebarOpen.value, false);
   assert.deepEqual(ids(), [1, 3]);
   assert.deepEqual(
-    gridView.value.rows.map((row) => row.matched),
+    gridView.value.rows.map(row => row.matched),
     ['drill', 'saw'],
   );
   openFiltered(false);
@@ -153,7 +153,7 @@ test('filtered page round-trips through URLs and browser back/forward', () => {
       listeners[name] = fn;
     },
   };
-  globalThis.requestAnimationFrame = (fn) => fn();
+  globalThis.requestAnimationFrame = fn => fn();
   startHistory();
   const catalog = history.state;
   openFiltered();

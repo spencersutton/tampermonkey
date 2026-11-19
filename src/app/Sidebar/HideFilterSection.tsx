@@ -34,7 +34,7 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
   const edit = useInlineEdit();
   const editing = edit.editing != null;
   const ok = compileFilter(pattern) != null;
-  const save: SaveFn = (next) => {
+  const save: SaveFn = next => {
     if (next === pattern) {
       return;
     }
@@ -105,7 +105,7 @@ function Switch({
         type="checkbox"
         role="switch"
         checked={checked}
-        onChange={(e) => onChange(e.currentTarget.checked)}
+        onChange={e => onChange(e.currentTarget.checked)}
       />
     </label>
   );
@@ -158,8 +158,8 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
           autocomplete="off"
           spellcheck={false}
           value={input}
-          onInput={(e) => setInput(e.currentTarget.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
+          onInput={e => setInput(e.currentTarget.value)}
+          onKeyDown={e => e.key === 'Enter' && add()}
         />
         <button type="button" class="btn-text" onClick={add}>
           Add
@@ -169,13 +169,13 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
 
       <Collapsible id="words" title={`Filter patterns (${words.length})`}>
         <ul class="filter-list">
-          {words.toSorted().map((w) => (
+          {words.toSorted().map(w => (
             <FilterRow
               key={w}
               pattern={w}
               count={matchCounts.get(w) ?? 0}
-              onRemove={() => setWords(words.filter((x) => x !== w))}
-              onSave={(next) => setWords([...new Set(words.map((x) => (x === w ? next : x)))])}
+              onRemove={() => setWords(words.filter(x => x !== w))}
+              onSave={next => setWords([...new Set(words.map(x => (x === w ? next : x)))])}
             />
           ))}
         </ul>

@@ -78,7 +78,7 @@ export class CompiledRule {
     // Matching the empty alternative reports every group (all unset) without matching anything else.
     const probe = new RegExp(`(?:${this.rx.source})|`, 'i').exec('');
     const groups = (probe?.length ?? 1) - 1;
-    const names = new Map(Object.keys(probe?.groups ?? {}).map((n) => [n.toLowerCase(), n]));
+    const names = new Map(Object.keys(probe?.groups ?? {}).map(n => [n.toLowerCase(), n]));
     for (const tag of tags) {
       const parts: string[] = [];
       const refs: Ref[] = [];
@@ -109,7 +109,7 @@ export class CompiledRule {
         at = ref.index + ref[0].length;
       }
       parts.push(tag.slice(at));
-      this.templates.push({ parts: parts.map((p) => p.replaceAll('$$', '$')), refs });
+      this.templates.push({ parts: parts.map(p => p.replaceAll('$$', '$')), refs });
     }
   }
 
@@ -124,7 +124,7 @@ export class CompiledRule {
     }
     const out: string[] = [];
     for (const { parts, refs } of this.templates) {
-      const values = refs.map((r) => (typeof r === 'number' ? m[r] : m.groups?.[r]));
+      const values = refs.map(r => (typeof r === 'number' ? m[r] : m.groups?.[r]));
       if (!values.every(Boolean)) {
         continue;
       }

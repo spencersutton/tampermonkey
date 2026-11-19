@@ -59,16 +59,16 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
     setRefreshing(true);
     setDetail(cachedDetail(lot.id) ?? null);
     loadMetadata(lot).then(
-      (saved) => {
+      saved => {
         if (active && !refreshed && saved) setMetadata(saved);
       },
-      (e) => {
+      e => {
         if (active && !refreshed) setMetadataError(e instanceof Error ? e.message : String(e));
       },
     );
     // The cache shares this request with other callers; only detach this reader.
     loadDetail(lot).then(
-      (data) => {
+      data => {
         if (!active) return;
         refreshed = true;
         setDetail(data);
@@ -76,7 +76,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
         setMetadataError(null);
         setRefreshing(false);
       },
-      (e) => {
+      e => {
         if (!active) return;
         setError(e instanceof Error ? e.message : String(e));
         setRefreshing(false);
@@ -92,7 +92,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   const img = images[Math.min(imgIdx, images.length - 1)];
   /** Move through the images by `delta`, wrapping around. */
   const step = (delta: number) =>
-    setImgIdx((i) => (i + delta + images.length) % Math.max(images.length, 1));
+    setImgIdx(i => (i + delta + images.length) % Math.max(images.length, 1));
 
   const onKeyDown = (e: KeyboardEvent) => {
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
@@ -232,7 +232,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
                 <div>
                   <h3>Bid history</h3>
                   <ol class="bids">
-                    {auction.bid_history.map((b) => (
+                    {auction.bid_history.map(b => (
                       <li class={b.is_you ? 'you' : ''}>
                         <span>{b.is_you ? 'You' : b.bidder_label}</span>
                         <span>{dollars(b.amount)}</span>
@@ -265,12 +265,12 @@ function SameListings({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
-  const mixed = new Set(group.map((r) => r.lot.condition?.display_name)).size > 1;
+  const mixed = new Set(group.map(r => r.lot.condition?.display_name)).size > 1;
   return (
     <div>
       <h3>{fmtCount(group.length)} listings of this item</h3>
       <ol class="dupes">
-        {group.map((r) => (
+        {group.map(r => (
           <ListingRow
             key={r.lot.id}
             row={r}
@@ -300,8 +300,8 @@ function Similar({
 }) {
   const now = clock(30_000);
   const open = lots
-    .map((l) => getLot(l.id) ?? l)
-    .filter((l) => l.id !== current.id && endsAtMs(l) > now);
+    .map(l => getLot(l.id) ?? l)
+    .filter(l => l.id !== current.id && endsAtMs(l) > now);
   if (!open.length) {
     return null;
   }
@@ -309,7 +309,7 @@ function Similar({
     <div>
       <h3>Similar auctions</h3>
       <ol class="similar">
-        {open.map((l) => {
+        {open.map(l => {
           const img = l.images[0];
           const inCatalog = getLot(l.id) != null;
           return (
@@ -346,14 +346,14 @@ function Similar({
 function PastCloses({ lot }: { lot: Lot }) {
   const [closes, setCloses] = useState<PastCloseDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const matchedIds = lot.pastCloses?.recent.map((close) => close.id).join(',');
+  const matchedIds = lot.pastCloses?.recent.map(close => close.id).join(',');
   useEffect(() => {
     let live = true;
     setCloses(null);
     setError(null);
     fetchPastCloses(lot.id).then(
-      (c) => live && setCloses(c),
-      (e) => live && setError(e instanceof Error ? e.message : String(e)),
+      c => live && setCloses(c),
+      e => live && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => void (live = false);
   }, [lot.id, lot.pastCloses?.n, matchedIds]);
@@ -374,7 +374,7 @@ function PastCloses({ lot }: { lot: Lot }) {
       {!closes && !error && <p class="muted small">Loading…</p>}
       {closes && (
         <ol class="past">
-          {closes.map((c) => (
+          {closes.map(c => (
             <li>
               <span
                 class="price"
@@ -466,7 +466,7 @@ function BidPanel({ row }: { row: Row }) {
             aria-label="Max bid amount"
             placeholder={`${min} or more`}
             value={value}
-            onInput={(e) => setValue(e.currentTarget.value)}
+            onInput={e => setValue(e.currentTarget.value)}
           />
         </label>
         <button

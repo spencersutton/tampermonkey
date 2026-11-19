@@ -35,7 +35,7 @@ describe('first seen', () => {
       fetchLotPage: () => Promise.resolve({ count: lots.length, results: lots } as LotPage),
     };
     await new Catalog(store, session(), noHistory, site, 0, () => 12345).pull();
-    return new Map(stored.map((lot) => [lot.id, lot]));
+    return new Map(stored.map(lot => [lot.id, lot]));
   }
 
   test('the first pull marks no lot as new', async () => {
@@ -51,9 +51,9 @@ describe('first seen', () => {
     ]);
     const pulled = await pull(
       previous,
-      [1, 2, 3, 4, 5].map((id) => ({ id, title: `Lot ${id}`, has_bid: false })),
+      [1, 2, 3, 4, 5].map(id => ({ id, title: `Lot ${id}`, has_bid: false })),
     );
-    expect([1, 2, 3, 4, 5].map((id) => pulled.get(id)?.firstSeenAt)).toEqual([
+    expect([1, 2, 3, 4, 5].map(id => pulled.get(id)?.firstSeenAt)).toEqual([
       99, 0, 0, 12345, 12345,
     ]);
     expect(pulled.get(1)?.has_bid).toBe(true);
@@ -94,7 +94,7 @@ describe('a pull', () => {
     catalog.afterPull = () => void after++;
     await catalog.pull();
     expect(
-      requests.map((u) => [
+      requests.map(u => [
         u.searchParams.get('page'),
         u.searchParams.get('per_page'),
         u.searchParams.get('order_by'),
@@ -127,7 +127,7 @@ describe('a pull', () => {
       store,
       {
         token: () => Promise.resolve('old'),
-        rejected: (t) => (rejected.push(t), Promise.resolve('new')),
+        rejected: t => (rejected.push(t), Promise.resolve('new')),
       },
       noHistory,
       site,
@@ -261,12 +261,12 @@ describe('item type labeller', () => {
       return Response.json({ choices: [{ message: { content: reply } }] });
     }) as typeof fetch;
     await new Labeller(store, 'key', 'https://llm.example/v1/', 'm', llm).labelAll();
-    expect(bodies.map((b) => b.messages[1]!.content)).toEqual([
+    expect(bodies.map(b => b.messages[1]!.content)).toEqual([
       'Site category: Tools\nTypes already in use: saw\n\nTitles:\n1: alpha drill\n2: Zeta Saw',
       'Site category: Other\nTypes already in use: (none yet)\n\nTitles:\n1: Rug',
     ]);
     expect(bodies[0]?.model).toBe('m');
-    expect([1, 2, 3].map((id) => store.lot(id)?.itemType)).toEqual([
+    expect([1, 2, 3].map(id => store.lot(id)?.itemType)).toEqual([
       'saw',
       'drill driver',
       'area rug',

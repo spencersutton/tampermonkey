@@ -120,7 +120,7 @@ export const accountPickupName = computed(() => {
     return acct?.name ?? null;
   }
   // The account may only give the location's id; find its name among the lots.
-  return lots.value.values().find((l) => l.location?.id === acct.id)?.location?.name ?? null;
+  return lots.value.values().find(l => l.location?.id === acct.id)?.location?.name ?? null;
 });
 export const pickupName = computed(() => accountPickupName.value || 'Raleigh');
 
@@ -162,8 +162,8 @@ export function hideCategory(value: string, from?: EventTarget | null) {
   const selected =
     view.categories.length || view.noCategories
       ? view.categories
-      : filterFacets.value.categories.map((f) => f.value);
-  const categories = selected.filter((v) => v !== value);
+      : filterFacets.value.categories.map(f => f.value);
+  const categories = selected.filter(v => v !== value);
   const clicked =
     typeof Element !== 'undefined' && from instanceof Element
       ? from.closest('article[data-lot]')
@@ -173,13 +173,13 @@ export function hideCategory(value: string, from?: EventTarget | null) {
   const anchorTop = clicked?.getBoundingClientRect().top;
   const after = at >= 0 ? cards.slice(at + 1) : [];
   const before = at >= 0 ? cards.slice(0, at).toReversed() : [];
-  const beforeTops = new Map(before.map((card) => [card, card.getBoundingClientRect().top]));
+  const beforeTops = new Map(before.map(card => [card, card.getBoundingClientRect().top]));
   setSetting(KEYS.view, { ...view, categories, noCategories: !categories.length });
   if (anchorTop == null) return;
   // Preact renders on a microtask, so this runs after the grid updates but before it's painted.
   requestAnimationFrame(() => {
-    const next = after.find((card) => card.isConnected);
-    const prev = next ? undefined : before.find((card) => card.isConnected);
+    const next = after.find(card => card.isConnected);
+    const prev = next ? undefined : before.find(card => card.isConnected);
     const target = next ?? prev;
     if (!target) return;
     const want = next ? anchorTop : beforeTops.get(target)!;
@@ -253,7 +253,7 @@ const RECENT_SEARCHES = 8;
 export function rememberSearch(text: string) {
   const q = text.trim();
   if (!q) return;
-  const rest = getSetting(KEYS.recentSearches).filter((s) => s.toLowerCase() !== q.toLowerCase());
+  const rest = getSetting(KEYS.recentSearches).filter(s => s.toLowerCase() !== q.toLowerCase());
   setSetting(KEYS.recentSearches, [q, ...rest].slice(0, RECENT_SEARCHES));
 }
 export const shownRows = computed(() => gridView.value.rows.slice(0, page.value * PAGE_SIZE));
@@ -319,7 +319,7 @@ function firstVisitSince(now: number): number {
   const first = lots
     .peek()
     .values()
-    .filter((l) => endsAtMs(l) > newAfter)
+    .filter(l => endsAtMs(l) > newAfter)
     .reduce<number | null>((min, l) => Math.min(min ?? Infinity, l.firstSeenAt ?? 0), null);
   if (first == null) return now;
   return Math.max(0, first - 1);
@@ -339,7 +339,7 @@ export function startApp() {
     const acct = untracked(() => getSetting(KEYS.accountPickup));
     if (!(acct && Date.now() - acct.at < DAY)) {
       fetchPickupLocation().then(
-        (p) =>
+        p =>
           setSetting(KEYS.accountPickup, {
             id: p?.id ?? null,
             name: p?.name ?? null,

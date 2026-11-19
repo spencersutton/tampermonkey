@@ -45,16 +45,16 @@ const SEARCH_TIP =
 function optionsFor(draft: string): Option[] {
   const q = draft.trim();
   if (!q) {
-    return getSetting(KEYS.recentSearches).map((text) => ({ kind: 'recent', text }));
+    return getSetting(KEYS.recentSearches).map(text => ({ kind: 'recent', text }));
   }
   const s = suggestions.value;
   return [
     { kind: 'search', text: q },
-    ...s.types.map((facet) => ({ kind: 'type' as const, facet })),
-    ...s.brands.map((facet) => ({ kind: 'brand' as const, facet })),
-    ...s.tags.map((facet) => ({ kind: 'tag' as const, facet })),
-    ...s.categories.map((facet) => ({ kind: 'category' as const, facet })),
-    ...s.lots.map((lot) => ({ kind: 'lot' as const, lot })),
+    ...s.types.map(facet => ({ kind: 'type' as const, facet })),
+    ...s.brands.map(facet => ({ kind: 'brand' as const, facet })),
+    ...s.tags.map(facet => ({ kind: 'tag' as const, facet })),
+    ...s.categories.map(facet => ({ kind: 'category' as const, facet })),
+    ...s.lots.map(lot => ({ kind: 'lot' as const, lot })),
   ];
 }
 
@@ -97,7 +97,7 @@ export function SearchBox() {
         rememberSearch(draft);
         setView({
           search: '',
-          tags: [...view.tags.filter((t) => tagGroup(t) !== group), o.facet.value],
+          tags: [...view.tags.filter(t => tagGroup(t) !== group), o.facet.value],
         });
         break;
       }
@@ -124,7 +124,7 @@ export function SearchBox() {
       if (!listed.length) return;
       const step = e.key === 'ArrowDown' ? 1 : -1;
       // Cycle through the options and back to the text box (-1).
-      setActive((i) => {
+      setActive(i => {
         const next = i + step;
         if (next >= listed.length) return -1;
         return next < -1 ? listed.length - 1 : next;
@@ -178,7 +178,7 @@ export function SearchBox() {
         spellcheck={!view.searchRegex}
         autocomplete="off"
         value={draft}
-        onInput={(e) => {
+        onInput={e => {
           setSearchDraft(e.currentTarget.value);
           setOpen(true);
           setActive(-1);
@@ -203,7 +203,7 @@ export function SearchBox() {
           role="listbox"
           aria-label="Search suggestions"
           // Keep focus in the box so a click can pick an option before blur closes the list.
-          onMouseDown={(e) => e.preventDefault()}
+          onMouseDown={e => e.preventDefault()}
         >
           {listed.map((o, i) => {
             const title = GROUP_TITLES[o.kind];

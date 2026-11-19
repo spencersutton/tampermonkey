@@ -52,8 +52,8 @@ function stores(path = dbPath()) {
   const store = new Store(path);
   const history = new History(store, noSite, () => Promise.resolve());
   const addOpen = (...items: Lot[]) => {
-    items.forEach((i) => store.saveLotDetail(i));
-    store.replaceAll(items.map((i) => structuredClone(i)));
+    items.forEach(i => store.saveLotDetail(i));
+    store.replaceAll(items.map(i => structuredClone(i)));
   };
   const addClosed = (...items: Lot[]) => {
     for (const i of items) {
@@ -75,7 +75,7 @@ describe('stored matching', () => {
     store.saveLotDetail(item(2, 'Different title', { model: 'D-200' }));
     history.refresh();
     expect([1, 2].map(groupOf)).toEqual([undefined, undefined]);
-    expect(new Set(store.changes(before).lots.map((l) => l.id))).toEqual(new Set([1, 2]));
+    expect(new Set(store.changes(before).lots.map(l => l.id))).toEqual(new Set([1, 2]));
     before = store.seq();
     history.refresh();
     expect(store.seq()).toBe(before); // an unchanged catalog publishes nothing
@@ -104,7 +104,7 @@ describe('stored matching', () => {
       { lot_id: 1, title: 'Cordless drill', brand: 'Acme', model: 'D-100' },
     ];
     history.relisted(closed);
-    expect(closed.map((c) => (c['relisted'] as number[]).toSorted())).toEqual([[1], [5], [2]]);
+    expect(closed.map(c => (c['relisted'] as number[]).toSorted())).toEqual([[1], [5], [2]]);
   });
 
   test('databases from before groups are upgraded', () => {
@@ -127,9 +127,13 @@ describe('identity', () => {
       sold(1, 'Entirely different title', { ends_at: new Date(100).toISOString() }),
       sold(2, 'Cordless drill', { model: 'D-200', ends_at: new Date(200).toISOString() }),
       sold(3, 'Cordless drill', { brand: null, ends_at: new Date(300).toISOString() }),
-      sold(4, 'Cordless drill', { brand: ' ACME ', model: ' d-100 ', ends_at: new Date(400).toISOString() }),
+      sold(4, 'Cordless drill', {
+        brand: ' ACME ',
+        model: ' d-100 ',
+        ends_at: new Date(400).toISOString(),
+      }),
     );
-    const ids = (lot: Lot) => history.closesFor(lot).map((r) => r.id);
+    const ids = (lot: Lot) => history.closesFor(lot).map(r => r.id);
     expect(ids(sold(10))).toEqual([4, 3, 1]);
     expect(ids(sold(10, 'Cordless drill', { model: null }))).toEqual([4, 3, 2]);
     expect(ids(sold(4))).toEqual([3, 1]); // the same lot is never its own history
@@ -145,7 +149,7 @@ describe('identity', () => {
     );
     for (const value of [50, 100]) {
       store.putSetting('tlxNameMatch', value);
-      expect(history.closesFor(sold(3, title, { brand: null })).map((r) => r.id)).toEqual([1]);
+      expect(history.closesFor(sold(3, title, { brand: null })).map(r => r.id)).toEqual([1]);
     }
   });
 
@@ -159,7 +163,7 @@ describe('identity', () => {
     store.saveLotDetail(sold(1, 'Old listing'));
     history.refresh();
     const changed = store.changes(before).lots;
-    expect(changed.map((l) => l.id)).toEqual([10]);
+    expect(changed.map(l => l.id)).toEqual([10]);
     expect(changed[0]?.pastCloses?.n).toBe(1);
     store.saveLotDetail(sold(10, 'Open tool', { model: 'D-300' }));
     history.refresh();
@@ -179,7 +183,7 @@ describe('identity', () => {
     );
     let before = store.seq();
     store.saveLotTypes([[store.lot(1)!, 'driver']], { manual: true });
-    expect(new Set(store.changes(before).lots.map((l) => l.id))).toEqual(new Set([1, 2, 4]));
+    expect(new Set(store.changes(before).lots.map(l => l.id))).toEqual(new Set([1, 2, 4]));
     expect(store.lot(3)).not.toHaveProperty('itemType');
     store.saveLotTypes([[store.lot(3)!, 'hammer drill']], { manual: true });
     expect(store.lot(1)?.itemType).toBe('driver');
@@ -204,7 +208,7 @@ describe('identity', () => {
     const before = reopened.seq();
     expect(reopened.resetItemTypes()).toBe(1);
     expect(reopened.lot(5)).not.toHaveProperty('itemType');
-    expect(reopened.changes(before).lots.map((l) => l.id)).toEqual([5]);
+    expect(reopened.changes(before).lots.map(l => l.id)).toEqual([5]);
   });
 
   test('identity labels beat title-only automatic labels, but not manual corrections', () => {
@@ -239,7 +243,7 @@ describe('identity', () => {
     let before = store.seq();
     store.saveLotDetail(sold(2, 'Other title'));
     expect(store.lot(2)?.itemType).toBe('driver');
-    expect(store.changes(before).lots.map((l) => l.id)).toContain(2);
+    expect(store.changes(before).lots.map(l => l.id)).toContain(2);
     before = store.seq();
     const pulled = [...store.allLots().values()].map(
       ({ brand: _b, model: _m, itemType: _t, ...rest }) => rest,
@@ -297,11 +301,11 @@ describe('final prices', () => {
     ]);
     store.replaceAll([]); // all four close, with the last price seen
   });
-  const closed = () => new Map(store.closedLots().map((c) => [c.id, c]));
+  const closed = () => new Map(store.closedLots().map(c => [c.id, c]));
 
   test("the site's final state is recorded, lots still live are dropped, and lots it no longer has keep the last price", async () => {
     expect(closed().get(1)).toMatchObject({ final: false, sold: true, price: 20 });
-    await history((path) => {
+    await history(path => {
       const id = Number(path.split('/').at(-2));
       if (id === 1) return { ...detail, id, status: 'sold', current_price: 31, bid_count: 5 };
       if (id === 2) return { ...detail, id, status: 'unsold', bid_count: 0 };
@@ -309,7 +313,7 @@ describe('final prices', () => {
         return { ...detail, id, status: 'live', ends_at: new Date(LATER).toISOString() };
       return 404;
     }).finalize();
-    expect(calls).toEqual([1, 2, 3, 4].map((id) => `/backend/v1/auctions/lots/test/${id}/`));
+    expect(calls).toEqual([1, 2, 3, 4].map(id => `/backend/v1/auctions/lots/test/${id}/`));
     const after = closed();
     expect(after.get(1)).toMatchObject({ final: true, sold: true, price: 31, bidCount: 5 });
     expect(after.get(2)).toMatchObject({ final: true, sold: false });

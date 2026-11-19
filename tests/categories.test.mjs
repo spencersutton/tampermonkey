@@ -6,7 +6,7 @@ import { createServer } from 'vite';
 
 const storage = new Map();
 globalThis.localStorage = {
-  getItem: (key) => storage.get(key) ?? null,
+  getItem: key => storage.get(key) ?? null,
   setItem: (key, value) => storage.set(key, value),
 };
 
@@ -213,7 +213,7 @@ test('custom roots can head children, while a missing parent keeps the remaining
   assert.equal(groups[0].facet.label, 'Favorites');
   assert.equal(groups[0].subs[0].facet.label, 'Workshop');
   assert.deepEqual(
-    groups[1].subs.map((g) => g.facet.label),
+    groups[1].subs.map(g => g.facet.label),
     ['Drill Bits', 'Drills - Cordless', 'DrillsExtra'],
   );
 });
@@ -269,15 +269,15 @@ test('parent rows count and toggle all descendants without touching unrelated se
     selected,
     collapsed: {},
     setCollapsed: () => {},
-    onChange: (next) => {
+    onChange: next => {
       selected = next;
     },
   };
   const nodes = rowNodes(CategoryGroupRow(props));
-  const checkbox = nodes.find((n) => n.type === 'input');
+  const checkbox = nodes.find(n => n.type === 'input');
   assert.equal(checkbox.props.checked, false);
   assert.equal(checkbox.props.indeterminate, true);
-  const button = nodes.find((n) => n.type === 'button');
+  const button = nodes.find(n => n.type === 'button');
   assert.equal(button.props['aria-label'], 'Show Tools subcategories (10 lots)');
   checkbox.props.onChange();
   assert.deepEqual(
@@ -290,9 +290,7 @@ test('parent rows count and toggle all descendants without touching unrelated se
       'custom:Tools - Saws',
     ]),
   );
-  const checked = rowNodes(CategoryGroupRow({ ...props, selected })).find(
-    (n) => n.type === 'input',
-  );
+  const checked = rowNodes(CategoryGroupRow({ ...props, selected })).find(n => n.type === 'input');
   assert.equal(checked.props.checked, true);
   assert.equal(checked.props.indeterminate, false);
   checked.props.onChange();
@@ -300,10 +298,10 @@ test('parent rows count and toggle all descendants without touching unrelated se
 
   const drillNodes = rowNodes(CategoryGroupRow({ ...props, group: group.subs[0], selected }));
   assert.equal(
-    drillNodes.find((n) => n.type === 'button').props['aria-label'],
+    drillNodes.find(n => n.type === 'button').props['aria-label'],
     'Show Drills subcategories (4 lots)',
   );
-  drillNodes.find((n) => n.type === 'input').props.onChange();
+  drillNodes.find(n => n.type === 'input').props.onChange();
   assert.deepEqual(selected, [
     'garden',
     'custom:Tools - Drills',
@@ -330,31 +328,31 @@ test('each tier expands independently and Other toggles only the parent own valu
         group,
         collapsed,
         selected,
-        setCollapsed: (next) => {
+        setCollapsed: next => {
           collapsed = next;
         },
-        onChange: (next) => {
+        onChange: next => {
           selected = next;
         },
       }),
     );
-  assert.equal(render().filter((n) => n.props?.class === 'check-expand').length, 1);
+  assert.equal(render().filter(n => n.props?.class === 'check-expand').length, 1);
   render()
-    .find((n) => n.props?.class === 'check-expand')
+    .find(n => n.props?.class === 'check-expand')
     .props.onClick();
   assert.deepEqual(collapsed, { 'cat:tools': false });
-  const buttons = render().filter((n) => n.props?.class === 'check-expand');
+  const buttons = render().filter(n => n.props?.class === 'check-expand');
   assert.equal(buttons.length, 2);
   assert.equal(buttons[1].props['aria-expanded'], false);
   buttons[1].props.onClick();
   assert.deepEqual(collapsed, { 'cat:tools': false, 'cat:custom:Tools - Drills': false });
   const nodes = render();
-  const checks = nodes.filter((n) => n.type === 'input');
+  const checks = nodes.filter(n => n.type === 'input');
   assert.equal(checks.length, 5);
   checks[3].props.onChange();
   assert.deepEqual(selected, ['custom:Tools - Drills - Cordless', 'custom:Tools - Drills']);
   render()
-    .filter((n) => n.type === 'input')[1]
+    .filter(n => n.type === 'input')[1]
     .props.onChange();
   assert.deepEqual(selected, [
     'custom:Tools - Drills - Cordless',
@@ -375,7 +373,7 @@ test('longer site names win and similar custom names are not treated as descenda
     ),
   );
   assert.deepEqual(
-    groups.map((g) => [g.facet.label, g.subs.map((s) => s.facet.label)]),
+    groups.map(g => [g.facet.label, g.subs.map(s => s.facet.label)]),
     [
       ['Tools', ['Drills', 'DrillsExtra']],
       ['Tools - Power', ['Bits']],
@@ -394,14 +392,14 @@ test('Only on a site or custom leaf replaces selections and stays exclusive on r
           selected,
           collapsed: {},
           setCollapsed: () => assert.fail('Only must not change expansion'),
-          onChange: (next) => {
+          onChange: next => {
             selected = next;
             changes++;
           },
         }),
       );
     for (let i = 0; i < 2; i++) {
-      const button = render().find((n) => n.props?.class === 'icon-btn check-only');
+      const button = render().find(n => n.props?.class === 'icon-btn check-only');
       assert.equal(button.props.type, 'button');
       assert.equal(button.props['aria-label'], `Show only ${leaf.label}`);
       button.props.onClick();
@@ -424,20 +422,20 @@ test('Only on a parent replaces selections with the whole branch, even while col
     ),
   );
   let selected = ['garden', 'custom:Tools - Saws'];
-  const render = (branch) =>
+  const render = branch =>
     rowNodes(
       CategoryGroupRow({
         group: branch,
         selected,
         collapsed: {},
         setCollapsed: () => assert.fail('Only must not change expansion'),
-        onChange: (next) => {
+        onChange: next => {
           selected = next;
         },
       }),
     );
   render(group)
-    .find((n) => n.props?.class === 'icon-btn check-only')
+    .find(n => n.props?.class === 'icon-btn check-only')
     .props.onClick();
   assert.deepEqual(selected, [
     'tools',
@@ -445,7 +443,7 @@ test('Only on a parent replaces selections with the whole branch, even while col
     'custom:Tools - Drills - Cordless',
     'custom:Tools - Saws',
   ]);
-  const button = render(group.subs[0]).find((n) => n.props?.class === 'icon-btn check-only');
+  const button = render(group.subs[0]).find(n => n.props?.class === 'icon-btn check-only');
   assert.equal(button.props['aria-label'], 'Show only Drills and its subcategories');
   button.props.onClick();
   assert.deepEqual(selected, ['custom:Tools - Drills', 'custom:Tools - Drills - Cordless']);
@@ -467,10 +465,10 @@ test('Only goes to onOnly when given, so the sidebar can clear other filters', (
         collapsed: {},
         setCollapsed: () => {},
         onChange: () => assert.fail('Only must not call onChange when onOnly is given'),
-        onOnly: (next) => only.push(next),
+        onOnly: next => only.push(next),
       }),
     )
-      .find((n) => n.props?.class === 'icon-btn check-only')
+      .find(n => n.props?.class === 'icon-btn check-only')
       .props.onClick();
   }
   assert.deepEqual(only, [
@@ -498,17 +496,17 @@ test('Only on Other excludes descendants, ancestors and unrelated categories', (
         selected,
         collapsed: { 'cat:tools': false, 'cat:custom:Tools - Drills': false },
         setCollapsed: () => assert.fail('Only must not change expansion'),
-        onChange: (next) => {
+        onChange: next => {
           selected = next;
         },
       }),
     );
   render()
-    .find((n) => n.props?.['aria-label'] === 'Show only lots directly in Drills')
+    .find(n => n.props?.['aria-label'] === 'Show only lots directly in Drills')
     .props.onClick();
   assert.deepEqual(selected, ['custom:Tools - Drills']);
   render()
-    .find((n) => n.props?.['aria-label'] === 'Show only lots directly in Tools')
+    .find(n => n.props?.['aria-label'] === 'Show only lots directly in Tools')
     .props.onClick();
   assert.deepEqual(selected, ['tools']);
 });
@@ -533,7 +531,7 @@ test('exclusive selection uses a compact focus icon with a descriptive tooltip o
       onChange: () => {},
     }),
   );
-  const buttons = nodes.filter((n) => n.props?.class === 'icon-btn check-only');
+  const buttons = nodes.filter(n => n.props?.class === 'icon-btn check-only');
   assert.equal(buttons.length, 5);
   for (const { props } of buttons) {
     assert.equal(props.type, 'button');
