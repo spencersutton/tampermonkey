@@ -134,7 +134,7 @@ export function TypeCategory({
     ];
     const next = cats.flatMap(c => {
       if (c === existing) {
-        return [{ ...c, types: [...c.types, ...types].toSet().toArray() }];
+        return [{ ...c, types: [...c.types, ...types].toUnique() }];
       }
       return losing.includes(c) ? without(c, types, names) : [c];
     });

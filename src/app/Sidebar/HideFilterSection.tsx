@@ -178,14 +178,7 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
               pattern={w}
               count={matchCounts.get(w) ?? 0}
               onRemove={() => setWords(words.filter(x => x !== w))}
-              onSave={next =>
-                setWords(
-                  words
-                    .map(x => (x === w ? next : x))
-                    .toSet()
-                    .toArray(),
-                )
-              }
+              onSave={next => setWords(words.map(x => (x === w ? next : x)).toUnique())}
             />
           ))}
         </ul>

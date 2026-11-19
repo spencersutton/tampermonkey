@@ -1,10 +1,12 @@
-// Adds toSet() to Array and Iterator (every builtin with toArray), and toArray() to Set; imported for its side effect by each entry point.
+// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, and toUnique() (deduplicated array) to Array and Iterator; imported for its side effect by each entry point.
 declare global {
   interface Array<T> {
     toSet(): Set<T>;
+    toUnique(): T[];
   }
   interface ReadonlyArray<T> {
     toSet(): Set<T>;
+    toUnique(): T[];
   }
   interface Set<T> {
     toArray(): T[];
@@ -14,6 +16,7 @@ declare global {
   }
   interface IteratorObject<T, TReturn, TNext> {
     toSet(): Set<T>;
+    toUnique(): T[];
   }
 }
 
@@ -39,6 +42,24 @@ Object.defineProperty(Iterator.prototype, 'toSet', {
 Object.defineProperty(Set.prototype, 'toArray', {
   value: function toArray<T>(this: ReadonlySet<T>): T[] {
     return [...this];
+  },
+  configurable: true,
+  writable: true,
+});
+
+// oxlint-disable-next-line no-extend-native -- deliberate
+Object.defineProperty(Array.prototype, 'toUnique', {
+  value: function toUnique<T>(this: readonly T[]): T[] {
+    return [...new Set(this)];
+  },
+  configurable: true,
+  writable: true,
+});
+
+// oxlint-disable-next-line no-extend-native -- deliberate
+Object.defineProperty(Iterator.prototype, 'toUnique', {
+  value: function toUnique<T>(this: Iterator<T>): T[] {
+    return [...new Set({ [Symbol.iterator]: () => this })];
   },
   configurable: true,
   writable: true,

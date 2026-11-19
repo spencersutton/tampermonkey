@@ -189,7 +189,7 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
-    tags: strings(view.tags).map(toLower).toSet().toArray(),
+    tags: strings(view.tags).map(toLower).toUnique(),
     noCategories: !view.categories.length && view.noCategories,
     newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
