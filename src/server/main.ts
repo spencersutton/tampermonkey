@@ -39,7 +39,6 @@ pulls, synced settings and login to the site.
   --port PORT                 (default 8765)
   --db FILE                   SQLite file (default ${DEFAULT_DB})
   --password PASSWORD         password for the app (or set TLX_PASSWORD); required unless listening on loopback only
-  --background-minutes N      also pull this often when no one has the app open (default 0 = only while it's in use)
   --llm-key KEY               API key for naming each lot's item type (or set TLX_LLM_KEY); without one, lots get no item types
   --llm-url URL               OpenAI-compatible API base URL (or TLX_LLM_URL; default ${DEFAULT_URL})
   --llm-model MODEL           model for item types (or TLX_LLM_MODEL; default ${DEFAULT_MODEL})
@@ -64,7 +63,6 @@ function main() {
       port: { type: 'string', default: '8765' },
       db: { type: 'string', default: DEFAULT_DB },
       password: { type: 'string' },
-      'background-minutes': { type: 'string', default: '0' },
       'llm-key': { type: 'string' },
       'llm-url': { type: 'string' },
       'llm-model': { type: 'string' },
@@ -89,10 +87,6 @@ function main() {
   if (Boolean(args['tls-cert']) !== Boolean(args['tls-key'])) {
     fail('--tls-cert and --tls-key go together.');
   }
-  const backgroundMinutes = Number(args['background-minutes']);
-  if (!Number.isFinite(backgroundMinutes) || backgroundMinutes < 0) {
-    fail('--background-minutes must be a number of minutes.');
-  }
   if (!existsSync(join(STATIC_DIR, 'index.html'))) {
     log.warn(
       `the web app isn't built (${STATIC_DIR}/index.html is missing): run \`npm run build\``,
@@ -103,7 +97,7 @@ function main() {
   const site = new SiteApi();
   const session = new SiteSession(store);
   const history = new History(store, site);
-  const catalog = new Catalog(store, session, history, site, backgroundMinutes);
+  const catalog = new Catalog(store, session, history, site);
   void catalog.runForever();
   void history.runForever();
   history.wake(); // finish what the last run left

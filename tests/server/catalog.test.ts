@@ -35,7 +35,7 @@ describe('first seen', () => {
     const site = {
       fetchLotPage: () => Promise.resolve({ count: lots.length, results: lots } as LotPage),
     };
-    await new Catalog(store, session(), noHistory, site, 0, () => 12345).pull();
+    await new Catalog(store, session(), noHistory, site, () => 12345).pull();
     return new Map(stored.map(lot => [lot.id, lot]));
   }
 
@@ -90,7 +90,7 @@ describe('a pull', () => {
     let woken = 0;
     const history = new History(store, site, () => Promise.resolve());
     history.wake = () => void woken++;
-    const catalog = new Catalog(store, session(), history, site, 0, () => NOW);
+    const catalog = new Catalog(store, session(), history, site, () => NOW);
     let after = 0;
     catalog.afterPull = () => void after++;
     await catalog.pull();
@@ -132,7 +132,6 @@ describe('a pull', () => {
       },
       noHistory,
       site,
-      0,
       () => NOW,
     );
     await catalog.pull();
@@ -145,7 +144,6 @@ describe('a pull', () => {
       session(),
       noHistory,
       siteServing({}, 0, () => Response.json({}, { status: 503 })).site,
-      0,
       () => NOW,
     );
     await failing.pull();
@@ -160,7 +158,7 @@ describe('a pull', () => {
       { id: 2, title: 'Ended', ends_at: new Date(NOW - 1).toISOString() },
     ]);
     const { site } = siteServing({ 1: [{ ...raw[0], id: 3 }] }, 3);
-    await new Catalog(store, session(), noHistory, site, 0, () => NOW).pull();
+    await new Catalog(store, session(), noHistory, site, () => NOW).pull();
     expect([...store.allLots().keys()].toSorted()).toEqual([1, 3]);
   });
 
@@ -172,16 +170,9 @@ describe('a pull', () => {
 });
 
 describe('load rules', () => {
-  function catalogAt(now: { t: number }, background = 0) {
+  function catalogAt(now: { t: number }) {
     const store = new Store(':memory:');
-    const catalog = new Catalog(
-      store,
-      session(),
-      noHistory,
-      new SiteApi(),
-      background,
-      () => now.t,
-    );
+    const catalog = new Catalog(store, session(), noHistory, new SiteApi(), () => now.t);
     return { store, catalog };
   }
 
@@ -204,24 +195,16 @@ describe('load rules', () => {
     expect(catalog.requestPull()).toBe('busy');
   });
 
-  test('pulls happen only while a tab is in use, unless background pulls are on', async () => {
+  test('pulls happen on their own once due', async () => {
     const now = { t: NOW };
-    for (const [background, active, expected] of [
-      [0, false, 0],
-      [0, true, 1],
-      [10, false, 1],
-    ] as const) {
-      const { catalog } = catalogAt(now, background);
-      let pulls = 0;
-      catalog.pull = () => (pulls++, Promise.resolve());
-      void catalog.runForever();
-      catalog.heartbeat(active);
-      catalog.requestPull = catalog.requestPull.bind(catalog);
-      // Run the loop's first check without waiting 15 seconds.
-      (catalog as unknown as { waker: { wake(): void } }).waker.wake();
-      await Bun.sleep(5);
-      expect([background, active, pulls]).toEqual([background, active, expected]);
-    }
+    const { catalog } = catalogAt(now);
+    let pulls = 0;
+    catalog.pull = () => (pulls++, Promise.resolve());
+    void catalog.runForever();
+    // Run the loop's first check without waiting 15 seconds.
+    (catalog as unknown as { waker: { wake(): void } }).waker.wake();
+    await Bun.sleep(5);
+    expect(pulls).toBe(1);
   });
 });
 

@@ -6,7 +6,7 @@
 import { batch, signal } from '@preact/signals';
 
 import type { LotMetadata } from '../shared/lot';
-import { ACTIVE_WINDOW, MINUTE } from '../shared/time';
+import { MINUTE } from '../shared/time';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 import type { Lot, LotDetail } from './types';
@@ -168,28 +168,4 @@ export function cachedDetail(id: number): LotDetail | undefined {
     (!current || hit.data.version >= current.version)
     ? hit.data
     : undefined;
-}
-
-// ---------------------------------------------------------------------------
-// Activity
-// ---------------------------------------------------------------------------
-/** When the user last interacted with the page. */
-let lastActivity = Date.now();
-
-/** Whether the tab is visible and was used within ACTIVE_WINDOW (auto pulls stop when it sits idle). */
-export const inUse = () =>
-  document.visibilityState === 'visible' && Date.now() - lastActivity <= ACTIVE_WINDOW;
-
-/** Track user activity; `onVisible` runs whenever the tab comes back into view. */
-export function trackActivity(onVisible: () => void) {
-  const markActive = () => (lastActivity = Date.now());
-  for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'] as const) {
-    window.addEventListener(ev, markActive, { passive: true, capture: true });
-  }
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      markActive();
-      onVisible();
-    }
-  });
 }

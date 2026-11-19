@@ -7,20 +7,17 @@ import { MINUTE } from '../shared/time';
 // keeps the SERVER_KEYS settings, so every device using it shares filters,
 // hidden lots, custom categories and saved searches.
 //
-// Each poll tells the server whether this tab is in use (it only pulls while
-// some tab is, unless run with --background-minutes). Its pulls use its own
+// The server pulls on its own schedule, whether or not a tab is open. Its pulls use its own
 // login to the site, so they include your standing and watchlist.
 import { authReady, onAuthChange, refreshSession } from './auth';
 import {
   error,
   fetchedAt,
-  inUse,
   loaded,
   lotBrands,
   lotModels,
   lots,
   progress,
-  trackActivity,
   updateItemType,
 } from './catalog';
 import { applySetting, setSaveHook, type Key } from './settings';
@@ -184,9 +181,7 @@ function poll(): Promise<void> {
     clearTimeout(pollTimer);
     try {
       await authReady();
-      const r = await call<CatalogReply>('GET', `/api/catalog?since=${seq}`, undefined, {
-        'X-TLX-Active': inUse() ? '1' : '0',
-      });
+      const r = await call<CatalogReply>('GET', `/api/catalog?since=${seq}`);
       applyCatalog(r);
       await loadSettings();
     } catch (err) {
@@ -277,7 +272,11 @@ async function loadSettings() {
 /** Start catalog polling and server-backed setting saves. */
 export function startCatalog() {
   setSaveHook((key, value) => serverKeys.has(key) && void sendSetting(key, value));
-  trackActivity(() => void poll());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      void poll();
+    }
+  });
   // A new login (or logout) changes what the server's pulls will see; check in now.
   onAuthChange(() => void poll());
   void poll();

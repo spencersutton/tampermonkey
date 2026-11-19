@@ -4,10 +4,8 @@
 // - A full pull happens at most once per interval (the synced `tlxSyncMinutes`
 //   setting, never under MIN_SYNC_MINUTES), measured from the start of the last
 //   pull, successful or not, so errors don't cause retries either.
-// - By default it only pulls while some app tab is visible and has been used in
-//   the last ACTIVE_WINDOW (the app says so on each poll). With
-//   `backgroundMinutes` set, it also pulls that often with no one watching, so
-//   saved searches keep counting new lots while the browser is closed.
+// - It pulls whenever one is due, whether or not an app tab is open, so saved
+//   searches keep counting new lots while the browser is closed.
 // - Pages are fetched one at a time, by a single puller loop.
 //
 // Account fields (your standing, watchlist) come from the server's own site
@@ -18,7 +16,7 @@
 // final prices of the lots that just left the catalog).
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-import { ACTIVE_WINDOW, MINUTE } from '../shared/time';
+import { MINUTE } from '../shared/time';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';
@@ -46,32 +44,15 @@ export class Catalog {
   error: string | null = null;
   /** Called after each successful pull (e.g. to label the new titles). */
   afterPull: () => void = () => {};
-  private lastActive = 0; // epoch ms of the last poll from a tab in use
-  private requested = false;
   private readonly waker = new Waker();
-  private readonly backgroundMs: number;
 
   constructor(
     private readonly store: CatalogStore,
     private readonly session: Pick<SiteSession, 'token' | 'rejected'>,
     private readonly history: Pick<History, 'annotate' | 'wake'>,
     private readonly site: Pick<SiteApi, 'fetchLotPage'>,
-    backgroundMinutes = 0,
     private readonly now: () => number = Date.now,
-  ) {
-    this.backgroundMs = backgroundMinutes * MINUTE;
-  }
-
-  // -- what clients tell us -----------------------------------------------------
-  /** Record a poll, and whether the tab that made it is in use. */
-  heartbeat(active: boolean): void {
-    if (active) {
-      this.lastActive = this.now();
-      if (this.due()) {
-        this.waker.wake();
-      }
-    }
-  }
+  ) {}
 
   // -- schedule -------------------------------------------------------------------
   /** Minimum time between full pulls, from the synced setting. */
@@ -89,17 +70,6 @@ export class Catalog {
     return this.now() >= this.nextPullAt();
   }
 
-  private wanted(meta: CatalogMeta): boolean {
-    const now = this.now();
-    if (this.requested || now - this.lastActive <= ACTIVE_WINDOW) {
-      return true;
-    }
-    if (this.backgroundMs) {
-      return now >= (meta.pullStartedAt ?? 0) + Math.max(this.intervalMs(), this.backgroundMs);
-    }
-    return false;
-  }
-
   /** The Refresh button: start a pull now if one is allowed. */
   requestPull(): PullRequest {
     if (this.progress) {
@@ -108,7 +78,6 @@ export class Catalog {
     if (!this.due()) {
       return 'not-due';
     }
-    this.requested = true;
     this.waker.wake();
     return 'started';
   }
@@ -116,9 +85,7 @@ export class Catalog {
   async runForever(): Promise<never> {
     for (;;) {
       await this.waker.wait(CHECK_EVERY_MS);
-      const meta = this.store.meta();
-      if (this.now() >= this.nextPullAt(meta) && this.wanted(meta)) {
-        this.requested = false;
+      if (this.due()) {
         try {
           await this.pull();
         } catch (e) {

@@ -30,22 +30,6 @@ describe('/api/catalog', () => {
     expect((await (await request('/api/catalog?since=bad')).json()).full).toBe(true);
   });
 
-  test('polls from a tab in use start a due pull', async () => {
-    const { request, catalog } = await setup();
-    let pulled = 0;
-    catalog.pull = () => {
-      pulled++;
-      return Promise.resolve();
-    };
-    void catalog.runForever();
-    await request('/api/catalog');
-    await Bun.sleep(10);
-    expect(pulled).toBe(0);
-    await request('/api/catalog', { headers: { 'X-TLX-Active': '1' } });
-    await Bun.sleep(10);
-    expect(pulled).toBe(1);
-  });
-
   test('the Refresh button starts a pull only when one is allowed', async () => {
     const { post, store } = await setup();
     expect((await (await post('/api/pull')).json()).result).toBe('started');

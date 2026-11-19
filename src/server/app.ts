@@ -269,7 +269,6 @@ export function createApp(deps: Deps) {
   });
 
   app.get('/api/catalog', c => {
-    catalog.heartbeat(c.req.header('X-TLX-Active') === '1');
     const since = Math.max(0, Number.parseInt(c.req.query('since') ?? '0', 10) || 0);
     const changes = store.changes(since);
     const full = since === 0 || since > changes.seq;
