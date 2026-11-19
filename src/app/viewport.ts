@@ -1,7 +1,6 @@
 import { effect, signal } from '@preact/signals';
 
 import { gridView, onScreen, page, PAGE_SIZE } from './state';
-import '../shared/arrayToSet';
 
 const nearby = new Set<number>();
 let cards: IntersectionObserver | undefined;
@@ -40,7 +39,10 @@ export function observeLot(element: HTMLElement | null) {
 function publish() {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    onScreen.value = nearby.toArray().toNumericSorted();
+    onScreen.value = nearby
+      .values()
+      .toArray()
+      .toSorted((first, second) => first - second);
   }, 150);
 }
 
