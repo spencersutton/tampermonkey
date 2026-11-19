@@ -4,7 +4,7 @@
 // right under the lot, so a lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 
-import { CDN, MINUTE } from '../shared/constants';
+import { CDN, MINUTE, TRANSFER_FEE } from '../shared/constants';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
@@ -103,7 +103,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     return words.every(w => hay.includes(w));
   });
   const bids = lots.reduce((n, c) => n + c.final_price, 0);
-  const total = lots.reduce((n, c) => n + totalCost(c.final_price), 0);
+  const total = lots.reduce((n, c) => n + totalCost(c.final_price, transferFee(c, pickup)), 0);
 
   const openClosedLot = (c: ClosedLot) => {
     const inCatalog = getLot(c.lot_id);
@@ -172,7 +172,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
                   ? plural(lots.length, 'lot')
                   : `Loading… ${data.lots.length.toLocaleString()} of ${data.count.toLocaleString()}`}
                 {section === 'won' && lots.length > 0 && (
-                  <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax (transfer fees not included)">
+                  <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax, plus the transfer fee for lots not at your pickup location">
                     {' '}
                     · {dollars(bids)} in bids · ≈ {money(total)} with fees and tax
                   </span>
@@ -221,6 +221,10 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   );
 }
 
+/** Won lots stored elsewhere were transferred to the pickup location. */
+const transferFee = (c: ClosedLot, pickup: string) =>
+  c.location_name === pickup ? 0 : TRANSFER_FEE;
+
 const key = (c: ClosedLot) => `${c.auction_period}:${c.lot_id}`;
 
 function ClosedRow(props: {
@@ -231,6 +235,7 @@ function ClosedRow(props: {
   onOpen: () => void;
 }) {
   const { lot: c, won, relisted, opening, onOpen } = props;
+  const fee = transferFee(c, pickupName.value);
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auction_period, c.lot_id);
   const click = openHandler(onOpen);
@@ -268,8 +273,8 @@ function ClosedRow(props: {
         <div class="closed-price">
           <span class="price">{dollars(c.final_price)}</span>
           {won ? (
-            <span class="muted small" title={costBreakdown(c.final_price)}>
-              ≈ {money(totalCost(c.final_price))}
+            <span class="muted small" title={costBreakdown(c.final_price, fee)}>
+              ≈ {money(totalCost(c.final_price, fee))}
             </span>
           ) : (
             <span class="muted small">sold for</span>

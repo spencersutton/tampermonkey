@@ -15,3 +15,6 @@ export const MIN_SYNC_MINUTES = 1;
 
 // Grid cards show titles in full unless they run past this many lines.
 export const DEFAULT_TITLE_LINES = 6;
+
+// The site's fee to move a won lot to your pickup location. Its closed-lot lists don't report it.
+export const TRANSFER_FEE = 5;
