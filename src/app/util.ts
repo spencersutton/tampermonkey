@@ -38,7 +38,7 @@ export function timeLabel(endsAt: number, now: number) {
   return { text: `${m}m ${pad2(s % 60)}s`, soon };
 }
 
-const relative = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 
 /**
  * How long ago `ts` was, in its largest whole unit: "now", "12 minutes ago", "5 hours ago",
@@ -65,7 +65,7 @@ export function countdown(ms: number) {
 }
 
 /** Format a count with thousands separators. */
-export const fmtCount = (n: number) => n.toLocaleString('en-US');
+export const fmtCount = (n: number) => n.toLocaleString();
 
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
 export const plural = (n: number, noun: string) => `${fmtCount(n)} ${noun}${n === 1 ? '' : 's'}`;

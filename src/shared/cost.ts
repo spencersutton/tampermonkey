@@ -21,7 +21,7 @@ export function costBreakdown(bid: number, transferFee = 0): string {
 
 /** Format as US dollars with cents, e.g. "$1,234.50". */
 export const money = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
 /** Format as whole US dollars, e.g. "$1,235". */
 export const dollars = (n: number) =>
-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+  n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
