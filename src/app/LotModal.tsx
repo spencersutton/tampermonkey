@@ -18,7 +18,7 @@ import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from '.
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
-import { clock, openHandler, parseNum, plural, shortDate, shortTime } from './util';
+import { clock, openHandler, parseNum, plural } from './util';
 import type { Row } from './view';
 
 interface Props {
@@ -188,7 +188,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
               <div class="big">
                 <TimeLeft endsAt={endsAtMs(lot)} />
               </div>
-              <div class="muted small">{shortTime(endsAtMs(lot))}</div>
+              <div class="muted small">{format.shortTime(endsAtMs(lot))}</div>
             </div>
           </div>
           <div class="row-gap">
@@ -412,7 +412,7 @@ function PastCloses({ lot }: { lot: Lot }) {
                 rel="noopener"
                 title="Open on Triangle Liquidators"
               >
-                {shortDate(c.endsAt)}
+                {format.shortDate(c.endsAt)}
               </a>
             </li>
           ))}

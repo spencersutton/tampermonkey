@@ -50,7 +50,7 @@ import {
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
 import type { Lot } from './types';
-import { ago, clock, countdown, plural, shortTime } from './util';
+import { ago, clock, countdown, plural } from './util';
 import {
   activeFilterCount,
   firstSeenAfter,
@@ -198,9 +198,7 @@ function AppHeader() {
         aria-expanded={sidebarOpen.value}
       >
         <Icon name="filter" /> Filters{nFilters ? ` (${nFilters})` : ''}
-        {totalNew.value > 0 && (
-          <span class="pill pill-new">{format.num(totalNew.value)} new</span>
-        )}
+        {totalNew.value > 0 && <span class="pill pill-new">{format.num(totalNew.value)} new</span>}
       </button>
     </header>
   );
@@ -261,7 +259,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
         </span>
         {view.newSince != null && (
           <span class="new-line">
-            Only lots listed since {shortTime(view.newSince)}
+            Only lots listed since {format.shortTime(view.newSince)}
             <button type="button" class="btn-text" onClick={() => setView({ newSince: null })}>
               Show all
             </button>

@@ -3,12 +3,6 @@ import { signal, type Signal } from '@preact/signals';
 import { DAY, HOUR, MINUTE } from '../shared/constants';
 import * as format from '../shared/format';
 
-/** Weekday and time, e.g. "Tue 3:45 PM". */
-export const shortTime = format.shortTime;
-
-/** "Oct 22": a date in the past. */
-export const shortDate = format.shortDate;
-
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /**

@@ -18,7 +18,7 @@ import { LotModal } from './LotModal';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, openHandler, plural, shortDate } from './util';
+import { clock, openHandler, plural } from './util';
 import { makeRow, type Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */
@@ -145,9 +145,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
               onClick={() => openClosed(s)}
             >
               {TITLES[s]}
-              {d?.done && !d.error && (
-                <span class="muted"> ({format.num(d.lots.length)})</span>
-              )}
+              {d?.done && !d.error && <span class="muted"> ({format.num(d.lots.length)})</span>}
             </button>
           );
         })}
@@ -259,7 +257,7 @@ function ClosedRow(props: {
           <span class="muted small">
             {c.location_name} · Lot #{c.lot_number}
             {c.fulfillment_status && ` · ${c.fulfillment_status}`}
-            {c.collect_by_date && ` · collect by ${shortDate(collectBy(c.collect_by_date))}`}
+            {c.collect_by_date && ` · collect by ${format.shortDate(collectBy(c.collect_by_date))}`}
             {relisted && (
               <>
                 {' · '}

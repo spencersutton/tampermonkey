@@ -16,7 +16,7 @@ import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { hideCategory, modalActions, openLot, setView, toggleHide } from './state';
 import type { Lot, PastClose } from './types';
-import { clock, openHandler, plural, shortDate, shortTime, timeLabel } from './util';
+import { clock, openHandler, plural, timeLabel } from './util';
 import type { Row } from './view';
 import { observeLot } from './viewport';
 import { canWatch, toggleWatch, watchPending } from './watch';
@@ -230,7 +230,8 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
 function DupeCount({ row }: { row: Row }) {
   const list = row.others
     .map(
-      r => `${money(r.total)} total · ${r.lot.location.name} · ends ${shortTime(endsAtMs(r.lot))}`,
+      r =>
+        `${money(r.total)} total · ${r.lot.location.name} · ends ${format.shortTime(endsAtMs(r.lot))}`,
     )
     .join('\n');
   return (
@@ -256,7 +257,7 @@ function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
     <button
       type="button"
       class="card-cheaper"
-      title={`Same item, ${condition.toLowerCase()}: ${dollars(cheaper.lot.current_price)} bid at ${where}, ends ${shortTime(endsAtMs(cheaper.lot))}`}
+      title={`Same item, ${condition.toLowerCase()}: ${dollars(cheaper.lot.current_price)} bid at ${where}, ends ${format.shortTime(endsAtMs(cheaper.lot))}`}
       onClick={() => openLot(cheaper.lot)}
     >
       {condition} for <b>≈ {money(cheaper.total)}</b> total (save{' '}
@@ -289,7 +290,7 @@ export function pastPrice(
 
 /** One past close as a line of text. */
 const pastCloseText = (c: PastClose) =>
-  `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${shortDate(c.endsAt)}`;
+  `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${format.shortDate(c.endsAt)}`;
 
 /**
  * "Sold before for $12 (median of 4)", with the recent closes on hover; opens the popup, which
