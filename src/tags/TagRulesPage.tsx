@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { Icon } from '../app/icons';
 import { fmtCount } from '../app/util';
-import { cleanTag, tagKey, tagLabel } from '../shared/tags';
+import { cleanTag, tagLabel } from '../shared/tags';
 import {
   ApiError,
   deleteRule,
@@ -343,7 +343,7 @@ function TagInput({
     // Tags differing only in case are the same tag; the first spelling stays.
     const next = [...tags];
     for (const tag of raw.split(',').map(cleanTag)) {
-      if (tag && !next.some(t => tagKey(t) === tagKey(tag))) next.push(tag);
+      if (tag && !next.some(t => t.toLowerCase() === tag.toLowerCase())) next.push(tag);
     }
     if (next.length > tags.length) onChange(next);
     setText('');

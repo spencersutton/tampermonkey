@@ -30,7 +30,7 @@ import { dequal } from 'dequal';
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { endsAtMs, type LotImage, type LotMetadata, type Standing } from '../shared/lot';
 import { byCode } from '../shared/sortKey';
-import { tagKey } from '../shared/tags';
+import { toLower } from '../shared/tags';
 import { isRecord } from './json';
 import {
   cleanTags,
@@ -1199,9 +1199,9 @@ export class Store {
     const spellings = new Map<string, Map<string, number>>(); // each tag's spellings, by tag key
     for (const lot of items) {
       for (const tag of lot.tags ?? []) {
-        const counts = spellings.get(tagKey(tag)) ?? new Map<string, number>();
+        const counts = spellings.get(tag.toLowerCase()) ?? new Map<string, number>();
         counts.set(tag, (counts.get(tag) ?? 0) + 1);
-        spellings.set(tagKey(tag), counts);
+        spellings.set(tag.toLowerCase(), counts);
       }
     }
     const inUse = new Map<string, number>();
@@ -1241,7 +1241,7 @@ export class Store {
       const m = rule.rx.exec(lot.title);
       if (m) {
         const current = lot.tags ?? [];
-        const have = new Set(current.map(tagKey));
+        const have = new Set(current.map(toLower));
         // Code points, which the tags page counts in.
         const codePoints = (end: number) => Array.from(lot.title.slice(0, end)).length;
         groups.set(lot.title, {
@@ -1250,7 +1250,7 @@ export class Store {
           lots: 1,
           span: [codePoints(m.index), codePoints(m.index + m[0].length)],
           tags: current,
-          adds: (rule.tagsFor(lot.title) ?? []).filter(t => !have.has(tagKey(t))),
+          adds: (rule.tagsFor(lot.title) ?? []).filter(t => !have.has(t.toLowerCase())),
         });
       }
     }

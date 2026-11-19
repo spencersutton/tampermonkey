@@ -4,7 +4,7 @@
 // match, $$ for a dollar sign. Patterns are JavaScript regular expressions;
 // Python's (?P<name>...) and (?P=name), which rules saved by the old Python
 // server may use, are read as their JavaScript equivalents.
-import { cleanTag, tagKey } from '../shared/tags';
+import { cleanTag } from '../shared/tags';
 
 const MAX_TAG_PATTERN = 300;
 const MAX_RULE_TAGS = 20;
@@ -29,8 +29,8 @@ const repr = (s: string) => `'${s.replaceAll('\\', '\\\\').replaceAll("'", "\\'"
 export function uniqueTags(tags: Iterable<string>): string[] {
   const seen = new Map<string, string>();
   for (const tag of tags) {
-    if (!seen.has(tagKey(tag))) {
-      seen.set(tagKey(tag), tag);
+    if (!seen.has(tag.toLowerCase())) {
+      seen.set(tag.toLowerCase(), tag);
     }
   }
   return [...seen.values()];

@@ -16,7 +16,7 @@ export function parseTag(tag: string): ParsedTag {
 }
 
 /** What tags are compared by: "Finish: Brass" and "finish: brass" are the same tag. */
-export const tagKey = (tag: string) => tag.toLowerCase();
+export const toLower = (tag: string) => tag.toLowerCase();
 
 /** Filter group of a tag: its attribute name (lowercase), or '' for plain tags. */
 export const tagGroup = (tag: string) => parseTag(tag).name?.toLowerCase() ?? '';

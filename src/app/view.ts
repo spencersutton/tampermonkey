@@ -14,7 +14,7 @@ import {
   type PreparedDoc,
 } from '../shared/search';
 import { collator } from '../shared/sortKey';
-import { noneTag, tagGroup, tagKey, tagLabel } from '../shared/tags';
+import { noneTag, tagGroup, toLower, tagLabel } from '../shared/tags';
 import { HOUR } from '../shared/time';
 import { hasBidOn } from './bid';
 import { numericTagKey } from './filterOptions';
@@ -187,7 +187,7 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
-    tags: [...new Set(strings(view.tags).map(tagKey))],
+    tags: [...new Set(strings(view.tags).map(toLower))],
     noCategories: !view.categories.length && view.noCategories,
     newSince,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -425,7 +425,7 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
     if (brand) bump(counts.brand, brandKey(brand));
   }
   for (const tag of lot.tags ?? []) {
-    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.tag, tagKey(tag));
+    if (only == null || only === `tag:${tagGroup(tag)}`) bump(counts.tag, tag.toLowerCase());
   }
   const numericTags = new Set(
     (lot.tags ?? []).map(numericTagKey).filter((tag): tag is string => tag != null),
@@ -756,7 +756,7 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
       `tag:${group}`,
       r => {
         const own = (r.lot.tags ?? []).filter(t => tagGroup(t) === group);
-        return own.some(t => wanted.has(tagKey(t))) || (none && !own.length);
+        return own.some(t => wanted.has(t.toLowerCase())) || (none && !own.length);
       },
     ]);
   }
@@ -883,7 +883,7 @@ export function computeFacets(
     // Tags differing only in case are one value, shown in its most common spelling.
     tags: tallySpellings(
       open.flatMap(l => l.tags ?? []),
-      tagKey,
+      toLower,
     ),
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,

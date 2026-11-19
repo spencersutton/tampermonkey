@@ -1,4 +1,4 @@
-import { isNoneTag, parseTag, tagKey } from '../shared/tags';
+import { isNoneTag, parseTag, toLower } from '../shared/tags';
 import { numericLabel } from './util';
 import type { Facet } from './view';
 
@@ -9,7 +9,7 @@ export interface FilterOption extends Facet<string> {
 export function numericTagKey(tag: string): string | null {
   const { name, value } = parseTag(tag);
   const label = numericLabel(value);
-  return label == null ? null : tagKey(name ? `${name}: ${label}` : label);
+  return label == null ? null : toLower(name ? `${name}: ${label}` : label);
 }
 
 /** Merge numeric spellings only when every non-"None" value in this menu is numeric. */
