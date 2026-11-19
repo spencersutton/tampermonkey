@@ -103,7 +103,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     return words.every(w => hay.includes(w));
   });
   const bids = lots.reduce((n, c) => n + c.final_price, 0);
-  const total = lots.reduce((n, c) => n + totalCost(c.final_price, transferFee(c, pickup)), 0);
+  const total = lots.reduce((n, c) => n + totalCost(c.final_price, transferFee(c)), 0);
 
   const openClosedLot = (c: ClosedLot) => {
     const inCatalog = getLot(c.lot_id);
@@ -221,9 +221,8 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   );
 }
 
-/** Won lots stored elsewhere were transferred to the pickup location. */
-const transferFee = (c: ClosedLot, pickup: string) =>
-  c.location_name === pickup ? 0 : TRANSFER_FEE;
+/** A lot not at the account's pickup location was transferred there for the fee. */
+const transferFee = (c: ClosedLot) => (c.location_name === pickupName.value ? 0 : TRANSFER_FEE);
 
 const key = (c: ClosedLot) => `${c.auction_period}:${c.lot_id}`;
 
@@ -235,7 +234,7 @@ function ClosedRow(props: {
   onOpen: () => void;
 }) {
   const { lot: c, won, relisted, opening, onOpen } = props;
-  const fee = transferFee(c, pickupName.value);
+  const fee = transferFee(c);
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auction_period, c.lot_id);
   const click = openHandler(onOpen);
