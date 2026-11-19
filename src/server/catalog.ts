@@ -1,4 +1,3 @@
-import { MINUTE } from '../shared/constants';
 // Full catalog pulls, with load rules that keep requests to the site down (a
 // port of the Python server's catalog.py).
 //
@@ -15,7 +14,8 @@ import { MINUTE } from '../shared/constants';
 // already known for it (itemtypes.ts labels the rest after the pull) and gets
 // the past closes matching it (history.ts, which then asks the site for the
 // final prices of the lots that just left the catalog).
-import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
+import { DEFAULT_SYNC_MINUTES, MIN_SYNC_MINUTES, MINUTE } from '../shared/constants';
+import { KEYS } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
 import type { History } from './history';
 import { log, Waker } from './log';

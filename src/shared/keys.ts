@@ -1,6 +1,6 @@
 // Settings keys (server-only for SERVER_KEYS, otherwise browser-local).
 import type { SavedSearch } from '../app/view';
-import { SITE } from './constants';
+import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, SITE } from './constants';
 
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
@@ -58,13 +58,6 @@ export interface DefaultFilters {
   noCategories?: boolean;
   conditions: number[];
 }
-
-// Full catalog pulls default to every 5 minutes and are never allowed more often than every minute.
-export const DEFAULT_SYNC_MINUTES = 5;
-export const MIN_SYNC_MINUTES = 1;
-
-// Grid cards show titles in full unless they run past this many lines.
-export const DEFAULT_TITLE_LINES = 6;
 
 /** Value returned for each setting when nothing has been saved yet. */
 export const DEFAULTS = {

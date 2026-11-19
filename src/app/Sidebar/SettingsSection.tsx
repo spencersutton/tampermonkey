@@ -1,9 +1,9 @@
 import {
   DEFAULT_SYNC_MINUTES,
   DEFAULT_TITLE_LINES,
-  KEYS,
   MIN_SYNC_MINUTES,
-} from '../../shared/keys';
+} from '../../shared/constants';
+import { KEYS } from '../../shared/keys';
 import { AccountSettings } from '../auth';
 import { getSetting, setSetting } from '../settings';
 import { parseNum } from '../util';
