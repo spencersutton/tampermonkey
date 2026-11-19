@@ -1,3 +1,4 @@
+import { num } from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
 import { Icon } from '../icons';
@@ -198,7 +199,7 @@ export function CategoryGroupRow({
           onClick={() => setCollapsed({ ...collapsed, [id]: open })}
         >
           <Icon name="expandMore" size={18} />
-          <span class="count">{total.toLocaleString()}</span>
+          <span class="count">{num(total)}</span>
         </button>
         <button
           type="button"
@@ -255,7 +256,7 @@ function CheckRow({
       <label class="check">
         <input type="checkbox" checked={checked} onChange={onChange} />
         <span>{facet.label}</span>
-        <span class="count">{facet.count.toLocaleString()}</span>
+        <span class="count">{num(facet.count)}</span>
       </label>
       <button
         type="button"

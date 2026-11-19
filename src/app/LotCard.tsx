@@ -3,6 +3,7 @@ import { useCallback } from 'preact/hooks';
 
 import { CDN } from '../shared/constants';
 import { costBreakdown, dollars, money } from '../shared/cost';
+import { dateTime } from '../shared/format';
 import { lotHref } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
 import { isAuthenticated, LoginLink } from './auth';
@@ -25,7 +26,7 @@ export function TimeLeft({ endsAt }: { endsAt: number }) {
   const now = clock(1000);
   const { text, soon } = timeLabel(endsAt, now);
   return (
-    <span class={`time ${soon ? 'soon' : ''}`} title={new Date(endsAt).toLocaleString()}>
+    <span class={`time ${soon ? 'soon' : ''}`} title={dateTime(endsAt)}>
       {text}
     </span>
   );

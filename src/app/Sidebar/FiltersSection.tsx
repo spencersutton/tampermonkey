@@ -1,6 +1,7 @@
 // oxlint-disable typescript/no-unsafe-type-assertion
 import { useState } from 'preact/hooks';
 
+import { num } from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 import { siteConditions } from '../conditions';
 import { Icon } from '../icons';
@@ -48,7 +49,7 @@ function CheckList<T>(props: {
             onChange={() => toggle(f.value)}
           />
           <span>{f.label}</span>
-          <span class="count">{f.count.toLocaleString()}</span>
+          <span class="count">{num(f.count)}</span>
         </label>
       ))}
     </>
@@ -95,7 +96,7 @@ function FacetList(props: {
       )}
       {!q && rest.length > shown.length && (
         <button type="button" class="btn-text" onClick={() => setExpanded(true)}>
-          Show {(rest.length - shown.length).toLocaleString()} more
+          Show {num(rest.length - shown.length)} more
         </button>
       )}
       {!q && expanded && rest.length > INITIAL && (
@@ -320,7 +321,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
                 }
               >
                 <span>{f.label}</span>
-                <span class="count">{f.count.toLocaleString()}</span>
+                <span class="count">{num(f.count)}</span>
               </button>
             );
           })}

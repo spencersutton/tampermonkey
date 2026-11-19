@@ -2,6 +2,7 @@
 // that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useState } from 'preact/hooks';
 
+import { num } from '../shared/format';
 import { KEYS, type CustomCategory } from '../shared/keys';
 import { collator } from '../shared/sortKey';
 import { saveCustomCategories } from './categories';
@@ -277,7 +278,7 @@ export function TypeCategory({
                     setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter(x => x !== t))
                   }
                 />{' '}
-                {t} <span class="muted small">{count.toLocaleString()}</span>
+                {t} <span class="muted small">{num(count)}</span>
               </label>
             ))}
           </fieldset>

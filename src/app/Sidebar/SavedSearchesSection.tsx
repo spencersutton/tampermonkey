@@ -1,3 +1,4 @@
+import { num } from '../../shared/format';
 import { Icon } from '../icons';
 import type { SavedSearch, SavedSearchStats } from '../view';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
@@ -127,14 +128,14 @@ export function SavedSearchesSection({
                   title="Show only the new matches"
                   onClick={() => onOpen(s, true)}
                 >
-                  {st.fresh.toLocaleString()} new
+                  {num(st.fresh)} new
                 </button>
               )}
               <span
                 class="count"
                 title="Open lots matching, not counting hidden or regex-filtered lots"
               >
-                {st.total.toLocaleString()}
+                {num(st.total)}
               </span>
             </li>
           );

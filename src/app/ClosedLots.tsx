@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 
 import { CDN, MINUTE, TRANSFER_FEE } from '../shared/constants';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
+import { num } from '../shared/format';
 import { lotHref } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
 import { fetchClosed, type ClosedSection } from './api';
@@ -145,7 +146,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
             >
               {TITLES[s]}
               {d?.done && !d.error && (
-                <span class="muted"> ({d.lots.length.toLocaleString()})</span>
+                <span class="muted"> ({num(d.lots.length)})</span>
               )}
             </button>
           );
@@ -170,7 +171,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
               <span class="muted small">
                 {data.done
                   ? plural(lots.length, 'lot')
-                  : `Loading… ${data.lots.length.toLocaleString()} of ${data.count.toLocaleString()}`}
+                  : `Loading… ${num(data.lots.length)} of ${num(data.count)}`}
                 {section === 'won' && lots.length > 0 && (
                   <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax, plus the transfer fee for lots not at your pickup location">
                     {' '}

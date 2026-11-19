@@ -5,6 +5,7 @@ import { useRef, useState } from 'preact/hooks';
 
 import { CDN } from '../shared/constants';
 import { dollars } from '../shared/cost';
+import { num } from '../shared/format';
 import { KEYS } from '../shared/keys';
 import { tagGroup, tagLabel } from '../shared/tags';
 import { getSetting, setSetting } from './settings';
@@ -175,8 +176,8 @@ export function SearchBox() {
         aria-activedescendant={active >= 0 && listed[active] ? optionId(active) : undefined}
         placeholder={
           view.searchRegex
-            ? `Regex search ${gridView.value.open.toLocaleString()} lots`
-            : `Search ${gridView.value.open.toLocaleString()} lots`
+            ? `Regex search ${num(gridView.value.open)} lots`
+            : `Search ${num(gridView.value.open)} lots`
         }
         aria-label="Search lots"
         aria-invalid={badRegex}
@@ -264,7 +265,7 @@ function OptionBody({ option: o }: { option: Option }) {
       return (
         <>
           <span class="search-option-label">{tagLabel(o.facet.label)}</span>
-          <span class="count">{o.facet.count.toLocaleString()}</span>
+          <span class="count">{num(o.facet.count)}</span>
         </>
       );
     case 'type':
@@ -273,7 +274,7 @@ function OptionBody({ option: o }: { option: Option }) {
       return (
         <>
           <span class="search-option-label">{o.facet.label}</span>
-          <span class="count">{o.facet.count.toLocaleString()}</span>
+          <span class="count">{num(o.facet.count)}</span>
         </>
       );
     case 'lot': {
