@@ -9,12 +9,11 @@ export interface ParsedTag {
   value: string;
 }
 
+const TAG_PARTS = /^(?:([^:]*):)?(.*)$/s;
+
 export function parseTag(tag: string): ParsedTag {
-  const i = tag.indexOf(':');
-  if (i < 0) {
-    return { name: null, value: tag.trim() };
-  }
-  return { name: tag.slice(0, i).trim(), value: tag.slice(i + 1).trim() };
+  const [, name, value] = TAG_PARTS.exec(tag) ?? [];
+  return { name: name?.trim() ?? null, value: value?.trim() ?? '' };
 }
 
 /** What tags are compared by: "Finish: Brass" and "finish: brass" are the same tag. */
