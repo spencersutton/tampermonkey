@@ -13,7 +13,6 @@
     "server": "bun src/server/main.ts",
     "test:web": "node --test 'tests/*.test.mjs'",
     "test:server": "bun test ./tests/server/",
-    "tags": "bun src/server/tags-cli.ts",
     "itemtypes": "bun src/server/itemtypes-cli.ts"
   },
   "dependencies": {
