@@ -5,7 +5,7 @@ import { KEYS, siteUrl } from '../../shared/keys';
 import { Icon } from '../icons';
 import { getSetting, setSetting } from '../settings';
 import { filteredOnly, openFiltered, openHidden } from '../state';
-import { fmtCount, openHandler } from '../util';
+import { openHandler } from '../util';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
 
@@ -83,7 +83,7 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
           <PatternText pattern={pattern} />
         </button>
       )}
-      {ok && !editing && <span class="count">{fmtCount(count)}</span>}
+      {ok && !editing && <span class="count">{count.toLocaleString()}</span>}
     </li>
   );
 }

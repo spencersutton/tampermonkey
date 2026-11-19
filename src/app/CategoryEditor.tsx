@@ -9,7 +9,7 @@ import { Dialog } from './Dialog';
 import { Icon } from './icons';
 import { getSetting, setSetting } from './settings';
 import type { Lot } from './types';
-import { fmtCount, plural } from './util';
+import { plural } from './util';
 import { categoryIndex, compareCategoryNames, compileCategories } from './view';
 
 /** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
@@ -255,7 +255,9 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                   </li>
                 ))}
                 {selLots.length > PREVIEW_LIMIT && (
-                  <li class="muted small">…and {fmtCount(selLots.length - PREVIEW_LIMIT)} more</li>
+                  <li class="muted small">
+                    …and {(selLots.length - PREVIEW_LIMIT).toLocaleString()} more
+                  </li>
                 )}
               </ul>
             ) : (
@@ -341,7 +343,7 @@ function TypeChips({
               class={`type-chip ${n ? '' : 'type-chip-none'}`}
               title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}
             >
-              {t} <span class="count">{n ? fmtCount(n) : 'none'}</span>
+              {t} <span class="count">{n ? n.toLocaleString() : 'none'}</span>
               <button
                 type="button"
                 class="filter-remove"

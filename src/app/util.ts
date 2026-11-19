@@ -64,11 +64,9 @@ export function countdown(ms: number) {
   return s >= 60 ? `${Math.floor(s / 60)}:${pad2(s % 60)}` : `${s}s`;
 }
 
-/** Format a count with thousands separators. */
-export const fmtCount = (n: number) => n.toLocaleString();
-
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
-export const plural = (n: number, noun: string) => `${fmtCount(n)} ${noun}${n === 1 ? '' : 's'}`;
+export const plural = (n: number, noun: string) =>
+  `${n.toLocaleString()} ${noun}${n === 1 ? '' : 's'}`;
 
 /** Parse user-typed money/number input ("$1,200") into a number, or null if it isn't one. */
 export function parseNum(s: string): number | null {

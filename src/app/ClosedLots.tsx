@@ -18,7 +18,7 @@ import { LotModal } from './LotModal';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, fmtCount, openHandler, plural } from './util';
+import { clock, openHandler, plural } from './util';
 import { makeRow, type Row } from './view';
 
 /** A fetched section is shown again without refetching for this long. */
@@ -145,7 +145,9 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
               onClick={() => openClosed(s)}
             >
               {TITLES[s]}
-              {d?.done && !d.error && <span class="muted"> ({fmtCount(d.lots.length)})</span>}
+              {d?.done && !d.error && (
+                <span class="muted"> ({d.lots.length.toLocaleString()})</span>
+              )}
             </button>
           );
         })}
@@ -169,7 +171,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
               <span class="muted small">
                 {data.done
                   ? plural(lots.length, 'lot')
-                  : `Loading… ${fmtCount(data.lots.length)} of ${fmtCount(data.count)}`}
+                  : `Loading… ${data.lots.length.toLocaleString()} of ${data.count.toLocaleString()}`}
                 {section === 'won' && lots.length > 0 && (
                   <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax (transfer fees not included)">
                     {' '}

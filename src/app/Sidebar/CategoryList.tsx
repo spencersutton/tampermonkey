@@ -2,7 +2,7 @@ import { KEYS } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
 import { Icon } from '../icons';
 import { getSetting, setSetting } from '../settings';
-import { fmtCount, plural } from '../util';
+import { plural } from '../util';
 import { isCustomCategory, type Facet, type Facets } from '../view';
 
 /** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
@@ -198,7 +198,7 @@ export function CategoryGroupRow({
           onClick={() => setCollapsed({ ...collapsed, [id]: open })}
         >
           <Icon name="expandMore" size={18} />
-          <span class="count">{fmtCount(total)}</span>
+          <span class="count">{total.toLocaleString()}</span>
         </button>
         <button
           type="button"
@@ -255,7 +255,7 @@ function CheckRow({
       <label class="check">
         <input type="checkbox" checked={checked} onChange={onChange} />
         <span>{facet.label}</span>
-        <span class="count">{fmtCount(facet.count)}</span>
+        <span class="count">{facet.count.toLocaleString()}</span>
       </label>
       <button
         type="button"

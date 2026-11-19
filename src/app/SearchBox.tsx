@@ -19,7 +19,6 @@ import {
   suggestions,
 } from './state';
 import type { Lot } from './types';
-import { fmtCount } from './util';
 import { searchRegexOf, type Facet } from './view';
 
 type Option =
@@ -176,8 +175,8 @@ export function SearchBox() {
         aria-activedescendant={active >= 0 && listed[active] ? optionId(active) : undefined}
         placeholder={
           view.searchRegex
-            ? `Regex search ${fmtCount(gridView.value.open)} lots`
-            : `Search ${fmtCount(gridView.value.open)} lots`
+            ? `Regex search ${gridView.value.open.toLocaleString()} lots`
+            : `Search ${gridView.value.open.toLocaleString()} lots`
         }
         aria-label="Search lots"
         aria-invalid={badRegex}
@@ -265,7 +264,7 @@ function OptionBody({ option: o }: { option: Option }) {
       return (
         <>
           <span class="search-option-label">{tagLabel(o.facet.label)}</span>
-          <span class="count">{fmtCount(o.facet.count)}</span>
+          <span class="count">{o.facet.count.toLocaleString()}</span>
         </>
       );
     case 'type':
@@ -274,7 +273,7 @@ function OptionBody({ option: o }: { option: Option }) {
       return (
         <>
           <span class="search-option-label">{o.facet.label}</span>
-          <span class="count">{fmtCount(o.facet.count)}</span>
+          <span class="count">{o.facet.count.toLocaleString()}</span>
         </>
       );
     case 'lot': {

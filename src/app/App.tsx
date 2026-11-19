@@ -49,7 +49,7 @@ import {
 import { Toasts } from './toast';
 import { TypeCategory } from './TypeCategory';
 import type { Lot } from './types';
-import { ago, clock, countdown, fmtCount, plural, shortTime } from './util';
+import { ago, clock, countdown, plural, shortTime } from './util';
 import {
   activeFilterCount,
   firstSeenAfter,
@@ -197,7 +197,9 @@ function AppHeader() {
         aria-expanded={sidebarOpen.value}
       >
         <Icon name="filter" /> Filters{nFilters ? ` (${nFilters})` : ''}
-        {totalNew.value > 0 && <span class="pill pill-new">{fmtCount(totalNew.value)} new</span>}
+        {totalNew.value > 0 && (
+          <span class="pill pill-new">{totalNew.value.toLocaleString()} new</span>
+        )}
       </button>
     </header>
   );
@@ -247,13 +249,13 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
             !progress.value &&
             (curFiltered ? 'No filtered lots match' : 'No lots match')}
           {result.removed > 0 && (
-            <span class="muted"> · {fmtCount(result.removed)} hidden or removed</span>
+            <span class="muted"> · {result.removed.toLocaleString()} hidden or removed</span>
           )}
           {result.filteredOut > 0 && (
-            <span class="muted"> · {fmtCount(result.filteredOut)} outside filters</span>
+            <span class="muted"> · {result.filteredOut.toLocaleString()} outside filters</span>
           )}
           {result.combined > 0 && (
-            <span class="muted"> · {fmtCount(result.combined)} duplicates combined</span>
+            <span class="muted"> · {result.combined.toLocaleString()} duplicates combined</span>
           )}
         </span>
         {view.newSince != null && (
@@ -266,7 +268,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
         )}
         {freshMatches > 0 && (
           <span class="new-line">
-            {fmtCount(freshMatches)} new since your last{' '}
+            {freshMatches.toLocaleString()} new since your last{' '}
             {sinceSaved ? `look at “${activeSaved.name}”` : 'visit'}
             <button type="button" class="btn-text" onClick={() => setView({ newSince })}>
               Show only new
@@ -413,10 +415,10 @@ function StatusBar() {
     text = 'Loading catalog…';
   } else if (pull) {
     text = pull.total
-      ? `Refreshing catalog… ${fmtCount(pull.done)} of ${fmtCount(pull.total)}`
+      ? `Refreshing catalog… ${pull.done.toLocaleString()} of ${pull.total.toLocaleString()}`
       : 'Refreshing catalog…';
   } else if (lastFetch) {
-    text = `${fmtCount(lots.value.size)} lots · refreshed ${ago(lastFetch, now)}`;
+    text = `${lots.value.size.toLocaleString()} lots · refreshed ${ago(lastFetch, now)}`;
   }
 
   const pct = pull?.total ? Math.round((pull.done / pull.total) * 100) : 0;

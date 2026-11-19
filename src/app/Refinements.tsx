@@ -6,7 +6,6 @@ import { FilterMenus, hasFilterMenus } from './FilterMenus';
 import { Icon } from './icons';
 import { groupCategories, groupFacets, type CategoryGroup } from './Sidebar/CategoryList';
 import { filterFacets, gridView, pickupName, setView, sidebarFacets, storedView } from './state';
-import { fmtCount } from './util';
 import { DEFAULT_VIEW, ENDING, MINE, type ViewState } from './view';
 
 interface Chip {
@@ -23,7 +22,7 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
   const labelOf = <T,>(list: { value: T; label: string }[], value: T) =>
     list.find(f => f.value === value)?.label ?? String(value);
   const without = <T,>(list: T[], value: T) => list.filter(x => x !== value);
-  const money = (n: number) => `$${fmtCount(n)}`;
+  const money = (n: number) => `$${n.toLocaleString()}`;
   const chips: Chip[] = [];
   if (v.search.trim()) {
     chips.push({ key: 'search', label: `“${v.search.trim()}”`, remove: { search: '' } });
@@ -202,7 +201,7 @@ export function Refinements() {
               class="type-pill"
               onClick={() => setView({ types: [t.value] })}
             >
-              {t.label} <span class="count">{fmtCount(t.count)}</span>
+              {t.label} <span class="count">{t.count.toLocaleString()}</span>
             </button>
           ))}
         </div>

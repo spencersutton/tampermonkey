@@ -5,7 +5,6 @@ import { computed, signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { Icon } from '../app/icons';
-import { fmtCount } from '../app/util';
 import { cleanTag, tagLabel } from '../shared/tags';
 import {
   ApiError,
@@ -61,7 +60,7 @@ function edit(next: Draft) {
   notice.value = null;
 }
 
-const lotsText = (n: number) => `${fmtCount(n)} lot${n === 1 ? '' : 's'}`;
+const lotsText = (n: number) => `${n.toLocaleString()} lot${n === 1 ? '' : 's'}`;
 
 export function TagRulesPage() {
   useEffect(() => {
@@ -108,7 +107,7 @@ function RuleList() {
     <section class="tr-pane tr-rules" aria-labelledby="tr-rules-title">
       <div class="tr-pane-head">
         <h2 id="tr-rules-title">
-          Rules {data && <span class="muted">{fmtCount(data.rules.length)}</span>}
+          Rules {data && <span class="muted">{data.rules.length.toLocaleString()}</span>}
         </h2>
         <button type="button" class="btn btn-small" onClick={() => edit(EMPTY)}>
           <Icon name="add" size={16} /> New rule
@@ -429,10 +428,10 @@ function PreviewList({
         <h2>Matching lots</h2>
         {preview && (
           <span class="muted">
-            {lotsText(preview.lots)} · {fmtCount(preview.titles)} distinct title
+            {lotsText(preview.lots)} · {preview.titles.toLocaleString()} distinct title
             {preview.titles === 1 ? '' : 's'}
             {preview.matches.length < preview.titles &&
-              ` (first ${fmtCount(preview.matches.length)} shown)`}
+              ` (first ${preview.matches.length.toLocaleString()} shown)`}
           </span>
         )}
         {busy && <span class="muted small">Checking…</span>}
@@ -461,7 +460,7 @@ function MatchRow({ m }: { m: PreviewMatch }) {
         <mark>{chars.slice(start, end).join('')}</mark>
         {chars.slice(end).join('')}
       </a>
-      {m.lots > 1 && <span class="tr-count">×{fmtCount(m.lots)}</span>}
+      {m.lots > 1 && <span class="tr-count">×{m.lots.toLocaleString()}</span>}
       <span class="tr-match-tags">
         {m.tags.map(t => (
           <span key={t} class="tr-tag">

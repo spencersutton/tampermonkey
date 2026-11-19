@@ -9,7 +9,7 @@ import { groupLabel, isNoneTag, parseTag, tagGroup } from '../shared/tags';
 import { tagMenuOptions, toggleFilterOption, type FilterOption } from './filterOptions';
 import { Icon } from './icons';
 import { filterFacets, gridView, setView, sidebarFacets, storedView } from './state';
-import { fmtCount, numericOrder } from './util';
+import { numericOrder } from './util';
 import type { Facet } from './view';
 
 /** Menus with this many values or more get a box to filter them. */
@@ -190,7 +190,7 @@ function FilterMenu({
                   onChange={() => onToggle(f.values)}
                 />
                 <span>{none ? 'None' : valueLabel(f)}</span>
-                <span class="count">{fmtCount(f.count)}</span>
+                <span class="count">{f.count.toLocaleString()}</span>
               </label>
             );
           })}

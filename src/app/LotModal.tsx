@@ -17,7 +17,7 @@ import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from '.
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
-import { clock, fmtCount, openHandler, parseNum, plural, shortDate, shortTime } from './util';
+import { clock, openHandler, parseNum, plural, shortDate, shortTime } from './util';
 import type { Row } from './view';
 
 interface Props {
@@ -272,7 +272,7 @@ function SameListings({
   const mixed = new Set(group.map(r => r.lot.condition.display_name)).size > 1;
   return (
     <div>
-      <h3>{fmtCount(group.length)} listings of this item</h3>
+      <h3>{group.length.toLocaleString()} listings of this item</h3>
       <ol class="dupes">
         {group.map(r => (
           <ListingRow
@@ -365,7 +365,7 @@ function PastCloses({ lot }: { lot: Lot }) {
   return (
     <div>
       <h3>
-        Closed before ({fmtCount(lot.pastCloses!.n)})
+        Closed before ({lot.pastCloses!.n.toLocaleString()})
         {p && (
           <span class="muted small">
             {' '}

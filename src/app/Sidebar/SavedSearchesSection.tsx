@@ -1,5 +1,4 @@
 import { Icon } from '../icons';
-import { fmtCount } from '../util';
 import type { SavedSearch, SavedSearchStats } from '../view';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
 
@@ -128,14 +127,14 @@ export function SavedSearchesSection({
                   title="Show only the new matches"
                   onClick={() => onOpen(s, true)}
                 >
-                  {fmtCount(st.fresh)} new
+                  {st.fresh.toLocaleString()} new
                 </button>
               )}
               <span
                 class="count"
                 title="Open lots matching, not counting hidden or regex-filtered lots"
               >
-                {fmtCount(st.total)}
+                {st.total.toLocaleString()}
               </span>
             </li>
           );

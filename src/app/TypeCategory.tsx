@@ -9,7 +9,7 @@ import { Dialog } from './Dialog';
 import { setSetting, getSetting } from './settings';
 import { toast } from './toast';
 import type { Lot } from './types';
-import { fmtCount, plural } from './util';
+import { plural } from './util';
 import { categoryIndex, compileCategories } from './view';
 
 /** Similar types offered as checkboxes. */
@@ -277,7 +277,7 @@ export function TypeCategory({
                     setExtra(e.currentTarget.checked ? [...extra, t] : extra.filter(x => x !== t))
                   }
                 />{' '}
-                {t} <span class="muted small">{fmtCount(count)}</span>
+                {t} <span class="muted small">{count.toLocaleString()}</span>
               </label>
             ))}
           </fieldset>

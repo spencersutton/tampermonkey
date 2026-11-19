@@ -6,7 +6,7 @@ import { siteConditions } from '../conditions';
 import { Icon } from '../icons';
 import { getSetting } from '../settings';
 import { closed, modalActions, openClosed, setView } from '../state';
-import { fmtCount, parseNum } from '../util';
+import { parseNum } from '../util';
 import {
   activeFilterCount,
   defaultFilterView,
@@ -48,7 +48,7 @@ function CheckList<T>(props: {
             onChange={() => toggle(f.value)}
           />
           <span>{f.label}</span>
-          <span class="count">{fmtCount(f.count)}</span>
+          <span class="count">{f.count.toLocaleString()}</span>
         </label>
       ))}
     </>
@@ -95,7 +95,7 @@ function FacetList(props: {
       )}
       {!q && rest.length > shown.length && (
         <button type="button" class="btn-text" onClick={() => setExpanded(true)}>
-          Show {fmtCount(rest.length - shown.length)} more
+          Show {(rest.length - shown.length).toLocaleString()} more
         </button>
       )}
       {!q && expanded && rest.length > INITIAL && (
@@ -320,7 +320,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
                 }
               >
                 <span>{f.label}</span>
-                <span class="count">{fmtCount(f.count)}</span>
+                <span class="count">{f.count.toLocaleString()}</span>
               </button>
             );
           })}
