@@ -1,3 +1,4 @@
+import { endsAtMs } from '../shared/lot';
 import { BidError, placeBid, type BidType } from './api';
 // Placing bids from /tlx. Every bid goes through BidConfirm first; this
 // module sends it and folds the result back into the catalog, the same way
@@ -16,20 +17,22 @@ export interface BidRequest {
 }
 
 /** Whether the lot can no longer be bid on. */
-export const isClosed = (lot: Lot, now = Date.now()) => lot.status !== 'live' || lot.endsAt <= now;
+export const isClosed = (lot: Lot, now = Date.now()) =>
+  lot.status !== 'live' || endsAtMs(lot) <= now;
 /** Whether you have bid on the lot (winning or not). */
-export const hasBidOn = (lot: Lot) => lot.hasBid || lot.yourStanding != null;
+export const hasBidOn = (lot: Lot) => lot.has_bid || lot.your_standing != null;
 /** Whether you are currently the high bidder (and the price is still within your max). */
 export const isLeading = (lot: Lot) =>
-  lot.yourStanding?.isLeading && lot.currentPrice <= (lot.yourStanding.yourMaxBid ?? Infinity);
+  lot.your_standing?.is_leading &&
+  lot.current_price <= (lot.your_standing.your_max_bid ?? Infinity);
 
 /** Amount of a straight bid at the next increment (the API's next minimum bid). */
-export const quickBidAmount = (lot: Lot) => Math.max(lot.nextMinIncrement, lot.currentPrice);
+export const quickBidAmount = (lot: Lot) => Math.max(lot.next_min_increment, lot.current_price);
 
 /** Smallest max bid the site accepts: above your current max when you're winning. */
 export function minMaxBid(lot: Lot): number {
   const min = quickBidAmount(lot);
-  const mine = lot.yourStanding?.yourMaxBid;
+  const mine = lot.your_standing?.your_max_bid;
   return isLeading(lot) && mine != null ? Math.max(mine + 1, min) : min;
 }
 
@@ -62,7 +65,7 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
   if (!lot || pending.has(lotId)) {
     return false;
   }
-  if (isLeading(lot) && amount === lot.yourStanding?.yourMaxBid) {
+  if (isLeading(lot) && amount === lot.your_standing?.your_max_bid) {
     toast('info', 'Your max bid is already set to this amount.');
     return false;
   }
@@ -71,14 +74,14 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
     const r = await placeBid(lotId, amount, type);
     const cur = getLot(lotId) ?? lot;
     const patch: Partial<Lot> = {
-      hasBid: true,
-      yourStanding: { isLeading: r.isLeading, yourMaxBid: amount },
+      has_bid: true,
+      your_standing: { is_leading: r.isLeading, your_max_bid: amount },
     };
     // Take the new price only if the response is newer than what we have.
     if (r.version != null && r.version > cur.version) {
       patch.version = r.version;
-      patch.currentPrice = r.currentPrice ?? cur.currentPrice;
-      patch.nextMinIncrement = r.minNextBid ?? cur.nextMinIncrement;
+      patch.current_price = r.currentPrice ?? cur.current_price;
+      patch.next_min_increment = r.minNextBid ?? cur.next_min_increment;
     }
     updateLot(lotId, patch, { force: true });
     invalidateDetail(lotId);
@@ -100,7 +103,7 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
       updateLot(lotId, { status: 'closed' }, { force: true });
     }
     if (err.status === 422 && err.code === 'bid_too_low' && err.minNextBid != null) {
-      updateLot(lotId, { nextMinIncrement: err.minNextBid }, { force: true });
+      updateLot(lotId, { next_min_increment: err.minNextBid }, { force: true });
     }
     invalidateDetail(lotId);
     toast('bad', err.message);

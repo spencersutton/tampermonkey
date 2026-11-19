@@ -227,7 +227,7 @@ test('facets retain empty custom ancestors but not unrelated empty categories or
   ];
   const lot = (itemType, endsAt = 2) => ({
     itemType,
-    endsAt,
+    ends_at: new Date(endsAt).toISOString(),
     category: { value: 'tools', label: 'Tools' },
     condition: null,
     location: null,

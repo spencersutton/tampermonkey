@@ -25,18 +25,18 @@ const now = Date.now();
 const lot = (id, title, extra = {}) => ({
   id,
   title,
-  lotNumber: `${id}`,
-  auctionPeriod: 'test',
+  lot_number: `${id}`,
+  auction_period: 'test',
   category: null,
   condition: null,
   location: null,
-  endsAt: now + 2 * 3_600_000,
-  currentPrice: 10,
-  estimatedRetailPrice: null,
-  transferFee: 0,
-  isTransferable: false,
+  ends_at: new Date(now + 2 * 3_600_000).toISOString(),
+  current_price: 10,
+  estimated_retail_price: null,
+  transfer_fee: 0,
+  is_transferable: false,
   images: [],
-  bidCount: 0,
+  bid_count: 0,
   ...extra,
 });
 const ids = () => gridView.value.rows.map((row) => row.lot.id);
@@ -55,7 +55,7 @@ beforeEach(() => {
     [1, lot(1, 'Cordless drill')],
     [2, lot(2, 'Garden rake')],
     [3, lot(3, 'Circular saw')],
-    [4, lot(4, 'Old drill', { endsAt: now - 1 * 3_600_000 })],
+    [4, lot(4, 'Old drill', { ends_at: new Date(now - 1 * 3_600_000).toISOString() })],
   ]);
 });
 
@@ -86,7 +86,7 @@ test('reviewing rule matches works while Apply filters is off and updates when r
 });
 
 test('search and sort stay on the filtered page and My lots never admits nonmatching lots', () => {
-  lots.value = new Map([...lots.peek()].map(([id, item]) => [id, { ...item, hasBid: true }]));
+  lots.value = new Map([...lots.peek()].map(([id, item]) => [id, { ...item, has_bid: true }]));
   openFiltered();
   setView({ sort: 'newly-listed', mine: 'bid' });
   assert.equal(filteredOnly.value, true);
@@ -102,28 +102,28 @@ test('search and sort stay on the filtered page and My lots never admits nonmatc
 
 test('watchlist excludes bid-on lots even when the site watchlist flag remains set', () => {
   lots.value = new Map([
-    [1, lot(1, 'Watched drill', { isWatchlisted: true, bidCount: 3 })],
-    [2, lot(2, 'Bid-on rake', { isWatchlisted: true, hasBid: true })],
+    [1, lot(1, 'Watched drill', { is_watchlisted: true, bid_count: 3 })],
+    [2, lot(2, 'Bid-on rake', { is_watchlisted: true, has_bid: true })],
     [
       3,
       lot(3, 'Winning saw', {
-        isWatchlisted: true,
-        yourStanding: { isLeading: true, yourMaxBid: 20 },
+        is_watchlisted: true,
+        your_standing: { is_leading: true, your_max_bid: 20 },
       }),
     ],
     [
       4,
       lot(4, 'Outbid wrench', {
-        isWatchlisted: true,
-        yourStanding: { isLeading: false, yourMaxBid: 15 },
+        is_watchlisted: true,
+        your_standing: { is_leading: false, your_max_bid: 15 },
       }),
     ],
-    [5, lot(5, 'Unwatched hammer', { isWatchlisted: false })],
+    [5, lot(5, 'Unwatched hammer', { is_watchlisted: false })],
   ]);
   setView({ mine: 'watch' });
   assert.deepEqual(ids(), [1]);
 
-  updateLot(1, { hasBid: true });
+  updateLot(1, { has_bid: true });
   assert.deepEqual(ids(), [], 'a newly placed bid immediately leaves the watchlist');
   setView({ mine: 'bid' });
   assert.deepEqual(ids().toSorted(), [1, 2, 3, 4]);

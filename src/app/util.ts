@@ -60,14 +60,6 @@ export function ago(ts: number, now: number) {
   return relative.format(-Math.floor(ms / DAY), 'day');
 }
 
-/** An epoch-millisecond time from the tlx server or the site's API, which must be present and valid. */
-export function requireEpochMs(ms: number | null): number {
-  if (ms === null || !Number.isSafeInteger(ms)) {
-    throw new TypeError('Invalid epoch-millisecond timestamp');
-  }
-  return ms;
-}
-
 /** Remaining time as "m:ss", or "Ns" under a minute. */
 export function countdown(ms: number) {
   const s = Math.max(0, Math.ceil(ms / 1000));

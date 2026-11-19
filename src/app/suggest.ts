@@ -2,6 +2,7 @@
 // match what's being typed, plus the best-matching lots, like a shop's search
 // dropdown.
 import type { HiddenLot } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import type { ItemDetails } from '../shared/names';
 import { matchQuality, stem } from '../shared/search';
 import { parseTag } from '../shared/tags';
@@ -71,12 +72,12 @@ export function suggest(
   const score = makeSearch({ search: query, searchRegex: false }, details);
   const top: { lot: Lot; s: number }[] = [];
   for (const lot of lots) {
-    if (lot.endsAt <= now || hidden[lot.id]) continue;
+    if (endsAtMs(lot) <= now || hidden[lot.id]) continue;
     const s = score(lot);
     if (s == null) continue;
     top.push({ lot, s });
   }
-  top.sort((a, b) => b.s - a.s || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
+  top.sort((a, b) => b.s - a.s || endsAtMs(a.lot) - endsAtMs(b.lot) || a.lot.id - b.lot.id);
   // One card per duplicate group.
   const seen = new Set<number>();
   const best: Lot[] = [];

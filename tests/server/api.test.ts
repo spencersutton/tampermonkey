@@ -22,10 +22,10 @@ describe('/api/catalog', () => {
     expect(first.lots.map((l: Lot) => l.id)).toEqual([1, 2]);
     expect(first.meta).toEqual({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false });
     expect(first.nextPullAt).toBe(0);
-    store.replaceAll([lot(1, 'Drill', { currentPrice: 5 })]);
+    store.replaceAll([lot(1, 'Drill', { current_price: 5 })]);
     const delta = await (await request('/api/catalog?since=1')).json();
     expect(delta).toMatchObject({ seq: 2, full: false, ids: [1] });
-    expect(delta.lots.map((l: Lot) => [l.id, l.currentPrice])).toEqual([[1, 5]]);
+    expect(delta.lots.map((l: Lot) => [l.id, l.current_price])).toEqual([[1, 5]]);
     expect((await (await request('/api/catalog?since=99')).json()).full).toBe(true);
     expect((await (await request('/api/catalog?since=bad')).json()).full).toBe(true);
   });
@@ -76,11 +76,11 @@ describe('/api/lot-metadata', () => {
     const { request, store, siteCalls } = await setup();
     store.saveLotDetail({
       id: 1,
-      auctionPeriod: 'test',
+      auction_period: 'test',
       description: 'Saved',
       brand: 'Acme',
       model: 'D1',
-      lotFee: 2,
+      lot_fee: 2,
     });
     const get = async (query: string) => {
       const res = await request(`/api/lot-metadata?${query}`);
@@ -88,7 +88,7 @@ describe('/api/lot-metadata', () => {
     };
     expect(await get('id=1&auctionPeriod=test')).toEqual([
       200,
-      { metadata: { description: 'Saved', brand: 'Acme', model: 'D1', lotFee: 2 } },
+      { metadata: { description: 'Saved', brand: 'Acme', model: 'D1', lot_fee: 2 } },
     ]);
     expect(await get('id=99&auctionPeriod=test')).toEqual([200, { metadata: null }]);
     expect(await get('id=1&auctionPeriod=other')).toEqual([200, { metadata: null }]);
@@ -206,8 +206,8 @@ describe('/api/history', () => {
   test('closed lots matching an open lot, most recent first', async () => {
     const { request, store } = await setup();
     store.replaceAll([
-      lot(1, 'Cordless drill', { endsAt: 100 }),
-      lot(2, 'Cordless drill', { endsAt: 200 }),
+      lot(1, 'Cordless drill', { ends_at: new Date(100).toISOString() }),
+      lot(2, 'Cordless drill', { ends_at: new Date(200).toISOString() }),
       lot(3, 'Saw'),
     ]);
     store.replaceAll([lot(3, 'Saw'), lot(4, 'Cordless drill')]);

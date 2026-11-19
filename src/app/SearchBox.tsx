@@ -274,9 +274,13 @@ function OptionBody({ option: o }: { option: Option }) {
       const img = o.lot.images[0];
       return (
         <>
-          {img ? <img src={`${CDN}/${img.thumb}`} alt="" loading="lazy" /> : <span class="noimg" />}
+          {img ? (
+            <img src={`${CDN}/${img.image_thumb}`} alt="" loading="lazy" />
+          ) : (
+            <span class="noimg" />
+          )}
           <span class="search-option-label">{o.lot.title}</span>
-          <span class="search-option-price">{dollars(o.lot.currentPrice)}</span>
+          <span class="search-option-price">{dollars(o.lot.current_price)}</span>
         </>
       );
     }

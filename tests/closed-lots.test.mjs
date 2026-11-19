@@ -4,7 +4,7 @@ import { after, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
-import { rawLot } from './raw-lot.mjs';
+import { rawDetail } from './raw-lot.mjs';
 
 const vite = await createServer({
   configFile: false,
@@ -37,9 +37,9 @@ test('shared listing rows preserve prices, location, countdown and caller naviga
   const lot = {
     id: 1,
     title: 'Drill kit',
-    currentPrice: 100,
-    bidCount: 2,
-    endsAt: Date.parse('2026-12-01T00:00:00Z'),
+    current_price: 100,
+    bid_count: 2,
+    ends_at: '2026-12-01T00:00:00Z',
   };
   const row = { lot, transferFee: 8, total: totalCost(100, 8) };
   let opened;
@@ -63,12 +63,12 @@ test('shared listing rows preserve prices, location, countdown and caller naviga
   assert.equal(text(all.find((n) => n.props.class === 'dupe-title')), 'Drill kit');
   assert.match(text(tree), /2 bids/);
   assert.equal(all.find((n) => n.type === LocationText).props.row, row);
-  assert.equal(all.find((n) => n.type === TimeLeft).props.endsAt, lot.endsAt);
+  assert.equal(all.find((n) => n.type === TimeLeft).props.endsAt, Date.parse(lot.ends_at));
 });
 
 test('shared listing rows preserve selection and suppress identical titles', () => {
   const row = {
-    lot: { title: 'Drill', currentPrice: 1, bidCount: 1, condition: { label: 'New' } },
+    lot: { title: 'Drill', current_price: 1, bid_count: 1, condition: { display_name: 'New' } },
     transferFee: 0,
     total: totalCost(1),
   };
@@ -88,18 +88,18 @@ test('shared listing rows preserve selection and suppress identical titles', () 
 });
 
 test('relisted rows show condition text with an unknown fallback', () => {
-  for (const condition of [{ label: 'New' }, null]) {
+  for (const condition of [{ display_name: 'New' }, null]) {
     const row = {
-      lot: { title: 'Drill', currentPrice: 1, bidCount: 0, condition },
+      lot: { title: 'Drill', current_price: 1, bid_count: 0, condition },
       transferFee: 0,
       total: totalCost(1),
     };
     const tree = ListingRow({ row, currentTitle: 'Drill', showCondition: true, onOpen: () => {} });
-    assert.ok(text(tree).includes(`${condition?.label ?? 'Unknown'} · `));
+    assert.ok(text(tree).includes(`${condition?.display_name ?? 'Unknown'} · `));
   }
 });
 
-test('closed lots are normalized, deduplicated and reported as pages arrive', async (t) => {
+test('closed lots are deduplicated and reported as pages arrive', async (t) => {
   const first = {
     lot_id: 1,
     auction_period: 'a',
@@ -125,26 +125,7 @@ test('closed lots are normalized, deduplicated and reported as pages arrive', as
     '/backend/v1/auctions/control-panel/closed/won/?page=1&per_page=100',
     '/backend/v1/auctions/control-panel/closed/won/?page=2&per_page=100',
   ]);
-  assert.deepEqual(lots, [
-    {
-      lotId: 1,
-      auctionPeriod: 'a',
-      title: 'Drill',
-      lotNumber: '10',
-      locationName: 'Raleigh',
-      finalPrice: 25,
-      heroImage: null,
-    },
-    {
-      lotId: 2,
-      auctionPeriod: 'a',
-      title: 'Drill',
-      lotNumber: '11',
-      locationName: 'Raleigh',
-      finalPrice: 30,
-      heroImage: null,
-    },
-  ]);
+  assert.deepEqual(lots, [first, second]);
   assert.deepEqual(updates, [
     { items: [lots[0]], count: 2 },
     { items: lots, count: 2 },
@@ -192,7 +173,7 @@ test('estimated costs use the supplied transfer fee', () => {
 });
 
 test('a fetched closed lot detail can be used as a row and reused by the modal', async (t) => {
-  const raw = rawLot({
+  const raw = rawDetail({
     id: 4321,
     auction_period: 'a',
     current_price: 25,
@@ -209,7 +190,7 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
     requests++;
     return new Response(JSON.stringify(raw), { status: 200 });
   });
-  const detail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });
+  const detail = await loadDetail({ id: raw.id, auction_period: raw.auction_period });
   const row = makeRow(detail, 'Raleigh', {
     words: [],
     filterOn: false,
@@ -224,24 +205,24 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
   assert.equal(row.retailPct, 0.5);
   assert.equal(await loadDetail(row.lot), detail);
   assert.equal(requests, 1);
-  assert.equal(detail.lotFee, 1);
+  assert.equal(detail.lot_fee, 1);
 
   const {
     description,
     brand: _brand,
     model: _model,
-    lotFee: _lotFee,
-    bidHistory: _bidHistory,
+    lot_fee: _lotFee,
+    bid_history: _bidHistory,
     similar: _similar,
     ...base
   } = detail;
   raw.id++;
   catalogLots.value = new Map([[raw.id, { ...base, id: raw.id, version: 0 }]]);
-  const updatedDetail = await loadDetail({ id: raw.id, auctionPeriod: raw.auction_period });
+  const updatedDetail = await loadDetail({ id: raw.id, auction_period: raw.auction_period });
   assert.equal(updatedDetail.description, description);
   const updated = catalogLots.peek().get(raw.id);
   assert.equal(updated.version, 1);
-  for (const field of ['description', 'brand', 'model', 'bidHistory', 'similar', 'lotFee']) {
+  for (const field of ['description', 'brand', 'model', 'bid_history', 'similar', 'lot_fee']) {
     assert.equal(field in updated, false);
   }
   assert.equal(requests, 2);

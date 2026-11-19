@@ -197,8 +197,8 @@ describe('/backend proxy', () => {
           : Response.json({}, { status: 404 }),
     });
     store.replaceAll([
-      { id: 1, title: 'Cordless drill', endsAt: Date.now() + 60_000 },
-      { id: 2, title: 'Saw', endsAt: Date.now() + 60_000 },
+      { id: 1, title: 'Cordless drill', ends_at: new Date(Date.now() + 60_000).toISOString() },
+      { id: 2, title: 'Saw', ends_at: new Date(Date.now() + 60_000).toISOString() },
     ]);
     store.saveLotDetail({ id: 90, brand: 'Acme', model: 'D-1' });
     const body = await (

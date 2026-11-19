@@ -3,6 +3,7 @@
 import { useState } from 'preact/hooks';
 
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
+import { endsAtMs } from '../shared/lot';
 import {
   bidBlocker,
   minMaxBid,
@@ -71,16 +72,16 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
             </dd>
             <dt>Current bid</dt>
             <dd>
-              {dollars(lot.currentPrice)} · {plural(lot.bidCount, 'bid')}
+              {dollars(lot.current_price)} · {plural(lot.bid_count, 'bid')}
             </dd>
             <dt>Ends</dt>
             <dd>
-              <TimeLeft endsAt={lot.endsAt} />
+              <TimeLeft endsAt={endsAtMs(lot)} />
             </dd>
-            {lot.yourStanding?.yourMaxBid != null && (
+            {lot.your_standing?.your_max_bid != null && (
               <>
                 <dt>Your current max</dt>
-                <dd>{dollars(lot.yourStanding.yourMaxBid)}</dd>
+                <dd>{dollars(lot.your_standing.your_max_bid)}</dd>
               </>
             )}
           </dl>

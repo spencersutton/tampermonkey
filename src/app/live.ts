@@ -4,7 +4,7 @@
 import { computed, effect, signal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 
-import { normalizeStanding, type RawStanding } from '../shared/lot';
+import { endsAtMs, type Standing } from '../shared/lot';
 import { fetchWsToken } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';
@@ -78,21 +78,20 @@ async function open(): Promise<Centrifuge> {
 function onUserPublication(d: {
   lot_id?: number | string;
   type?: string;
-  relationship?: RawStanding | null;
+  relationship?: Standing | null;
 }) {
   const lotId = Number(d.lot_id);
   const lot = getLot(lotId);
   if (!lot) {
     return;
   }
-  const yourMaxBid = lot.yourStanding?.yourMaxBid ?? null;
   const fallback =
     d.type === 'outbid' || d.type === 'winning'
-      ? { isLeading: d.type === 'winning', yourMaxBid }
+      ? { is_leading: d.type === 'winning', your_max_bid: lot.your_standing?.your_max_bid ?? null }
       : null;
-  const standing = normalizeStanding(d.relationship) ?? fallback;
+  const standing = d.relationship ?? fallback;
   if (standing) {
-    updateLot(lotId, { yourStanding: standing, hasBid: true }, { force: true });
+    updateLot(lotId, { your_standing: standing, has_bid: true }, { force: true });
   }
 }
 
@@ -114,12 +113,11 @@ function onLotPublication(
   if (typeof data?.id !== 'number') {
     return;
   }
-  const endsAt = data.ends_at ? Date.parse(data.ends_at) : Number.NaN;
   const patch: Partial<Lot> = {
-    ...(data.current_price == null ? {} : { currentPrice: data.current_price }),
-    ...(data.bid_count == null ? {} : { bidCount: data.bid_count }),
-    ...(data.next_min_increment == null ? {} : { nextMinIncrement: data.next_min_increment }),
-    ...(Number.isNaN(endsAt) ? {} : { endsAt }),
+    ...(data.current_price == null ? {} : { current_price: data.current_price }),
+    ...(data.bid_count == null ? {} : { bid_count: data.bid_count }),
+    ...(data.next_min_increment == null ? {} : { next_min_increment: data.next_min_increment }),
+    ...(Number.isNaN(endsAtMs(data)) ? {} : { ends_at: data.ends_at }),
     ...(data.status == null ? {} : { status: data.status }),
     ...(data.version == null ? {} : { version: data.version }),
   };

@@ -17,6 +17,7 @@
 // the past closes matching it (history.ts, which then asks the site for the
 // final prices of the lots that just left the catalog).
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';
@@ -26,7 +27,7 @@ import type { CatalogMeta, Lot, Store } from './store';
 const MINUTE_MS = 60_000;
 const ACTIVE_WINDOW_MS = 10 * MINUTE_MS; // pull only if a tab was in use this recently
 const CHECK_EVERY_MS = 15_000; // between checks whether a pull is due
-const ACCOUNT_FIELDS = ['yourStanding', 'isWatchlisted', 'hasBid'] as const;
+const ACCOUNT_FIELDS = ['your_standing', 'is_watchlisted', 'has_bid'] as const;
 
 export interface Progress {
   done: number;
@@ -197,7 +198,7 @@ export class Catalog {
       if (pulled.size < count) {
         const now = this.now();
         for (const [id, lot] of prev) {
-          if (!pulled.has(id) && (lot.endsAt ?? 0) > now) {
+          if (!pulled.has(id) && endsAtMs(lot) > now) {
             pulled.set(id, lot);
           }
         }

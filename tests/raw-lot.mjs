@@ -1,10 +1,14 @@
-// A complete raw lot detail, shaped like the site's (tests/fixtures/site), for
-// tests to patch with the fields they care about.
+// Complete lots shaped like the site's (tests/fixtures/site), for tests to
+// patch with the fields they care about.
+
+/** @typedef {import('../src/shared/lot').RawLot} RawLot */
+/** @typedef {import('../src/shared/lot').RawLotDetail & { similar: RawLot[] }} RawLotDetail */
 
 /**
- * @param {Partial<
- *   import('../src/shared/lot').RawLotDetail & { similar: import('../src/shared/lot').RawLot[] }
- * >} patch
+ * A lot as the catalog lists it.
+ *
+ * @param {Partial<RawLot>} patch
+ * @returns {RawLot}
  */
 export const rawLot = (patch = {}) => ({
   id: 1,
@@ -23,20 +27,26 @@ export const rawLot = (patch = {}) => ({
   version: 1,
   bid_count: 0,
   next_min_increment: 0,
-  /** @type {import('../src/shared/lot').RawStanding | null} */
   your_standing: null,
   is_watchlisted: false,
   has_bid: false,
-  /** @type {import('../src/shared/lot').RawLot['images']} */
   images: [],
+  ...patch,
+});
+
+/**
+ * A lot's detail.
+ *
+ * @param {Partial<RawLotDetail>} patch
+ * @returns {RawLotDetail}
+ */
+export const rawDetail = (patch = {}) => ({
+  ...rawLot(),
   description: '',
   brand: '',
-  /** @type {string | null} */
   model: null,
   lot_fee: 0,
-  /** @type {import('../src/shared/lot').RawLotDetail['bid_history']} */
   bid_history: [],
-  /** @type {import('../src/shared/lot').RawLot[]} */
   similar: [],
   ...patch,
 });

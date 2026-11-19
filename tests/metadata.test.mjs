@@ -4,7 +4,7 @@ import { after, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
-import { rawLot } from './raw-lot.mjs';
+import { rawDetail } from './raw-lot.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const vite = await createServer({
@@ -24,9 +24,11 @@ const {
   updateLot,
 } = await vite.ssrLoadModule('/src/app/catalog.ts');
 const { me } = await vite.ssrLoadModule('/src/app/auth.tsx');
-const { normalizeLot } = await vite.ssrLoadModule('/src/app/api.ts');
+/** A detail as the catalog lists the lot: without the detail-only fields. */
+// oxlint-disable-next-line no-unused-vars
+const catalogLot = ({ description, brand, model, lot_fee, bid_history, similar, ...lot }) => lot;
 const raw = (id, patch = {}) =>
-  rawLot({
+  rawDetail({
     id,
     ends_at: '2030-01-01T00:00:00Z',
     images: [],
@@ -45,10 +47,10 @@ const saved = {
   description: 'Saved description',
   brand: 'Acme',
   model: 'D1',
-  lotFee: 2,
+  lot_fee: 2,
   images: [],
 };
-const lot = (id) => ({ id, auctionPeriod: 'test' });
+const lot = (id) => ({ id, auction_period: 'test' });
 
 test('saved metadata arrives before live details, without changing price or account state', async (t) => {
   let live;
@@ -61,7 +63,7 @@ test('saved metadata arrives before live details, without changing price or acco
       live = resolve;
     });
   });
-  const current = normalizeLot(raw(101, { version: 1, current_price: 10 }));
+  const current = catalogLot(raw(101, { version: 1, current_price: 10 }));
   lots.value = new Map([[101, current]]);
   const metadata = loadMetadata(lot(101));
   assert.equal(loadMetadata(lot(101)), metadata, 'concurrent metadata requests are shared');
@@ -73,8 +75,8 @@ test('saved metadata arrives before live details, without changing price or acco
   live(Response.json(raw(101)));
   await fresh;
   assert.equal(cachedMetadata(101).description, 'Fresh description');
-  assert.equal(lots.peek().get(101).currentPrice, 20);
-  assert.equal(cachedDetail(101).bidHistory.length, 1);
+  assert.equal(lots.peek().get(101).current_price, 20);
+  assert.equal(cachedDetail(101).bid_history.length, 1);
   assert.deepEqual(requests, [
     '/api/lot-metadata?id=101&auctionPeriod=test',
     '/backend/v1/auctions/lots/test/101/',
@@ -101,15 +103,15 @@ test('new live versions bypass the short-lived auction cache and never roll pric
     requests++;
     return Response.json(raw(103, { version }));
   });
-  lots.value = new Map([[103, normalizeLot(raw(103))]]);
+  lots.value = new Map([[103, catalogLot(raw(103))]]);
   await loadDetail(lot(103));
   await loadDetail(lot(103));
   assert.equal(requests, 1);
-  updateLot(103, { version: 3, currentPrice: 40 });
+  updateLot(103, { version: 3, current_price: 40 });
   assert.equal(cachedDetail(103), undefined);
   await loadDetail(lot(103));
   assert.equal(requests, 2);
-  assert.equal(lots.peek().get(103).currentPrice, 40);
+  assert.equal(lots.peek().get(103).current_price, 40);
   assert.equal(cachedDetail(103), undefined);
   version = 4;
   await loadDetail(lot(103));

@@ -25,7 +25,7 @@ const item = (id: number, title = 'Cordless drill', fields: Partial<Lot> = {}): 
   brand: 'Acme',
   model: 'D-100',
   condition: null,
-  endsAt: LATER,
+  ends_at: new Date(LATER).toISOString(),
   ...fields,
 });
 // test_identity.py's lots: closed ones, sold.
@@ -34,12 +34,12 @@ const sold = (id: number, title = 'Cordless drill', fields: Partial<Lot> = {}): 
   title,
   brand: 'Acme',
   model: 'D-100',
-  auctionPeriod: 'test',
-  endsAt: 1000,
-  currentPrice: 20,
+  auction_period: 'test',
+  ends_at: new Date(1000).toISOString(),
+  current_price: 20,
   condition: null,
   status: 'sold',
-  bidCount: 1,
+  bid_count: 1,
   category: { value: 'tools', label: 'Tools' },
   ...fields,
 });
@@ -95,7 +95,7 @@ describe('stored matching', () => {
       item(1),
       item(2, 'Cordless drill', { model: null }),
       item(3, 'Cordless drill', { model: 'D-200' }),
-      item(4, 'Cordless drill', { endsAt: 0 }),
+      item(4, 'Cordless drill', { ends_at: new Date(0).toISOString() }),
       item(5, 'Saw', { brand: null, model: null }),
     );
     const closed: Record<string, unknown>[] = [
@@ -124,10 +124,10 @@ describe('identity', () => {
   test('history prefers identity, with title fallback in either direction', () => {
     const { history, addClosed } = stores();
     addClosed(
-      sold(1, 'Entirely different title', { endsAt: 100 }),
-      sold(2, 'Cordless drill', { model: 'D-200', endsAt: 200 }),
-      sold(3, 'Cordless drill', { brand: null, endsAt: 300 }),
-      sold(4, 'Cordless drill', { brand: ' ACME ', model: ' d-100 ', endsAt: 400 }),
+      sold(1, 'Entirely different title', { ends_at: new Date(100).toISOString() }),
+      sold(2, 'Cordless drill', { model: 'D-200', ends_at: new Date(200).toISOString() }),
+      sold(3, 'Cordless drill', { brand: null, ends_at: new Date(300).toISOString() }),
+      sold(4, 'Cordless drill', { brand: ' ACME ', model: ' d-100 ', ends_at: new Date(400).toISOString() }),
     );
     const ids = (lot: Lot) => history.closesFor(lot).map((r) => r.id);
     expect(ids(sold(10))).toEqual([4, 3, 1]);
@@ -290,7 +290,7 @@ describe('final prices', () => {
   beforeEach(() => {
     store = new Store(':memory:');
     store.replaceAll([
-      sold(1, 'Drill', { status: 'live', bidCount: 2 }),
+      sold(1, 'Drill', { status: 'live', bid_count: 2 }),
       sold(2),
       sold(3),
       sold(4),

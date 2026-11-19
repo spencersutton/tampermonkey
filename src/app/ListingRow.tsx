@@ -1,4 +1,5 @@
 import { costBreakdown, dollars, money } from '../shared/cost';
+import { endsAtMs } from '../shared/lot';
 import { LocationText, TimeLeft } from './LotCard';
 import type { Lot } from './types';
 import { plural } from './util';
@@ -24,15 +25,15 @@ export function ListingRow({ row, currentTitle, selected, showCondition = false,
         aria-current={selected ? 'true' : undefined}
         onClick={() => onOpen(lot)}
       >
-        <span class="price" title={costBreakdown(lot.currentPrice, row.transferFee)}>
-          {dollars(lot.currentPrice)} <span class="muted small">≈ {money(row.total)}</span>
+        <span class="price" title={costBreakdown(lot.current_price, row.transferFee)}>
+          {dollars(lot.current_price)} <span class="muted small">≈ {money(row.total)}</span>
         </span>
         <span class="muted small">
           {lot.title !== currentTitle && <span class="dupe-title">{lot.title}</span>}
-          {showCondition && <>{lot.condition?.label ?? 'Unknown'} · </>}
-          <LocationText row={row} /> · {plural(lot.bidCount, 'bid')}
+          {showCondition && <>{lot.condition?.display_name ?? 'Unknown'} · </>}
+          <LocationText row={row} /> · {plural(lot.bid_count, 'bid')}
         </span>
-        <TimeLeft endsAt={lot.endsAt} />
+        <TimeLeft endsAt={endsAtMs(lot)} />
       </button>
     </li>
   );

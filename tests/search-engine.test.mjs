@@ -39,19 +39,19 @@ let nextId = 1;
 const lot = (title, patch = {}) => ({
   id: nextId++,
   title,
-  lotNumber: `L-${nextId}`,
-  auctionPeriod: 'test',
+  lot_number: `L-${nextId}`,
+  auction_period: 'test',
   category: { value: 'tools', label: 'Tools' },
-  condition: { value: 1, label: 'New' },
+  condition: { value: 1, display_name: 'New' },
   location: { id: 1, name: 'Raleigh' },
-  endsAt: now + 2 * 3_600_000,
+  ends_at: new Date(now + 2 * 3_600_000).toISOString(),
   firstSeenAt: now,
-  currentPrice: 20,
-  estimatedRetailPrice: null,
-  transferFee: 0,
-  isTransferable: false,
+  current_price: 20,
+  estimated_retail_price: null,
+  transfer_fee: 0,
+  is_transferable: false,
   images: [],
-  bidCount: 0,
+  bid_count: 0,
   version: 1,
   ...patch,
 });
@@ -117,7 +117,7 @@ test('negated words exclude lots', () => {
 test('best match ranks item type and whole-word matches above incidental ones', () => {
   const items = [
     lot('Drill Bit Set 100pc', { itemType: 'drill bit set' }),
-    lot('Sawhorse Pair', { endsAt: now + 5 * 60_000 }),
+    lot('Sawhorse Pair', { ends_at: new Date(now + 5 * 60_000).toISOString() }),
     lot('20V Compact Saw Kit', { itemType: 'circular saw' }),
     lot('Miter Saw', { itemType: 'miter saw' }),
   ];
@@ -146,10 +146,14 @@ test('a misspelt search that matches nothing runs the corrected search instead',
 
 test('facet counts follow the results, each ignoring its own selection', () => {
   const items = [
-    lot('Drill A', { brand: 'DeWalt', itemType: 'drill driver', currentPrice: 5 }),
-    lot('Drill B', { brand: 'DEWALT ', itemType: 'drill driver', currentPrice: 30 }),
-    lot('Drill C', { brand: 'Ryobi', itemType: 'drill driver', currentPrice: 30 }),
-    lot('Saw D', { brand: 'Ryobi', itemType: 'miter saw', condition: { value: 2, label: 'Used' } }),
+    lot('Drill A', { brand: 'DeWalt', itemType: 'drill driver', current_price: 5 }),
+    lot('Drill B', { brand: 'DEWALT ', itemType: 'drill driver', current_price: 30 }),
+    lot('Drill C', { brand: 'Ryobi', itemType: 'drill driver', current_price: 30 }),
+    lot('Saw D', {
+      brand: 'Ryobi',
+      itemType: 'miter saw',
+      condition: { value: 2, display_name: 'Used' },
+    }),
   ];
   const view = { ...DEFAULT_VIEW, search: 'drill', brands: ['dewalt'] };
   const result = run(items, view);
@@ -384,7 +388,7 @@ test('filter values that are all numbers sort by value', () => {
 test('numeric tag menus merge equivalent options, count lots once and toggle every spelling', () => {
   const items = [
     lot('Four', { tags: ['Size: 4'] }),
-    lot('Four decimal', { tags: ['size: 4.0'], currentPrice: 50 }),
+    lot('Four decimal', { tags: ['size: 4.0'], current_price: 50 }),
     lot('Both', { tags: ['size: 4', 'size: 4.0'] }),
     lot('Half', { tags: ['size: 04.500'] }),
     lot('Missing'),
@@ -445,13 +449,13 @@ test('numeric menu normalization leaves mixed values alone and preserves decimal
 });
 
 test('a combined card leads with the best condition and notes a cheaper worse one', () => {
-  const cond = (value, label) => ({ condition: { value, label } });
+  const cond = (value, label) => ({ condition: { value, display_name: label } });
   const items = [
-    lot('Drill as-is', { ...cond(4, 'As-is'), currentPrice: 2, groupId: 1 }),
-    lot('Drill used', { ...cond(3, 'Used'), currentPrice: 5, groupId: 1 }),
-    lot('Drill like new', { ...cond(2, 'Like New'), currentPrice: 30, groupId: 1 }),
-    lot('Drill new', { ...cond(1, 'New'), currentPrice: 40, groupId: 1 }),
-    lot('Drill new cheap', { ...cond(1, 'New'), currentPrice: 35, groupId: 1 }),
+    lot('Drill as-is', { ...cond(4, 'As-is'), current_price: 2, groupId: 1 }),
+    lot('Drill used', { ...cond(3, 'Used'), current_price: 5, groupId: 1 }),
+    lot('Drill like new', { ...cond(2, 'Like New'), current_price: 30, groupId: 1 }),
+    lot('Drill new', { ...cond(1, 'New'), current_price: 40, groupId: 1 }),
+    lot('Drill new cheap', { ...cond(1, 'New'), current_price: 35, groupId: 1 }),
   ];
   const [card] = run(items).rows;
   assert.equal(card.lot.title, 'Drill new cheap', 'New first, cheapest within it');
@@ -462,8 +466,8 @@ test('a combined card leads with the best condition and notes a cheaper worse on
   assert.equal(card.cheaper.lot.title, 'Drill as-is', 'the cheapest worse-condition listing');
 
   const [alone] = run([
-    lot('Saw new', { ...cond(1, 'New'), currentPrice: 10, groupId: 7 }),
-    lot('Saw used', { ...cond(3, 'Used'), currentPrice: 15, groupId: 7 }),
+    lot('Saw new', { ...cond(1, 'New'), current_price: 10, groupId: 7 }),
+    lot('Saw used', { ...cond(3, 'Used'), current_price: 15, groupId: 7 }),
   ]).rows;
   assert.equal(alone.lot.title, 'Saw new');
   assert.equal(alone.cheaper, null, 'no note when the worse condition costs more');

@@ -1,10 +1,9 @@
 // Thin client for the site's JSON API, proxied by the tlx server, which adds
 // its login token (see auth.tsx), so lots include account fields like your
 // standing and watchlist state.
-import * as wire from '../shared/lot';
+import { type RawLot, type RawLotDetail as SiteLotDetail } from '../shared/lot';
 import { authedFetch, isAuthenticated } from './auth';
-import type { ClosedLot, Lot, LotDetail, LotMetadata } from './types';
-import { requireEpochMs } from './util';
+import type { ClosedLot, LotDetail, LotMetadata } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
@@ -43,22 +42,8 @@ function send(
 }
 
 /** @see LotDetail; the site's detail adds its "Similar Auctions". */
-interface RawLotDetail extends wire.RawLotDetail {
-  similar: wire.RawLot[];
-}
-
-/** @see ClosedLot, which is the normalized version of this. */
-interface RawClosedLot {
-  lot_id: number;
-  auction_period?: string | null;
-  title?: string | null;
-  lot_number?: string | null;
-  location_name?: string | null;
-  final_price?: number | null;
-  hero_image: string | null;
-  brand?: string | null;
-  model?: string | null;
-  relisted?: number[]; // added by the tlx server's proxy
+interface RawLotDetail extends SiteLotDetail {
+  similar: RawLot[];
 }
 
 interface RawBidResponse {
@@ -72,25 +57,13 @@ interface RawBidResponse {
   version?: number | null;
 }
 
-/** Convert a raw API lot (snake_case) into a Lot. */
-export function normalizeLot(r: wire.RawLot): Lot {
-  const lot = wire.normalizeLot(r);
-  return { ...lot, endsAt: requireEpochMs(lot.endsAt) };
-}
-
 /** Fetch one lot's full detail: description, brand/model, bid history and the site's similar lots. */
 export async function fetchLotDetail(
   auctionPeriod: string,
   id: number,
   signal?: AbortSignal,
 ): Promise<LotDetail> {
-  const r = await get<RawLotDetail>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
-  const detail = wire.normalizeDetail(r);
-  return {
-    ...detail,
-    endsAt: requireEpochMs(detail.endsAt),
-    similar: r.similar.map(normalizeLot),
-  };
+  return await get<RawLotDetail>(`/v1/auctions/lots/${auctionPeriod}/${id}/`, signal);
 }
 
 /** Read persisted item metadata without asking the site or returning stale auction state. */
@@ -122,15 +95,15 @@ export async function fetchClosed(
   const out: ClosedLot[] = [];
   const seen = new Set<string>();
   for (let page = 1; ; page++) {
-    const d = await get<{ count: number; results: RawClosedLot[] }>(
+    const d = await get<{ count: number; results: ClosedLot[] }>(
       `/v1/auctions/control-panel/closed/${section}/?page=${page}&per_page=100`,
       signal,
     );
-    for (const r of d.results) {
-      const lot = normalizeClosed(r);
+    for (const lot of d.results) {
       // Pages can shift while we walk them; the site dedupes the same way.
-      if (!seen.has(`${lot.auctionPeriod}:${lot.lotId}`)) {
-        seen.add(`${lot.auctionPeriod}:${lot.lotId}`);
+      const key = `${lot.auction_period}:${lot.lot_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
         out.push(lot);
       }
     }
@@ -139,21 +112,6 @@ export async function fetchClosed(
       return out;
     }
   }
-}
-
-function normalizeClosed(r: RawClosedLot): ClosedLot {
-  return {
-    lotId: r.lot_id,
-    auctionPeriod: r.auction_period ?? '',
-    title: r.title ?? '',
-    lotNumber: r.lot_number ?? '',
-    locationName: r.location_name ?? null,
-    finalPrice: r.final_price ?? 0,
-    heroImage: r.hero_image ?? null,
-    ...(r.brand !== undefined ? { brand: r.brand } : {}),
-    ...(r.model !== undefined ? { model: r.model } : {}),
-    ...(r.relisted !== undefined ? { relisted: r.relisted } : {}),
-  };
 }
 
 /** A condition as the site explains it ("Like New": "Appears open-box or lightly used; …"). */

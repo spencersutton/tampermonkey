@@ -18,7 +18,6 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const wire = await vite.ssrLoadModule('/src/shared/lot.ts');
-const api = await vite.ssrLoadModule('/src/app/api.ts');
 
 const DIR = new URL('fixtures/site/', import.meta.url);
 const fixture = (name) => JSON.parse(readFileSync(new URL(name, DIR), 'utf8'));
@@ -111,21 +110,20 @@ test('catalog pages and lot details have exactly the declared fields', () => {
   assert.ok(!(details[1].body.brand && details[1].body.model));
 });
 
-test('real lots normalize for the server and the app', () => {
-  const raws = [...lists.flatMap((p) => p.body.results), ...details.map((d) => d.body)];
+test('real lots have valid end times and images in position order, as the code assumes', () => {
+  const raws = [
+    ...lists.flatMap((p) => p.body.results),
+    ...details.flatMap((d) => [d.body, ...d.body.similar]),
+  ];
   for (const raw of raws) {
-    const lot = wire.normalizeLot(raw);
-    assert.equal(lot.endsAt, Date.parse(raw.ends_at));
-    assert.equal(lot.condition?.label, raw.condition?.display_name);
+    assert.ok(Number.isFinite(wire.endsAtMs(raw)), `lot ${raw.id}: ends_at ${raw.ends_at}`);
+    const positions = raw.images.map((i) => i.position);
     assert.deepEqual(
-      lot.images.map((i) => i.card),
-      raw.images.toSorted((a, b) => a.position - b.position).map((i) => i.image_card),
+      positions,
+      positions.toSorted((a, b) => a - b),
+      `lot ${raw.id}: images`,
     );
-    assert.equal(api.normalizeLot(raw).endsAt, Date.parse(raw.ends_at));
   }
-  const detail = wire.normalizeDetail(details[0].body);
-  assert.equal(detail.brand, details[0].body.brand);
-  assert.equal(detail.bidHistory.length, details[0].body.bid_history.length);
 });
 
 test('the API and next-auth answer errors and logged-out sessions as the server expects', () => {

@@ -28,7 +28,7 @@ import { dirname } from 'node:path';
 import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
-import type { LotImage, Standing } from '../shared/lot';
+import { endsAtMs, type LotImage, type Standing } from '../shared/lot';
 import { tagKey } from '../shared/tags';
 import {
   cleanTags,
@@ -89,7 +89,8 @@ CREATE TABLE IF NOT EXISTS lot_details (
 );
 `;
 
-// lots: is_leading and your_max_bid are null without a standing; past_close_count
+// lots: ends_at is the site's ISO 8601 text (epoch ms in rows from older servers);
+// is_leading and your_max_bid are null without a standing; past_close_count
 // counts every matching closed lot, lot_past_closes holds the most recent few;
 // group_id is the smallest id of the open lots listing the same item (null when
 // no other does; see groupLots in src/shared/identity.ts).
@@ -124,27 +125,30 @@ export interface ClosedLot extends PastClose {
   model: string | null;
 }
 
-/** A lot as stored and as the app gets it. Lots from tests and older code may leave fields out. */
+/**
+ * A lot as stored and as the app gets it: the site's fields (RawLot in src/shared/lot.ts) plus the
+ * server's own. Lots from tests and older code may leave fields out.
+ */
 export interface Lot {
   id: number;
   title: string;
-  auctionPeriod?: string | null;
-  lotNumber?: string;
+  auction_period?: string | null;
+  lot_number?: string;
   category?: { value: string; label?: string | null } | null;
-  condition?: { value: number; label?: string | null } | null;
+  condition?: { value: number; display_name?: string | null } | null;
   location?: { id: number; name?: string | null } | null;
-  isTransferable?: boolean;
-  transferFee?: number | null;
-  currentPrice?: number | null;
-  estimatedRetailPrice?: number | null;
-  endsAt?: number | null;
+  is_transferable?: boolean;
+  transfer_fee?: number | null;
+  current_price?: number | null;
+  estimated_retail_price?: number | null;
+  ends_at?: string | null;
   status?: string | null;
   version?: number | null;
-  bidCount?: number | null;
-  nextMinIncrement?: number | null;
-  yourStanding?: Standing | null;
-  isWatchlisted?: boolean;
-  hasBid?: boolean;
+  bid_count?: number | null;
+  next_min_increment?: number | null;
+  your_standing?: Standing | null;
+  is_watchlisted?: boolean;
+  has_bid?: boolean;
   images?: LotImage[];
   firstSeenAt?: number;
   pastCloses?: { n: number; recent: PastClose[] };
@@ -166,18 +170,18 @@ export interface Item {
   tags?: string[];
 }
 
-/** A lot detail as saved (normalizeDetail in src/shared/lot.ts; tests may leave fields out). */
+/** A lot detail as saved (RawLotDetail in src/shared/lot.ts; tests may leave fields out). */
 export interface Detail {
   id: number;
-  auctionPeriod?: string | null;
+  auction_period?: string | null;
   title?: string;
   status?: string | null;
-  currentPrice?: number | null;
+  current_price?: number | null;
   description?: string | null;
   brand?: string | null;
   model?: string | null;
-  lotFee?: number | null;
-  bidHistory?: unknown[];
+  lot_fee?: number | null;
+  bid_history?: unknown[];
   images?: LotImage[];
 }
 
@@ -185,9 +189,15 @@ export interface LotMetadata {
   description: string;
   brand: string | null;
   model: string | null;
-  lotFee: number | null;
+  lot_fee: number | null;
   images?: LotImage[];
 }
+
+/** Ends at, as the epoch ms closed_lots keeps. */
+const endsAtColumn = (lot: Lot) => {
+  const ms = endsAtMs(lot);
+  return Number.isNaN(ms) ? null : ms;
+};
 
 export interface CatalogMeta {
   fetchedAt: number | null; // when the last complete pull finished (epoch ms)
@@ -224,29 +234,29 @@ function catalogMeta(v: unknown): CatalogMeta {
 
 /** A lot as a lots row (LOT_COLUMNS order). */
 function lotRow(lot: Lot, seq: number): SQLQueryBindings[] {
-  const s = lot.yourStanding;
+  const s = lot.your_standing;
   return [
     lot.id,
     seq,
-    lot.auctionPeriod ?? null,
+    lot.auction_period ?? null,
     lot.title || '',
-    lot.lotNumber || '',
+    lot.lot_number || '',
     lot.category?.value ?? null,
     lot.condition?.value ?? null,
     lot.location?.id ?? null,
-    lot.isTransferable ? 1 : 0,
-    lot.transferFee ?? null,
-    lot.currentPrice ?? null,
-    lot.estimatedRetailPrice ?? null,
-    lot.endsAt ?? null,
+    lot.is_transferable ? 1 : 0,
+    lot.transfer_fee ?? null,
+    lot.current_price ?? null,
+    lot.estimated_retail_price ?? null,
+    lot.ends_at ?? null,
     lot.status ?? null,
     lot.version ?? null,
-    lot.bidCount ?? null,
-    lot.nextMinIncrement ?? null,
-    s ? Number(s.isLeading) : null,
-    s ? (s.yourMaxBid ?? null) : null,
-    lot.isWatchlisted ? 1 : 0,
-    lot.hasBid ? 1 : 0,
+    lot.bid_count ?? null,
+    lot.next_min_increment ?? null,
+    s ? Number(s.is_leading) : null,
+    s ? s.your_max_bid : null,
+    lot.is_watchlisted ? 1 : 0,
+    lot.has_bid ? 1 : 0,
     lot.firstSeenAt ?? null,
     lot.pastCloses?.n ?? 0,
     lot.groupId ?? null,
@@ -258,22 +268,36 @@ function lotRow(lot: Lot, seq: number): SQLQueryBindings[] {
  * bids counts as sold.
  */
 function closedRow(lot: Lot, final: number): SQLQueryBindings[] {
-  const sold = final === 1 ? lot.status === 'sold' : (lot.bidCount ?? 0) > 0;
+  const sold = final === 1 ? lot.status === 'sold' : (lot.bid_count ?? 0) > 0;
   return [
     lot.id,
     lot.title || '',
-    lot.auctionPeriod ?? null,
-    lot.endsAt ?? null,
-    lot.currentPrice ?? null,
-    lot.bidCount ?? null,
+    lot.auction_period ?? null,
+    endsAtColumn(lot),
+    lot.current_price ?? null,
+    lot.bid_count ?? null,
     sold ? 1 : 0,
     final,
-    lot.condition?.label ?? null,
+    lot.condition?.display_name ?? null,
     lot.location?.name ?? null,
     lot.category?.value ?? null,
-    lot.estimatedRetailPrice ?? null,
+    lot.estimated_retail_price ?? null,
   ];
 }
+
+/** An image as lot_details.images keeps it (older rows have no position: they are in order). */
+interface SavedImage {
+  position?: number;
+  thumb: string;
+  card: string;
+  large: string;
+}
+const savedImage = (im: LotImage): SavedImage => ({
+  position: im.position,
+  thumb: im.image_thumb,
+  card: im.image_card,
+  large: im.image_large,
+});
 
 const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(', ');
 
@@ -404,7 +428,7 @@ export class Store {
       fee: number | null;
       price: number | null;
       retail: number | null;
-      ends: number | null;
+      ends: string | number | null; // as the site sent it; epoch ms in older databases
       status: string | null;
       version: number | null;
       bids: number | null;
@@ -432,25 +456,25 @@ export class Store {
     for (const r of rows) {
       const lot: Lot = {
         id: r.id,
-        auctionPeriod: r.period,
+        auction_period: r.period,
         title: r.title,
-        lotNumber: r.number,
+        lot_number: r.number,
         category: r.cat === null ? null : { value: r.cat, label: r.catLabel },
-        condition: r.cond === null ? null : { value: r.cond, label: r.condLabel },
+        condition: r.cond === null ? null : { value: r.cond, display_name: r.condLabel },
         location: r.loc === null ? null : { id: r.loc, name: r.locName },
-        isTransferable: Boolean(r.transferable),
-        transferFee: r.fee,
-        currentPrice: r.price,
-        estimatedRetailPrice: r.retail,
-        endsAt: r.ends,
+        is_transferable: Boolean(r.transferable),
+        transfer_fee: r.fee,
+        current_price: r.price,
+        estimated_retail_price: r.retail,
+        ends_at: typeof r.ends === 'number' ? new Date(r.ends).toISOString() : r.ends,
         status: r.status,
         version: r.version,
-        bidCount: r.bids,
-        nextMinIncrement: r.increment,
-        yourStanding:
-          r.leading === null ? null : { isLeading: Boolean(r.leading), yourMaxBid: r.maxBid },
-        isWatchlisted: Boolean(r.watched),
-        hasBid: Boolean(r.hasBid),
+        bid_count: r.bids,
+        next_min_increment: r.increment,
+        your_standing:
+          r.leading === null ? null : { is_leading: Boolean(r.leading), your_max_bid: r.maxBid },
+        is_watchlisted: Boolean(r.watched),
+        has_bid: Boolean(r.hasBid),
         images: [],
       };
       if (r.firstSeen !== null) {
@@ -468,11 +492,12 @@ export class Store {
       return lots;
     }
     const ids = `(SELECT l.id FROM lots l ${where})`;
-    for (const im of this.all<{ id: number; thumb: string; card: string; large: string }>(
-      `SELECT lot_id AS id, thumb, card, large FROM lot_images WHERE lot_id IN ${ids} ORDER BY lot_id, position`,
+    for (const { id, ...im } of this.all<LotImage & { id: number }>(
+      `SELECT lot_id AS id, position, thumb AS image_thumb, card AS image_card, large AS image_large
+        FROM lot_images WHERE lot_id IN ${ids} ORDER BY lot_id, position`,
       ...params,
     )) {
-      lots.get(im.id)?.images?.push({ thumb: im.thumb, card: im.card, large: im.large });
+      lots.get(id)?.images?.push(im);
     }
     for (const c of this.all<{
       lotId: number;
@@ -651,7 +676,7 @@ export class Store {
         'conditions',
         'value',
         'label',
-        (l) => (l.condition ? [l.condition.value, l.condition.label ?? null] : null),
+        (l) => (l.condition ? [l.condition.value, l.condition.display_name ?? null] : null),
       ],
       [
         'locations',
@@ -688,7 +713,9 @@ export class Store {
       delImages.run(lot.id);
       delCloses.run(lot.id);
       insLot.run(...lotRow(lot, seq));
-      (lot.images ?? []).forEach((im, n) => insImage.run(lot.id, n, im.thumb, im.card, im.large));
+      for (const im of lot.images ?? []) {
+        insImage.run(lot.id, im.position, im.image_thumb, im.image_card, im.image_large);
+      }
       (lot.pastCloses?.recent ?? []).forEach((c, n) => insClose.run(lot.id, n, c.id));
     }
   }
@@ -843,7 +870,7 @@ export class Store {
   }
 
   // -- lot details ------------------------------------------------------------------------
-  /** Keep a lot's detail (normalizeDetail in src/shared/lot.ts), replacing the one fetched before. */
+  /** Keep a lot's detail (RawLotDetail in src/shared/lot.ts), replacing the one fetched before. */
   saveLotDetail(d: Detail): void {
     this.tx(() => {
       const previous = this.get<{ brand: string | null; model: string | null }>(
@@ -857,17 +884,17 @@ export class Store {
         `INSERT OR REPLACE INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
           lot_fee, bid_history, fetched_at, images) VALUES (${placeholders(12)})`,
         d.id,
-        d.auctionPeriod ?? null,
+        d.auction_period ?? null,
         d.title || '',
         d.status ?? null,
-        d.currentPrice ?? null,
+        d.current_price ?? null,
         d.description ?? null,
         brand,
         model,
-        d.lotFee ?? null,
-        JSON.stringify(d.bidHistory ?? []),
+        d.lot_fee ?? null,
+        JSON.stringify(d.bid_history ?? []),
         Date.now(),
-        'images' in d ? JSON.stringify(d.images) : null,
+        d.images ? JSON.stringify(d.images.map(savedImage)) : null,
       );
       if (changed) {
         if (this.get('SELECT 1 FROM closed_lots WHERE id = ?', d.id)) {
@@ -887,10 +914,10 @@ export class Store {
       description: string | null;
       brand: string | null;
       model: string | null;
-      lotFee: number | null;
+      lot_fee: number | null;
       images: string | null;
     }>(
-      `SELECT description, brand, model, lot_fee AS lotFee, images FROM lot_details
+      `SELECT description, brand, model, lot_fee, images FROM lot_details
        WHERE lot_id = ? AND auction_period = ?`,
       id,
       auctionPeriod,
@@ -902,11 +929,16 @@ export class Store {
       description: row.description ?? '',
       brand: row.brand,
       model: row.model,
-      lotFee: row.lotFee,
+      lot_fee: row.lot_fee,
     };
     if (row.images !== null) {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- saved by saveLotDetail
-      metadata.images = JSON.parse(row.images) as LotImage[];
+      metadata.images = (JSON.parse(row.images) as SavedImage[]).map((im, i) => ({
+        position: im.position ?? i,
+        image_thumb: im.thumb,
+        image_card: im.card,
+        image_large: im.large,
+      }));
     }
     return metadata;
   }

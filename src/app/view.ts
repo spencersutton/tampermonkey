@@ -4,6 +4,7 @@ import { totalCost } from '../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../shared/filters';
 import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import { itemIdentity, type ItemDetails } from '../shared/names';
 import {
   buildVocabulary,
@@ -73,11 +74,11 @@ export const SORTS = {
     label: 'Best deal (% of retail)',
     compare: (a, b) =>
       (a.retailPct ?? Infinity) - (b.retailPct ?? Infinity) ||
-      (b.lot.estimatedRetailPrice ?? 0) - (a.lot.estimatedRetailPrice ?? 0),
+      (b.lot.estimated_retail_price ?? 0) - (a.lot.estimated_retail_price ?? 0),
   },
   'retail-desc': {
     label: 'Retail price: high to low',
-    compare: (a, b) => (b.lot.estimatedRetailPrice ?? -1) - (a.lot.estimatedRetailPrice ?? -1),
+    compare: (a, b) => (b.lot.estimated_retail_price ?? -1) - (a.lot.estimated_retail_price ?? -1),
   },
   random: { label: 'Random', compare: (a, b) => shuffleKey(a.lot.id) - shuffleKey(b.lot.id) },
 } satisfies Record<string, { label: string; compare: Compare }>;
@@ -117,9 +118,9 @@ export type EndingId = keyof typeof ENDING;
 export const MINE = {
   '': { label: 'All lots', test: () => true },
   bid: { label: 'Lots I bid on', test: hasBidOn },
-  leading: { label: 'I’m winning', test: (l) => Boolean(l.yourStanding?.isLeading) },
-  outbid: { label: 'I’m outbid', test: (l) => hasBidOn(l) && !l.yourStanding?.isLeading },
-  watch: { label: 'Watchlist', test: (l) => l.isWatchlisted && !hasBidOn(l) },
+  leading: { label: 'I’m winning', test: (l) => Boolean(l.your_standing?.is_leading) },
+  outbid: { label: 'I’m outbid', test: (l) => hasBidOn(l) && !l.your_standing?.is_leading },
+  watch: { label: 'Watchlist', test: (l) => l.is_watchlisted && !hasBidOn(l) },
 } satisfies Record<string, { label: string; test: (lot: Lot) => boolean }>;
 export type MineId = keyof typeof MINE;
 
@@ -331,15 +332,15 @@ export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
  */
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const elsewhere = lot.location != null && lot.location.name !== pickup;
-  const transferFee = elsewhere && lot.isTransferable ? lot.transferFee : 0;
+  const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   return {
     lot,
     category: categoryOf(lot, ex.customCategories),
     transferFee,
-    pickupOnly: elsewhere && !lot.isTransferable,
-    total: totalCost(lot.currentPrice, transferFee),
-    retailPct: lot.estimatedRetailPrice
-      ? Math.round((lot.currentPrice / lot.estimatedRetailPrice) * 100) / 100
+    pickupOnly: elsewhere && !lot.is_transferable,
+    total: totalCost(lot.current_price, transferFee),
+    retailPct: lot.estimated_retail_price
+      ? Math.round((lot.current_price / lot.estimated_retail_price) * 100) / 100
       : null,
     matched: ex.filterOn ? (lotMatcher(ex.words)(lot)[0] ?? null) : null,
     hidden: Boolean(ex.hidden[lot.id]),
@@ -440,7 +441,7 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
   }
   if (only == null || only === 'price') {
     PRICE_BUCKETS.forEach((b, i) => {
-      if (inBucket(lot.currentPrice, b)) counts.price[i]!++;
+      if (inBucket(lot.current_price, b)) counts.price[i]!++;
     });
   }
 }
@@ -476,7 +477,7 @@ export function computeView(
   let open = 0;
   let removed = 0;
   for (const lot of lots) {
-    if (lot.endsAt <= now) {
+    if (endsAtMs(lot) <= now) {
       continue;
     }
     open++;
@@ -552,7 +553,7 @@ export function computeView(
           return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
         }
       : SORTS[view.sort].compare;
-  cards.sort((a, b) => compare(a, b) || a.lot.endsAt - b.lot.endsAt || a.lot.id - b.lot.id);
+  cards.sort((a, b) => compare(a, b) || endsAtMs(a.lot) - endsAtMs(b.lot) || a.lot.id - b.lot.id);
   return {
     rows: cards,
     open,
@@ -573,14 +574,14 @@ export function computeView(
 const byCost = (a: Row, b: Row) =>
   +a.pickupOnly - +b.pickupOnly ||
   a.total - b.total ||
-  a.lot.endsAt - b.lot.endsAt ||
+  endsAtMs(a.lot) - endsAtMs(b.lot) ||
   a.lot.id - b.lot.id;
 
 const CONDITION_RANK: Record<string, number> = { new: 0, 'like new': 1, used: 2, 'as-is': 3 };
 
 /** How good a lot's condition is: New 0, Like New 1, Used 2, As-is 3; unknown ones last. */
 export function conditionRank(lot: Lot): number {
-  return CONDITION_RANK[lot.condition?.label.trim().toLowerCase() ?? ''] ?? 4;
+  return CONDITION_RANK[lot.condition?.display_name.trim().toLowerCase() ?? ''] ?? 4;
 }
 
 /**
@@ -664,7 +665,7 @@ export function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
   if (hit && hit.brand === brand && hit.model === model) return hit.doc;
   const doc = prepareDoc({
     title: lot.title,
-    lotNumber: lot.lotNumber,
+    lotNumber: lot.lot_number,
     brand,
     model,
     itemType: lot.itemType,
@@ -693,7 +694,13 @@ export function makeSearch(
     }
     return (lot) => {
       const { brand, model } = itemIdentity(lot, details);
-      const hay = [`${lot.title} ${lot.lotNumber}`, brand, model, lot.itemType, ...(lot.tags ?? [])]
+      const hay = [
+        `${lot.title} ${lot.lot_number}`,
+        brand,
+        model,
+        lot.itemType,
+        ...(lot.tags ?? []),
+      ]
         .filter(Boolean)
         .join(' ');
       return re.test(hay) ? 1 : null;
@@ -758,8 +765,8 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
     dims.push([
       'price',
       (r) =>
-        (v.priceMin == null || r.lot.currentPrice >= v.priceMin) &&
-        (v.priceMax == null || r.lot.currentPrice <= v.priceMax),
+        (v.priceMin == null || r.lot.current_price >= v.priceMin) &&
+        (v.priceMax == null || r.lot.current_price <= v.priceMax),
     ]);
   }
   return {
@@ -769,8 +776,8 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
       (newSince == null || firstSeenAfter(lot, newSince)) &&
       !(v.reachable && pickupOnly) &&
       (v.totalMax == null || total <= v.totalMax) &&
-      (v.retailMin == null || (lot.estimatedRetailPrice ?? 0) >= v.retailMin) &&
-      (!win || (lot.endsAt >= win[0] && lot.endsAt < win[1])) &&
+      (v.retailMin == null || (lot.estimated_retail_price ?? 0) >= v.retailMin) &&
+      (!win || (endsAtMs(lot) >= win[0] && endsAtMs(lot) < win[1])) &&
       mine(lot),
   };
 }
@@ -849,7 +856,7 @@ export function computeFacets(
   customCategories: CustomCategory[],
   details?: ItemDetails,
 ): Facets {
-  const open = Array.from(lots).filter((l) => l.endsAt > now);
+  const open = Array.from(lots).filter((l) => endsAtMs(l) > now);
   const categories = tally(open.map((l) => categoryOf(l, customCategories)));
   // Keep custom parents visible when all their open lots moved into descendants.
   for (const c of customCategories) {
@@ -864,7 +871,9 @@ export function computeFacets(
   return {
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map((l) => l.category)),
-    conditions: tally(open.map((l) => l.condition)).toSorted((a, b) => a.value - b.value),
+    conditions: tally(
+      open.map((l) => l.condition && { value: l.condition.value, label: l.condition.display_name }),
+    ).toSorted((a, b) => a.value - b.value),
     locations: tally(
       open.map((l) => l.location && { value: l.location.name, label: l.location.name }),
     ).toSorted((a, b) => b.count - a.count),
@@ -880,7 +889,7 @@ export function computeFacets(
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,
       label: b.label,
-      count: open.filter((l) => inBucket(l.currentPrice, b)).length,
+      count: open.filter((l) => inBucket(l.current_price, b)).length,
     })),
   };
 }
@@ -985,7 +994,7 @@ export function savedSearchStats(
     stats: { total: 0, fresh: 0 },
   }));
   for (const lot of lots) {
-    if (lot.endsAt <= now) {
+    if (endsAtMs(lot) <= now) {
       continue;
     }
     const row = makeRow(lot, pickup, ex);

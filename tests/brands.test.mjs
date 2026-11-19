@@ -5,7 +5,7 @@ import 'temporal-polyfill/global';
 import { Component, h, options, render } from 'preact';
 import { createServer } from 'vite';
 
-import { rawLot } from './raw-lot.mjs';
+import { rawDetail } from './raw-lot.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const vite = await createServer({
@@ -25,16 +25,16 @@ const { LocationText, LotCard, TimeLeft, WatchButton } =
   await vite.ssrLoadModule('/src/app/LotCard.tsx');
 
 const raw = (id, brand, model = null) =>
-  rawLot({ id, title: `Item ${id}`, lot_number: `${id}`, brand, model });
+  rawDetail({ id, title: `Item ${id}`, lot_number: `${id}`, brand, model });
 const lot = (id) => ({
   id,
-  auctionPeriod: 'test',
+  auction_period: 'test',
   title: `Item ${id}`,
   images: [],
   version: 2,
-  currentPrice: 20,
-  bidCount: 0,
-  endsAt: Date.parse('2030-01-01T00:00:00Z'),
+  current_price: 20,
+  bid_count: 0,
+  ends_at: '2030-01-01T00:00:00Z',
 });
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 function nodes(node) {
@@ -75,13 +75,13 @@ test('card and popup watchlist controls disappear after bidding, without a stale
   };
 
   for (const isWatchlisted of [false, true]) {
-    const item = { ...lot(90), isWatchlisted, bidCount: 3 };
+    const item = { ...lot(90), is_watchlisted: isWatchlisted, bid_count: 3 };
     assert.equal(star(item).type, 'button', 'other bidders do not hide the control');
     assert.equal(WatchButton({ lot: item }).props['aria-pressed'], isWatchlisted);
     for (const bid of [
-      { hasBid: true },
-      { yourStanding: { isLeading: true, yourMaxBid: 30 } },
-      { yourStanding: { isLeading: false, yourMaxBid: 15 } },
+      { has_bid: true },
+      { your_standing: { is_leading: true, your_max_bid: 30 } },
+      { your_standing: { is_leading: false, your_max_bid: 15 } },
     ]) {
       const bidOn = { ...item, ...bid };
       assert.equal(star(bidOn), null);
@@ -118,7 +118,7 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
   await settle();
   assert.deepEqual(requests, [1, 2, 3]);
   assert.equal(lotBrands.peek().get(1), 'Acme & Co.');
-  assert.equal(lots.peek().get(1).currentPrice, 20);
+  assert.equal(lots.peek().get(1).current_price, 20);
   assert.equal(lots.peek().get(1).version, 2);
   assert.deepEqual(identity(1), { brand: 'Acme & Co.', model: 'D-100' });
   assert.equal(lotModels.peek().get(1), 'D-100');
@@ -147,7 +147,7 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
     ids: null,
     lots: [...lots.peek().values()].map((item) => ({
       ...item,
-      endsAt: item.endsAt,
+      ends_at: item.ends_at,
     })),
   });
   onScreen.value = [1, 2, 3];
@@ -288,7 +288,7 @@ test('brands and known missing brands survive a fresh app module load without de
     ids: null,
     lots: [90, 91].map((id) => ({
       ...lot(id),
-      endsAt: lot(id).endsAt,
+      ends_at: lot(id).ends_at,
       brand: id === 90 ? 'Persisted' : null,
       model: id === 90 ? 'D-90' : null,
     })),
@@ -317,7 +317,7 @@ test('brands and known missing brands survive a fresh app module load without de
       {
         ...lot(90),
         version: 1,
-        endsAt: lot(90).endsAt,
+        ends_at: lot(90).ends_at,
         brand: 'Updated on another device',
         model: 'D-91',
       },
@@ -351,7 +351,7 @@ test('brands and known missing brands survive a fresh app module load without de
     lots: [
       {
         ...lot(90),
-        endsAt: lot(90).endsAt,
+        ends_at: lot(90).ends_at,
         brand: 'Updated on another device',
         model: null,
       },
@@ -521,11 +521,11 @@ test('a known brand without a cached model still loads its model', async (t) => 
 test('cards show condition, location, lot number, pricing, retail comparison and time compactly', () => {
   const item = {
     ...lot(82),
-    lotNumber: 'A-82',
-    condition: { value: 1, label: 'Like New' },
+    lot_number: 'A-82',
+    condition: { value: 1, display_name: 'Like New' },
     location: { id: 1, name: 'Raleigh' },
-    estimatedRetailPrice: 100,
-    bidCount: 3,
+    estimated_retail_price: 100,
+    bid_count: 3,
   };
   const tree = card(rowOf(item))();
   const all = nodes(tree);

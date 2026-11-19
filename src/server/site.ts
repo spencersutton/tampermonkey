@@ -1,5 +1,5 @@
 // The site this server stands in for, and a client for its JSON API.
-import { normalizeLot, type RawLot, type WireLot } from '../shared/lot';
+import type { RawLot } from '../shared/lot';
 import { isRecord, prop } from './json';
 
 export const SITE = 'https://triangleliquidators.com';
@@ -33,7 +33,7 @@ export class ApiError extends Error {
 
 export interface LotPage {
   count: number;
-  results: WireLot[];
+  results: RawLot[];
 }
 
 /** Client for the site's JSON API (the same endpoints the app uses through /backend). */
@@ -95,7 +95,7 @@ export class SiteApi {
     return {
       count: Math.trunc(Number(prop(d, 'count')) || 0),
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lots (see tests/fixtures/site)
-      results: (Array.isArray(results) ? (results as RawLot[]) : []).map(normalizeLot),
+      results: (Array.isArray(results) ? (results as RawLot[]) : []),
     };
   }
 }

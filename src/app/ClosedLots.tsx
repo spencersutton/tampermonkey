@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import { CDN, fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';
@@ -85,7 +86,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     for (const c of data?.lots ?? []) {
       const rows = (c.relisted ?? [])
         .map((id) => catalogLots.value.get(id))
-        .filter((l): l is Lot => l !== undefined && l.endsAt > now)
+        .filter((l): l is Lot => l !== undefined && endsAtMs(l) > now)
         .map((l) => makeRow(l, pickup, exclusions))
         .toSorted((a, b) => a.total - b.total);
       if (rows.length) {
@@ -97,20 +98,20 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
 
   const words = filter.toLowerCase().split(/\s+/).filter(Boolean);
   const lots = (data?.lots ?? []).filter((c) => {
-    const hay = `${c.title} ${c.lotNumber} ${c.locationName ?? ''}`.toLowerCase();
+    const hay = `${c.title} ${c.lot_number} ${c.location_name}`.toLowerCase();
     return words.every((w) => hay.includes(w));
   });
-  const bids = lots.reduce((n, c) => n + c.finalPrice, 0);
-  const total = lots.reduce((n, c) => n + totalCost(c.finalPrice), 0);
+  const bids = lots.reduce((n, c) => n + c.final_price, 0);
+  const total = lots.reduce((n, c) => n + totalCost(c.final_price), 0);
 
   const openClosedLot = (c: ClosedLot) => {
-    const inCatalog = getLot(c.lotId);
+    const inCatalog = getLot(c.lot_id);
     if (inCatalog) {
       openLot(inCatalog);
       return;
     }
-    setOpening(c.lotId);
-    loadDetail({ id: c.lotId, auctionPeriod: c.auctionPeriod }).then(
+    setOpening(c.lot_id);
+    loadDetail({ id: c.lot_id, auction_period: c.auction_period }).then(
       (lot) => {
         setOpening(null);
         setModalLot(lot);
@@ -195,7 +196,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
                 lot={c}
                 won={section === 'won'}
                 relisted={relisted.get(key(c))}
-                opening={opening === c.lotId}
+                opening={opening === c.lot_id}
                 onOpen={() => openClosedLot(c)}
               />
             ))}
@@ -217,7 +218,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   );
 }
 
-const key = (c: ClosedLot) => `${c.auctionPeriod}:${c.lotId}`;
+const key = (c: ClosedLot) => `${c.auction_period}:${c.lot_id}`;
 
 function ClosedRow(props: {
   lot: ClosedLot;
@@ -228,14 +229,14 @@ function ClosedRow(props: {
 }) {
   const { lot: c, won, relisted, opening, onOpen } = props;
   const [showRelisted, setShowRelisted] = useState(false);
-  const href = lotHref(c.auctionPeriod, c.lotId);
+  const href = lotHref(c.auction_period, c.lot_id);
   const click = openHandler(onOpen);
   return (
     <li class={`closed-row ${opening ? 'opening' : ''}`}>
       <div class="closed-main">
         <a class="closed-img" href={href} onClick={click} tabIndex={-1} aria-hidden="true">
-          {c.heroImage ? (
-            <img src={`${CDN}/${c.heroImage}`} alt="" loading="lazy" />
+          {c.hero_image ? (
+            <img src={`${CDN}/${c.hero_image}`} alt="" loading="lazy" />
           ) : (
             <span class="noimg" />
           )}
@@ -245,7 +246,7 @@ function ClosedRow(props: {
             {c.title}
           </a>
           <span class="muted small">
-            {c.locationName ?? 'Unknown'} · Lot #{c.lotNumber}
+            {c.location_name} · Lot #{c.lot_number}
             {relisted && (
               <>
                 {' · '}
@@ -262,10 +263,10 @@ function ClosedRow(props: {
           </span>
         </div>
         <div class="closed-price">
-          <span class="price">{dollars(c.finalPrice)}</span>
+          <span class="price">{dollars(c.final_price)}</span>
           {won ? (
-            <span class="muted small" title={costBreakdown(c.finalPrice)}>
-              ≈ {money(totalCost(c.finalPrice))}
+            <span class="muted small" title={costBreakdown(c.final_price)}>
+              ≈ {money(totalCost(c.final_price))}
             </span>
           ) : (
             <span class="muted small">sold for</span>

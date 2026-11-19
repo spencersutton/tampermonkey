@@ -41,7 +41,7 @@ import { bodyLimit } from 'hono/body-limit';
 import { compress } from 'hono/compress';
 import { getCookie } from 'hono/cookie';
 
-import { normalizeDetail, type RawLotDetail } from '../shared/lot';
+import type { RawLotDetail } from '../shared/lot';
 import type { Catalog } from './catalog';
 import { HISTORY_LIMIT, type History } from './history';
 import { cleanType, MAX_TYPE_LENGTH } from './itemtypes';
@@ -441,7 +441,7 @@ export function createApp(deps: Deps) {
         const raw: unknown = JSON.parse(new TextDecoder().decode(data));
         if (isRecord(raw) && typeof raw['id'] === 'number') {
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lot detail (see tests/fixtures/site)
-          store.saveLotDetail(normalizeDetail(raw as unknown as RawLotDetail));
+          store.saveLotDetail(raw as unknown as RawLotDetail);
           history.wake();
         }
       } else if (CLOSED_PATH.test(path)) {

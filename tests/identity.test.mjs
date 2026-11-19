@@ -32,20 +32,20 @@ const ex = {
 };
 const lot = (id, fields = {}) => ({
   id,
-  auctionPeriod: 'test',
+  auction_period: 'test',
   title: 'Cordless drill',
-  lotNumber: `${id}`,
+  lot_number: `${id}`,
   brand: 'Acme',
   model: 'D-100',
-  endsAt: now + 2 * 3_600_000,
-  currentPrice: 10,
+  ends_at: new Date(now + 2 * 3_600_000).toISOString(),
+  current_price: 10,
   category: null,
   condition: null,
   location: null,
-  transferFee: 0,
-  isTransferable: false,
-  estimatedRetailPrice: null,
-  bidCount: 0,
+  transfer_fee: 0,
+  is_transferable: false,
+  estimated_retail_price: null,
+  bid_count: 0,
   images: [],
   version: 1,
   ...fields,
@@ -73,10 +73,10 @@ test('lots the server grouped fold into one card; ungrouped lots keep their own'
 
 test('dedupe preserves condition, cost ordering, and independent bid/hidden/filtered cards', () => {
   const items = [
-    lot(1, { title: 'Expensive kit', currentPrice: 30, groupId: 1 }),
-    lot(2, { title: 'Cheap tool', currentPrice: 5, groupId: 1 }),
-    lot(3, { condition: { value: 1, label: 'New' } }),
-    lot(4, { hasBid: true, groupId: 1 }),
+    lot(1, { title: 'Expensive kit', current_price: 30, groupId: 1 }),
+    lot(2, { title: 'Cheap tool', current_price: 5, groupId: 1 }),
+    lot(3, { condition: { value: 1, display_name: 'New' } }),
+    lot(4, { has_bid: true, groupId: 1 }),
     lot(5, { title: 'Hide me', groupId: 1 }),
     lot(6, { title: 'Excluded item', groupId: 1 }),
   ];
@@ -170,10 +170,10 @@ test('item-type corrections apply to exactly the lots the server names', () => {
 test('item-type sort groups types case-insensitively, uses ending time for ties, and puts unassigned lots last', () => {
   const items = [
     lot(1, { itemType: 'Saw' }),
-    lot(2, { itemType: 'drill', endsAt: now + 3 * 3_600_000 }),
-    lot(3, { itemType: 'Drill', endsAt: now + 1 * 3_600_000 }),
-    lot(4, { endsAt: now + 1 * 60_000 }),
-    lot(5, { itemType: '', endsAt: now + 2 * 60_000 }),
+    lot(2, { itemType: 'drill', ends_at: new Date(now + 3 * 3_600_000).toISOString() }),
+    lot(3, { itemType: 'Drill', ends_at: new Date(now + 1 * 3_600_000).toISOString() }),
+    lot(4, { ends_at: new Date(now + 1 * 60_000).toISOString() }),
+    lot(5, { itemType: '', ends_at: new Date(now + 2 * 60_000).toISOString() }),
   ].map((item) => ({ ...item, model: `D-${item.id}` }));
   const settings = { sort: 'item-type-asc' };
   assert.deepEqual(
@@ -226,7 +226,7 @@ test('identity correction survives stale polls without leaking to another model'
   poll(5);
 });
 
-test('closed-page normalization preserves cached identity and past-price updates beat stale price versions', async (t) => {
+test('closed pages keep cached identity and past-price updates beat stale price versions', async (t) => {
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
       count: 1,
@@ -243,7 +243,7 @@ test('closed-page normalization preserves cached identity and past-price updates
   );
   const [closed] = await fetchClosed('lost', () => {});
   assert.deepEqual([closed.brand, closed.model, closed.relisted], ['Acme', 'D-100', [1]]);
-  lots.value = new Map([[1, lot(1, { version: 10, currentPrice: 50 })]]);
+  lots.value = new Map([[1, lot(1, { version: 10, current_price: 50 })]]);
   applyCatalog({
     seq: 10,
     full: true,
@@ -253,8 +253,8 @@ test('closed-page normalization preserves cached identity and past-price updates
     meta: { fetchedAt: 0 },
     progress: null,
     error: null,
-    lots: [{ ...lot(1), endsAt: now, pastCloses: { n: 1, recent: [] } }],
+    lots: [{ ...lot(1), ends_at: new Date(now).toISOString(), pastCloses: { n: 1, recent: [] } }],
   });
-  assert.equal(lots.value.get(1).currentPrice, 50);
+  assert.equal(lots.value.get(1).current_price, 50);
   assert.equal(lots.value.get(1).pastCloses.n, 1);
 });

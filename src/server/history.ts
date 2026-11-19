@@ -14,7 +14,7 @@
 // the same item get a shared `groupId`, which the app folds into one card, and
 // the site's Won/Lost pages get `relisted`: open lots matching each closed one.
 import { DEFAULT_NAME_MATCH, ItemIndex, setGroups } from '../shared/identity';
-import { normalizeDetail, normalizeLot, type RawLotDetail } from '../shared/lot';
+import { endsAtMs, type RawLotDetail } from '../shared/lot';
 import { isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';
@@ -40,7 +40,7 @@ export class History {
   private readonly sleep: (ms: number) => Promise<unknown>;
   private readonly waker = new Waker();
   private cache: { version: number; index: ItemIndex<ClosedLot> } | null = null;
-  private open: { seq: number; index: ItemIndex<Lot & { endsAt?: number | null }> } | null = null;
+  private open: { seq: number; index: ItemIndex<Lot & { endsAt: number }> } | null = null;
 
   constructor(store: Store, site: SiteApi, sleep: (ms: number) => Promise<unknown> = Bun.sleep) {
     this.store = store;
@@ -91,7 +91,10 @@ export class History {
     if (this.open?.seq !== seq) {
       this.open = {
         seq,
-        index: new ItemIndex([...this.store.allLots().values()], DEFAULT_NAME_MATCH),
+        index: new ItemIndex(
+          [...this.store.allLots().values()].map((lot) => ({ ...lot, endsAt: endsAtMs(lot) })),
+          DEFAULT_NAME_MATCH,
+        ),
       };
     }
     const { index } = this.open;
@@ -107,7 +110,7 @@ export class History {
       };
       c['relisted'] = index
         .matches(item)
-        .filter((lot) => (lot.endsAt ?? 0) > now)
+        .filter((lot) => lot.endsAt > now)
         .map((lot) => lot.id);
     }
   }
@@ -169,12 +172,11 @@ export class History {
       }
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lot detail (see tests/fixtures/site)
       const detail = raw as unknown as RawLotDetail;
-      const lot = normalizeLot(detail);
-      this.store.saveLotDetail(normalizeDetail(detail));
-      if (lot.status === 'live' && (lot.endsAt ?? 0) > Date.now()) {
+      this.store.saveLotDetail(detail);
+      if (detail.status === 'live' && endsAtMs(detail) > Date.now()) {
         this.store.dropClose(row.id); // back in the catalog: the next pull has it
-      } else if (lot.status === 'sold' || lot.status === 'unsold') {
-        this.store.finishClose(row.id, lot);
+      } else if (detail.status === 'sold' || detail.status === 'unsold') {
+        this.store.finishClose(row.id, detail);
         done += 1;
       }
       await this.sleep(DETAIL_PAUSE_MS);

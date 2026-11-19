@@ -45,18 +45,18 @@ describe('first seen', () => {
 
   test('later pulls keep existing times, mark new lots, and keep account fields when logged out', async () => {
     const previous = new Map<number, Partial<Lot> & { id: number }>([
-      [1, { id: 1, firstSeenAt: 99, hasBid: true }],
+      [1, { id: 1, firstSeenAt: 99, has_bid: true }],
       [2, { id: 2 }],
       [3, { id: 3, firstSeenAt: 0 }],
     ]);
     const pulled = await pull(
       previous,
-      [1, 2, 3, 4, 5].map((id) => ({ id, title: `Lot ${id}`, hasBid: false })),
+      [1, 2, 3, 4, 5].map((id) => ({ id, title: `Lot ${id}`, has_bid: false })),
     );
     expect([1, 2, 3, 4, 5].map((id) => pulled.get(id)?.firstSeenAt)).toEqual([
       99, 0, 0, 12345, 12345,
     ]);
-    expect(pulled.get(1)?.hasBid).toBe(true);
+    expect(pulled.get(1)?.has_bid).toBe(true);
   });
 });
 
@@ -108,7 +108,7 @@ describe('a pull', () => {
     expect([woken, after, catalog.progress, catalog.error]).toEqual([1, 1, null, null]);
     const lot = store.lot(1000)!;
     expect(lot.title).toBe(raw[0]!['title'] as string);
-    expect(lot.endsAt).toBe(Date.parse(raw[0]!['ends_at'] as string));
+    expect(lot.ends_at).toBe(raw[0]!['ends_at'] as string);
   });
 
   test('a rejected token is refreshed and the pull starts over; a failure is reported, not thrown', async () => {
@@ -155,8 +155,8 @@ describe('a pull', () => {
   test('lots skipped by pages shifting mid-pull are kept while still open', async () => {
     const store = new Store(':memory:');
     store.replaceAll([
-      { id: 1, title: 'Open', endsAt: NOW + 60_000 },
-      { id: 2, title: 'Ended', endsAt: NOW - 1 },
+      { id: 1, title: 'Open', ends_at: new Date(NOW + 60_000).toISOString() },
+      { id: 2, title: 'Ended', ends_at: new Date(NOW - 1).toISOString() },
     ]);
     const { site } = siteServing({ 1: [{ ...raw[0], id: 3 }] }, 3);
     await new Catalog(store, session(), noHistory, site, 0, () => NOW).pull();

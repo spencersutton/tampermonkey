@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending } from './bid';
@@ -84,7 +85,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
     return () => {
       active = false;
     };
-  }, [lot.id, lot.version, lot.yourStanding?.yourMaxBid, lot.yourStanding?.isLeading, authed]);
+  }, [lot.id, lot.version, lot.your_standing?.your_max_bid, lot.your_standing?.is_leading, authed]);
 
   const images = metadata?.images ?? lot.images;
   const auction = detail && detail.version >= lot.version ? detail : null;
@@ -109,7 +110,11 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
       <div class="modal-grid">
         <div class="gallery">
           <div class="gallery-main">
-            {img ? <img src={`${CDN}/${img.large}`} alt="" /> : <span class="noimg">No image</span>}
+            {img ? (
+              <img src={`${CDN}/${img.image_large}`} alt="" />
+            ) : (
+              <span class="noimg">No image</span>
+            )}
             {images.length > 1 && (
               <>
                 <button
@@ -140,7 +145,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
                   aria-label={`Image ${i + 1}`}
                   onClick={() => setImgIdx(i)}
                 >
-                  <img src={`${CDN}/${im.thumb}`} alt="" loading="lazy" />
+                  <img src={`${CDN}/${im.image_thumb}`} alt="" loading="lazy" />
                 </button>
               ))}
             </div>
@@ -154,49 +159,51 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
             <LocationText row={row} />
             {lot.condition && (
               <span title={conditions.get(lot.condition.value)?.description}>
-                {lot.condition.label}
+                {lot.condition.display_name}
               </span>
             )}
             {row.category && <span>{row.category.label}</span>}
-            <span>Lot #{lot.lotNumber}</span>
+            <span>Lot #{lot.lot_number}</span>
           </div>
           {getLot(lot.id) && <ItemTypeActions lot={lot} />}
           <div class="modal-price">
             <div>
-              <div class="price big">{dollars(lot.currentPrice)}</div>
-              <div class="muted small">Current bid · {plural(lot.bidCount, 'bid')}</div>
+              <div class="price big">{dollars(lot.current_price)}</div>
+              <div class="muted small">Current bid · {plural(lot.bid_count, 'bid')}</div>
             </div>
             <div>
-              <div class="total big" title={costBreakdown(lot.currentPrice, row.transferFee)}>
+              <div class="total big" title={costBreakdown(lot.current_price, row.transferFee)}>
                 ≈ {money(row.total)}
               </div>
               <div class="muted small">Estimated total</div>
             </div>
             <div>
               <div class="big">
-                <TimeLeft endsAt={lot.endsAt} />
+                <TimeLeft endsAt={endsAtMs(lot)} />
               </div>
-              <div class="muted small">{shortTime(lot.endsAt)}</div>
+              <div class="muted small">{shortTime(endsAtMs(lot))}</div>
             </div>
           </div>
           <div class="row-gap">
             <StandingBadge lot={lot} />
-            {lot.yourStanding?.yourMaxBid != null && (
-              <span class="muted small">Your max bid {dollars(lot.yourStanding.yourMaxBid)}</span>
-            )}
-            {lot.estimatedRetailPrice != null && (
+            {lot.your_standing?.your_max_bid != null && (
               <span class="muted small">
-                Retail {dollars(lot.estimatedRetailPrice)}
+                Your max bid {dollars(lot.your_standing.your_max_bid)}
+              </span>
+            )}
+            {lot.estimated_retail_price != null && (
+              <span class="muted small">
+                Retail {dollars(lot.estimated_retail_price)}
                 {row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`}
               </span>
             )}
-            <span class="muted small">Next min bid {dollars(lot.nextMinIncrement)}</span>
+            <span class="muted small">Next min bid {dollars(lot.next_min_increment)}</span>
           </div>
-          <BidPanel key={`${lot.id}:${lot.yourStanding?.yourMaxBid}`} row={row} />
+          <BidPanel key={`${lot.id}:${lot.your_standing?.your_max_bid}`} row={row} />
           <div class="row-gap">
             <a
               class="btn btn-text"
-              href={lotHref(lot.auctionPeriod, lot.id)}
+              href={lotHref(lot.auction_period, lot.id)}
               target="_blank"
               rel="noopener"
             >
@@ -221,13 +228,13 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           {metadata?.description && <div class="description">{metadata.description}</div>}
           {auction && (
             <>
-              {auction.bidHistory.length > 0 && (
+              {auction.bid_history.length > 0 && (
                 <div>
                   <h3>Bid history</h3>
                   <ol class="bids">
-                    {auction.bidHistory.map((b) => (
-                      <li class={b.isYou ? 'you' : ''}>
-                        <span>{b.isYou ? 'You' : b.bidderLabel}</span>
+                    {auction.bid_history.map((b) => (
+                      <li class={b.is_you ? 'you' : ''}>
+                        <span>{b.is_you ? 'You' : b.bidder_label}</span>
                         <span>{dollars(b.amount)}</span>
                       </li>
                     ))}
@@ -258,7 +265,7 @@ function SameListings({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
-  const mixed = new Set(group.map((r) => r.lot.condition?.label)).size > 1;
+  const mixed = new Set(group.map((r) => r.lot.condition?.display_name)).size > 1;
   return (
     <div>
       <h3>{fmtCount(group.length)} listings of this item</h3>
@@ -294,7 +301,7 @@ function Similar({
   const now = clock(30_000);
   const open = lots
     .map((l) => getLot(l.id) ?? l)
-    .filter((l) => l.id !== current.id && l.endsAt > now);
+    .filter((l) => l.id !== current.id && endsAtMs(l) > now);
   if (!open.length) {
     return null;
   }
@@ -308,7 +315,7 @@ function Similar({
           return (
             <li>
               <a
-                href={lotHref(l.auctionPeriod, l.id)}
+                href={lotHref(l.auction_period, l.id)}
                 target="_blank"
                 rel="noopener"
                 title={l.title}
@@ -316,15 +323,15 @@ function Similar({
               >
                 <span class="similar-img">
                   {img ? (
-                    <img src={`${CDN}/${img.thumb}`} alt="" loading="lazy" />
+                    <img src={`${CDN}/${img.image_thumb}`} alt="" loading="lazy" />
                   ) : (
                     <span class="noimg" />
                   )}
                 </span>
                 <span class="similar-title">{l.title}</span>
                 <span class="similar-meta">
-                  <span class="price">{dollars(l.currentPrice)}</span>
-                  <TimeLeft endsAt={l.endsAt} />
+                  <span class="price">{dollars(l.current_price)}</span>
+                  <TimeLeft endsAt={endsAtMs(l)} />
                 </span>
               </a>
             </li>
@@ -359,7 +366,7 @@ function PastCloses({ lot }: { lot: Lot }) {
           <span class="muted small">
             {' '}
             · usually {dollars(p.median)}
-            {p.sameCondition && lot.condition ? ` (${lot.condition.label})` : ''}
+            {p.sameCondition && lot.condition ? ` (${lot.condition.display_name})` : ''}
           </span>
         )}
       </h3>

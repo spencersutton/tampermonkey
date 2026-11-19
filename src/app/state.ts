@@ -4,6 +4,7 @@
 import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import { fetchPickupLocation, type ClosedSection } from './api';
 import { isAuthenticated } from './auth';
 import type { BidRequest } from './bid';
@@ -70,7 +71,7 @@ export function toggleHide(lot: Lot) {
       ? rest
       : {
           ...rest,
-          [lot.id]: { title: lot.title, href: lotHref(lot.auctionPeriod, lot.id), ts: Date.now() },
+          [lot.id]: { title: lot.title, href: lotHref(lot.auction_period, lot.id), ts: Date.now() },
         },
   );
 }
@@ -318,7 +319,7 @@ function firstVisitSince(now: number): number {
   const first = lots
     .peek()
     .values()
-    .filter((l) => l.endsAt > newAfter)
+    .filter((l) => endsAtMs(l) > newAfter)
     .reduce<number | null>((min, l) => Math.min(min ?? Infinity, l.firstSeenAt ?? 0), null);
   if (first == null) return now;
   return Math.max(0, first - 1);

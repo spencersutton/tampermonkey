@@ -3,6 +3,7 @@ import { useCallback } from 'preact/hooks';
 
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import { CDN } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './bid';
@@ -32,7 +33,7 @@ export function TimeLeft({ endsAt }: { endsAt: number }) {
 
 /** Winning / Outbid pill for lots you have bid on. */
 export function StandingBadge({ lot }: { lot: Lot }) {
-  if (lot.yourStanding?.isLeading) {
+  if (lot.your_standing?.is_leading) {
     return <span class="pill pill-good">Winning</span>;
   }
   return hasBidOn(lot) ? <span class="pill pill-bad">Outbid</span> : null;
@@ -59,24 +60,24 @@ function WatchStar({ lot }: { lot: Lot }) {
   const pending = watchPending(lot.id);
   if (hasBidOn(lot)) return null;
   if (!canWatch(lot)) {
-    return lot.isWatchlisted ? (
+    return lot.is_watchlisted ? (
       <span class="pill pill-watch" title="On your watchlist">
         <Icon name="star" size={13} />
       </span>
     ) : null;
   }
-  const label = lot.isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist';
+  const label = lot.is_watchlisted ? 'Remove from watchlist' : 'Add to watchlist';
   return (
     <button
       type="button"
-      class={`pill pill-watch watch-btn ${lot.isWatchlisted ? 'on' : ''}`}
+      class={`pill pill-watch watch-btn ${lot.is_watchlisted ? 'on' : ''}`}
       title={label}
       aria-label={label}
-      aria-pressed={lot.isWatchlisted}
+      aria-pressed={lot.is_watchlisted}
       disabled={pending}
       onClick={() => void toggleWatch(lot.id)}
     >
-      <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} size={13} />
+      <Icon name={lot.is_watchlisted ? 'star' : 'starBorder'} size={13} />
     </button>
   );
 }
@@ -91,12 +92,12 @@ export function WatchButton({ lot }: { lot: Lot }) {
     <button
       type="button"
       class="btn btn-text"
-      aria-pressed={lot.isWatchlisted}
+      aria-pressed={lot.is_watchlisted}
       disabled={pending}
       onClick={() => void toggleWatch(lot.id)}
     >
-      <Icon name={lot.isWatchlisted ? 'star' : 'starBorder'} />{' '}
-      {lot.isWatchlisted ? 'On watchlist' : 'Add to watchlist'}
+      <Icon name={lot.is_watchlisted ? 'star' : 'starBorder'} />{' '}
+      {lot.is_watchlisted ? 'On watchlist' : 'Add to watchlist'}
     </button>
   );
 }
@@ -109,7 +110,7 @@ interface Props {
 /** One lot in the grid: image, title, price, total, time left and actions. */
 export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   const { lot, matched, hidden, category } = row;
-  const href = lotHref(lot.auctionPeriod, lot.id);
+  const href = lotHref(lot.auction_period, lot.id);
   const dim = Boolean(matched) || hidden;
   const img = lot.images[0];
   const open = openHandler(() => openLot(lot));
@@ -121,7 +122,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
       <div class="card-media">
         <a href={href} onClick={open} tabIndex={-1} aria-hidden="true">
           {img ? (
-            <img src={`${CDN}/${img.card}`} alt="" loading="lazy" decoding="async" />
+            <img src={`${CDN}/${img.image_card}`} alt="" loading="lazy" decoding="async" />
           ) : (
             <span class="noimg">No image</span>
           )}
@@ -151,7 +152,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         <div class="card-kicker">
           {lot.condition && (
             <span class="card-condition" title={conditions.get(lot.condition.value)?.description}>
-              {lot.condition.label}
+              {lot.condition.display_name}
             </span>
           )}
           <span class="card-location">
@@ -191,19 +192,19 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         <div class="card-summary">
           <div class="card-price">
             <span class="price" title="Current bid">
-              {dollars(lot.currentPrice)}
+              {dollars(lot.current_price)}
             </span>
-            <span class="card-total" title={costBreakdown(lot.currentPrice, row.transferFee)}>
+            <span class="card-total" title={costBreakdown(lot.current_price, row.transferFee)}>
               ≈ {money(row.total)} total
             </span>
             <CardBidButton row={row} />
           </div>
           <div class="card-sub">
-            <TimeLeft endsAt={lot.endsAt} />
-            <span>{plural(lot.bidCount, 'bid')}</span>
-            {lot.estimatedRetailPrice ? (
+            <TimeLeft endsAt={endsAtMs(lot)} />
+            <span>{plural(lot.bid_count, 'bid')}</span>
+            {lot.estimated_retail_price ? (
               <span>
-                Retail {dollars(lot.estimatedRetailPrice)}
+                Retail {dollars(lot.estimated_retail_price)}
                 {row.retailPct != null && (
                   <span class="card-retail-pct" title="Current bid as a share of retail">
                     {' '}
@@ -231,7 +232,7 @@ function DupeCount({ row }: { row: Row }) {
   const list = row.others
     .map(
       (r) =>
-        `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(r.lot.endsAt)}`,
+        `${money(r.total)} total · ${r.lot.location?.name ?? 'Unknown'} · ends ${shortTime(endsAtMs(r.lot))}`,
     )
     .join('\n');
   return (
@@ -251,13 +252,13 @@ function DupeCount({ row }: { row: Row }) {
  * lot.
  */
 function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
-  const condition = cheaper.lot.condition?.label ?? 'Unknown condition';
+  const condition = cheaper.lot.condition?.display_name ?? 'Unknown condition';
   const where = cheaper.lot.location?.name ?? 'Unknown';
   return (
     <button
       type="button"
       class="card-cheaper"
-      title={`Same item, ${condition.toLowerCase()}: ${dollars(cheaper.lot.currentPrice)} bid at ${where}, ends ${shortTime(cheaper.lot.endsAt)}`}
+      title={`Same item, ${condition.toLowerCase()}: ${dollars(cheaper.lot.current_price)} bid at ${where}, ends ${shortTime(endsAtMs(cheaper.lot))}`}
       onClick={() => openLot(cheaper.lot)}
     >
       {condition} for <b>≈ {money(cheaper.total)}</b> total (save{' '}
@@ -281,7 +282,7 @@ export function pastPrice(
   lot: Lot,
 ): { median: number; count: number; sameCondition: boolean } | null {
   const sold = lot.pastCloses?.recent.filter((c) => c.sold) ?? [];
-  const same = sold.filter((c) => c.condition === (lot.condition?.label ?? null));
+  const same = sold.filter((c) => c.condition === (lot.condition?.display_name ?? null));
   const use = same.length ? same : sold;
   return use.length
     ? { median: median(use.map((c) => c.price)), count: use.length, sameCondition: same.length > 0 }

@@ -22,14 +22,14 @@ export async function toggleWatch(lotId: number) {
   if (!lot || pending.has(lotId)) {
     return;
   }
-  const on = !lot.isWatchlisted;
+  const on = !lot.is_watchlisted;
   pending.add(lotId);
   // Optimistic, like the site; reverted if the request fails.
-  updateLot(lotId, { isWatchlisted: on }, { force: true });
+  updateLot(lotId, { is_watchlisted: on }, { force: true });
   try {
-    await setWatchlisted(lot.auctionPeriod, lotId, on);
+    await setWatchlisted(lot.auction_period, lotId, on);
   } catch (e) {
-    updateLot(lotId, { isWatchlisted: !on }, { force: true });
+    updateLot(lotId, { is_watchlisted: !on }, { force: true });
     toast('bad', e instanceof Error ? e.message : String(e));
   } finally {
     pending.delete(lotId);

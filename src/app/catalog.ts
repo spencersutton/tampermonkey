@@ -74,12 +74,12 @@ onAuthChange(() => details.clear());
 export const cachedMetadata = (id: number) => metadata.get(id);
 
 /** Reuse the server's item metadata even after the price cache expires or a bid invalidates it. */
-export function loadMetadata(lot: Pick<Lot, 'id' | 'auctionPeriod'>): Promise<LotMetadata | null> {
+export function loadMetadata(lot: Pick<Lot, 'id' | 'auction_period'>): Promise<LotMetadata | null> {
   const hit = metadata.get(lot.id);
   if (hit) return Promise.resolve(hit);
   const pending = metadataRequests.get(lot.id);
   if (pending) return pending;
-  const promise = fetchLotMetadata(lot.auctionPeriod, lot.id)
+  const promise = fetchLotMetadata(lot.auction_period, lot.id)
     .then((saved) => {
       // A concurrent live response is newer than the saved copy.
       const current = metadata.get(lot.id);
@@ -98,21 +98,21 @@ export const lotModels = signal(new Map<number, string | null>());
 
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
 export function loadDetail(
-  lot: Pick<Lot, 'id' | 'auctionPeriod'>,
+  lot: Pick<Lot, 'id' | 'auction_period'>,
   signal?: AbortSignal,
 ): Promise<LotDetail> {
   const hit = details.get(lot.id);
   if (hit?.promise) return hit.promise;
   const cached = cachedDetail(lot.id);
   if (cached) return Promise.resolve(cached);
-  const promise = fetchLotDetail(lot.auctionPeriod, lot.id, signal).then(
+  const promise = fetchLotDetail(lot.auction_period, lot.id, signal).then(
     (d) => {
       if (details.get(lot.id)?.promise !== promise) return d;
       metadata.set(lot.id, {
         description: d.description,
         brand: d.brand,
         model: d.model,
-        lotFee: d.lotFee,
+        lot_fee: d.lot_fee,
         images: d.images,
       });
       details.set(lot.id, { at: Date.now(), data: d });
@@ -121,7 +121,7 @@ export function loadDetail(
         lotModels.value = new Map(lotModels.peek()).set(lot.id, d.model?.trim() || null);
       });
       // oxlint-disable-next-line no-unused-vars
-      const { description, brand, model, lotFee, bidHistory, similar, ...base } = d;
+      const { description, brand, model, lot_fee, bid_history, similar, ...base } = d;
       const cur = lots.peek().get(lot.id);
       // Detail responses are authoritative for account fields even at equal versions.
       if (cur && base.version >= cur.version) {

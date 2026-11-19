@@ -4,7 +4,7 @@ import { after, beforeEach, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
-import { rawLot } from './raw-lot.mjs';
+import { rawDetail } from './raw-lot.mjs';
 
 const storage = new Map();
 globalThis.localStorage = {
@@ -40,19 +40,19 @@ const ex = {
 const fixture = (patch = {}) => ({
   id: 1,
   title: 'Cordless drill',
-  lotNumber: 'A-123',
-  auctionPeriod: 'test',
+  lot_number: 'A-123',
+  auction_period: 'test',
   category: { value: 'tools', label: 'Tools' },
   condition: null,
   location: null,
-  endsAt: now + 2 * 3_600_000,
+  ends_at: new Date(now + 2 * 3_600_000).toISOString(),
   firstSeenAt: now,
-  currentPrice: 20,
-  estimatedRetailPrice: null,
-  transferFee: 0,
-  isTransferable: false,
+  current_price: 20,
+  estimated_retail_price: null,
+  transfer_fee: 0,
+  is_transferable: false,
   images: [],
-  bidCount: 0,
+  bid_count: 0,
   version: 2,
   brand: 'Black & Decker',
   model: 'BCD-700 XL',
@@ -188,7 +188,7 @@ test('cached details and subsequent changes update grid and saved-search counts 
     lots: [
       {
         ...lot,
-        endsAt: lot.endsAt,
+        ends_at: lot.ends_at,
         firstSeenAt: lot.firstSeenAt,
       },
     ],
@@ -222,7 +222,7 @@ test('newly loaded details become searchable without a price-version update', as
   assert.equal(searchStats.value.get('new-details').total, 0);
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json(
-      rawLot({
+      rawDetail({
         id: 50,
         title: 'Cordless drill',
         lot_number: 'A-123',
@@ -238,7 +238,7 @@ test('newly loaded details become searchable without a price-version update', as
     [50],
   );
   assert.deepEqual(searchStats.value.get('new-details'), { total: 1, fresh: 1 });
-  assert.equal(lots.value.get(50).currentPrice, 20);
+  assert.equal(lots.value.get(50).current_price, 20);
 });
 
 test('qualifiers survive stored views, saved searches and shared URLs unchanged', () => {

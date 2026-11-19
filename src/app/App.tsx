@@ -3,6 +3,7 @@ import { batch } from '@preact/signals';
 import { useRef } from 'preact/hooks';
 
 import { KEYS } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 import { isAuthenticated, LoginLink } from './auth';
 import { BidConfirm } from './BidConfirm';
 import { error, fetchedAt, getLot, loaded, lots, progress } from './catalog';
@@ -324,7 +325,7 @@ function AppDialogs() {
         <CategoryEditor
           lots={lots.value
             .values()
-            .filter((l) => l.endsAt > now30)
+            .filter((l) => endsAtMs(l) > now30)
             .toArray()}
           onClose={() => modalActions.close(curModal)}
         />
@@ -334,7 +335,7 @@ function AppDialogs() {
           lot={curModal.lot}
           lots={lots.value
             .values()
-            .filter((l) => l.endsAt > now30)
+            .filter((l) => endsAtMs(l) > now30)
             .toArray()}
           onClose={() => modalActions.close(curModal)}
         />

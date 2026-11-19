@@ -101,7 +101,7 @@ const lot = (itemType = 'cordless drill', category = { value: 'tools', label: 'T
   itemType,
   category,
   title: 'Cordless drill kit',
-  endsAt: Date.now() + 10_000,
+  ends_at: new Date(Date.now() + 10_000).toISOString(),
 });
 
 function dialog(t, categories, item = lot(), lots = [item]) {

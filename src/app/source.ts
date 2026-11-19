@@ -25,7 +25,6 @@ import {
 import { applySetting, setSaveHook, type Key } from './settings';
 import { toast } from './toast';
 import type { Lot, PastCloseDetail } from './types';
-import { requireEpochMs } from './util';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
 const POLL_PULLING = 2_000;
@@ -87,14 +86,6 @@ interface CatalogReply extends Status {
   lots: Lot[]; // lots changed since the requested sequence
 }
 
-/** The lot, after checking that its times are valid epoch ms. */
-function checkLot(lot: Lot): Lot {
-  requireEpochMs(lot.endsAt);
-  if (lot.firstSeenAt != null) requireEpochMs(lot.firstSeenAt);
-  lot.pastCloses?.recent.forEach((c) => requireEpochMs(c.endsAt));
-  return lot;
-}
-
 /** Last catalog sequence applied here (0 = have nothing). */
 let seq = 0;
 /** When the server allows the next pull, in our clock. */
@@ -105,8 +96,8 @@ const typeEdits = new Map<number, { lotIds: number[]; itemType: string; seq: num
 /** Take the server's pull status. */
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
-  const next = requireEpochMs(s.nextPullAt - skew);
-  const fetched = s.meta.fetchedAt ? requireEpochMs(s.meta.fetchedAt) : null;
+  const next = s.nextPullAt - skew;
+  const fetched = s.meta.fetchedAt ? s.meta.fetchedAt : null;
   batch(() => {
     nextAt = next;
     fetchedAt.value = fetched;
@@ -117,12 +108,11 @@ function applyStatus(s: Status) {
 
 /** Merge a catalog reply into memory. */
 export function applyCatalog(r: CatalogReply) {
-  const pulled = r.lots.map(checkLot);
   batch(() => {
     applyStatus(r);
     const brands = new Map(lotBrands.peek());
     const models = new Map(lotModels.peek());
-    for (const lot of pulled) {
+    for (const lot of r.lots) {
       if (lot.brand !== undefined) brands.set(lot.id, lot.brand?.trim() || null);
       if (lot.model !== undefined) models.set(lot.id, lot.model?.trim() || null);
     }
@@ -138,7 +128,7 @@ export function applyCatalog(r: CatalogReply) {
         const keep = new Set(r.ids);
         next.forEach((_, id) => keep.has(id) || next.delete(id));
       }
-      for (const fresh of pulled) {
+      for (const fresh of r.lots) {
         const mine = cur.get(fresh.id);
         // Keep newer live prices, but take server-owned metadata from the poll.
         next.set(

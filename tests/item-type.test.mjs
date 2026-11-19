@@ -26,9 +26,9 @@ const lot = (id, title, itemType, fields = {}) => ({
   title,
   itemType,
   version: 1,
-  currentPrice: 10,
+  current_price: 10,
   firstSeenAt: 5,
-  endsAt: 2000,
+  ends_at: new Date(2000).toISOString(),
   category: { value: 'tools', label: 'Tools' },
   condition: null,
   location: null,
@@ -38,7 +38,7 @@ const catalogLot = (id, title, itemType, fields = {}) => {
   const raw = lot(id, title, itemType, fields);
   return {
     ...raw,
-    endsAt: 2000,
+    ends_at: new Date(2000).toISOString(),
     firstSeenAt: 5,
   };
 };
@@ -83,9 +83,9 @@ test('title corrections replace the catalog Map and update category matching and
 });
 
 test('server type corrections win over a newer websocket price version, including explicit type resets', () => {
-  lots.value = new Map([[1, catalogLot(1, 'Drill', 'battery', { version: 9, currentPrice: 42 })]]);
+  lots.value = new Map([[1, catalogLot(1, 'Drill', 'battery', { version: 9, current_price: 42 })]]);
   applyCatalog(reply(2, [lot(1, 'Drill', 'drill driver', { firstSeenAt: 7 })]));
-  assert.equal(lots.peek().get(1).currentPrice, 42);
+  assert.equal(lots.peek().get(1).current_price, 42);
   assert.equal(lots.peek().get(1).version, 9);
   assert.equal(lots.peek().get(1).firstSeenAt, 7);
   assert.equal(lots.peek().get(1).itemType, 'drill driver');
@@ -108,7 +108,7 @@ test('invalid catalog timestamps leave the previous catalog intact', () => {
   applyCatalog(reply(1, [lot(1, 'Drill', 'drill')]));
   const previous = lots.peek();
   assert.throws(
-    () => applyCatalog(reply(2, [lot(2, 'Saw', 'saw', { endsAt: 1.5 })])),
+    () => applyCatalog(reply(2, [lot(2, 'Saw', 'saw', { ends_at: 'not a time' })])),
     /Invalid epoch/,
   );
   assert.equal(lots.peek(), previous);

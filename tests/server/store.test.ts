@@ -8,9 +8,8 @@ import { join } from 'node:path';
 
 import { type Lot, Store } from '../../src/server/store';
 import { cleanTags } from '../../src/server/tags';
-import { normalizeDetail, normalizeLot } from '../../src/shared/lot';
 import { cleanTag } from '../../src/shared/tags';
-import { rawLot } from '../raw-lot.mjs';
+import { rawDetail, rawLot } from '../raw-lot.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'tlx-store-'));
 afterAll(() => rmSync(dir, { recursive: true }));
@@ -21,7 +20,7 @@ const byId = (lots: Lot[]) => new Map(lots.map((lot) => [lot.id, lot]));
 describe('brands and models from lot details', () => {
   let path: string;
   let store: Store;
-  const lots = [1, 2, 3].map((i) => normalizeLot(rawLot({ id: i, title: `Item ${i}` })) as Lot);
+  const lots = [1, 2, 3].map((i) => rawLot({ id: i, title: `Item ${i}` }));
   beforeEach(() => {
     path = dbPath();
     store = new Store(path);
@@ -51,7 +50,7 @@ describe('brands and models from lot details', () => {
     const catalog = byId(reopened.changes(0).lots);
     expect(catalog.get(1)).toMatchObject({ brand: 'Acme', model: 'D-1' });
     expect(catalog.get(2)?.brand).toBeNull();
-    reopened.replaceAll(lots.map((lot) => ({ ...lot, currentPrice: 25 })));
+    reopened.replaceAll(lots.map((lot) => ({ ...lot, current_price: 25 })));
     expect(reopened.changes(before).lots[0]).toMatchObject({ brand: 'Acme', model: 'D-1' });
   });
 
@@ -71,7 +70,7 @@ describe('brands and models from lot details', () => {
     const before = store.seq();
     store.saveLotDetail({ id: 4, brand: 'Already cached' });
     expect(store.seq()).toBe(before); // closed or unknown lots must not bump the catalog sequence
-    store.replaceAll([...lots, normalizeLot(rawLot({ id: 4 })) as Lot]);
+    store.replaceAll([...lots, rawLot({ id: 4 })]);
     expect(byId(store.changes(0).lots).get(4)?.brand).toBe('Already cached');
   });
 
@@ -89,7 +88,7 @@ describe('brands and models from lot details', () => {
 });
 
 describe('lot metadata', () => {
-  const raw = rawLot({
+  const raw = rawDetail({
     id: 1,
     title: 'Drill',
     description: 'Saved description',
@@ -112,21 +111,23 @@ describe('lot metadata', () => {
     description: 'Saved description',
     brand: 'Acme',
     model: 'D1',
-    lotFee: 2,
-    images: [{ thumb: 'thumb.jpg', card: 'card.jpg', large: 'large.jpg' }],
+    lot_fee: 2,
+    images: [
+      { position: 1, image_thumb: 'thumb.jpg', image_card: 'card.jpg', image_large: 'large.jpg' },
+    ],
   };
 
   test('metadata survives restart and lot removal, without auction or account fields', () => {
     const path = dbPath();
     const store = new Store(path);
-    store.replaceAll([normalizeLot(raw) as Lot]);
-    store.saveLotDetail(normalizeDetail(raw));
+    store.replaceAll([raw]);
+    store.saveLotDetail(raw);
     store.replaceAll([]);
     const reopened = new Store(path);
     expect(reopened.lotMetadata(1, 'test')).toEqual(expected);
     expect(reopened.lotMetadata(1, 'different-period')).toBeNull();
     expect(reopened.lotMetadata(2, 'test')).toBeNull();
-    reopened.saveLotDetail(normalizeDetail({ ...raw, description: 'Corrected', images: [] }));
+    reopened.saveLotDetail({ ...raw, description: 'Corrected', images: [] });
     expect(reopened.lotMetadata(1, 'test')).toEqual({
       ...expected,
       description: 'Corrected',
@@ -160,14 +161,21 @@ describe('lot metadata', () => {
       description: 'Legacy description',
       brand: 'Acme',
       model: 'D1',
-      lotFee: 2,
+      lot_fee: 2,
     });
-    migrated.saveLotDetail(normalizeDetail(raw));
+    migrated.saveLotDetail(raw);
     expect(migrated.lotMetadata(1, 'test')).toEqual(expected);
     expect(migrated.itemTypes(['Drill'])).toEqual({ Drill: 'battery' });
     migrated.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
     migrated.saveItemTypes({ Drill: ['battery', 'tools'] });
     expect(migrated.itemTypes(['Drill'])).toEqual({ Drill: 'drill driver' });
+  });
+
+  test('end times saved as epoch ms by older servers load as ISO 8601', () => {
+    const store = new Store(':memory:');
+    store.replaceAll([rawLot()]);
+    store.db.run('UPDATE lots SET ends_at = ?', [Date.UTC(2030, 0, 1)]);
+    expect(store.lot(1)?.ends_at).toBe('2030-01-01T00:00:00.000Z');
   });
 });
 
@@ -201,7 +209,7 @@ describe('item types', () => {
   test('corrections survive reopening, catalog refreshes and future relistings', () => {
     store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
     const reopened = new Store(path);
-    reopened.replaceAll([item(1, 'Drill', { currentPrice: 20 }), item(4)]);
+    reopened.replaceAll([item(1, 'Drill', { current_price: 20 }), item(4)]);
     expect(new Set([...reopened.allLots().values()].map((l) => l.itemType))).toEqual(
       new Set(['drill driver']),
     );
@@ -293,8 +301,8 @@ describe('tags', () => {
     });
 
     test('brand and model identify items across titles', () => {
-      store.saveLotDetail({ id: 1, title: 'Knob', brand: 'Mila', model: 'K-1', bidHistory: [] });
-      store.saveLotDetail({ id: 3, title: 'Pull', brand: 'MILA', model: 'k-1', bidHistory: [] });
+      store.saveLotDetail({ id: 1, title: 'Knob', brand: 'Mila', model: 'K-1', bid_history: [] });
+      store.saveLotDetail({ id: 3, title: 'Pull', brand: 'MILA', model: 'k-1', bid_history: [] });
       store.saveLotTags([[store.lot(1)!, ['finish: brass']]]);
       expect(store.lot(3)?.tags).toEqual(['finish: brass']);
       // Lot 2 has no brand/model, so it falls back to the exact title, as item types do.
