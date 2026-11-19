@@ -16,17 +16,13 @@ export function timeLabel(endsAt: number, now: number) {
   if (ms <= 0) {
     return { text: 'Closed', soon: true };
   }
-  const s = Math.floor(ms / 1000);
-  const m = Math.floor(s / 60);
-  const h = Math.floor(m / 60);
-  const soon = ms <= HOUR;
-  if (h >= 24) {
-    return { text: duration.format({ days: Math.floor(h / 24), hours: h % 24 }), soon };
-  }
-  if (h >= 1) {
-    return { text: duration.format({ hours: h, minutes: m % 60 }), soon };
-  }
-  return { text: duration.format({ minutes: m, seconds: s % 60 }), soon };
+  const smallestUnit = ms >= DAY ? 'hour' : ms >= HOUR ? 'minute' : 'second';
+  const left = Temporal.Duration.from({ milliseconds: ms }).round({
+    largestUnit: 'day',
+    smallestUnit,
+    roundingMode: 'trunc',
+  });
+  return { text: duration.format(left), soon: ms <= HOUR };
 }
 
 const relative = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
