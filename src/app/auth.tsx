@@ -9,7 +9,7 @@ import { computed, effect, signal, untracked } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 
-import { MINUTE } from '../shared/time';
+import { MINUTE } from '../shared/constants';
 import { Dialog } from './Dialog';
 
 const CHECK_EVERY = 5 * MINUTE;

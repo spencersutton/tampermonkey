@@ -3,9 +3,9 @@
 // recent searches when the box is empty.
 import { useRef, useState } from 'preact/hooks';
 
+import { CDN } from '../shared/constants';
 import { dollars } from '../shared/cost';
 import { KEYS } from '../shared/keys';
-import { CDN } from '../shared/site';
 import { tagGroup, tagLabel } from '../shared/tags';
 import { getSetting, setSetting } from './settings';
 import {

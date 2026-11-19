@@ -3,9 +3,9 @@
 // state and callbacks down.
 import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
+import { DAY, MINUTE } from '../shared/constants';
 import { KEYS, lotHref, siteUrl } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-import { DAY, MINUTE } from '../shared/time';
 import { fetchPickupLocation, type ClosedSection } from './api';
 import { isAuthenticated } from './auth';
 import type { BidRequest } from './bid';

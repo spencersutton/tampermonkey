@@ -9,7 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { MINUTE } from '../shared/time';
+import { MINUTE } from '../shared/constants';
 import { createApp, LOCAL_HOSTS } from './app';
 import { Catalog } from './catalog';
 import { History } from './history';

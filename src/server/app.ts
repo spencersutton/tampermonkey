@@ -41,9 +41,9 @@ import { bodyLimit } from 'hono/body-limit';
 import { compress } from 'hono/compress';
 import { getCookie } from 'hono/cookie';
 
+import { SITE } from '../shared/constants';
 import { cleanType, MAX_TYPE_LENGTH } from '../shared/itemtype';
 import type { RawLotDetail } from '../shared/lot';
-import { SITE } from '../shared/site';
 import type { Catalog } from './catalog';
 import { HISTORY_LIMIT, type History } from './history';
 import { isRecord, prop } from './json';

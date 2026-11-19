@@ -4,11 +4,10 @@
 // right under the lot, so a lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 
+import { CDN, MINUTE } from '../shared/constants';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-import { CDN } from '../shared/site';
-import { MINUTE } from '../shared/time';
 import { fetchClosed, type ClosedSection } from './api';
 import { isAuthenticated, LoginLink } from './auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from './catalog';

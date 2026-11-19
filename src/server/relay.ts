@@ -4,7 +4,7 @@
 // codes (3000–4999) carry its disconnect reasons, so they pass through too.
 import type { ServerWebSocket, WebSocketHandler } from 'bun';
 
-import { SITE } from '../shared/site';
+import { SITE } from '../shared/constants';
 import { BunWebSocket, USER_AGENT } from './site';
 
 export interface RelayData {

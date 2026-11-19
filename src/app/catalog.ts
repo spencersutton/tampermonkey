@@ -5,8 +5,8 @@
 // (cached for DETAIL_TTL).
 import { batch, signal } from '@preact/signals';
 
+import { MINUTE } from '../shared/constants';
 import type { LotMetadata } from '../shared/lot';
-import { MINUTE } from '../shared/time';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 import type { Lot, LotDetail } from './types';

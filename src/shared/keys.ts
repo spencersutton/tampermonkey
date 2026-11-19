@@ -1,6 +1,6 @@
 // Settings keys (server-only for SERVER_KEYS, otherwise browser-local).
 import type { SavedSearch } from '../app/view';
-import { SITE } from './site';
+import { SITE } from './constants';
 
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }

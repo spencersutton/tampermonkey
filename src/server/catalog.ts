@@ -1,3 +1,4 @@
+import { MINUTE } from '../shared/constants';
 // Full catalog pulls, with load rules that keep requests to the site down (a
 // port of the Python server's catalog.py).
 //
@@ -16,7 +17,6 @@
 // final prices of the lots that just left the catalog).
 import { DEFAULT_SYNC_MINUTES, KEYS, MIN_SYNC_MINUTES } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-import { MINUTE } from '../shared/time';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';

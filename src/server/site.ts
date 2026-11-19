@@ -1,6 +1,6 @@
+import { SITE } from '../shared/constants';
 // The site this server stands in for, and a client for its JSON API.
 import type { RawLot } from '../shared/lot';
-import { SITE } from '../shared/site';
 import { isRecord, prop } from './json';
 
 export const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';

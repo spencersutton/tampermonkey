@@ -10,7 +10,7 @@ import { relayHandler, type RelayData } from '../../src/server/relay';
 import { SiteSession } from '../../src/server/session';
 import { BunWebSocket, SiteApi } from '../../src/server/site';
 import { Store } from '../../src/server/store';
-import { SITE } from '../../src/shared/site';
+import { SITE } from '../../src/shared/constants';
 
 interface Frame {
   dir: 'sent' | 'received';

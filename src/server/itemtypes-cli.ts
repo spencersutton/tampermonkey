@@ -7,8 +7,8 @@
 import { existsSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
+import { MINUTE } from '../shared/constants';
 import { byCode } from '../shared/sortKey';
-import { MINUTE } from '../shared/time';
 import { BATCH, DEFAULT_MODEL, DEFAULT_URL, Labeller, RETRY_MS, VOCAB } from './itemtypes';
 import { DEFAULT_DB } from './main';
 import { type Lot, Store } from './store';

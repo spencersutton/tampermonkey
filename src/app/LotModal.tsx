@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'preact/hooks';
 
+import { CDN } from '../shared/constants';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { endsAtMs, type LotMetadata } from '../shared/lot';
-import { CDN } from '../shared/site';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, isLeading, minMaxBid, quickBidAmount, bidPending } from './bid';
 import { BrandModel } from './brands';

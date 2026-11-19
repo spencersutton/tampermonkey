@@ -1,10 +1,10 @@
 import { memo } from 'preact/compat';
 import { useCallback } from 'preact/hooks';
 
+import { CDN } from '../shared/constants';
 import { costBreakdown, dollars, money } from '../shared/cost';
 import { lotHref } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-import { CDN } from '../shared/site';
 import { isAuthenticated, LoginLink } from './auth';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount, bidPending } from './bid';
 import { CardBrandModel } from './brands';

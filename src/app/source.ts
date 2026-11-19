@@ -1,7 +1,7 @@
 import { batch, signal } from '@preact/signals';
 
+import { MINUTE } from '../shared/constants';
 import { DEFAULTS, SERVER_KEYS } from '../shared/keys';
-import { MINUTE } from '../shared/time';
 // Catalog source for the web app, which the tlx server (src/server/) serves: the server pulls the full catalog, stores it, and records when each
 // lot was first seen; this page just fetches what changed. The server also
 // keeps the SERVER_KEYS settings, so every device using it shares filters,

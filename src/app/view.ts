@@ -1,5 +1,6 @@
 import { dequal } from 'dequal';
 
+import { HOUR } from '../shared/constants';
 import { totalCost } from '../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../shared/filters';
@@ -15,7 +16,6 @@ import {
 } from '../shared/search';
 import { collator } from '../shared/sortKey';
 import { noneTag, tagGroup, toLower, tagLabel } from '../shared/tags';
-import { HOUR } from '../shared/time';
 import { hasBidOn } from './bid';
 import { numericTagKey } from './filterOptions';
 import type { Lot } from './types';
