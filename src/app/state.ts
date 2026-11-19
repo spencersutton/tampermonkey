@@ -286,12 +286,7 @@ export const searchStats = computed(() => {
   );
 });
 /** New lots across all saved searches. */
-export const totalNew = computed(() =>
-  searchStats.value
-    .values()
-    .map(s => s.fresh)
-    .sum(),
-);
+export const totalNew = computed(() => searchStats.value.values().sumBy(s => s.fresh));
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
 const VISIT_GAP = 30 * MINUTE;

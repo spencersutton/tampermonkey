@@ -1,14 +1,16 @@
-// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, toUnique() (deduplicated array) and sum() to Array and Iterator; imported for its side effect by each entry point.
+// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, toUnique() (deduplicated array) sum() and sumBy() to Array and Iterator; imported for its side effect by each entry point.
 declare global {
   interface Array<T> {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: readonly number[]): number;
+    sumBy(fn: (value: T, index: number) => number): number;
   }
   interface ReadonlyArray<T> {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: readonly number[]): number;
+    sumBy(fn: (value: T, index: number) => number): number;
   }
   interface Set<T> {
     toArray(): T[];
@@ -20,6 +22,7 @@ declare global {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: IteratorObject<number>): number;
+    sumBy(fn: (value: T, index: number) => number): number;
   }
 }
 
@@ -81,6 +84,27 @@ Object.defineProperty(Array.prototype, 'sum', {
 Object.defineProperty(Iterator.prototype, 'sum', {
   value: function sum(this: IteratorObject<number>): number {
     return this.reduce((n, x) => n + x, 0);
+  },
+  configurable: true,
+  writable: true,
+});
+
+// oxlint-disable-next-line no-extend-native -- deliberate
+Object.defineProperty(Array.prototype, 'sumBy', {
+  value: function sumBy<T>(this: readonly T[], fn: (value: T, index: number) => number): number {
+    return this.reduce((n, x, i) => n + fn(x, i), 0);
+  },
+  configurable: true,
+  writable: true,
+});
+
+// oxlint-disable-next-line no-extend-native -- deliberate
+Object.defineProperty(Iterator.prototype, 'sumBy', {
+  value: function sumBy<T>(
+    this: IteratorObject<T>,
+    fn: (value: T, index: number) => number,
+  ): number {
+    return this.reduce((n, x, i) => n + fn(x, i), 0);
   },
   configurable: true,
   writable: true,

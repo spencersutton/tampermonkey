@@ -1256,7 +1256,7 @@ export class Store {
       .toArray()
       .toSorted((a, b) => b.lots - a.lots || byCode(a.title.toLowerCase(), b.title.toLowerCase()));
     return {
-      lots: ranked.map(g => g.lots).sum(),
+      lots: ranked.sumBy(g => g.lots),
       titles: ranked.length,
       matches: ranked.slice(0, limit),
     };

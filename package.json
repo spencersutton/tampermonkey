@@ -24,7 +24,6 @@
     "dequal": "^2.0.3",
     "hono": "^4.13.19",
     "preact": "^10.29.8",
-    "remeda": "^2.62.2",
     "temporal-polyfill": "^1.0.8"
   },
   "devDependencies": {

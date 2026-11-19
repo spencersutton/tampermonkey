@@ -104,10 +104,7 @@ export class Labeller {
       byCategory.set(value, [...(byCategory.get(value) ?? []), lot]);
       labels.set(value, lot.category?.label || 'Other');
     }
-    const total = byCategory
-      .values()
-      .map(items => items.length)
-      .sum();
+    const total = byCategory.values().sumBy(items => items.length);
     if (!total) {
       return;
     }

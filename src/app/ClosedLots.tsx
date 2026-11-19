@@ -104,8 +104,8 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     const hay = `${c.title} ${c.lot_number} ${c.location_name}`.toLowerCase();
     return words.every(w => hay.includes(w));
   });
-  const bids = lots.map(c => c.final_price).sum();
-  const total = lots.map(c => totalCost(c.final_price, transferFee(c))).sum();
+  const bids = lots.sumBy(c => c.final_price);
+  const total = lots.sumBy(c => totalCost(c.final_price, transferFee(c)));
 
   const openClosedLot = (c: ClosedLot) => {
     const inCatalog = getLot(c.lot_id);
