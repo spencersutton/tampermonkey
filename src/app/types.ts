@@ -45,6 +45,9 @@ export interface ClosedLot {
   location_name: string;
   final_price: number;
   hero_image: string | null; // path on the CDN
+  user_id: number;
+  fulfillment_status: string; // "Picked Up" in every capture
+  collect_by_date: string | null; // YYYY-MM-DD
   // Added by the tlx server's proxy:
   brand?: string | null | undefined; // saved identity, when it has one
   model?: string | null | undefined;
