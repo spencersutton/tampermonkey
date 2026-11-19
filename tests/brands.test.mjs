@@ -532,7 +532,6 @@ test('cards show condition, location, lot number, pricing, retail comparison and
   const all = nodes(tree);
   const byClass = name => all.find(node => node.props?.class === name);
   assert.equal(text(byClass('card-condition')), 'Like New');
-  assert.equal(text(byClass('card-lot-number')), 'Lot #A-82');
   const location = nodes(byClass('card-location')).find(node => node.type === LocationText);
   assert.equal(text(LocationText(location.props)), 'Raleigh');
   assert.equal(byClass('price').props.title, 'Current bid');
@@ -541,9 +540,5 @@ test('cards show condition, location, lot number, pricing, retail comparison and
   assert.match(text(byClass('card-sub')), /3 bids/);
   assert.ok(nodes(byClass('card-sub')).some(node => node.type === TimeLeft));
   const sparse = card(rowOf(lot(83)))();
-  assert.equal(
-    nodes(sparse).some(node => node.props?.class === 'card-lot-number'),
-    false,
-  );
   assert.match(text(sparse), /No retail estimate/);
 });

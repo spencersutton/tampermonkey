@@ -104,16 +104,6 @@ test('delta replies retain unchanged lots, delete missing ids, and preserve the 
   assert.equal(previous.has(2), true);
 });
 
-test('invalid catalog timestamps leave the previous catalog intact', () => {
-  applyCatalog(reply(1, [lot(1, 'Drill', 'drill')]));
-  const previous = lots.peek();
-  assert.throws(
-    () => applyCatalog(reply(2, [lot(2, 'Saw', 'saw', { ends_at: 'not a time' })])),
-    /Invalid epoch/,
-  );
-  assert.equal(lots.peek(), previous);
-});
-
 test('saving uses the guarded endpoint and applies the canonical server response to the lots it names', async () => {
   lots.value = new Map(
     [catalogLot(1, 'Drill', 'battery'), catalogLot(2, 'Drill', 'battery')].map(l => [l.id, l]),

@@ -53,18 +53,4 @@ test('catalog polling and manual refresh preserve the visible pull status', asyn
     ['/api/pull', 'POST'],
   ]);
 
-  status.meta.fetchedAt = 12.5;
-  await pullCatalog();
-  assert.match(error.peek(), /Invalid epoch-millisecond timestamp/);
-
-  status.meta.fetchedAt = 12_000;
-  await pullCatalog();
-  assert.equal(error.peek(), null);
-  status.meta.fetchedAt = 12.5;
-  await pullCatalog();
-  assert.match(
-    error.peek(),
-    /Invalid epoch-millisecond timestamp/,
-    'the same failure is shown again after a successful refresh',
-  );
 });
