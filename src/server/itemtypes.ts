@@ -18,6 +18,7 @@ import { prop } from './json';
 import { log, Waker } from './log';
 import { USER_AGENT } from './site';
 import type { Lot, Store } from './store';
+import '../shared/arrayToSet';
 
 export const DEFAULT_URL = 'https://nano-gpt.com/api/v1';
 export const DEFAULT_MODEL = 'mistralai/ministral-14b-instruct-2512';
@@ -103,7 +104,10 @@ export class Labeller {
       byCategory.set(value, [...(byCategory.get(value) ?? []), lot]);
       labels.set(value, lot.category?.label || 'Other');
     }
-    const total = byCategory.values().reduce((n, items) => n + items.length, 0);
+    const total = byCategory
+      .values()
+      .map(items => items.length)
+      .sum();
     if (!total) {
       return;
     }

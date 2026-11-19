@@ -1207,10 +1207,7 @@ export class Store {
     const inUse = new Map<string, number>();
     for (const counts of spellings.values()) {
       const [spelling = ''] = mostCommon(counts)[0] ?? [];
-      inUse.set(
-        spelling,
-        counts.values().reduce((a, b) => a + b, 0),
-      );
+      inUse.set(spelling, counts.values().sum());
     }
     return { rules, tags: mostCommon(inUse) };
   }
@@ -1259,7 +1256,7 @@ export class Store {
       .toArray()
       .toSorted((a, b) => b.lots - a.lots || byCode(a.title.toLowerCase(), b.title.toLowerCase()));
     return {
-      lots: ranked.reduce((n, g) => n + g.lots, 0),
+      lots: ranked.map(g => g.lots).sum(),
       titles: ranked.length,
       matches: ranked.slice(0, limit),
     };

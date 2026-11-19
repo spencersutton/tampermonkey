@@ -3,7 +3,6 @@
 // the tlx server, which matches them like duplicate listings) are offered
 // right under the lot, so a lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { sumBy } from 'remeda';
 
 import { CDN, MINUTE, TRANSFER_FEE } from '../shared/constants';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
@@ -21,6 +20,7 @@ import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
 import { clock, openHandler, plural } from './util';
 import { makeRow, type Row } from './view';
+import '../shared/arrayToSet';
 
 /** A fetched section is shown again without refetching for this long. */
 const FRESH = 2 * MINUTE;
@@ -104,8 +104,8 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     const hay = `${c.title} ${c.lot_number} ${c.location_name}`.toLowerCase();
     return words.every(w => hay.includes(w));
   });
-  const bids = sumBy(lots, c => c.final_price);
-  const total = sumBy(lots, c => totalCost(c.final_price, transferFee(c)));
+  const bids = lots.map(c => c.final_price).sum();
+  const total = lots.map(c => totalCost(c.final_price, transferFee(c))).sum();
 
   const openClosedLot = (c: ClosedLot) => {
     const inCatalog = getLot(c.lot_id);

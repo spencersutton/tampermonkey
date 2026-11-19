@@ -24,6 +24,7 @@ import {
   savedSearchStats,
   type ViewState,
 } from './view';
+import '../shared/arrayToSet';
 
 // Navigation and lot actions
 
@@ -285,7 +286,12 @@ export const searchStats = computed(() => {
   );
 });
 /** New lots across all saved searches. */
-export const totalNew = computed(() => searchStats.value.values().reduce((n, s) => n + s.fresh, 0));
+export const totalNew = computed(() =>
+  searchStats.value
+    .values()
+    .map(s => s.fresh)
+    .sum(),
+);
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
 const VISIT_GAP = 30 * MINUTE;
