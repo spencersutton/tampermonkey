@@ -5,7 +5,7 @@ import * as format from '../shared/format';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-const duration = new Intl.DurationFormat(undefined, { style: 'narrow' });
+const duration = new Intl.DurationFormat([], { style: 'narrow' });
 
 /**
  * Time left until `endsAt` as a short label ("2d 3h", "1h 5m", "4m 9s"); `soon` is true within the
