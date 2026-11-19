@@ -63,8 +63,10 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
   const catalog = lots.value;
   const suggestions = useMemo(
     () =>
-      new Set(catalog.values().flatMap(l => (l.itemType ? [l.itemType] : [])))
+      catalog
         .values()
+        .flatMap(l => (l.itemType ? [l.itemType] : []))
+        .toSet()
         .toArray()
         .toSorted(collator.compare),
     [catalog],

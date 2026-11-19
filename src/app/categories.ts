@@ -9,7 +9,7 @@ export function saveCustomCategories(
   categories: CustomCategory[],
   renames: ReadonlyMap<string, string | null> = new Map(),
 ) {
-  const names = new Set(categories.map(c => c.name));
+  const names = categories.map(c => c.name).toSet();
   const changes = new Map<string, string | null>(
     getSetting(KEYS.customCategories)
       .filter(c => !names.has(c.name))

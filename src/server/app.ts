@@ -59,7 +59,7 @@ const MAX_BODY = 4 * 1024 * 1024;
 const SESSION_COOKIE = 'tlx_session';
 const SESSION_MAX_AGE = 90 * 24 * 3600;
 export const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
-const PUBLIC_PATHS = new Set(['/api/me', '/api/app-login', '/api/health']);
+const PUBLIC_PATHS = ['/api/me', '/api/app-login', '/api/health'].toSet();
 // Request headers passed through to the site's API (the rest are dropped).
 const PROXY_HEADERS = [
   'Accept',
@@ -331,13 +331,13 @@ export function createApp(deps: Deps) {
       return error(404, 'No such catalog lot');
     }
     const changed = store.saveLotTypes([[lot, itemType]], { manual: true });
-    const ids = new Set([
+    const ids = [
       id,
       ...changed
         .entries()
         .filter(([, t]) => t === itemType)
         .map(([i]) => i),
-    ]);
+    ].toSet();
     return json({
       lotIds: ids
         .values()
