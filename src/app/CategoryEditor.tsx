@@ -322,7 +322,7 @@ function TypeChips({
   onChange: (patch: Partial<Draft>) => void;
 }) {
   const [text, setText] = useState('');
-  const existing = new Set(types.map(normalizeType));
+  const existing = types.map(normalizeType).toSet();
   /** Add the comma-separated types in `raw`. */
   const add = (raw: string) => {
     const fresh = raw
@@ -330,7 +330,7 @@ function TypeChips({
       .map(normalizeType)
       .filter(t => t && !existing.has(t));
     if (fresh.length) {
-      onChange({ types: [...new Set([...types, ...fresh])] });
+      onChange({ types: [...[...types, ...fresh].toSet()] });
     }
     setText('');
   };
