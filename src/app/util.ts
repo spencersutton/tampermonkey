@@ -8,15 +8,15 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const duration = new Intl.DurationFormat(undefined, { style: 'narrow' });
 
 /**
- * Time left until `endsAt` as a short label ("2d 3h", "1h 5m", "4m 9s"); `soon` is true within
- * the last hour.
+ * Time left until `endsAt` as a short label ("2d 3h", "1h 5m", "4m 9s"); `soon` is true within the
+ * last hour.
  */
 export function timeLabel(endsAt: number, now: number) {
   const ms = endsAt - now;
   if (ms <= 0) {
     return { text: 'Closed', soon: true };
   }
-  let smallestUnit: 'hour' | 'minute' | 'second' = 'second';
+  let smallestUnit: Temporal.TimeUnit = 'second';
   if (ms >= DAY) {
     smallestUnit = 'hour';
   } else if (ms >= HOUR) {
