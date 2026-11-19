@@ -63,7 +63,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
 
   const dirty = !dequal(drafts.map(clean), baseline);
   const errors = new Map(drafts.map((d) => [d.key, rowError(d, drafts)]));
-  const valid = [...errors.values()].every((e) => !e);
+  const valid = errors.values().every((e) => !e);
 
   const close = () => {
     if (!dirty || confirm('Discard your changes to custom categories?')) {

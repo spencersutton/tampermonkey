@@ -112,8 +112,10 @@ export function TypeCategory({
       ),
       (l) => l.itemType!,
     );
-    return [...counts]
+    return counts
+      .entries()
       .map(([t, ls]) => ({ t, count: ls.length, head: typeWords(t).at(-1) === head }))
+      .toArray()
       .toSorted((a, b) => +b.head - +a.head || b.count - a.count || a.t.localeCompare(b.t))
       .slice(0, SIMILAR_LIMIT);
   }, [lots, type]);

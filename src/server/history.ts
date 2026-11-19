@@ -92,7 +92,7 @@ export class History {
       this.open = {
         seq,
         index: new ItemIndex(
-          [...this.store.allLots().values()].map((lot) => ({ ...lot, endsAt: endsAtMs(lot) })),
+          this.store.allLots().values().map((lot) => ({ ...lot, endsAt: endsAtMs(lot) })),
           DEFAULT_NAME_MATCH,
         ),
       };

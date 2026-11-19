@@ -116,7 +116,7 @@ export class Labeller {
       byCategory.set(value, [...(byCategory.get(value) ?? []), lot]);
       labels.set(value, lot.category?.label || 'Other');
     }
-    const total = [...byCategory.values()].reduce((n, items) => n + items.length, 0);
+    const total = byCategory.values().reduce((n, items) => n + items.length, 0);
     if (!total) {
       return;
     }
@@ -132,7 +132,7 @@ export class Labeller {
             batch.map((lot) => lot.title),
             this.store.commonTypes(value, VOCAB),
           );
-          this.store.saveLotTypes([...types].map(([i, t]): [Lot, string] => [batch[i - 1]!, t]));
+          this.store.saveLotTypes(types.entries().map(([i, t]): [Lot, string] => [batch[i - 1]!, t]));
           done += types.size;
         }
       }

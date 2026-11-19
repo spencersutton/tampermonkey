@@ -38,10 +38,12 @@ export function saveCustomCategories(
   }
 
   const byValue = new Map(
-    [...changes].map(([from, to]) => [
-      customCategoryValue(from),
-      to == null ? null : customCategoryValue(to),
-    ]),
+    changes
+      .entries()
+      .map(([from, to]) => [
+        customCategoryValue(from),
+        to == null ? null : customCategoryValue(to),
+      ]),
   );
   const fix = (cats: string[]) =>
     cats.flatMap((v) => {

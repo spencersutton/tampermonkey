@@ -3,4 +3,4 @@ dist/
 .env
 .vscode/
 # Left in older clones by the Python server this replaced (virtualenv, built app).
-server/
+/server/

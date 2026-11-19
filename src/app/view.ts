@@ -831,7 +831,7 @@ function tallySpellings(values: string[], keyOf: (v: string) => string): Facet<s
     spellings.set(key, bump(spellings.get(key) ?? new Map<string, number>(), v));
   }
   return Array.from(spellings, ([value, m]) => {
-    const [label] = [...m].reduce((best, cur) => (cur[1] > best[1] ? cur : best));
+    const [label] = m.entries().reduce((best, cur) => (cur[1] > best[1] ? cur : best));
     return { value, label, count: m.values().reduce((n, c) => n + c, 0) };
   }).toSorted(byCountThenLabel);
 }

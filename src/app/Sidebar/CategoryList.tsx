@@ -21,7 +21,7 @@ export function groupCategories({ categories, siteCategories }: Facets): Categor
   );
   const parents = [...all.values()].toSorted((a, b) => b.label.length - a.label.length);
   const groups = new Map(
-    [...all].map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]),
+    all.entries().map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]),
   );
   const top: CategoryGroup[] = [];
   for (const f of categories) {

@@ -649,7 +649,7 @@ export class Store {
 
   /** Give lots whose assignment changed a new sequence; returns their new values, by lot id. */
   private touchChanges<V>(previous: Map<number, V>, current: Map<number, V>): Map<number, V> {
-    const changed = new Map([...current].filter(([i, v]) => !dequal(previous.get(i) ?? null, v)));
+    const changed = new Map(current.entries().filter(([i, v]) => !dequal(previous.get(i) ?? null, v)));
     if (changed.size) {
       const seq = this.int('seq') + 1;
       const stmt = this.db.query('UPDATE lots SET seq = ? WHERE id = ?');
@@ -760,9 +760,12 @@ export class Store {
     let seq = this.int('seq');
     const fresh = new Map([...lots].map((lot) => [lot.id, lot]));
     this.annotateItems(fresh.values());
-    const changed = [...fresh].filter(([i, lot]) => !dequal(old.get(i), lot)).map(([, lot]) => lot);
-    const gone = [...old.keys()].filter((i) => !fresh.has(i));
-    const back = [...fresh.keys()].filter((i) => !old.has(i)); // usually new, but may have been taken for closed
+    const changed = fresh
+      .values()
+      .filter((lot) => !dequal(old.get(lot.id), lot))
+      .toArray();
+    const gone = old.keys().filter((i) => !fresh.has(i)).toArray();
+    const back = fresh.keys().filter((i) => !old.has(i)).toArray(); // usually new, but may have been taken for closed
     this.tx(() => {
       if (changed.length || gone.length) {
         seq += 1;
@@ -959,7 +962,7 @@ export class Store {
 
   /** Stored lots without an item type. */
   untypedItems(): Lot[] {
-    return [...this.load().values()].filter((lot) => !lot.itemType);
+    return this.load().values().filter((lot) => !lot.itemType).toArray();
   }
 
   /** The item types given most often to titles in a site category. */
@@ -1201,7 +1204,7 @@ export class Store {
       const [spelling = ''] = mostCommon(counts)[0] ?? [];
       inUse.set(
         spelling,
-        [...counts.values()].reduce((a, b) => a + b, 0),
+        counts.values().reduce((a, b) => a + b, 0),
       );
     }
     return { rules, tags: mostCommon(inUse) };

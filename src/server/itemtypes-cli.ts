@@ -81,7 +81,7 @@ async function main() {
     process.env['TLX_LLM_URL'] ?? DEFAULT_URL,
     process.env['TLX_LLM_MODEL'] ?? DEFAULT_MODEL,
   );
-  let lots = [...new Map([...store.allLots().values()].map((lot) => [lot.title, lot])).values()];
+  let lots = new Map(store.allLots().values().map((lot) => [lot.title, lot])).values().toArray();
   if (values.category) {
     lots = lots.filter((lot) => lot.category?.value === values.category);
   }

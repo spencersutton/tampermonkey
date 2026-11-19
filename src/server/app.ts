@@ -330,7 +330,7 @@ export function createApp(deps: Deps) {
       return error(404, 'No such catalog lot');
     }
     const changed = store.saveLotTypes([[lot, itemType]], { manual: true });
-    const ids = new Set([id, ...[...changed].filter(([, t]) => t === itemType).map(([i]) => i)]);
+    const ids = new Set([id, ...changed.entries().filter(([, t]) => t === itemType).map(([i]) => i)]);
     return json({ lotIds: [...ids].toSorted((a, b) => a - b), itemType, seq: store.seq() });
   });
   app.get('/api/tag-rules', () => {

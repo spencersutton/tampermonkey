@@ -278,12 +278,15 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
           <details class="about-conditions">
             <summary>About conditions</summary>
             <dl>
-              {[...conditions.values()].map((c) => (
-                <div>
-                  <dt>{c.label}</dt>
-                  <dd>{c.description}</dd>
-                </div>
-              ))}
+              {conditions
+                .values()
+                .map((c) => (
+                  <div>
+                    <dt>{c.label}</dt>
+                    <dd>{c.description}</dd>
+                  </div>
+                ))
+                .toArray()}
             </dl>
           </details>
         )}
