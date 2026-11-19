@@ -4,6 +4,8 @@ import { after, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
+import { rawLot } from './raw-lot.mjs';
+
 const vite = await createServer({
   configFile: false,
   logLevel: 'silent',
@@ -190,34 +192,18 @@ test('estimated costs use the supplied transfer fee', () => {
 });
 
 test('a fetched closed lot detail can be used as a row and reused by the modal', async (t) => {
-  const raw = {
+  const raw = rawLot({
     id: 4321,
     auction_period: 'a',
-    title: 'Drill',
-    lot_number: '10',
-    category: null,
-    condition: null,
-    location: { id: 1, name: 'Raleigh' },
-    is_transferable: false,
-    transfer_fee: 0,
     current_price: 25,
     estimated_retail_price: 50,
     ends_at: '2025-01-01T00:00:00Z',
     status: 'closed',
-    version: 1,
     bid_count: 2,
-    next_min_increment: 1,
-    your_standing: null,
-    is_watchlisted: false,
     has_bid: true,
-    images: [],
     description: 'Details',
-    brand: null,
-    model: null,
     lot_fee: 1,
-    bid_history: [],
-    similar: [],
-  };
+  });
   let requests = 0;
   t.mock.method(globalThis, 'fetch', async () => {
     requests++;

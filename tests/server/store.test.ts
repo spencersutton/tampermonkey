@@ -10,6 +10,7 @@ import { type Lot, Store } from '../../src/server/store';
 import { cleanTags } from '../../src/server/tags';
 import { normalizeDetail, normalizeLot } from '../../src/shared/lot';
 import { cleanTag } from '../../src/shared/tags';
+import { rawLot } from '../raw-lot.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'tlx-store-'));
 afterAll(() => rmSync(dir, { recursive: true }));
@@ -20,9 +21,7 @@ const byId = (lots: Lot[]) => new Map(lots.map((lot) => [lot.id, lot]));
 describe('brands and models from lot details', () => {
   let path: string;
   let store: Store;
-  const lots = [1, 2, 3].map(
-    (i) => normalizeLot({ id: i, title: `Item ${i}`, auction_period: 'test' }) as Lot,
-  );
+  const lots = [1, 2, 3].map((i) => normalizeLot(rawLot({ id: i, title: `Item ${i}` })) as Lot);
   beforeEach(() => {
     path = dbPath();
     store = new Store(path);
@@ -72,7 +71,7 @@ describe('brands and models from lot details', () => {
     const before = store.seq();
     store.saveLotDetail({ id: 4, brand: 'Already cached' });
     expect(store.seq()).toBe(before); // closed or unknown lots must not bump the catalog sequence
-    store.replaceAll([...lots, normalizeLot({ id: 4 }) as Lot]);
+    store.replaceAll([...lots, normalizeLot(rawLot({ id: 4 })) as Lot]);
     expect(byId(store.changes(0).lots).get(4)?.brand).toBe('Already cached');
   });
 
@@ -90,9 +89,8 @@ describe('brands and models from lot details', () => {
 });
 
 describe('lot metadata', () => {
-  const raw = {
+  const raw = rawLot({
     id: 1,
-    auction_period: 'test',
     title: 'Drill',
     description: 'Saved description',
     brand: 'Acme',
@@ -109,7 +107,7 @@ describe('lot metadata', () => {
     images: [
       { position: 1, image_thumb: 'thumb.jpg', image_card: 'card.jpg', image_large: 'large.jpg' },
     ],
-  };
+  });
   const expected = {
     description: 'Saved description',
     brand: 'Acme',

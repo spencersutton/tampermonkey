@@ -1,8 +1,8 @@
 // The site's raw API lots (snake_case) as the camelCase shape the app and the
 // tlx server work with. Times are epoch milliseconds, as the server sends them.
 //
-// The API isn't ours, so every field is treated as possibly missing or
-// malformed.
+// Raw* types declare what the captured responses in tests/fixtures/site show:
+// every field present, and null only where a capture had one.
 
 export interface LotImage {
   thumb: string;
@@ -23,36 +23,34 @@ export interface RawStanding {
 /** @see WireLot, which is the normalized version of this. */
 export interface RawLot {
   id: number;
-  auction_period?: string | null;
-  title?: string | null;
-  lot_number?: string | null;
-  category?: { value: string; label: string } | null;
-  condition?: { value: number; display_name: string } | null;
-  location?: { id: number; name: string } | null;
-  is_transferable?: boolean | null;
-  transfer_fee?: number | null;
-  current_price?: number | null;
-  estimated_retail_price?: number | null;
-  ends_at?: string | null;
-  status?: string | null;
-  version?: number | null;
-  bid_count?: number | null;
-  next_min_increment?: number | null;
-  your_standing?: RawStanding | null;
-  is_watchlisted?: boolean | null;
-  has_bid?: boolean | null;
-  images?:
-    | { position?: number | null; image_thumb: string; image_card: string; image_large: string }[]
-    | null;
+  auction_period: string;
+  title: string;
+  lot_number: string;
+  category: { value: string; label: string };
+  condition: { value: number; display_name: string };
+  location: { id: number; name: string };
+  is_transferable: boolean;
+  transfer_fee: number;
+  current_price: number;
+  estimated_retail_price: number;
+  ends_at: string;
+  status: string;
+  version: number;
+  bid_count: number;
+  next_min_increment: number;
+  your_standing: RawStanding | null; // null when logged out
+  is_watchlisted: boolean;
+  has_bid: boolean;
+  images: { position: number; image_thumb: string; image_card: string; image_large: string }[];
 }
 
 /** @see WireLotDetail, which is the normalized version of this. */
 export interface RawLotDetail extends RawLot {
-  description?: string | null;
-  brand?: string | null;
-  model?: string | null;
-  lot_fee?: number | null;
-  bid_history?: { bidder_label: string; amount: number; is_you?: boolean | null }[] | null;
+  description: string;
+  brand: string;
+  model: string | null;
+  lot_fee: number;
+  bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
 }
 
 /** A lot as the tlx server sends it. */
@@ -93,8 +91,8 @@ function num(v: unknown, fallback = 0): number {
 }
 
 /** An ISO 8601 timestamp as epoch ms, or null. */
-function epochMs(iso: string | null | undefined): number | null {
-  const ms = iso ? Date.parse(iso) : Number.NaN;
+function epochMs(iso: string): number | null {
+  const ms = Date.parse(iso);
   return Number.isNaN(ms) ? null : ms;
 }
 
@@ -108,25 +106,25 @@ export function normalizeLot(r: RawLot): WireLot {
   const { category: cat, condition: cond, location: loc } = r;
   return {
     id: r.id,
-    auctionPeriod: r.auction_period ?? '',
-    title: r.title ?? '',
-    lotNumber: r.lot_number ?? '',
-    category: cat ? { value: cat.value, label: cat.label } : null,
-    condition: cond ? { value: cond.value, label: cond.display_name } : null,
-    location: loc ? { id: loc.id, name: loc.name } : null,
-    isTransferable: Boolean(r.is_transferable),
+    auctionPeriod: r.auction_period,
+    title: r.title,
+    lotNumber: r.lot_number,
+    category: { value: cat.value, label: cat.label },
+    condition: { value: cond.value, label: cond.display_name },
+    location: { id: loc.id, name: loc.name },
+    isTransferable: r.is_transferable,
     transferFee: num(r.transfer_fee),
     currentPrice: num(r.current_price),
-    estimatedRetailPrice: r.estimated_retail_price ?? null,
+    estimatedRetailPrice: r.estimated_retail_price,
     endsAt: epochMs(r.ends_at),
-    status: r.status ?? '',
+    status: r.status,
     version: num(r.version, -1),
     bidCount: num(r.bid_count),
     nextMinIncrement: num(r.next_min_increment),
     yourStanding: normalizeStanding(r.your_standing),
-    isWatchlisted: Boolean(r.is_watchlisted),
-    hasBid: Boolean(r.has_bid),
-    images: (r.images ?? [])
+    isWatchlisted: r.is_watchlisted,
+    hasBid: r.has_bid,
+    images: r.images
       .toSorted((a, b) => num(a.position) - num(b.position))
       .map((i) => ({ thumb: i.image_thumb, card: i.image_card, large: i.image_large })),
   };
@@ -136,14 +134,14 @@ export function normalizeLot(r: RawLot): WireLot {
 export function normalizeDetail(r: RawLotDetail): WireLotDetail {
   return {
     ...normalizeLot(r),
-    description: r.description ?? '',
+    description: r.description,
     brand: r.brand || null,
     model: r.model || null,
-    lotFee: r.lot_fee ?? null,
-    bidHistory: (r.bid_history ?? []).map((b) => ({
+    lotFee: r.lot_fee,
+    bidHistory: r.bid_history.map((b) => ({
       bidderLabel: b.bidder_label,
       amount: b.amount,
-      isYou: Boolean(b.is_you),
+      isYou: b.is_you,
     })),
   };
 }

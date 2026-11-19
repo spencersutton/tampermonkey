@@ -44,7 +44,7 @@ function send(
 
 /** @see LotDetail; the site's detail adds its "Similar Auctions". */
 interface RawLotDetail extends wire.RawLotDetail {
-  similar?: wire.RawLot[] | null;
+  similar: wire.RawLot[];
 }
 
 /** @see ClosedLot, which is the normalized version of this. */
@@ -89,7 +89,7 @@ export async function fetchLotDetail(
   return {
     ...detail,
     endsAt: requireEpochMs(detail.endsAt),
-    similar: (r.similar ?? []).map(normalizeLot),
+    similar: r.similar.map(normalizeLot),
   };
 }
 

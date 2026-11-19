@@ -5,6 +5,8 @@ import 'temporal-polyfill/global';
 import { Component, h, options, render } from 'preact';
 import { createServer } from 'vite';
 
+import { rawLot } from './raw-lot.mjs';
+
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const vite = await createServer({
   configFile: false,
@@ -22,17 +24,8 @@ const { BrandModel, CardBrandModel, startBrandWatch } =
 const { LocationText, LotCard, TimeLeft, WatchButton } =
   await vite.ssrLoadModule('/src/app/LotCard.tsx');
 
-const raw = (id, brand, model = null) => ({
-  id,
-  auction_period: 'test',
-  title: `Item ${id}`,
-  lot_number: `${id}`,
-  brand,
-  model,
-  ends_at: '2030-01-01T00:00:00Z',
-  images: [],
-  version: 1,
-});
+const raw = (id, brand, model = null) =>
+  rawLot({ id, title: `Item ${id}`, lot_number: `${id}`, brand, model });
 const lot = (id) => ({
   id,
   auctionPeriod: 'test',

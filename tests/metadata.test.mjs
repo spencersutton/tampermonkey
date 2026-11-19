@@ -4,6 +4,8 @@ import { after, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
+import { rawLot } from './raw-lot.mjs';
+
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const vite = await createServer({
   configFile: false,
@@ -23,24 +25,22 @@ const {
 } = await vite.ssrLoadModule('/src/app/catalog.ts');
 const { me } = await vite.ssrLoadModule('/src/app/auth.tsx');
 const { normalizeLot } = await vite.ssrLoadModule('/src/app/api.ts');
-const raw = (id, patch = {}) => ({
-  id,
-  auction_period: 'test',
-  title: 'Drill',
-  ends_at: '2030-01-01T00:00:00Z',
-  images: [],
-  version: 2,
-  current_price: 20,
-  bid_count: 1,
-  next_min_increment: 21,
-  description: 'Fresh description',
-  brand: 'Acme',
-  model: 'D1',
-  lot_fee: 2,
-  bid_history: [{ bidder_label: 'Bidder', amount: 20, is_you: false }],
-  similar: [],
-  ...patch,
-});
+const raw = (id, patch = {}) =>
+  rawLot({
+    id,
+    ends_at: '2030-01-01T00:00:00Z',
+    images: [],
+    version: 2,
+    current_price: 20,
+    bid_count: 1,
+    next_min_increment: 21,
+    description: 'Fresh description',
+    brand: 'Acme',
+    model: 'D1',
+    lot_fee: 2,
+    bid_history: [{ bidder_label: 'Bidder', amount: 20, is_you: false }],
+    ...patch,
+  });
 const saved = {
   description: 'Saved description',
   brand: 'Acme',

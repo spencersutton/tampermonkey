@@ -50,21 +50,20 @@ function check(value, schema, path = '$') {
   }
 }
 
-// RawLot and RawLotDetail in src/shared/lot.ts. The declared types allow more
-// nulls than these samples show; these are the ones seen in practice.
+// RawLot and RawLotDetail in src/shared/lot.ts, which declare exactly these nulls.
 const STANDING = nullable({ is_leading: 'boolean', your_max_bid: nullable('number') });
 const LOT = {
   id: 'number',
   auction_period: 'string',
   title: 'string',
   lot_number: 'string',
-  category: nullable({ value: 'string', label: 'string' }),
-  condition: nullable({ value: 'number', display_name: 'string' }),
-  location: nullable({ id: 'number', name: 'string' }),
+  category: { value: 'string', label: 'string' },
+  condition: { value: 'number', display_name: 'string' },
+  location: { id: 'number', name: 'string' },
   is_transferable: 'boolean',
   transfer_fee: 'number',
   current_price: 'number',
-  estimated_retail_price: nullable('number'),
+  estimated_retail_price: 'number',
   ends_at: 'string',
   status: 'string',
   version: 'number',
@@ -80,9 +79,9 @@ const LOT = {
 const DETAIL = {
   ...LOT,
   description: 'string',
-  brand: nullable('string'),
+  brand: 'string',
   model: nullable('string'),
-  lot_fee: nullable('number'),
+  lot_fee: 'number',
   bid_history: [{ bidder_label: 'string', amount: 'number', is_you: 'boolean' }],
   similar: [LOT],
 };

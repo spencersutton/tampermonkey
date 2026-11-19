@@ -4,6 +4,8 @@ import { after, beforeEach, test } from 'node:test';
 import 'temporal-polyfill/global';
 import { createServer } from 'vite';
 
+import { rawLot } from './raw-lot.mjs';
+
 const storage = new Map();
 globalThis.localStorage = {
   getItem: (key) => storage.get(key) ?? null,
@@ -219,17 +221,16 @@ test('newly loaded details become searchable without a price-version update', as
   assert.equal(gridView.value.rows.length, 0);
   assert.equal(searchStats.value.get('new-details').total, 0);
   t.mock.method(globalThis, 'fetch', async () =>
-    Response.json({
-      id: 50,
-      auction_period: 'test',
-      title: 'Cordless drill',
-      lot_number: 'A-123',
-      brand: 'Acme',
-      model: 'D-50',
-      ends_at: new Date(now + 2 * 3_600_000).toISOString(),
-      images: [],
-      version: 1,
-    }),
+    Response.json(
+      rawLot({
+        id: 50,
+        title: 'Cordless drill',
+        lot_number: 'A-123',
+        brand: 'Acme',
+        model: 'D-50',
+        ends_at: new Date(now + 2 * 3_600_000).toISOString(),
+      }),
+    ),
   );
   await loadDetail(lots.value.get(50));
   assert.deepEqual(
