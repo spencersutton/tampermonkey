@@ -11,6 +11,9 @@
     "lint:fix": "oxlint --fix",
     "capture-fixtures": "bun scripts/capture-site-fixtures.ts",
     "server": "bun src/server/main.ts",
+    "server:watch": "bun --watch src/server/main.ts",
+    "build:watch": "vite build --watch",
+    "watch": "bun run --parallel build:watch server:watch",
     "test:web": "node --test 'tests/*.test.mjs'",
     "test:server": "bun test ./tests/server/",
     "itemtypes": "bun src/server/itemtypes-cli.ts"

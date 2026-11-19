@@ -111,6 +111,8 @@ npm run lint      # Oxlint with type-aware checks for unnecessary conditions and
 npm run dev       # web app with hot reload; API calls go to a tlx server on 127.0.0.1:8765
 npm test          # web tests (node --test) and server tests (bun test)
 npm run server    # the server (see above)
+npm run watch     # rebuild the web app and restart the server whenever the code changes (this computer only)
+npm run build:watch  # just the rebuild; pair with `npm run server:watch -- --host 0.0.0.0` to serve your phone too
 npm run capture-fixtures  # refresh the real site replies in tests/fixtures/site/
 ```
 
