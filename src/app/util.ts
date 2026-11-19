@@ -16,7 +16,12 @@ export function timeLabel(endsAt: number, now: number) {
   if (ms <= 0) {
     return { text: 'Closed', soon: true };
   }
-  const smallestUnit = ms >= DAY ? 'hour' : ms >= HOUR ? 'minute' : 'second';
+  let smallestUnit: 'hour' | 'minute' | 'second' = 'second';
+  if (ms >= DAY) {
+    smallestUnit = 'hour';
+  } else if (ms >= HOUR) {
+    smallestUnit = 'minute';
+  }
   const left = Temporal.Duration.from({ milliseconds: ms }).round({
     largestUnit: 'day',
     smallestUnit,
