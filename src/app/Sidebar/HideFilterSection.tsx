@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { sortBy, unique } from 'remeda';
 
 import { compileFilter } from '../../shared/filters';
 import * as format from '../../shared/format';
@@ -131,14 +132,14 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
     setSetting(KEYS.hidden, value);
   const [input, setInput] = useState('');
   const add = () => {
-    setWords([...new Set([...words, input])]);
+    setWords(unique([...words, input]));
     setInput('');
   };
   const unhide = (id: string) => {
     const { [id]: _, ...rest } = hiddenLots;
     setHiddenLots(rest);
   };
-  const hidden = Object.entries(hiddenLots).toSorted((a, b) => b[1].ts - a[1].ts);
+  const hidden = sortBy(Object.entries(hiddenLots), [([, h]) => h.ts, 'desc']);
 
   return (
     <section class="panel">

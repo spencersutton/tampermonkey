@@ -1,4 +1,5 @@
 import { dequal } from 'dequal';
+import { sum } from 'remeda';
 
 import { HOUR } from '../shared/constants';
 import { totalCost } from '../shared/cost';
@@ -868,7 +869,7 @@ function tallySpellings(values: string[], keyOf: (v: string) => string): Facet<s
   }
   return Array.from(spellings, ([value, m]) => {
     const [label] = m.entries().reduce((best, cur) => (cur[1] > best[1] ? cur : best));
-    return { value, label, count: m.values().reduce((n, c) => n + c, 0) };
+    return { value, label, count: sum([...m.values()]) };
   }).toSorted(byCountThenLabel);
 }
 

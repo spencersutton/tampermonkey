@@ -3,6 +3,7 @@
 // the tlx server, which matches them like duplicate listings) are offered
 // right under the lot, so a lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
+import { sumBy } from 'remeda';
 
 import { CDN, MINUTE, TRANSFER_FEE } from '../shared/constants';
 import { costBreakdown, dollars, money, totalCost } from '../shared/cost';
@@ -103,8 +104,8 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
     const hay = `${c.title} ${c.lot_number} ${c.location_name}`.toLowerCase();
     return words.every(w => hay.includes(w));
   });
-  const bids = lots.reduce((n, c) => n + c.final_price, 0);
-  const total = lots.reduce((n, c) => n + totalCost(c.final_price, transferFee(c)), 0);
+  const bids = sumBy(lots, c => c.final_price);
+  const total = sumBy(lots, c => totalCost(c.final_price, transferFee(c)));
 
   const openClosedLot = (c: ClosedLot) => {
     const inCatalog = getLot(c.lot_id);
