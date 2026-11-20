@@ -12,7 +12,7 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const { appUnlocked, authedFetch, lockApp, me, onAuthChange, refreshSession, unlockApp } =
-  await vite.ssrLoadModule('/src/app/auth.tsx');
+  await vite.ssrLoadModule('/src/app/server/auth.ts');
 
 test('authenticated fetch preserves request options and supports every HeadersInit form', async t => {
   const response = new Response();

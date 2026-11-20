@@ -15,14 +15,15 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { lotBrands, lotModels, lots, loadDetail, invalidateDetail } =
-  await vite.ssrLoadModule('/src/app/catalog.ts');
-const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/state.ts');
-const { applyCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
-const { BrandModel, CardBrandModel, startBrandWatch } =
-  await vite.ssrLoadModule('/src/app/brands.tsx');
+const { lotBrands, lotModels, lots, loadDetail, invalidateDetail } = await vite.ssrLoadModule(
+  '/src/app/server/catalog.ts',
+);
+const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/ui/state.ts');
+const { applyCatalog } = await vite.ssrLoadModule('/src/app/server/source.ts');
+const { startBrandWatch } = await vite.ssrLoadModule('/src/app/server/brands.ts');
+const { BrandModel, CardBrandModel } = await vite.ssrLoadModule('/src/app/ui/Brands.tsx');
 const { LocationText, LotCard, TimeLeft, WatchButton } =
-  await vite.ssrLoadModule('/src/app/LotCard.tsx');
+  await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
 const raw = (id, brand, model = null) =>
   rawDetail({ id, title: `Item ${id}`, lot_number: `${id}`, brand, model });
@@ -65,7 +66,7 @@ function card(row) {
 }
 
 test('card and popup watchlist controls disappear after bidding, without a stale star', async t => {
-  const { me } = await vite.ssrLoadModule('/src/app/auth.tsx');
+  const { me } = await vite.ssrLoadModule('/src/app/server/auth.ts');
   const previous = me.peek();
   t.after(() => {
     me.value = previous;
@@ -105,7 +106,7 @@ test('visible cards load brands with bounded concurrency, caching, and no price 
   });
   lots.value = new Map([1, 2, 3, 4].map(id => [id, lot(id)]));
   onScreen.value = [];
-  const stop = startBrandWatch();
+  const stop = startBrandWatch(onScreen);
   t.after(() => {
     stop();
     onScreen.value = [];
@@ -224,7 +225,7 @@ test('mounted cards retain independent viewport observers and fetch brands witho
   t.mock.timers.enable({ apis: ['setTimeout'] });
   lots.value = new Map([20, 21, 22].map(id => [id, lot(id)]));
   onScreen.value = [];
-  const stop = startBrandWatch();
+  const stop = startBrandWatch(onScreen);
   t.after(() => {
     stop();
     render(null, root);
@@ -269,17 +270,18 @@ test('brands and known missing brands survive a fresh app module load without de
     appType: 'custom',
   });
   t.after(() => fresh.close());
-  const catalog = await fresh.ssrLoadModule('/src/app/catalog.ts');
-  const state = await fresh.ssrLoadModule('/src/app/state.ts');
-  const brands = await fresh.ssrLoadModule('/src/app/brands.tsx');
-  const source = await fresh.ssrLoadModule('/src/app/source.ts');
+  const catalog = await fresh.ssrLoadModule('/src/app/server/catalog.ts');
+  const state = await fresh.ssrLoadModule('/src/app/ui/state.ts');
+  const brands = await fresh.ssrLoadModule('/src/app/server/brands.ts');
+  const brandsUi = await fresh.ssrLoadModule('/src/app/ui/Brands.tsx');
+  const source = await fresh.ssrLoadModule('/src/app/server/source.ts');
   let requests = 0;
   t.mock.method(globalThis, 'fetch', async () => {
     requests++;
     throw new Error('Unexpected detail request');
   });
   state.onScreen.value = [90, 91];
-  const stop = brands.startBrandWatch();
+  const stop = brands.startBrandWatch(state.onScreen);
   t.after(stop);
   const now = Date.now();
   source.applyCatalog({
@@ -304,11 +306,11 @@ test('brands and known missing brands survive a fresh app module load without de
   assert.equal(catalog.lotBrands.peek().get(91), null);
   assert.equal(catalog.lotModels.peek().get(90), 'D-90');
   assert.equal(catalog.lotModels.peek().get(91), null);
-  const savedIdentity = nodes(brands.CardBrandModel({ id: 90 })).find(
-    node => node.type === brands.BrandModel,
+  const savedIdentity = nodes(brandsUi.CardBrandModel({ id: 90 })).find(
+    node => node.type === brandsUi.BrandModel,
   );
   assert.deepEqual(savedIdentity.props, { brand: 'Persisted', model: 'D-90' });
-  assert.equal(brands.CardBrandModel({ id: 91 }), null);
+  assert.equal(brandsUi.CardBrandModel({ id: 91 }), null);
   source.applyCatalog({
     now,
     nextPullAt: now + 60_000,
@@ -376,7 +378,7 @@ test('queued cards that leave the viewport are skipped; failures are visible and
   });
   lots.value = new Map([10, 11, 12].map(id => [id, lot(id)]));
   onScreen.value = [10, 11, 12];
-  const stop = startBrandWatch();
+  const stop = startBrandWatch(onScreen);
   t.after(() => {
     stop();
     onScreen.value = [];
@@ -437,10 +439,10 @@ test('brand and model names link to the catalog and a separate Google icon retai
 });
 
 test('brand/model navigation clears filters and the popup, with quoted field-specific searches', async t => {
-  const { DEFAULT_VIEW, makeMatcher } = await vite.ssrLoadModule('/src/app/view.ts');
-  const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
+  const { DEFAULT_VIEW, makeMatcher } = await vite.ssrLoadModule('/src/app/logic/view.ts');
+  const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
   const { setView, storedView, searchDraft, openId, closed, filteredOnly, page, sidebarOpen } =
-    await vite.ssrLoadModule('/src/app/state.ts');
+    await vite.ssrLoadModule('/src/app/ui/state.ts');
   const previousWindow = globalThis.window;
   let scrolls = 0;
   globalThis.window = {
@@ -513,7 +515,7 @@ test('a known brand without a cached model still loads its model', async t => {
   lotBrands.value = new Map(lotBrands.peek()).set(81, 'Acme');
   lots.value = new Map([[81, lot(81)]]);
   onScreen.value = [81];
-  const stop = startBrandWatch();
+  const stop = startBrandWatch(onScreen);
   t.after(() => {
     stop();
     onScreen.value = [];

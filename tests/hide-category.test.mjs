@@ -19,10 +19,10 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/settings.ts');
-const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
+const { lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { hideCategory, hideItemType, storedView, setView, page, rowOf, exclusionRules } =
-  await vite.ssrLoadModule('/src/app/state.ts');
+  await vite.ssrLoadModule('/src/app/ui/state.ts');
 const {
   DEFAULT_VIEW,
   normalizeView,
@@ -32,9 +32,9 @@ const {
   savedSearchStats,
   initialView,
   sameDefaultFilters,
-} = await vite.ssrLoadModule('/src/app/view.ts');
-const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/history.ts');
-const { LotCard } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
+} = await vite.ssrLoadModule('/src/app/logic/view.ts');
+const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/ui/history.ts');
+const { LotCard } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
 const now = Date.now();
 const custom = 'custom:Tools - Drills';
@@ -224,7 +224,7 @@ test('explicit empty categories round-trip through URLs and browser history', ()
 });
 
 test('the card exposes a hide item type button, preserves page/filters, and round-trips through URLs', async () => {
-  const { ItemTypeActions } = await vite.ssrLoadModule('/src/app/ItemType.tsx');
+  const { ItemTypeActions } = await vite.ssrLoadModule('/src/app/ui/ItemType.tsx');
   const itemTree = ItemTypeActions({ lot: fixtures[1] });
   const hideBtn = nodes(itemTree).find(n => n.props?.class === 'icon-btn item-type-hide');
   assert.ok(hideBtn);

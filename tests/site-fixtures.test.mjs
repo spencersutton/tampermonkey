@@ -189,7 +189,7 @@ test('websocket frames: connect and subscribe replies, pings, and lot publicatio
   const pushes = received.filter(d => d.push);
   assert.ok(pushes.length > 0, 'recapture near closing time if no lot got a bid');
   for (const { push } of pushes) {
-    // onLotPublication in src/app/live.ts
+    // onLotPublication in src/app/server/live.ts
     check(push, {
       channel: 'string',
       pub: {

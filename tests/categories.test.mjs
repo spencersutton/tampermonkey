@@ -17,13 +17,14 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { saveCustomCategories } = await vite.ssrLoadModule('/src/app/categories.ts');
-const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
-const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { DEFAULT_VIEW, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
-const { groupCategories, CategoryGroupRow } = await vite.ssrLoadModule(
-  '/src/app/Sidebar/CategoryList.tsx',
+const { saveCustomCategories } = await vite.ssrLoadModule('/src/app/server/categories.ts');
+const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule(
+  '/src/app/server/settings.ts',
 );
+const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
+const { DEFAULT_VIEW, computeFacets } = await vite.ssrLoadModule('/src/app/logic/view.ts');
+const { groupCategories } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
+const { CategoryGroupRow } = await vite.ssrLoadModule('/src/app/ui/Sidebar/CategoryList.tsx');
 
 function setup(categories, selected) {
   storage.clear();

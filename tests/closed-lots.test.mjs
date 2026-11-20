@@ -13,13 +13,13 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { fetchClosed } = await vite.ssrLoadModule('/src/app/api.ts');
-const { loadDetail, lots: catalogLots } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { openHandler } = await vite.ssrLoadModule('/src/app/util.ts');
-const { makeRow } = await vite.ssrLoadModule('/src/app/view.ts');
+const { fetchClosed } = await vite.ssrLoadModule('/src/app/server/api.ts');
+const { loadDetail, lots: catalogLots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
+const { openHandler } = await vite.ssrLoadModule('/src/app/ui/dom.ts');
+const { makeRow } = await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { totalCost, costBreakdown } = await vite.ssrLoadModule('/src/shared/cost.ts');
-const { ListingRow } = await vite.ssrLoadModule('/src/app/ListingRow.tsx');
-const { LocationText, TimeLeft } = await vite.ssrLoadModule('/src/app/LotCard.tsx');
+const { ListingRow } = await vite.ssrLoadModule('/src/app/ui/ListingRow.tsx');
+const { LocationText, TimeLeft } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
 function nodes(node) {
   if (node == null || typeof node !== 'object') return [];

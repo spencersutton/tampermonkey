@@ -5,16 +5,17 @@ import 'temporal-polyfill/global';
 import './shared/arrayToSet';
 import { render } from 'preact';
 
-import './app/app.css';
-import { App } from './app/App';
-import { AppLock, appUnlocked, LoginDialog, me, startAuth } from './app/auth';
-import { startBrandWatch } from './app/brands';
-import { error } from './app/catalog';
-import { navFromUrl, startHistory } from './app/history';
-import { startLiveWatch } from './app/live';
-import { setSetting } from './app/settings';
-import { settingsLoaded, settingsReady, startCatalog } from './app/source';
-import { closed, filteredOnly, openId, page, startApp } from './app/state';
+import './app/ui/app.css';
+import { appUnlocked, me, startAuth } from './app/server/auth';
+import { startBrandWatch } from './app/server/brands';
+import { error } from './app/server/catalog';
+import { startLiveWatch } from './app/server/live';
+import { setSetting } from './app/server/settings';
+import { settingsLoaded, settingsReady, startCatalog } from './app/server/source';
+import { App } from './app/ui/App';
+import { AppLock, LoginDialog } from './app/ui/Auth';
+import { navFromUrl, startHistory } from './app/ui/history';
+import { closed, filteredOnly, onScreen, openId, page, startApp } from './app/ui/state';
 import { KEYS } from './shared/keys';
 
 // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
@@ -36,8 +37,8 @@ void appUnlocked.then(async () => {
   await settingsReady;
   startApp();
   startHistory();
-  startLiveWatch();
-  startBrandWatch();
+  startLiveWatch(onScreen, openId);
+  startBrandWatch(onScreen);
 });
 
 function Root() {

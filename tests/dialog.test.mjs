@@ -12,7 +12,7 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { Dialog } = await vite.ssrLoadModule('/src/app/Dialog.tsx');
+const { Dialog } = await vite.ssrLoadModule('/src/app/ui/Dialog.tsx');
 
 class Element {
   focused = 0;

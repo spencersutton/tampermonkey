@@ -15,9 +15,12 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { error, fetchedAt, loaded, progress } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { nextPullAt, pullCatalog, settingsReady, startCatalog } =
-  await vite.ssrLoadModule('/src/app/source.ts');
+const { error, fetchedAt, loaded, progress } = await vite.ssrLoadModule(
+  '/src/app/server/catalog.ts',
+);
+const { nextPullAt, pullCatalog, settingsReady, startCatalog } = await vite.ssrLoadModule(
+  '/src/app/server/source.ts',
+);
 
 test('catalog polling and manual refresh preserve the visible pull status', async t => {
   const now = Date.now();

@@ -1,5 +1,5 @@
 // Settings keys (server-only for SERVER_KEYS, otherwise browser-local).
-import type { SavedSearch } from '../app/view';
+import type { SavedSearch } from '../app/logic/view';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, SITE } from './constants';
 
 export const KEYS = {

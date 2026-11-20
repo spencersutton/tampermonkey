@@ -19,15 +19,17 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const { DEFAULT_VIEW, defaultFilterView, initialView, sameDefaultFilters } =
-  await vite.ssrLoadModule('/src/app/view.ts');
+  await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { KEYS, SERVER_KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
-const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar/index.tsx');
-const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
-const { modal, openId } = await vite.ssrLoadModule('/src/app/state.ts');
-const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
+const { Sidebar } = await vite.ssrLoadModule('/src/app/ui/Sidebar/index.tsx');
+const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule(
+  '/src/app/server/settings.ts',
+);
+const { modal, openId } = await vite.ssrLoadModule('/src/app/ui/state.ts');
+const { lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 globalThis.location = { protocol: 'http:', host: 'localhost' };
-const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
+const { App } = await vite.ssrLoadModule('/src/app/ui/App.tsx');
 after(() => delete globalThis.location);
 
 test('defaults are server-backed and used only when there is no saved browser view', () => {

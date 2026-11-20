@@ -19,14 +19,16 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const { DEFAULT_VIEW, makeMatcher, makeRow, savedFilters, normalizeView } =
-  await vite.ssrLoadModule('/src/app/view.ts');
+  await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { applySetting } = await vite.ssrLoadModule('/src/app/settings.ts');
-const { lots, lotBrands, lotModels, loadDetail } = await vite.ssrLoadModule('/src/app/catalog.ts');
+const { applySetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
+const { lots, lotBrands, lotModels, loadDetail } = await vite.ssrLoadModule(
+  '/src/app/server/catalog.ts',
+);
 const { gridView, searchStats, setView, storedView } =
-  await vite.ssrLoadModule('/src/app/state.ts');
-const { applyCatalog } = await vite.ssrLoadModule('/src/app/source.ts');
-const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
+  await vite.ssrLoadModule('/src/app/ui/state.ts');
+const { applyCatalog } = await vite.ssrLoadModule('/src/app/server/source.ts');
+const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 
 const now = Date.now();
 const ex = {

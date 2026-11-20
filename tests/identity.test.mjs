@@ -13,13 +13,14 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const { computeView, DEFAULT_VIEW, normalizeView, savedFilters } =
-  await vite.ssrLoadModule('/src/app/view.ts');
-const { lots, lotBrands, lotModels, updateItemType } =
-  await vite.ssrLoadModule('/src/app/catalog.ts');
-const { gridView, setView } = await vite.ssrLoadModule('/src/app/state.ts');
-const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/source.ts');
-const { fetchClosed } = await vite.ssrLoadModule('/src/app/api.ts');
-const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
+  await vite.ssrLoadModule('/src/app/logic/view.ts');
+const { lots, lotBrands, lotModels, updateItemType } = await vite.ssrLoadModule(
+  '/src/app/server/catalog.ts',
+);
+const { gridView, setView } = await vite.ssrLoadModule('/src/app/ui/state.ts');
+const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/server/source.ts');
+const { fetchClosed } = await vite.ssrLoadModule('/src/app/server/api.ts');
+const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 
 const now = Date.now();
 const ex = {

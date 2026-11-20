@@ -13,10 +13,11 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { categoryError, categoryName, TypeCategory } = await vite.ssrLoadModule(
-  '/src/app/TypeCategory.tsx',
+const { categoryError, categoryName } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
+const { TypeCategory } = await vite.ssrLoadModule('/src/app/ui/TypeCategory.tsx');
+const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule(
+  '/src/app/server/settings.ts',
 );
-const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 
 test('category names pluralize the last word', () => {

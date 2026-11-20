@@ -1,5 +1,5 @@
 // The tlx server's tag rule endpoints (see src/server/app.ts).
-import { authedFetch } from '../app/auth';
+import { authedFetch } from '../app/server/auth';
 
 export interface TagRule {
   id: number;

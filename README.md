@@ -123,7 +123,10 @@ optional properties, indexed access, unused code, and control flow.
 Oxlint excludes files under `tests/`.
 
 - `src/web.tsx` and `web/`: the web app entry, page and icons.
-- `src/app/`: the catalog view. `catalog.ts` holds the in-memory catalog, `source.ts` fetches it and shared settings from the server, `auth.tsx` handles the server's login and the app password, and `settings.ts` provides reactive settings with localStorage only for browser-specific UI state.
-- `src/tags/` and `web/tags.html`: the tag rules page (`/tags`).
+- `src/app/`: the catalog app, split into three one-way layers:
+  - `src/app/logic/`: pure logic (filtering, sorting, search suggestions, bid rules, category trees/edits, closed-lot grouping, URL/history mapping, catalog merging) with no Preact, signals, DOM, or network dependencies.
+  - `src/app/server/`: server HTTP/WebSocket transport (`api.ts`, `auth.ts`, `source.ts`, `live.ts`, `brands.ts`, `closed.ts`, `conditions.ts`, `bid.ts`, `watch.ts`) and reactive data stores (`catalog.ts`, `settings.ts`, `toast.ts`, `categories.ts`, `reactive.ts`) with no Preact/UI dependencies.
+  - `src/app/ui/`: Preact components, UI state (`state.ts`), browser history (`history.ts`), viewport observer (`viewport.ts`), and DOM helpers (`dom.ts`).
+- `src/tags/` and `web/tags.html`: the tag rules page (`/tags`), similarly split into `logic.ts` (pure), `api.ts` and `state.ts` (server/state), and `TagRulesPage.tsx` (UI).
 - `src/shared/`: filters, the search engine (`search.ts`: query parsing, ranking, stemming, synonyms, spelling correction), cost formula, title sort key, item identity and settings keys, the site's raw lot normalizer (`lot.ts`), and item matching (`identity.ts`: duplicate listings, relisted items, past prices, run by the server).
 - `src/server/`: the server: `main.ts` command line, `app.ts` HTTP (guards, the API, the `/backend` proxy, static files), `site.ts` the site's API client, `session.ts` site login, `relay.ts` websocket relay, `catalog.ts` pulls, `history.ts` closed lots and past prices, `itemtypes.ts` item types, `store.ts` SQLite and `tags.ts` tag rules. Type-checked with its own `tsconfig.json` (Bun, no DOM); tests in `tests/server/`.

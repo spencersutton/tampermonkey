@@ -10,7 +10,7 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { clean } = await vite.ssrLoadModule('/src/app/CategoryEditor.tsx');
+const { clean } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
 
 test('category drafts save trimmed names and both empty and populated item types', () => {
   assert.deepEqual(clean({ key: 1, from: null, name: ' Tools ', types: [] }), {

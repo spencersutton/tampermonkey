@@ -11,7 +11,7 @@
 // is missing), its tags from every `tag_rules` pattern its title matches, and
 // its most recent past closes in `lot_past_closes`, pointing at `closed_lots`.
 // The store hands lots out, and takes them in, as one object each, in the shape
-// the app gets them (ServerLot in src/app/source.ts).
+// the app gets them (ServerLot in src/app/server/api.ts).
 //
 // Every full pull that changes anything gets a new sequence number, and each
 // lot row records the sequence of its last change, so a client that has seen

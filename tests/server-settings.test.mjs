@@ -29,8 +29,8 @@ function renderComponent(type, props = {}) {
 }
 
 async function savedSearchControls(vite) {
-  const { App } = await vite.ssrLoadModule('/src/app/App.tsx');
-  const { Sidebar } = await vite.ssrLoadModule('/src/app/Sidebar/index.tsx');
+  const { App } = await vite.ssrLoadModule('/src/app/ui/App.tsx');
+  const { Sidebar } = await vite.ssrLoadModule('/src/app/ui/Sidebar/index.tsx');
   return () => {
     const appSidebar = nodes(renderComponent(App)).find(node => node.type?.name === 'AppSidebar');
     const sidebar = nodes(renderComponent(appSidebar.type, appSidebar.props)).find(
@@ -104,9 +104,9 @@ async function setup(t, values = {}) {
     appType: 'custom',
   });
   servers.push(vite);
-  const settings = await vite.ssrLoadModule('/src/app/settings.ts');
+  const settings = await vite.ssrLoadModule('/src/app/server/settings.ts');
   const keys = await vite.ssrLoadModule('/src/shared/keys.ts');
-  const source = await vite.ssrLoadModule('/src/app/source.ts');
+  const source = await vite.ssrLoadModule('/src/app/server/source.ts');
   return { vite, settings, ...keys, source, storage, reads, writes, requests, callbacks };
 }
 
@@ -178,7 +178,7 @@ test('Update replaces only the chosen saved search and persists the latest draft
   source.startCatalog();
   await source.settingsReady;
   const controls = await savedSearchControls(vite);
-  const { setView, setSearchDraft, storedView } = await vite.ssrLoadModule('/src/app/state.ts');
+  const { setView, setSearchDraft, storedView } = await vite.ssrLoadModule('/src/app/ui/state.ts');
   controls().saved.onOpen(settings.getSetting(KEYS.savedSearches)[0], false);
   await settle();
   const before = settings.getSetting(KEYS.savedSearches);
@@ -223,7 +223,7 @@ test('Update detects sort-only and draft changes but ignores new-only and unavai
   await source.settingsReady;
   const controls = await savedSearchControls(vite);
   const { setView, setSearchDraft, resetSearch, storedView, closed, filteredOnly } =
-    await vite.ssrLoadModule('/src/app/state.ts');
+    await vite.ssrLoadModule('/src/app/ui/state.ts');
   controls().saved.onOpen(settings.getSetting(KEYS.savedSearches)[0], false);
   assert.equal(controls().buttons[0].props.disabled, true);
   const sort = storedView.value.sort;
@@ -272,7 +272,7 @@ test('failed saves show an explicit error and are not silently queued or persist
   t.mock.method(globalThis, 'setTimeout', () => 1);
   settings.setSetting(KEYS.words, ['drill']);
   await settle();
-  const { Toasts } = await vite.ssrLoadModule('/src/app/toast.tsx');
+  const { Toasts } = await vite.ssrLoadModule('/src/app/ui/Toasts.tsx');
   const vnode = h(Toasts, {});
   vnode.__c = new Component(vnode.props);
   vnode.__c.__h = [];
@@ -314,7 +314,7 @@ test('failed startup leaves settings unready and retries the server instead of u
   });
   source.startCatalog();
   await settle();
-  const { error } = await vite.ssrLoadModule('/src/app/catalog.ts');
+  const { error } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
   assert.equal(source.settingsLoaded.value, false);
   assert.equal(error.value, 'Settings unavailable');
   assert.deepEqual(settings.getSetting(KEYS.words), []);

@@ -18,12 +18,12 @@ const vite = await createServer({
 after(() => vite.close());
 const search = await vite.ssrLoadModule('/src/shared/search.ts');
 const { DEFAULT_VIEW, computeView, computeFacets, contextualFacets, normalizeView, savedFilters } =
-  await vite.ssrLoadModule('/src/app/view.ts');
-const { suggest } = await vite.ssrLoadModule('/src/app/suggest.ts');
-const { navFromUrl } = await vite.ssrLoadModule('/src/app/history.ts');
-const { numericOrder } = await vite.ssrLoadModule('/src/app/util.ts');
+  await vite.ssrLoadModule('/src/app/logic/view.ts');
+const { suggest } = await vite.ssrLoadModule('/src/app/logic/suggest.ts');
+const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
+const { numericOrder } = await vite.ssrLoadModule('/src/app/logic/util.ts');
 const { tagMenuOptions, toggleFilterOption } = await vite.ssrLoadModule(
-  '/src/app/filterOptions.ts',
+  '/src/app/logic/filterOptions.ts',
 );
 
 const now = Date.now();

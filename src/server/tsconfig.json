@@ -1,8 +1,8 @@
 {
-  // The TypeScript server, its tests and scripts: Bun, no DOM.
+  // The TypeScript server, its tests and scripts: Bun + Web/Fetch globals (needed by Hono's types).
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "jsx": "preserve",
     "types": ["bun"]
   },

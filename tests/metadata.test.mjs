@@ -22,8 +22,8 @@ const {
   loadMetadata,
   lots,
   updateLot,
-} = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { me } = await vite.ssrLoadModule('/src/app/auth.tsx');
+} = await vite.ssrLoadModule('/src/app/server/catalog.ts');
+const { me } = await vite.ssrLoadModule('/src/app/server/auth.ts');
 /** A detail as the catalog lists the lot: without the detail-only fields. */
 // oxlint-disable-next-line no-unused-vars
 const catalogLot = ({ description, brand, model, lot_fee, bid_history, similar, ...lot }) => lot;

@@ -1,72 +1,44 @@
 // The tag rules editor: every rule on the left (pattern, tags, lots matched),
 // and on the right the rule being written or changed with a live preview of
 // the current lots its pattern matches, the matched text marked.
-import { computed, signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-import { Icon } from '../app/icons';
-import { errorMessage, plural } from '../app/util';
+import { errorMessage, plural } from '../app/logic/util';
+import { Icon } from '../app/ui/icons';
 import * as format from '../shared/format';
-import { cleanTag, tagLabel } from '../shared/tags';
+import { tagLabel } from '../shared/tags';
+import type { Preview, PreviewMatch } from './api';
+import { EMPTY_DRAFT, filterTagRules, mergeRuleTags, splitMatchSpan, type TagDraft } from './logic';
 import {
-  ApiError,
-  deleteRule,
-  loadOverview,
-  previewRule,
-  saveRule,
-  type Overview,
-  type Preview,
-  type PreviewMatch,
-} from './api';
-
-const PREVIEW_DELAY = 250;
-
-interface Draft {
-  id: number | null; // null for a new rule
-  pattern: string;
-  tags: string[];
-}
-
-const EMPTY: Draft = { id: null, pattern: '', tags: [] };
-
-const overview = signal<Overview | null>(null);
-const loadError = signal<string | null>(null);
-const draft = signal<Draft>(EMPTY);
-/** The draft as it was loaded, to tell whether it has unsaved changes. */
-const saved = signal<Draft>(EMPTY);
-const notice = signal<string | null>(null);
-/** Bumped after every save or delete, so the preview shows the tags lots have now. */
-const revision = signal(0);
-
-const sameDraft = (a: Draft, b: Draft) =>
-  a.id === b.id && a.pattern === b.pattern && a.tags.join('\n') === b.tags.join('\n');
-const dirty = computed(() => !sameDraft(draft.value, saved.value));
-
-async function refresh() {
-  try {
-    overview.value = await loadOverview();
-    revision.value++;
-    loadError.value = null;
-  } catch (e) {
-    loadError.value = errorMessage(e);
-  }
-}
+  commitDraft,
+  dirty,
+  draft,
+  loadError,
+  notice,
+  overview,
+  refreshOverview,
+  removeDraft,
+  revertDraft,
+  revision,
+  selectDraft,
+  startPreview,
+  updateDraft,
+  type PreviewState,
+} from './state';
 
 /** Open a rule (or a blank one) in the editor, after confirming unsaved changes are dropped. */
-function edit(next: Draft) {
+function edit(next: TagDraft) {
   if (dirty.peek() && !confirm('Discard your unsaved changes to this rule?')) {
     return;
   }
-  draft.value = next;
-  saved.value = next;
-  notice.value = null;
+  selectDraft(next);
 }
 
 const lotsText = (n: number) => plural(n, 'lot');
 
 export function TagRulesPage() {
   useEffect(() => {
-    void refresh();
+    void refreshOverview();
     const warn = (e: BeforeUnloadEvent) => {
       if (dirty.peek()) {
         e.preventDefault();
@@ -100,10 +72,7 @@ export function TagRulesPage() {
 function RuleList() {
   const [filter, setFilter] = useState('');
   const data = overview.value;
-  const q = filter.trim().toLowerCase();
-  const rules = (data?.rules ?? []).filter(
-    r => !q || r.pattern.toLowerCase().includes(q) || r.tags.some(t => t.includes(q)),
-  );
+  const rules = filterTagRules(data?.rules ?? [], filter);
   const current = draft.value.id;
   return (
     <section class="tr-pane tr-rules" aria-labelledby="tr-rules-title">
@@ -111,7 +80,7 @@ function RuleList() {
         <h2 id="tr-rules-title">
           Rules {data && <span class="muted">{format.num(data.rules.length)}</span>}
         </h2>
-        <button type="button" class="btn btn-small" onClick={() => edit(EMPTY)}>
+        <button type="button" class="btn btn-small" onClick={() => edit(EMPTY_DRAFT)}>
           <Icon name="add" size={16} /> New rule
         </button>
       </div>
@@ -159,40 +128,17 @@ function RuleList() {
 
 /** The current lots the draft rule matches, with the tags it would add, fetched as it's typed. */
 function usePreview(pattern: string, tags: string[], rev: number) {
-  const [state, setState] = useState<{
-    preview: Preview | null;
-    error: string | null;
-    errorField: string | null;
-    busy: boolean;
-  }>({ preview: null, error: null, errorField: null, busy: false });
+  const [state, setState] = useState<PreviewState>({
+    preview: null,
+    error: null,
+    errorField: null,
+    busy: false,
+  });
   const tagKey = tags.join('\n');
-  useEffect(() => {
-    if (!pattern.trim()) {
-      setState({ preview: null, error: null, errorField: null, busy: false });
-      return;
-    }
-    const ctl = new AbortController();
-    setState(s => ({ ...s, busy: true }));
-    const timer = setTimeout(() => {
-      previewRule(pattern, tagKey ? tagKey.split('\n') : [], ctl.signal).then(
-        preview => setState({ preview, error: null, errorField: null, busy: false }),
-        (e: unknown) => {
-          if (!ctl.signal.aborted) {
-            setState({
-              preview: null,
-              error: errorMessage(e),
-              errorField: e instanceof ApiError ? e.field : null,
-              busy: false,
-            });
-          }
-        },
-      );
-    }, PREVIEW_DELAY);
-    return () => {
-      clearTimeout(timer);
-      ctl.abort();
-    };
-  }, [pattern, tagKey, rev]);
+  useEffect(
+    () => startPreview(pattern, tagKey ? tagKey.split('\n') : [], setState),
+    [pattern, tagKey, rev],
+  );
   return state;
 }
 
@@ -204,46 +150,32 @@ function Editor() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const patternRef = useRef<HTMLInputElement>(null);
-  const update = (patch: Partial<Draft>) => {
-    draft.value = { ...draft.value, ...patch };
+  const update = (patch: Partial<TagDraft>) => {
+    updateDraft(patch);
     setSaveError(null);
-    notice.value = null;
   };
   useEffect(() => patternRef.current?.focus(), [d.id]);
 
   const submitLabel = d.id == null ? 'Add rule' : 'Save changes';
   const canSave = Boolean(d.pattern.trim() && d.tags.length && !error && dirty.value && !saving);
-  const run = async (fn: () => Promise<string>) => {
+  const run = async (fn: () => Promise<void>) => {
     setSaving(true);
     setSaveError(null);
     try {
-      notice.value = await fn();
-      await refresh();
+      await fn();
     } catch (e) {
       setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
     }
   };
-  const save = () =>
-    run(async () => {
-      const { rule, changed } = await saveRule(d.id, d.pattern, d.tags);
-      const next = { id: rule.id, pattern: rule.pattern, tags: rule.tags };
-      draft.value = next;
-      saved.value = next;
-      return `Saved. ${lotsText(changed)} changed.`;
-    });
+  const save = () => run(commitDraft);
   const remove = () => {
     if (d.id == null || !confirm('Delete this rule? The tags it gave go away.')) {
       return;
     }
     const id = d.id;
-    void run(async () => {
-      const { changed } = await deleteRule(id);
-      draft.value = EMPTY;
-      saved.value = EMPTY;
-      return `Deleted. ${lotsText(changed)} changed.`;
-    });
+    void run(() => removeDraft(id));
   };
 
   return (
@@ -309,11 +241,7 @@ function Editor() {
             {saving ? 'Saving…' : submitLabel}
           </button>
           {dirty.value && (
-            <button
-              type="button"
-              class="btn btn-outline"
-              onClick={() => (draft.value = saved.value)}
-            >
+            <button type="button" class="btn btn-outline" onClick={revertDraft}>
               Revert
             </button>
           )}
@@ -349,13 +277,7 @@ function TagInput({
   const [text, setText] = useState('');
   /** Add each comma-separated tag in `raw` that isn't there yet. */
   const add = (raw: string) => {
-    // Tags differing only in case are the same tag; the first spelling stays.
-    const next = [...tags];
-    for (const tag of raw.split(',').map(cleanTag)) {
-      if (tag && !next.some(t => t.toLowerCase() === tag.toLowerCase())) {
-        next.push(tag);
-      }
-    }
+    const next = mergeRuleTags(tags, raw);
     if (next.length > tags.length) {
       onChange(next);
     }
@@ -452,15 +374,13 @@ function PreviewList({
 }
 
 function MatchRow({ m }: { m: PreviewMatch }) {
-  // The server counts the span in code points.
-  const chars = Array.from(m.title);
-  const [start, end] = m.span;
+  const [before, matched, after] = splitMatchSpan(m.title, m.span);
   return (
     <li class="tr-match">
       <a class="tr-match-title" href={`/tlx?lot=${m.lotId}`} target="_blank" rel="noopener">
-        {chars.slice(0, start).join('')}
-        <mark>{chars.slice(start, end).join('')}</mark>
-        {chars.slice(end).join('')}
+        {before}
+        <mark>{matched}</mark>
+        {after}
       </a>
       {m.lots > 1 && <span class="tr-count">×{format.num(m.lots)}</span>}
       <span class="tr-match-tags">

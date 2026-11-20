@@ -17,9 +17,9 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   applyCatalog(reply(1000, []));
 });
-const { lots, updateItemType } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/source.ts');
-const { categoryOf, computeFacets } = await vite.ssrLoadModule('/src/app/view.ts');
+const { lots, updateItemType } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
+const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/server/source.ts');
+const { categoryOf, computeFacets } = await vite.ssrLoadModule('/src/app/logic/view.ts');
 
 const lot = (id, title, itemType, fields = {}) => ({
   id,

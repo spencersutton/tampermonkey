@@ -14,12 +14,12 @@ const vite = await createServer({
 });
 after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
-const { applySetting } = await vite.ssrLoadModule('/src/app/settings.ts');
-const { lots, updateLot } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { DEFAULT_VIEW } = await vite.ssrLoadModule('/src/app/view.ts');
+const { applySetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
+const { lots, updateLot } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
+const { DEFAULT_VIEW } = await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { filteredOnly, gridView, openFiltered, openClosed, closed, page, setView, sidebarOpen } =
-  await vite.ssrLoadModule('/src/app/state.ts');
-const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/history.ts');
+  await vite.ssrLoadModule('/src/app/ui/state.ts');
+const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 
 const now = Date.now();
 const lot = (id, title, extra = {}) => ({

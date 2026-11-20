@@ -5,9 +5,10 @@ import { render } from 'preact';
 
 import './shared/arrayToSet';
 
-import './app/app.css';
+import './app/ui/app.css';
 import './tags/tags.css';
-import { AppLock, me, startAuth } from './app/auth';
+import { me, startAuth } from './app/server/auth';
+import { AppLock } from './app/ui/Auth';
 import { TagRulesPage } from './tags/TagRulesPage';
 
 function Root() {
