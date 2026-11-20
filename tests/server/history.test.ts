@@ -181,7 +181,7 @@ describe('identity', () => {
     expect(store.seq()).toBe(before);
   });
 
-  test('identity labels survive restarts and relisting, and reset clears them', () => {
+  test('identity labels survive restarts and relisting', () => {
     const { path, store, addOpen } = stores();
     addOpen(sold(1));
     store.saveLotTypes([[store.lot(1)!, 'driver']], { manual: true });
@@ -192,10 +192,6 @@ describe('identity', () => {
     reopened.replaceAll([fresh]);
     expect(reopened.lot(5)?.itemType).toBe('driver');
     expect(reopened.untypedItems()).toEqual([]);
-    const before = reopened.seq();
-    expect(reopened.resetItemTypes()).toBe(1);
-    expect(reopened.lot(5)).not.toHaveProperty('itemType');
-    expect(reopened.changes(before).lots.map(l => l.id)).toEqual([5]);
   });
 
   test('identity labels beat title-only automatic labels, but not manual corrections', () => {

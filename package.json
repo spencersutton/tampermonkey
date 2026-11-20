@@ -15,8 +15,7 @@
     "build:watch": "vite build --watch",
     "watch": "bun scripts/watch.ts",
     "test:web": "node --test 'tests/*.test.mjs'",
-    "test:server": "bun test ./tests/server/",
-    "itemtypes": "bun src/server/itemtypes-cli.ts"
+    "test:server": "bun test ./tests/server/"
   },
   "dependencies": {
     "@preact/signals": "^2.11.4",

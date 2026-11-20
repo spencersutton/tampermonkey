@@ -977,24 +977,6 @@ export class Store {
     });
   }
 
-  /**
-   * Forget every stored item type, giving the lots that had one a new sequence. Returns how many
-   * labels there were.
-   */
-  resetItemTypes(): number {
-    return this.tx(() => {
-      const previous = this.typeAssignments();
-      const n =
-        this.get<{ n: number }>('SELECT count(*) AS n FROM item_types')!.n +
-        this.get<{ n: number }>('SELECT count(*) AS n FROM identity_item_types')!.n;
-      this.run('DELETE FROM item_types');
-      this.run('DELETE FROM identity_item_types');
-      this.changedTypes();
-      this.touchChanges(previous, this.typeAssignments());
-      return n;
-    });
-  }
-
   // -- tags -------------------------------------------------------------------------------------
   /** Every tag rule, oldest first. */
   tagRules(): TagRule[] {

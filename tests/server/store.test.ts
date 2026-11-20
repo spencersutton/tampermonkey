@@ -204,15 +204,6 @@ describe('item types', () => {
     expect(store.lot(1)?.itemType).toBe('hammer drill');
   });
 
-  test('an explicit reset forgets manual and automatic types', () => {
-    store.saveLotTypes([label('Drill', 'drill driver')], { manual: true });
-    store.saveLotTypes([label('Saw', 'saw')]);
-    const before = store.seq();
-    expect(store.resetItemTypes()).toBe(2);
-    expect([store.lot(1)?.itemType, store.lot(3)?.itemType]).toEqual([undefined, undefined]);
-    expect(new Set(store.changes(before).lots.map(l => l.id))).toEqual(new Set([1, 2, 3]));
-  });
-
   test('common types are counted per site category', () => {
     store.saveLotTypes([
       label('Drill', 'drill driver'),
