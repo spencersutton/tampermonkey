@@ -102,6 +102,62 @@ describe('SiteSession', () => {
     expect(site.requests.length - before).toBe(1);
   });
 
+  test('an expired token cookie refreshes from the still-valid session cookie instead of logging out', async () => {
+    const store = new Store(':memory:');
+    const site = new FakeSite();
+    let shortLived = true;
+    const fetchWithMaxAge = (async (input: string | URL | Request, init?: RequestInit) => {
+      const res = await site.fetch(input, init);
+      if (new URL(String(input)).pathname === '/api/auth/session' && shortLived) {
+        const headers = new Headers(res.headers);
+        headers.set('Set-Cookie', `token=${site.token}; Path=/; Max-Age=1`);
+        return new Response(res.body, { status: res.status, headers });
+      }
+      return res;
+    }) as typeof fetch;
+
+    const s = new SiteSession(store, fetchWithMaxAge);
+    expect(await s.login('user@example.test', 'right')).toBeNull();
+    const first = site.token;
+    shortLived = false;
+    site.token = jwt(Date.now() / 1000 + 7200);
+
+    // Advance past the token cookie's Max-Age so live() drops it while the session cookie remains.
+    const realNow = Date.now;
+    Date.now = () => realNow() + 5000;
+    try {
+      expect(s.loggedIn()).toBe(true);
+      expect(await s.token()).toBe(site.token);
+      expect(await s.token()).not.toBe(first);
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test('non-200 replies from /api/auth/session do not wipe cookies or log out', async () => {
+    const store = new Store(':memory:');
+    const site = new FakeSite();
+    let overrideStatus: number | null = null;
+    const fetchWithErrors = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (new URL(String(input)).pathname === '/api/auth/session' && overrideStatus !== null) {
+        return new Response('<html>rate limited</html>', {
+          status: overrideStatus,
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+      return site.fetch(input, init);
+    }) as typeof fetch;
+
+    const s = new SiteSession(store, fetchWithErrors);
+    expect(await s.login('user@example.test', 'right')).toBeNull();
+    for (const status of [403, 429, 502]) {
+      overrideStatus = status;
+      expect(await s.refresh()).toBe(true);
+      expect(s.loggedIn()).toBe(true);
+      expect(store.getMeta('siteUser')).toEqual({ email: 'user@example.test', name: 'Test User' });
+    }
+  });
+
   test('tokenExpiry reads the exp claim', () => {
     expect(tokenExpiry(jwt(123))).toBe(123);
     expect(tokenExpiry('no-dots')).toBeNull();

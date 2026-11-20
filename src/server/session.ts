@@ -75,18 +75,25 @@ function parseSetCookie(header: string, now: number): Cookie | null {
     const value = rest.join('=').trim();
     switch (key.trim().toLowerCase()) {
       case 'domain':
-        cookie.domain = value ? `.${value.replace(/^\./, '')}` : cookie.domain;
+        cookie.domain = value ? `.${value.replace(/^\./, '').toLowerCase()}` : cookie.domain;
         break;
       case 'path':
         cookie.path = value.startsWith('/') ? value : '/';
         break;
-      case 'max-age':
+      case 'max-age': {
         // Max-Age wins over Expires.
-        cookie.expires = now + Number(value) * 1000;
+        const seconds = Number(value);
+        if (Number.isFinite(seconds)) {
+          cookie.expires = now + seconds * 1000;
+        }
         break;
+      }
       case 'expires':
         if (!attrs.some(a => a.trim().toLowerCase().startsWith('max-age='))) {
-          cookie.expires = Date.parse(value);
+          const parsed = Date.parse(value);
+          if (Number.isFinite(parsed)) {
+            cookie.expires = parsed;
+          }
         }
         break;
     }
@@ -214,7 +221,7 @@ export class SiteSession {
   // -- state ----------------------------------------------------------------
   /** A method, not a getter: TypeScript would assume it can't change across an await. */
   loggedIn(): boolean {
-    return this.user !== null && this.cookie('token') !== null;
+    return this.user !== null && this.live().length > 0;
   }
 
   status(): SiteStatus {
@@ -225,14 +232,15 @@ export class SiteSession {
     };
   }
 
-  /** The API bearer token, refreshed first if it's about to expire; null when logged out. */
+  /** The API bearer token, refreshed first if it's missing or about to expire; null when logged out. */
   token(): Promise<string | null> {
     return this.exclusive(async () => {
-      if (!this.loggedIn()) {
+      if (!this.user) {
         return null;
       }
-      const exp = tokenExpiry(this.cookie('token'));
-      if (exp !== null && exp - EXPIRY_MARGIN < Date.now() / 1000) {
+      const current = this.cookie('token');
+      const exp = tokenExpiry(current);
+      if (current === null || (exp !== null && exp - EXPIRY_MARGIN < Date.now() / 1000)) {
         await this.refreshNow(false);
       }
       return this.loggedIn() ? this.cookie('token') : null;
@@ -263,7 +271,8 @@ export class SiteSession {
       console.warn(`session refresh failed: ${String(e)}`); // offline: keep the current state
       return this.loggedIn();
     }
-    if (status >= 500) {
+    if (status !== 200) {
+      console.warn(`session refresh returned ${status}`);
       return this.loggedIn();
     }
     // Logged out is `{}`; a session whose refresh failed carries `error`.
@@ -282,8 +291,12 @@ export class SiteSession {
   /** The API rejected `token`: refresh once and return the new token, if any. */
   rejected(token: string): Promise<string | null> {
     return this.exclusive(async () => {
-      if (this.cookie('token') !== token) {
-        return this.loggedIn() ? this.cookie('token') : null;
+      if (!this.user) {
+        return null;
+      }
+      const current = this.cookie('token');
+      if (current !== null && current !== token) {
+        return current;
       }
       await this.refreshNow(true);
       const fresh = this.cookie('token');
