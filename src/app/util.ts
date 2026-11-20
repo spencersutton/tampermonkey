@@ -79,8 +79,9 @@ export function numericLabel(text: string): string | null {
   const [whole = '', fraction = ''] = value.replace(/^[-+]/, '').split('.');
   const integer = whole.replace(/^0+/, '') || '0';
   const decimal = fraction.replace(/0+$/, '');
-  const sign = value.startsWith('-') && (integer !== '0' || decimal) ? '-' : '';
-  return `${sign}${integer}${decimal ? `.${decimal}` : ''}`;
+  const isZero = integer === '0' && decimal === '';
+  const sign = value.startsWith('-') && !isZero ? '-' : '';
+  return decimal ? `${sign}${integer}.${decimal}` : `${sign}${integer}`;
 }
 
 /**
@@ -88,14 +89,18 @@ export function numericLabel(text: string): string | null {
  * "-.25"); null when any isn't (or there are none). Equal numbers keep their order.
  */
 export function numericOrder<T>(items: T[], text: (item: T) => string): T[] | null {
-  const nums = items.map(item => text(item).trim());
-  if (!nums.length || !nums.every(n => PLAIN_NUMBER.test(n))) {
+  if (items.length === 0) {
     return null;
   }
-  return items
-    .map((item, i) => ({ item, n: Number(nums[i]) }))
-    .toSorted((a, b) => a.n - b.n)
-    .map(x => x.item);
+  const entries: { item: T; value: number }[] = [];
+  for (const item of items) {
+    const raw = text(item).trim();
+    if (!PLAIN_NUMBER.test(raw)) {
+      return null;
+    }
+    entries.push({ item, value: Number(raw) });
+  }
+  return entries.toSorted((a, b) => a.value - b.value).map(e => e.item);
 }
 
 /**
@@ -106,7 +111,11 @@ export function observableSet<T>() {
   const items = signal<ReadonlySet<T>>(new Set());
   return {
     has: (v: T) => items.value.has(v),
-    add: (v: T) => void (items.value = new Set(items.value).add(v)),
+    add(v: T) {
+      const next = new Set(items.value);
+      next.add(v);
+      items.value = next;
+    },
     delete(v: T) {
       const next = new Set(items.value);
       next.delete(v);
@@ -118,24 +127,27 @@ export function observableSet<T>() {
 /** One clock signal per interval; its timer runs only while something reads it. */
 const clocks = new Map<number, Signal<number>>();
 
+function createClock(every: number): Signal<number> {
+  let timer = 0;
+  return signal(Date.now(), {
+    watched() {
+      this.value = Date.now();
+      timer = window.setInterval(() => {
+        this.value = Date.now();
+      }, every);
+    },
+    unwatched() {
+      clearInterval(timer);
+    },
+  });
+}
+
 /**
  * Current time, updated every `every` ms; read in a component or computed, it re-runs them on each
  * tick.
  */
 export function clock(every = 1000): number {
-  let s = clocks.get(every);
-  if (!s) {
-    let timer = 0;
-    s = signal(Date.now(), {
-      watched() {
-        this.value = Date.now();
-        timer = window.setInterval(() => (this.value = Date.now()), every);
-      },
-      unwatched: () => clearInterval(timer),
-    });
-    clocks.set(every, s);
-  }
-  return s.value;
+  return clocks.getOrInsertComputed(every, createClock).value;
 }
 
 /**
@@ -144,7 +156,8 @@ export function clock(every = 1000): number {
  */
 export function openHandler(open: () => void) {
   return (e: MouseEvent) => {
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+    const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+    if (e.defaultPrevented || e.button !== 0 || modified) {
       return;
     }
     e.preventDefault();
@@ -173,12 +186,12 @@ export function memoize<T, R>(fn: (arg: T) => R): (arg: T) => R {
  */
 export function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {
   let last: { arg: A; result: R } | null = null;
-  return function (arg) {
-    if (last?.arg === arg) {
-      return last.result;
-    } else {
-      last = { arg, result: fn(arg) };
+  return arg => {
+    if (last && last.arg === arg) {
       return last.result;
     }
+    const result = fn(arg);
+    last = { arg, result };
+    return result;
   };
 }
