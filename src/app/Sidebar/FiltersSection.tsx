@@ -23,7 +23,7 @@ import {
 } from '../view';
 import { CategoryList } from './CategoryList';
 import { Collapsible } from './Collapsible';
-import { saveFilterDefaults } from './filterShortcuts';
+import { applyFilterDefaults, saveFilterDefaults } from './filterShortcuts';
 import { NumberInput } from './NumberInput';
 
 /** A checkbox per facet value with its lot count; checking none means no filter. */
@@ -140,6 +140,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         categories: reset.categories,
         noCategories: reset.noCategories,
         conditions: reset.conditions,
+        excludedTypes: reset.excludedTypes,
       },
       reset,
     );
@@ -154,7 +155,13 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
           Clear
         </button>
         {canDefault && (
-          <button type="button" class="btn-text" onClick={() => setView(reset)}>
+          <button
+            type="button"
+            class="btn-text"
+            aria-keyshortcuts="Alt+D"
+            title="Switch to default filters (Alt+D)"
+            onClick={applyFilterDefaults}
+          >
             Default{n > 0 ? ` (${n})` : ''}
           </button>
         )}
@@ -245,14 +252,51 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         </button>
       </Collapsible>
 
-      {(facets.types.length > 0 || view.types.length > 0) && (
+      {(facets.types.length > 0 || view.types.length > 0 || view.excludedTypes.length > 0) && (
         <Collapsible id="f-type" title="Item type">
           <FacetList
             name="item types"
             facets={facets.types}
             selected={view.types}
-            onChange={types => setView({ types })}
+            onChange={types =>
+              setView({
+                types,
+                excludedTypes: view.excludedTypes.filter(t => !types.includes(t)),
+              })
+            }
           />
+          {view.excludedTypes.length > 0 && (
+            <div class="excluded-types">
+              <div class="excluded-types-head">
+                <span class="muted small">Hidden ({view.excludedTypes.length})</span>
+                <button
+                  type="button"
+                  class="btn-text"
+                  onClick={() => setView({ excludedTypes: [] })}
+                >
+                  Show all
+                </button>
+              </div>
+              <ul class="filter-list">
+                {view.excludedTypes.toSorted().map(t => (
+                  <li key={t} class="filter-row">
+                    <button
+                      type="button"
+                      class="filter-remove"
+                      aria-label={`Unhide item type ${t}`}
+                      title={`Unhide item type: ${t}`}
+                      onClick={() =>
+                        setView({ excludedTypes: view.excludedTypes.filter(x => x !== t) })
+                      }
+                    >
+                      <Icon name="cancel" size={16} />
+                    </button>
+                    <span class="filter-pattern">{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Collapsible>
       )}
 
@@ -299,9 +343,9 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         aria-keyshortcuts="Alt+Shift+D"
         disabled={sameDefaultFilters(view, defaults)}
         onClick={saveFilterDefaults}
-        title="Save the current category and condition selections as defaults (Alt+Shift+D)"
+        title="Save the current category, condition and hidden item type selections as defaults (Alt+Shift+D)"
       >
-        Save category &amp; condition defaults
+        Save default filters
       </button>
 
       <Collapsible id="f-price" title="Price">

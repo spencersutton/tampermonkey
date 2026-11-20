@@ -352,9 +352,13 @@ function AppDialogs() {
                 </dt>
                 <dd>Jump to the search box (outside text fields)</dd>
                 <dt>
+                  <kbd>Alt+D</kbd>
+                </dt>
+                <dd>Switch to default filters (outside text fields)</dd>
+                <dt>
                   <kbd>Alt+Shift+D</kbd>
                 </dt>
-                <dd>Save category &amp; condition defaults</dd>
+                <dd>Save default filters</dd>
                 <dt>
                   <kbd>Alt+Shift+E</kbd>
                 </dt>

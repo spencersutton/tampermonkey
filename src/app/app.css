@@ -1205,13 +1205,27 @@ h3 {
   min-width: 0;
 }
 
-.item-type-edit {
+.item-type-edit,
+.item-type-hide {
   display: inline-flex;
   align-items: center;
   flex: none;
   gap: 4px;
   padding: 4px;
   font-size: 12px;
+}
+
+.excluded-types {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.excluded-types-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
 }
 
 .item-type {

@@ -21,7 +21,7 @@ after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/settings.ts');
 const { lots } = await vite.ssrLoadModule('/src/app/catalog.ts');
-const { hideCategory, storedView, setView, page, rowOf, exclusionRules } =
+const { hideCategory, hideItemType, storedView, setView, page, rowOf, exclusionRules } =
   await vite.ssrLoadModule('/src/app/state.ts');
 const {
   DEFAULT_VIEW,
@@ -221,4 +221,41 @@ test('explicit empty categories round-trip through URLs and browser history', ()
   assert.deepEqual(navFromUrl('?noCategories=1').view, storedView.value);
   assert.equal(navFromUrl('?noCategories=0').view.noCategories, false);
   assert.equal(navFromUrl('?category=tools').view.noCategories, false);
+});
+
+test('the card exposes a hide item type button, preserves page/filters, and round-trips through URLs', async () => {
+  const { ItemTypeActions } = await vite.ssrLoadModule('/src/app/ItemType.tsx');
+  const itemTree = ItemTypeActions({ lot: fixtures[1] });
+  const hideBtn = nodes(itemTree).find(n => n.props?.class === 'icon-btn item-type-hide');
+  assert.ok(hideBtn);
+  assert.equal(hideBtn.props['aria-label'], 'Hide item type: drill');
+  assert.equal(hideBtn.props.title, 'Hide item type: drill');
+  page.value = 3;
+  hideBtn.props.onClick();
+  assert.deepEqual(storedView.value.excludedTypes, ['drill']);
+  assert.equal(page.value, 3, 'keeps loaded cards so the grid does not jump');
+  assert.deepEqual(visibleIds(), [1, 3]);
+  assert.equal(activeFilterCount(storedView.value), 1);
+
+  // Hiding an already-excluded item type is idempotent; URLs round-trip excludeType.
+  hideItemType('DRILL');
+  assert.deepEqual(storedView.value.excludedTypes, ['drill']);
+  assert.deepEqual(navFromUrl('?excludeType=drill&excludeType=hammer').view.excludedTypes, [
+    'drill',
+    'hammer',
+  ]);
+  const defaults = { categories: [], conditions: [], excludedTypes: ['drill'] };
+  assert.equal(sameDefaultFilters(storedView.value, defaults), true);
+  assert.deepEqual(initialView(null, defaults).excludedTypes, ['drill']);
+});
+
+test('regex filters match only lot titles, not item types', () => {
+  applySetting(KEYS.words, ['drill']);
+  applySetting(KEYS.filterOn, true);
+  applySetting(KEYS.removeFiltered, true);
+  // fixture(2) has title "Fixture 2" and itemType "drill" — regex filter must not match its itemType.
+  assert.deepEqual(visibleIds(), [1, 2, 3]);
+  applySetting(KEYS.words, ['Fixture 2']);
+  assert.deepEqual(visibleIds(), [1, 3]);
+  applySetting(KEYS.words, []);
 });

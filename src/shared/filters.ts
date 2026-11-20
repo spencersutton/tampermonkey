@@ -1,5 +1,4 @@
-// Each filter is a case-insensitive regex tested against the lot title, and
-// also against the item type, where it must match the whole item type.
+// Each filter is a case-insensitive regex tested against the lot title.
 // Every pattern is implicitly whole-word: a match may not start or end inside
 // a word. Unlike \b, this also holds next to punctuation, so `\(Gold\)` can
 // match at the end of a title.
@@ -16,24 +15,14 @@ export function compileFilter(pattern: string): RegExp | null {
 interface CompiledFilter {
   word: string;
   re: RegExp | null; // tested against the title
-  exact: RegExp | null; // must match the whole item type
 }
 
 /** Compile every non-blank filter word; invalid patterns keep `re: null` so the UI can flag them. */
 export function buildRegexes(words: string[]): CompiledFilter[] {
-  return words
-    .filter(w => w.trim())
-    .map(w => {
-      const re = compileFilter(w);
-      return { word: w, re, exact: re && new RegExp(`^(?:${w})$`, 'i') };
-    });
+  return words.filter(w => w.trim()).map(w => ({ word: w, re: compileFilter(w) }));
 }
 
-/** Whether a compiled filter matches a lot's title, or its whole item type. */
-export function filterMatches(
-  { re, exact }: CompiledFilter,
-  title: string,
-  itemType: string | null | undefined,
-): boolean {
-  return Boolean(re?.test(title) || (itemType && exact?.test(itemType.trim())));
+/** Whether a compiled filter matches a lot's title. */
+export function filterMatches({ re }: CompiledFilter, title: string): boolean {
+  return Boolean(re?.test(title));
 }

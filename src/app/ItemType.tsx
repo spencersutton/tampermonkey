@@ -6,7 +6,7 @@ import { lots } from './catalog';
 import { Dialog } from './Dialog';
 import { Icon } from './icons';
 import { setItemType } from './source';
-import { modalActions, setView } from './state';
+import { hideItemType, modalActions, setView, storedView } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
 import { errorMessage } from './util';
@@ -28,9 +28,23 @@ export function ItemTypeActions({ lot }: { lot: Lot }) {
             type="button"
             class="item-type"
             title={`Show only ${type}`}
-            onClick={() => setView({ types: [type] })}
+            onClick={() =>
+              setView({
+                types: [type],
+                excludedTypes: storedView.value.excludedTypes.filter(t => t !== type),
+              })
+            }
           >
             <span>{type}</span>
+          </button>
+          <button
+            type="button"
+            class="icon-btn item-type-hide"
+            title={`Hide item type: ${type}`}
+            aria-label={`Hide item type: ${type}`}
+            onClick={(e?: MouseEvent) => hideItemType(type, e?.currentTarget)}
+          >
+            <Icon name="visibilityOff" size={14} />
           </button>
           <button
             type="button"

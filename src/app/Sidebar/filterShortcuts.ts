@@ -1,7 +1,7 @@
 import { KEYS } from '../../shared/keys';
 import { getSetting, setSetting } from '../settings';
-import { filterFacets, modal, modalActions, openId, storedView } from '../state';
-import { sameDefaultFilters } from '../view';
+import { filterFacets, modal, modalActions, openId, setView, storedView } from '../state';
+import { defaultFilterView, sameDefaultFilters } from '../view';
 import { setAllCategoriesCollapsed } from './CategoryList';
 
 export function saveFilterDefaults() {
@@ -13,7 +13,13 @@ export function saveFilterDefaults() {
     categories: [...view.categories],
     conditions: [...view.conditions],
     ...(view.noCategories ? { noCategories: true } : {}),
+    ...(view.excludedTypes.length ? { excludedTypes: [...view.excludedTypes] } : {}),
   });
+}
+
+export function applyFilterDefaults() {
+  const view = storedView.value;
+  setView(defaultFilterView(getSetting(KEYS.defaultFilters), view.sort));
 }
 
 export function filterShortcuts(element: HTMLDivElement | null) {
@@ -53,6 +59,14 @@ export function filterShortcuts(element: HTMLDivElement | null) {
       event.preventDefault();
       search.focus();
       search.select();
+      return;
+    }
+    if (event.altKey && !event.shiftKey && event.code === 'KeyD') {
+      if (inField()) {
+        return;
+      }
+      event.preventDefault();
+      applyFilterDefaults();
       return;
     }
     if (!event.altKey || !event.shiftKey) {

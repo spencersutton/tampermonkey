@@ -133,6 +133,7 @@ export interface ViewState {
   categories: string[];
   noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
   types: string[]; // item types (lowercase)
+  excludedTypes: string[]; // item types to exclude (lowercase)
   brands: string[]; // brand keys (see brandKey)
   tags: string[]; // tag keys (toLower); OR within an attribute (or among plain tags), AND across them
   conditions: number[];
@@ -155,6 +156,7 @@ export const DEFAULT_VIEW: ViewState = {
   categories: [],
   noCategories: false,
   types: [],
+  excludedTypes: [],
   brands: [],
   tags: [],
   conditions: [],
@@ -180,6 +182,7 @@ export function normalizeView(v: unknown): ViewState {
   return {
     ...view,
     types: strings(view.types),
+    excludedTypes: strings(view.excludedTypes).map(toLower).toUnique(),
     brands: strings(view.brands),
     tags: strings(view.tags).map(toLower).toUnique(),
     noCategories: !view.categories.length && view.noCategories,
@@ -201,6 +204,7 @@ export function defaultFilterView(
     categories: [...defaults.categories],
     noCategories: !defaults.categories.length && defaults.noCategories === true,
     conditions: [...defaults.conditions],
+    excludedTypes: [...(defaults.excludedTypes ?? [])],
   };
 }
 
@@ -209,13 +213,14 @@ export function initialView(stored: unknown, defaults: DefaultFilters): ViewStat
   return stored == null ? defaultFilterView(defaults) : normalizeView(stored);
 }
 
-/** Compare category and condition selections without depending on their order. */
+/** Compare default filter selections without depending on their order. */
 export function sameDefaultFilters(view: DefaultFilters, defaults: DefaultFilters): boolean {
   const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every(v => b.includes(v));
   return (
     Boolean(view.noCategories) === Boolean(defaults.noCategories) &&
     same(view.categories, defaults.categories) &&
-    same(view.conditions, defaults.conditions)
+    same(view.conditions, defaults.conditions) &&
+    same(view.excludedTypes ?? [], defaults.excludedTypes ?? [])
   );
 }
 
@@ -225,6 +230,7 @@ export const activeFilterCount = (v: ViewState) =>
     v.search.trim(),
     v.categories.length || v.noCategories,
     v.types.length,
+    v.excludedTypes.length,
     v.brands.length,
     v.tags.length,
     v.conditions.length,
@@ -250,19 +256,15 @@ export interface Exclusions {
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
 
 /**
- * The filter words whose regex matches a lot's title or whole item type (in filter order), cached
- * by title and item type until the filter words change, so view changes don't re-run every regex on
- * every lot.
+ * The filter words whose regex matches a lot's title (in filter order), cached by title until the
+ * filter words change, so view changes don't re-run every regex on every lot.
  */
 const lotMatcher = memoLast((words: string[]) => {
   const compiled = buildRegexes(words);
-  const byKey = memoize((key: string) => {
-    const cut = key.indexOf('\u0000');
-    const itemType = key.slice(0, cut),
-      title = key.slice(cut + 1);
-    return compiled.filter(f => filterMatches(f, title, itemType)).map(({ word }) => word);
-  });
-  return (lot: Lot) => byKey(titleKey(lot));
+  const byTitle = memoize((title: string) =>
+    compiled.filter(f => filterMatches(f, title)).map(({ word }) => word),
+  );
+  return (lot: Lot) => byTitle(lot.title);
 });
 
 /** Prefix that keeps custom category values apart from the site's. */
@@ -744,6 +746,7 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
   const win = ENDING[v.ending].window?.(now);
   const newSince = v.newSince;
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
+  const excludedTypes = v.excludedTypes.toSet();
   const dims: Predicates['dims'] = [];
   if (v.noCategories || v.categories.length) {
     const category = oneOf(v.categories);
@@ -795,6 +798,7 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
     search: makeSearch(v, details),
     dims,
     base: ({ lot, total, pickupOnly }) =>
+      (!excludedTypes.size || lot.itemType == null || !excludedTypes.has(lot.itemType)) &&
       (newSince == null || firstSeenAfter(lot, newSince)) &&
       !(v.reachable && pickupOnly) &&
       (v.totalMax == null || total <= v.totalMax) &&

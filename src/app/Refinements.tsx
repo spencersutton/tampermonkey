@@ -72,6 +72,13 @@ function chipsFor(v: ViewState, pickup: string): Chip[] {
   for (const t of v.types) {
     chips.push({ key: `type:${t}`, label: t, remove: { types: without(v.types, t) } });
   }
+  for (const t of v.excludedTypes) {
+    chips.push({
+      key: `exType:${t}`,
+      label: `Hide: ${t}`,
+      remove: { excludedTypes: without(v.excludedTypes, t) },
+    });
+  }
   for (const b of v.brands) {
     chips.push({
       key: `brand:${b}`,

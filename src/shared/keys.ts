@@ -57,6 +57,7 @@ export interface DefaultFilters {
   categories: string[];
   noCategories?: boolean;
   conditions: number[];
+  excludedTypes?: string[];
 }
 
 /** Value returned for each setting when nothing has been saved yet. */

@@ -158,16 +158,10 @@ export function setView(patch: Partial<ViewState>) {
 }
 
 /**
- * Drop a category from the grid without moving the page: keep the cards already loaded, and put the
- * next card that survives where the clicked one was.
+ * Apply a filter change without jumping the page: keep the loaded cards and align the next
+ * surviving card where the clicked card was.
  */
-export function hideCategory(value: string, from?: EventTarget | null) {
-  const view = storedView.value;
-  const selected =
-    view.categories.length || view.noCategories
-      ? view.categories
-      : filterFacets.value.categories.map(f => f.value);
-  const categories = selected.filter(v => v !== value);
+function keepScrollAnchor(from: EventTarget | null | undefined, update: () => void) {
   const clicked =
     typeof Element !== 'undefined' && from instanceof Element
       ? from.closest('article[data-lot]')
@@ -178,7 +172,7 @@ export function hideCategory(value: string, from?: EventTarget | null) {
   const after = at >= 0 ? cards.slice(at + 1) : [];
   const before = at >= 0 ? cards.slice(0, at).toReversed() : [];
   const beforeTops = new Map(before.map(card => [card, card.getBoundingClientRect().top]));
-  setSetting(KEYS.view, { ...view, categories, noCategories: !categories.length });
+  update();
   if (anchorTop == null) {
     return;
   }
@@ -192,6 +186,38 @@ export function hideCategory(value: string, from?: EventTarget | null) {
     }
     const want = next ? anchorTop : beforeTops.get(target)!;
     window.scrollBy(0, target.getBoundingClientRect().top - want);
+  });
+}
+
+/**
+ * Drop a category from the grid without moving the page: keep the cards already loaded, and put the
+ * next card that survives where the clicked one was.
+ */
+export function hideCategory(value: string, from?: EventTarget | null) {
+  const view = storedView.value;
+  const selected =
+    view.categories.length || view.noCategories
+      ? view.categories
+      : filterFacets.value.categories.map(f => f.value);
+  const categories = selected.filter(v => v !== value);
+  keepScrollAnchor(from, () => {
+    setSetting(KEYS.view, { ...view, categories, noCategories: !categories.length });
+  });
+}
+
+/**
+ * Exclude an item type from the grid without moving the page: keep the cards already loaded, and
+ * put the next card that survives where the clicked one was.
+ */
+export function hideItemType(type: string, from?: EventTarget | null) {
+  const key = type.toLowerCase();
+  const view = storedView.value;
+  const excludedTypes = view.excludedTypes.includes(key)
+    ? view.excludedTypes
+    : [...view.excludedTypes, key];
+  const types = view.types.filter(t => t !== key);
+  keepScrollAnchor(from, () => {
+    setSetting(KEYS.view, { ...view, types, excludedTypes });
   });
 }
 

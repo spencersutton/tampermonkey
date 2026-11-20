@@ -145,7 +145,7 @@ test('default shortcut ignores unrelated keys, repeats, composition and open pop
   for (const event of [
     { code: 'KeyS' },
     { altKey: false },
-    { shiftKey: false },
+    { altKey: false, shiftKey: false },
     { ctrlKey: true },
     { metaKey: true },
     { repeat: true },
@@ -262,8 +262,48 @@ test('question mark opens a dismissible guide but leaves text entry and popups a
   const labels = nodes(guide)
     .filter(n => n.type === 'kbd')
     .map(n => n.props.children);
-  assert.deepEqual(labels, ['/', 'Alt+Shift+D', 'Alt+Shift+E', 'Alt+Shift+C', '?', 'Esc']);
+  assert.deepEqual(labels, ['/', 'Alt+D', 'Alt+Shift+D', 'Alt+Shift+E', 'Alt+Shift+C', '?', 'Esc']);
   guide.props.onClose();
   assert.equal(modal.value, null);
   assert.equal(keys.press({ ...question, key: undefined }), true);
+});
+
+test('Alt+D switches to saved default filters including excluded item types while preserving sort', t => {
+  const saved = { categories: ['tools'], conditions: [2], excludedTypes: ['hammer', 'drill'] };
+  const keys = shortcut(t, {
+    ...DEFAULT_VIEW,
+    sort: 'total-desc',
+    search: 'saw',
+    categories: ['garden'],
+    conditions: [1],
+    excludedTypes: ['rake'],
+  });
+  applySetting(KEYS.defaultFilters, saved);
+  // Ignored inside text inputs.
+  keys.ownerDocument.activeElement = { closest: () => ({}) };
+  assert.equal(keys.press({ code: 'KeyD', altKey: true, shiftKey: false }), false);
+  assert.equal(getSetting(KEYS.view).search, 'saw');
+  keys.ownerDocument.activeElement = null;
+  // Switches to saved defaults while keeping the current sort.
+  assert.equal(keys.press({ code: 'KeyD', altKey: true, shiftKey: false }), true);
+  assert.deepEqual(getSetting(KEYS.view), {
+    ...DEFAULT_VIEW,
+    sort: 'total-desc',
+    categories: ['tools'],
+    conditions: [2],
+    excludedTypes: ['hammer', 'drill'],
+  });
+  // Alt+Shift+D saves excluded item types alongside categories and conditions.
+  applySetting(KEYS.view, {
+    ...DEFAULT_VIEW,
+    categories: ['tools'],
+    conditions: [2],
+    excludedTypes: ['drill'],
+  });
+  assert.equal(keys.press({ code: 'KeyD', altKey: true, shiftKey: true }), true);
+  assert.deepEqual(getSetting(KEYS.defaultFilters), {
+    categories: ['tools'],
+    conditions: [2],
+    excludedTypes: ['drill'],
+  });
 });
