@@ -824,6 +824,22 @@ export class Store {
   }
 
   // -- lot details ------------------------------------------------------------------------
+  /** Open lots whose detail hasn't been fetched yet, ending soonest first. */
+  pendingDetails(): { id: number; auctionPeriod: string }[] {
+    return this.all(
+      `SELECT l.id, l.auction_period AS auctionPeriod
+       FROM lots l
+       LEFT JOIN lot_details d ON d.lot_id = l.id
+       WHERE d.lot_id IS NULL AND l.auction_period IS NOT NULL AND l.auction_period != ''
+       ORDER BY l.ends_at, l.id`,
+    );
+  }
+
+  /** Whether a lot's detail is already saved. */
+  hasLotDetail(id: number): boolean {
+    return this.get('SELECT 1 FROM lot_details WHERE lot_id = ?', id) !== null;
+  }
+
   /** Keep a lot's detail (RawLotDetail in src/shared/lot.ts), replacing the one fetched before. */
   saveLotDetail(d: Detail): void {
     this.tx(() => {

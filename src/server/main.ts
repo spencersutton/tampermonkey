@@ -13,6 +13,7 @@ import '../shared/arrayToSet';
 import { MINUTE } from '../shared/constants';
 import { createApp, LOCAL_HOSTS } from './app';
 import { Catalog } from './catalog';
+import { Details } from './details';
 import { History } from './history';
 import { DEFAULT_MODEL, DEFAULT_URL, Labeller } from './itemtypes';
 import { log, setVerbose } from './log';
@@ -98,21 +99,32 @@ function main() {
   const site = new SiteApi();
   const session = new SiteSession(store);
   const history = new History(store, site);
+  const details = new Details(store, site);
   const catalog = new Catalog(store, session, history, site);
   void catalog.runForever();
   void history.runForever();
+  void details.runForever();
   history.wake(); // finish what the last run left
+  details.wake(); // finish what the last run left
   const llmKey = args['llm-key'] ?? env('TLX_LLM_KEY');
+  let labeller: Labeller | null = null;
   if (llmKey) {
-    const labeller = new Labeller(
+    labeller = new Labeller(
       store,
       llmKey,
       args['llm-url'] ?? env('TLX_LLM_URL') ?? DEFAULT_URL,
       args['llm-model'] ?? env('TLX_LLM_MODEL') ?? DEFAULT_MODEL,
     );
-    catalog.afterPull = () => labeller.wake();
     void labeller.runForever();
   }
+  catalog.afterPull = () => {
+    details.wake();
+    labeller?.wake();
+  };
+  details.afterFetch = () => {
+    history.wake();
+    labeller?.wake();
+  };
   setInterval(() => void session.token(), TOKEN_CHECK_MS);
 
   const app = createApp({
