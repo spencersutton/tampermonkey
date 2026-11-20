@@ -3,8 +3,6 @@ import { signal, type Signal } from '@preact/signals';
 import { DAY, HOUR, MINUTE } from '../shared/constants';
 import * as format from '../shared/format';
 
-const pad2 = (n: number) => String(n).padStart(2, '0');
-
 const duration = new Intl.DurationFormat([], { style: 'narrow' });
 
 /**
@@ -52,8 +50,13 @@ export function ago(ts: number, now: number) {
 
 /** Remaining time as "m:ss", or "Ns" under a minute. */
 export function countdown(ms: number) {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return s >= 60 ? `${Math.floor(s / 60)}:${pad2(s % 60)}` : `${s}s`;
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
 }
 
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
