@@ -21,13 +21,7 @@ export function saveCustomCategories(
     }
   }
 
-  // Drop restrictions saved by older versions when the categories are next saved.
-  setSetting(
-    KEYS.customCategories,
-    categories.map(
-      ({ within: _within, ...category }: CustomCategory & { within?: string }) => category,
-    ),
-  );
+  setSetting(KEYS.customCategories, categories);
   if (!changes.size) {
     return;
   }

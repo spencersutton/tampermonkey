@@ -124,8 +124,8 @@ describe('/api/item-type', () => {
           .map(l => l.itemType),
       ),
     ).toEqual(new Set(['drill driver']));
-    s.store.saveItemTypes({ Drill: ['battery', 'tools'] });
-    expect(s.store.itemTypes(['Drill'])).toEqual({ Drill: 'drill driver' });
+    s.store.saveLotTypes([[{ title: 'Drill', category: { value: 'tools' } }, 'battery']]);
+    expect(s.store.lot(1)?.itemType).toBe('drill driver');
   });
 
   test('corrections follow the same identity, not the same title of another model', async () => {
@@ -182,7 +182,7 @@ describe('/api/item-type', () => {
     const res = await s.request('/api/item-type', { method: 'PUT', body: '{}' });
     expect(res.status).toBe(403);
     expect((await put(s, { lotId: 1, itemType: 'drill driver' }))[0]).toBe(401);
-    expect(s.store.itemTypes(['Drill'])).toEqual({});
+    expect(s.store.lot(1)?.itemType).toBeUndefined();
     s.store.addSession('test-session');
     expect(
       (

@@ -234,7 +234,7 @@ describe('item type labeller', () => {
       { id: 2, title: 'alpha drill', category: { value: 'tools', label: 'Tools' } },
       { id: 3, title: 'Rug', category: null },
     ]);
-    store.saveItemTypes({ Old: ['saw', 'tools'] });
+    store.saveLotTypes([[{ title: 'Old', category: { value: 'tools' } }, 'saw']]);
     const bodies: { messages: { content: string }[]; model: string }[] = [];
     const llm = (async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));

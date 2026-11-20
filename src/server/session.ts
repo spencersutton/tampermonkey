@@ -118,18 +118,10 @@ export class SiteSession {
   }
 
   // -- cookies --------------------------------------------------------------
-  /** Restore saved cookies, or the older {name: value} form (taken as host cookies for the site). */
+  /** Restore saved cookies. */
   private loadCookies(saved: unknown) {
-    const list = isRecord(saved)
-      ? Object.entries(saved).map(([name, value]) => ({
-          name,
-          value,
-          domain: SITE_HOST,
-          path: '/',
-        }))
-      : saved;
     this.cookies = [];
-    for (const c of Array.isArray(list) ? (list as unknown[]) : []) {
+    for (const c of Array.isArray(saved) ? (saved as unknown[]) : []) {
       const [name, value, domain, path] = ['name', 'value', 'domain', 'path'].map(k => field(c, k));
       if (name != null && value != null && domain != null && path != null) {
         this.cookies.push({ name, value, domain, path });

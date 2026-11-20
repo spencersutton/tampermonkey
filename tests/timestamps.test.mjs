@@ -34,7 +34,7 @@ test('ignores browser copies of server-backed timestamp settings', () => {
 
 test('restores serialized new-since filters', () => {
   assert.equal(normalizeView({ newSince: 123 }).newSince, 123);
-  assert.equal(normalizeView({ newSince: '1970-01-01T00:00:00.123Z' }).newSince, 123);
+  assert.equal(normalizeView({ newSince: '1970-01-01T00:00:00.123Z' }).newSince, null);
 });
 
 test('compares and formats epoch-ms timestamps', () => {

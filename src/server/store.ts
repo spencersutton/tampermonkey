@@ -8,12 +8,10 @@
 // A lot is a row of `lots` with its site category, condition and location in
 // lookup tables, its images in `lot_images`, its item type joined from
 // `identity_item_types` by brand/model (or `item_types` by title when identity
-// is missing), its tags joined the same way from `item_tags` (brand and model
-// are '' for a title-only row) plus those of every `tag_rules` pattern its
-// title matches, and its most recent past closes in `lot_past_closes`,
-// pointing at `closed_lots`. The store hands lots out, and takes them in, as
-// one object each, in the shape the app gets them (ServerLot in
-// src/app/source.ts).
+// is missing), its tags from every `tag_rules` pattern its title matches, and
+// its most recent past closes in `lot_past_closes`, pointing at `closed_lots`.
+// The store hands lots out, and takes them in, as one object each, in the shape
+// the app gets them (ServerLot in src/app/source.ts).
 //
 // Every full pull that changes anything gets a new sequence number, and each
 // lot row records the sequence of its last change, so a client that has seen
@@ -72,10 +70,6 @@ CREATE TABLE IF NOT EXISTS item_types (
 CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
 CREATE TABLE IF NOT EXISTS identity_item_types (
   brand TEXT NOT NULL, model TEXT NOT NULL, title TEXT NOT NULL, type TEXT NOT NULL, category TEXT,
-  at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (brand, model, title)
-);
-CREATE TABLE IF NOT EXISTS item_tags (
-  brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL, tags TEXT NOT NULL,
   at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (brand, model, title)
 );
 CREATE TABLE IF NOT EXISTS tag_rules (
@@ -278,9 +272,9 @@ function closedRow(lot: Lot, final: number): SQLQueryBindings[] {
   ];
 }
 
-/** An image as lot_details.images keeps it (older rows have no position: they are in order). */
+/** An image as lot_details.images keeps it. */
 interface SavedImage {
-  position?: number;
+  position: number;
   thumb: string;
   card: string;
   large: string;
@@ -307,7 +301,6 @@ export class Store {
   readonly db: Database;
   // Indexes rebuilt only after their tables change (this process makes every change).
   private typeIndexCache: ItemTypeIndex | null = null;
-  private tagIndexCache: ItemTypeIndex | null = null;
   private rulesCache: CompiledRule[] | null = null;
   private lastStamp = 0;
 
@@ -320,21 +313,6 @@ export class Store {
     this.db.run('PRAGMA journal_mode=WAL');
     this.db.run('PRAGMA busy_timeout=5000');
     this.db.run(SCHEMA);
-    const columns = (table: string) =>
-      this.db
-        .query<{ name: string }, []>(`PRAGMA table_info(${table})`)
-        .all()
-        .map(r => r.name)
-        .toSet();
-    if (!columns('item_types').has('manual')) {
-      this.db.run('ALTER TABLE item_types ADD COLUMN manual INTEGER NOT NULL DEFAULT 0');
-    }
-    if (!columns('lot_details').has('images')) {
-      this.db.run('ALTER TABLE lot_details ADD COLUMN images TEXT');
-    }
-    if (!columns('lots').has('group_id')) {
-      this.db.run('ALTER TABLE lots ADD COLUMN group_id INTEGER');
-    }
     if (file) {
       chmodSync(path, 0o600); // holds the site login cookies
     }
@@ -421,7 +399,7 @@ export class Store {
       fee: number | null;
       price: number | null;
       retail: number | null;
-      ends: string | number | null; // as the site sent it; epoch ms in older databases
+      ends: string | null;
       status: string | null;
       version: number | null;
       bids: number | null;
@@ -459,7 +437,7 @@ export class Store {
         transfer_fee: r.fee,
         current_price: r.price,
         estimated_retail_price: r.retail,
-        ends_at: typeof r.ends === 'number' ? new Date(r.ends).toISOString() : r.ends,
+        ends_at: r.ends,
         status: r.status,
         version: r.version,
         bid_count: r.bids,
@@ -546,28 +524,6 @@ export class Store {
     return this.typeIndexCache;
   }
 
-  private tagIndex(): ItemTypeIndex {
-    // The index ranks records by "type"; the JSON tag list stands in for it.
-    this.tagIndexCache ??= new ItemTypeIndex(
-      this.all<{
-        title: string;
-        tags: string;
-        at: number;
-        manual: number;
-        brand: string;
-        model: string;
-      }>('SELECT title, tags, at, manual, brand, model FROM item_tags').map(r => ({
-        title: r.title,
-        type: r.tags,
-        at: r.at,
-        manual: Boolean(r.manual),
-        brand: r.brand || null,
-        model: r.model || null,
-      })),
-    );
-    return this.tagIndexCache;
-  }
-
   private compiledRules(): CompiledRule[] {
     this.rulesCache ??= this.tagRules().map(r => new CompiledRule(r.pattern, r.tags));
     return this.rulesCache;
@@ -578,7 +534,6 @@ export class Store {
   }
 
   private changedTags() {
-    this.tagIndexCache = null;
     this.rulesCache = null;
   }
 
@@ -604,7 +559,6 @@ export class Store {
     const list = [...lots];
     this.annotateIdentities(list, 'id');
     const index = this.typeIndex();
-    const tagIndex = this.tagIndex();
     const rules = this.compiledRules();
     for (const lot of list) {
       const record = index.match(lot);
@@ -613,11 +567,7 @@ export class Store {
       } else {
         delete lot.itemType;
       }
-      const tagRecord = tagIndex.match(lot);
-      const tags: string[] = tagRecord ? jsonList(tagRecord.type) : [];
-      for (const rule of rules) {
-        tags.push(...(rule.tagsFor(lot.title) ?? []));
-      }
+      const tags = rules.flatMap(rule => rule.tagsFor(lot.title) ?? []);
       if (tags.length) {
         lot.tags = uniqueTags(tags);
       } else {
@@ -937,8 +887,8 @@ export class Store {
     };
     if (row.images !== null) {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- saved by saveLotDetail
-      metadata.images = (JSON.parse(row.images) as SavedImage[]).map((im, i) => ({
-        position: im.position ?? i,
+      metadata.images = (JSON.parse(row.images) as SavedImage[]).map(im => ({
+        position: im.position,
         image_thumb: im.thumb,
         image_card: im.card,
         image_large: im.large,
@@ -948,19 +898,6 @@ export class Store {
   }
 
   // -- item types ----------------------------------------------------------------------------
-  /** The stored item type of each of these titles that has one. */
-  itemTypes(titles: Iterable<string>): Record<string, string> {
-    const index = this.typeIndex();
-    const out: Record<string, string> = {};
-    for (const title of titles) {
-      const record = index.match({ title });
-      if (record) {
-        out[title] = record.type;
-      }
-    }
-    return out;
-  }
-
   /** Stored lots without an item type. */
   untypedItems(): Lot[] {
     return this.load()
@@ -978,23 +915,6 @@ export class Store {
       category,
       limit,
     ).map(r => r.type);
-  }
-
-  /**
-   * Store title-only labels ({title: [type, category]}); lots with an identity go through
-   * saveLotTypes.
-   */
-  saveItemTypes(
-    types: Record<string, [string, string | null]>,
-    options: { manual?: boolean } = {},
-  ): void {
-    this.saveLotTypes(
-      Object.entries(types).map(([title, [type, category]]) => [
-        { title, category: category === null ? null : { value: category } },
-        type,
-      ]),
-      options,
-    );
   }
 
   /**
@@ -1060,54 +980,6 @@ export class Store {
   }
 
   // -- tags -------------------------------------------------------------------------------------
-  /**
-   * Store each lot's tags (tidied), by brand/model when both are known, else by exact title, so
-   * relistings keep them. Automatic tags never replace manual ones. Returns the new tags of the
-   * lots whose tags changed, by lot id.
-   */
-  saveLotTags(
-    labels: Iterable<[Item, string[]]>,
-    { manual = false } = {},
-  ): Map<number, string[] | null> {
-    return this.tx(() => {
-      const previous = this.tagAssignments();
-      const index = this.tagIndex();
-      for (const [lot, tags] of labels) {
-        const record = index.match(lot);
-        if (!manual && record?.manual) {
-          continue;
-        }
-        const [brand = '', model = ''] = brandModelKey(lot)?.split('\n') ?? [];
-        this.run(
-          'INSERT OR REPLACE INTO item_tags (brand, model, title, tags, at, manual) VALUES (?, ?, ?, ?, ?, ?)',
-          brand,
-          model,
-          lot.title,
-          JSON.stringify(cleanTags(tags)),
-          this.stamp(),
-          manual ? 1 : 0,
-        );
-      }
-      this.changedTags();
-      return this.touchChanges(previous, this.tagAssignments());
-    });
-  }
-
-  /**
-   * Forget every stored tag (rules are kept), giving the lots that had some a new sequence. Returns
-   * how many rows there were.
-   */
-  resetTags(): number {
-    return this.tx(() => {
-      const previous = this.tagAssignments();
-      const n = this.get<{ n: number }>('SELECT count(*) AS n FROM item_tags')!.n;
-      this.run('DELETE FROM item_tags');
-      this.changedTags();
-      this.touchChanges(previous, this.tagAssignments());
-      return n;
-    });
-  }
-
   /** Every tag rule, oldest first. */
   tagRules(): TagRule[] {
     return this.all<{ id: number; pattern: string; tags: string }>(

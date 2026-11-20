@@ -1,9 +1,7 @@
 // Tag rules: tags given to every lot whose title matches a regular expression
 // (case-insensitive, anywhere in the title). A tag can use what the pattern
 // captured: $1 for the first group, ${name} for (?<name>...), $0 for the whole
-// match, $$ for a dollar sign. Patterns are JavaScript regular expressions;
-// Python's (?P<name>...) and (?P=name), which rules saved by the old Python
-// server may use, are read as their JavaScript equivalents.
+// match, $$ for a dollar sign. Patterns are JavaScript regular expressions.
 import { cleanTag } from '../shared/tags';
 
 const MAX_TAG_PATTERN = 300;
@@ -49,9 +47,8 @@ export function compileTagPattern(pattern: string): RegExp {
   if (pattern.length > MAX_TAG_PATTERN) {
     throw new PatternError(`pattern is over ${MAX_TAG_PATTERN} characters`);
   }
-  const source = pattern.replaceAll('(?P<', '(?<').replace(/\(\?P=(\w+)\)/g, '\\k<$1>');
   try {
-    return new RegExp(source, 'i');
+    return new RegExp(pattern, 'i');
   } catch (e) {
     const message =
       e instanceof Error ? e.message.replace(/^Invalid regular expression: /, '') : String(e);

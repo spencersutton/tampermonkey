@@ -175,13 +175,6 @@ export function normalizeView(v: unknown): ViewState {
     ...DEFAULT_VIEW,
     ...(v && typeof v === 'object' ? (v as Partial<ViewState>) : {}),
   };
-  const rawNewSince: unknown = view.newSince;
-  let newSince: number | null = null;
-  if (typeof rawNewSince === 'number') {
-    newSince = rawNewSince;
-  } else if (typeof rawNewSince === 'string') {
-    newSince = Date.parse(rawNewSince); // ISO text from older history entries
-  }
   const strings = (a: unknown): string[] =>
     Array.isArray(a) ? a.filter((x): x is string => typeof x === 'string') : [];
   return {
@@ -190,7 +183,7 @@ export function normalizeView(v: unknown): ViewState {
     brands: strings(view.brands),
     tags: strings(view.tags).map(toLower).toUnique(),
     noCategories: !view.categories.length && view.noCategories,
-    newSince,
+    newSince: typeof view.newSince === 'number' ? view.newSince : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
     ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
     mine: Object.hasOwn(MINE, view.mine) ? view.mine : DEFAULT_VIEW.mine,

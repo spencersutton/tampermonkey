@@ -1,7 +1,6 @@
 // Past closes, duplicate groups and final prices (src/server/history.ts), and
 // item identity across the store, ported from the Python server's
 // test_matching.py and test_identity.py.
-import { Database } from 'bun:sqlite';
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -106,18 +105,6 @@ describe('stored matching', () => {
     history.relisted(closed);
     expect(closed.map(c => (c['relisted'] as number[]).toSorted())).toEqual([[1], [5], [2]]);
   });
-
-  test('databases from before groups are upgraded', () => {
-    const { path, addOpen, store } = stores();
-    addOpen(item(1), item(2));
-    store.close();
-    const db = new Database(path);
-    db.run('ALTER TABLE lots DROP COLUMN group_id');
-    db.close();
-    const reopened = new Store(path);
-    new History(reopened, noSite).refresh();
-    expect(reopened.lot(2)?.groupId).toBe(1);
-  });
 });
 
 describe('identity', () => {
@@ -213,11 +200,12 @@ describe('identity', () => {
 
   test('identity labels beat title-only automatic labels, but not manual corrections', () => {
     const { store, addOpen } = stores();
+    const titleOnly = { title: 'Cordless drill', category: { value: 'tools' } };
     addOpen(sold(1));
     store.saveLotTypes([[store.lot(1)!, 'driver']]);
-    store.saveItemTypes({ 'Cordless drill': ['battery', 'tools'] });
+    store.saveLotTypes([[titleOnly, 'battery']]);
     expect(store.lot(1)?.itemType).toBe('driver');
-    store.saveItemTypes({ 'Cordless drill': ['hammer drill', 'tools'] }, { manual: true });
+    store.saveLotTypes([[titleOnly, 'hammer drill']], { manual: true });
     expect(store.lot(1)?.itemType).toBe('hammer drill');
     store.saveLotTypes([[store.lot(1)!, 'driver']]);
     expect(store.lot(1)?.itemType).toBe('hammer drill');
@@ -226,7 +214,9 @@ describe('identity', () => {
   test('the latest manual correction wins when either identity is missing', () => {
     const { store, addOpen } = stores();
     addOpen(sold(1), sold(2, 'Cordless drill', { model: null }));
-    store.saveItemTypes({ 'Cordless drill': ['battery', 'tools'] }, { manual: true });
+    store.saveLotTypes([[{ title: 'Cordless drill', category: { value: 'tools' } }, 'battery']], {
+      manual: true,
+    });
     store.saveLotTypes([[store.lot(1)!, 'driver']], { manual: true });
     expect(store.lot(2)?.itemType).toBe('driver');
     store.saveLotTypes([[store.lot(2)!, 'hammer drill']], { manual: true });

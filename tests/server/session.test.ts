@@ -65,17 +65,6 @@ describe('SiteSession', () => {
     expect(await session().token()).toBe(site.token);
   });
 
-  test('cookies saved in the older name/value form still load', async () => {
-    const { store, site, session } = setup();
-    site.sessionCookie = 'session-1';
-    store.setMeta('siteCookies', { session: 'session-1', token: site.token });
-    store.setMeta('siteUser', { email: 'user@example.test', name: null });
-    const s = session();
-    expect(s.loggedIn()).toBe(true);
-    expect(await s.refresh()).toBe(true);
-    expect(site.requests.at(-1)?.cookie).toContain('session=session-1');
-  });
-
   test('a session the site ended logs out', async () => {
     const { store, site, session } = setup();
     const s = session();

@@ -14,7 +14,7 @@ store.replaceAll([
   { id: 1, title: 'Satin Nickel Knob' },
   { id: 2, title: 'Brass Pull' },
 ]);
-store.saveItemTypes({ 'Brass Pull': ['cabinet pull', null] });
+store.saveLotTypes([[{ title: 'Brass Pull', category: null }, 'cabinet pull']]);
 store.close();
 
 const SERVER = new URL('../../src/server/', import.meta.url).pathname;

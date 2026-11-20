@@ -1,6 +1,5 @@
 // The store (src/server/store.ts), ported from the Python server's
 // test_brands.py, test_metadata.py, test_itemtypes.py and test_tags.py.
-import { Database } from 'bun:sqlite';
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -134,49 +133,6 @@ describe('lot metadata', () => {
       images: [],
     });
   });
-
-  test('older databases migrate without losing descriptions or inventing images', () => {
-    const path = dbPath();
-    const db = new Database(path);
-    db.run(`CREATE TABLE lot_details (
-      lot_id INTEGER PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT,
-      current_price NUMERIC, description TEXT, brand TEXT, model TEXT, lot_fee NUMERIC,
-      bid_history TEXT NOT NULL, fetched_at INTEGER NOT NULL)`);
-    db.run('INSERT INTO lot_details VALUES (1, ?, ?, ?, 17, ?, ?, ?, 2, ?, 1)', [
-      'test',
-      'Drill',
-      'open',
-      'Legacy description',
-      'Acme',
-      'D1',
-      '[]',
-    ]);
-    db.run(
-      'CREATE TABLE item_types (title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL)',
-    );
-    db.run("INSERT INTO item_types VALUES ('Drill', 'battery', 'tools', 0)");
-    db.close();
-    const migrated = new Store(path);
-    expect(migrated.lotMetadata(1, 'test')).toEqual({
-      description: 'Legacy description',
-      brand: 'Acme',
-      model: 'D1',
-      lot_fee: 2,
-    });
-    migrated.saveLotDetail(raw);
-    expect(migrated.lotMetadata(1, 'test')).toEqual(expected);
-    expect(migrated.itemTypes(['Drill'])).toEqual({ Drill: 'battery' });
-    migrated.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
-    migrated.saveItemTypes({ Drill: ['battery', 'tools'] });
-    expect(migrated.itemTypes(['Drill'])).toEqual({ Drill: 'drill driver' });
-  });
-
-  test('end times saved as epoch ms by older servers load as ISO 8601', () => {
-    const store = new Store(':memory:');
-    store.replaceAll([rawLot()]);
-    store.db.run('UPDATE lots SET ends_at = ?', [Date.UTC(2030, 0, 1)]);
-    expect(store.lot(1)?.ends_at).toBe('2030-01-01T00:00:00.000Z');
-  });
 });
 
 const item = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({
@@ -190,6 +146,11 @@ const item = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({
 describe('item types', () => {
   let path: string;
   let store: Store;
+  const tools = { value: 'tools' };
+  const label = (
+    title: string,
+    type: string,
+  ): [{ title: string; category: { value: string } }, string] => [{ title, category: tools }, type];
   beforeEach(() => {
     path = dbPath();
     store = new Store(path);
@@ -197,17 +158,17 @@ describe('item types', () => {
   });
 
   test('a manual correction touches every exact title match and leaves other lots alone', () => {
-    store.saveItemTypes({ Drill: ['battery', 'tools'], Saw: ['saw', 'tools'] });
+    store.saveLotTypes([label('Drill', 'battery'), label('Saw', 'saw')]);
     const before = store.seq();
-    store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
+    store.saveLotTypes([label('Drill', 'drill driver')], { manual: true });
     const changes = store.changes(before);
     expect(new Set(changes.lots.map(l => l.id))).toEqual(new Set([1, 2]));
     expect(changes.lots.every(l => l.itemType === 'drill driver')).toBe(true);
-    expect(store.itemTypes(['Drill', 'Saw'])).toEqual({ Drill: 'drill driver', Saw: 'saw' });
+    expect([store.lot(1)?.itemType, store.lot(3)?.itemType]).toEqual(['drill driver', 'saw']);
   });
 
   test('corrections survive reopening, catalog refreshes and future relistings', () => {
-    store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
+    store.saveLotTypes([label('Drill', 'drill driver')], { manual: true });
     const reopened = new Store(path);
     reopened.replaceAll([item(1, 'Drill', { current_price: 20 }), item(4)]);
     expect(
@@ -223,41 +184,41 @@ describe('item types', () => {
   });
 
   test('automatic writes never replace corrections or bump their sequence', () => {
-    store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
+    store.saveLotTypes([label('Drill', 'drill driver')], { manual: true });
     const before = store.seq();
-    store.saveItemTypes({ Drill: ['battery', 'tools'] });
+    store.saveLotTypes([label('Drill', 'battery')]);
     expect(store.seq()).toBe(before);
-    expect(store.itemTypes(['Drill'])).toEqual({ Drill: 'drill driver' });
-    store.saveItemTypes({ Drill: ['battery', 'tools'], Saw: ['saw', 'tools'] });
+    expect(store.lot(1)?.itemType).toBe('drill driver');
+    store.saveLotTypes([label('Drill', 'battery'), label('Saw', 'saw')]);
     expect(store.changes(before).lots.map(l => l.id)).toEqual([3]);
   });
 
   test('the same type can be marked manual, then corrected, without an unneeded delta', () => {
-    store.saveItemTypes({ Drill: ['drill driver', 'tools'] });
+    store.saveLotTypes([label('Drill', 'drill driver')]);
     const before = store.seq();
-    store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
+    store.saveLotTypes([label('Drill', 'drill driver')], { manual: true });
     expect(store.seq()).toBe(before);
-    store.saveItemTypes({ Drill: ['battery', 'tools'] });
+    store.saveLotTypes([label('Drill', 'battery')]);
     expect(store.seq()).toBe(before);
-    store.saveItemTypes({ Drill: ['hammer drill', 'tools'] }, { manual: true });
-    expect(store.itemTypes(['Drill'])).toEqual({ Drill: 'hammer drill' });
+    store.saveLotTypes([label('Drill', 'hammer drill')], { manual: true });
+    expect(store.lot(1)?.itemType).toBe('hammer drill');
   });
 
   test('an explicit reset forgets manual and automatic types', () => {
-    store.saveItemTypes({ Drill: ['drill driver', 'tools'] }, { manual: true });
-    store.saveItemTypes({ Saw: ['saw', 'tools'] });
+    store.saveLotTypes([label('Drill', 'drill driver')], { manual: true });
+    store.saveLotTypes([label('Saw', 'saw')]);
     const before = store.seq();
     expect(store.resetItemTypes()).toBe(2);
-    expect(store.itemTypes(['Drill', 'Saw'])).toEqual({});
+    expect([store.lot(1)?.itemType, store.lot(3)?.itemType]).toEqual([undefined, undefined]);
     expect(new Set(store.changes(before).lots.map(l => l.id))).toEqual(new Set([1, 2, 3]));
   });
 
   test('common types are counted per site category', () => {
-    store.saveItemTypes({
-      Drill: ['drill driver', 'tools'],
-      Saw: ['saw', 'tools'],
-      Other: ['saw', 'tools'],
-    });
+    store.saveLotTypes([
+      label('Drill', 'drill driver'),
+      label('Saw', 'saw'),
+      label('Other', 'saw'),
+    ]);
     expect(store.commonTypes('tools', 5)).toEqual(['saw', 'drill driver']);
     expect(store.commonTypes(null, 5)).toEqual([]);
   });
@@ -281,50 +242,6 @@ describe('tags', () => {
       'Brass',
       'Finish: Brass',
     ]);
-  });
-
-  describe('on lots', () => {
-    let store: Store;
-    beforeEach(() => {
-      store = new Store(':memory:');
-      store.replaceAll([knob(1), knob(2), knob(3, 'Pull')]);
-    });
-
-    test('tags follow exact titles and bump the sequence', () => {
-      const seq = store.seq();
-      const changed = store.saveLotTags([[knob(1), ['Cabinet Knob', 'Finish: Satin Nickel']]]);
-      const tags = ['Cabinet Knob', 'Finish: Satin Nickel'];
-      expect(changed).toEqual(
-        new Map([
-          [1, tags],
-          [2, tags],
-        ]),
-      );
-      const changes = store.changes(seq);
-      expect(changes.lots.map(l => l.id).toSorted()).toEqual([1, 2]);
-      expect(changes.lots[0]?.tags).toEqual(tags);
-      expect(store.lot(3)).not.toHaveProperty('tags');
-    });
-
-    test('brand and model identify items across titles', () => {
-      store.saveLotDetail({ id: 1, title: 'Knob', brand: 'Mila', model: 'K-1', bid_history: [] });
-      store.saveLotDetail({ id: 3, title: 'Pull', brand: 'MILA', model: 'k-1', bid_history: [] });
-      store.saveLotTags([[store.lot(1)!, ['finish: brass']]]);
-      expect(store.lot(3)?.tags).toEqual(['finish: brass']);
-      // Lot 2 has no brand/model, so it falls back to the exact title, as item types do.
-      expect(store.lot(2)?.tags).toEqual(['finish: brass']);
-    });
-
-    test('automatic tags never replace manual ones, and reset clears them all', () => {
-      store.saveLotTags([[knob(1), ['finish: brass']]], { manual: true });
-      store.saveLotTags([[knob(1), ['finish: chrome']]]);
-      expect(store.lot(1)?.tags).toEqual(['finish: brass']);
-      store.saveLotTags([[knob(1), []]], { manual: true });
-      expect(store.lot(1)).not.toHaveProperty('tags');
-      store.saveLotTags([[knob(3, 'Pull'), ['x']]]);
-      expect(store.resetTags()).toBe(2);
-      expect(store.lot(3)).not.toHaveProperty('tags');
-    });
   });
 
   describe('rules', () => {
@@ -353,27 +270,15 @@ describe('tags', () => {
       expect(tags(3)).toBeUndefined();
     });
 
-    test('rule tags merge with lot tags without repeats', () => {
-      store.saveLotTags(
-        [
-          [
-            knob(1, 'Mila Satin Nickel Oval Cabinet Knob'),
-            ['cabinet knob', 'finish: satin nickel'],
-          ],
-        ],
-        {
-          manual: true,
-        },
-      );
+    test('multiple rules merge without repeats ignoring case', () => {
+      store.addTagRule('knob', ['cabinet knob', 'finish: satin nickel']);
       store.addTagRule('satin nickel', ['Finish: SATIN Nickel']); // the same tag, ignoring case
       store.addTagRule('knob|pull', ['cabinet hardware']);
       expect(tags(1)).toEqual(['cabinet knob', 'finish: satin nickel', 'cabinet hardware']);
     });
 
     test('tags in use are counted ignoring case', () => {
-      store.saveLotTags([[knob(1, 'Mila Satin Nickel Oval Cabinet Knob'), ['Finish: Brass']]], {
-        manual: true,
-      });
+      store.addTagRule('knob', ['Finish: Brass']);
       store.addTagRule('brass', ['finish: brass']);
       const { tags: inUse } = store.tagOverview();
       expect(inUse.length).toBe(1);
@@ -389,9 +294,8 @@ describe('tags', () => {
       expect(store.removeTagRule(rule.id)).toBeNull();
     });
 
-    test('reset keeps rules, and bad rules are refused', () => {
+    test('bad rules are refused', () => {
       store.addTagRule('brass', ['finish: brass']);
-      store.resetTags();
       expect(tags(2)).toEqual(['finish: brass']);
       expect(() => store.addTagRule('(unclosed', ['x'])).toThrow();
       expect(() => store.addTagRule('brass', [' '])).toThrow('no tags given');
@@ -446,11 +350,6 @@ describe('tags', () => {
       expect(tags(1)).toEqual(['finish: Satin Nickel', 'Knob', 'Satin Nickel Knob']);
       expect(tags(2)).toEqual(['finish: Matte Black', 'Pull', 'Matte Black Pull']);
       expect(tags(3)).toBeUndefined();
-    });
-
-    test("rules saved with Python's named groups still work", () => {
-      store.addTagRule('(?P<kind>knob|pull) (?P=kind)?', ['${kind}']);
-      expect(tags(1)).toEqual(['Knob']);
     });
 
     test('groups that capture nothing drop their tag, and dollars can be escaped', () => {
