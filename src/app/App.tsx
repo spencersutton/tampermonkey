@@ -23,7 +23,6 @@ import { getSetting, setSetting } from './settings';
 import { Sidebar } from './Sidebar';
 import { nextPullAt, pullCatalog } from './source';
 import {
-  accountPickupName,
   closed,
   filteredOnly,
   openFiltered,
@@ -93,6 +92,9 @@ export function App() {
   );
 }
 
+const activeSavedSearch = (view: ViewState, filtered: boolean) =>
+  filtered ? null : (getSetting(KEYS.savedSearches).find(s => sameFilters(view, s.view)) ?? null);
+
 function AppSidebar({
   gridTop,
   authed,
@@ -107,7 +109,7 @@ function AppSidebar({
   const curClosed = closed.value;
   const curFiltered = filteredOnly.value;
   const search = searchDraft.value;
-  const activeSaved = curFiltered ? null : (saved.find(s => sameFilters(view, s.view)) ?? null);
+  const activeSaved = activeSavedSearch(view, curFiltered);
 
   const updateSaved = (fn: (list: SavedSearch[]) => SavedSearch[]) =>
     setSetting(KEYS.savedSearches, fn(getSetting(KEYS.savedSearches)));
@@ -164,7 +166,6 @@ function AppSidebar({
         facets={facets}
         matchCounts={gridView.value.matchCounts}
         pickup={pickupName.value}
-        accountPickup={accountPickupName.value}
         authed={authed}
         saved={savedProps}
       />
@@ -209,8 +210,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
   const result = gridView.value;
   const curFiltered = filteredOnly.value;
   const titleLines = getSetting(KEYS.titleLines);
-  const saved = getSetting(KEYS.savedSearches);
-  const activeSaved = curFiltered ? null : (saved.find(s => sameFilters(view, s.view)) ?? null);
+  const activeSaved = activeSavedSearch(view, curFiltered);
   // Lots that are new since the previous visit get a badge; while a saved
   // search is open, since that search's previous visit instead.
   const hl = highlight.value;
@@ -300,6 +300,12 @@ function AppDialogs() {
   const openLotObj = curOpenId != null ? getLot(curOpenId) : undefined;
   const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
 
+  const openLots = () =>
+    lots.value
+      .values()
+      .filter(l => endsAtMs(l) > now30)
+      .toArray();
+
   return (
     <>
       {openLotObj && (
@@ -319,21 +325,12 @@ function AppDialogs() {
         />
       )}
       {curModal?.kind === 'categories' && (
-        <CategoryEditor
-          lots={lots.value
-            .values()
-            .filter(l => endsAtMs(l) > now30)
-            .toArray()}
-          onClose={() => modalActions.close(curModal)}
-        />
+        <CategoryEditor lots={openLots()} onClose={() => modalActions.close(curModal)} />
       )}
       {curModal?.kind === 'typeCategory' && (
         <TypeCategory
           lot={curModal.lot}
-          lots={lots.value
-            .values()
-            .filter(l => endsAtMs(l) > now30)
-            .toArray()}
+          lots={openLots()}
           onClose={() => modalActions.close(curModal)}
         />
       )}

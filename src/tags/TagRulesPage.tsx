@@ -5,6 +5,7 @@ import { computed, signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { Icon } from '../app/icons';
+import { errorMessage, plural } from '../app/util';
 import * as format from '../shared/format';
 import { cleanTag, tagLabel } from '../shared/tags';
 import {
@@ -47,7 +48,7 @@ async function refresh() {
     revision.value++;
     loadError.value = null;
   } catch (e) {
-    loadError.value = e instanceof Error ? e.message : String(e);
+    loadError.value = errorMessage(e);
   }
 }
 
@@ -61,7 +62,7 @@ function edit(next: Draft) {
   notice.value = null;
 }
 
-const lotsText = (n: number) => `${format.num(n)} lot${n === 1 ? '' : 's'}`;
+const lotsText = (n: number) => plural(n, 'lot');
 
 export function TagRulesPage() {
   useEffect(() => {
@@ -179,7 +180,7 @@ function usePreview(pattern: string, tags: string[], rev: number) {
           if (!ctl.signal.aborted) {
             setState({
               preview: null,
-              error: e instanceof Error ? e.message : String(e),
+              error: errorMessage(e),
               errorField: e instanceof ApiError ? e.field : null,
               busy: false,
             });
@@ -219,7 +220,7 @@ function Editor() {
       notice.value = await fn();
       await refresh();
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : String(e));
+      setSaveError(errorMessage(e));
     } finally {
       setSaving(false);
     }

@@ -7,7 +7,7 @@ import { isAuthenticated } from './auth';
 import { getLot, invalidateDetail, updateLot } from './catalog';
 import { toast } from './toast';
 import type { Lot } from './types';
-import { observableSet } from './util';
+import { errorMessage, observableSet } from './util';
 import type { Row } from './view';
 
 export interface BidRequest {
@@ -17,8 +17,7 @@ export interface BidRequest {
 }
 
 /** Whether the lot can no longer be bid on. */
-export const isClosed = (lot: Lot, now = Date.now()) =>
-  lot.status !== 'live' || endsAtMs(lot) <= now;
+const isClosed = (lot: Lot, now = Date.now()) => lot.status !== 'live' || endsAtMs(lot) <= now;
 /** Whether you have bid on the lot (winning or not). */
 export const hasBidOn = (lot: Lot) => lot.has_bid || lot.your_standing != null;
 /** Whether you are currently the high bidder (and the price is still within your max). */
@@ -95,10 +94,7 @@ export async function submitBid({ lotId, amount, type }: BidRequest): Promise<bo
     }
     return true;
   } catch (e) {
-    const err =
-      e instanceof BidError
-        ? e
-        : new BidError(e instanceof Error ? e.message : String(e) || String(e), 0);
+    const err = e instanceof BidError ? e : new BidError(errorMessage(e) || String(e), 0);
     if (err.status === 409) {
       updateLot(lotId, { status: 'closed' }, { force: true });
     }

@@ -11,7 +11,7 @@ import {
   sidebarOpen,
   storedView,
 } from './state';
-import { openHandler } from './util';
+import { errorMessage, openHandler } from './util';
 import { DEFAULT_VIEW } from './view';
 
 const errors = signal(new Map<number, string>());
@@ -42,10 +42,7 @@ export function startBrandWatch() {
       pending.add(id);
       void loadDetail(lot)
         .catch((err: unknown) => {
-          errors.value = new Map(errors.peek()).set(
-            id,
-            err instanceof Error ? err.message : String(err),
-          );
+          errors.value = new Map(errors.peek()).set(id, errorMessage(err));
         })
         .finally(() => {
           pending.delete(id);

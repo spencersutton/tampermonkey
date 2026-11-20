@@ -18,7 +18,7 @@ import { LotModal } from './LotModal';
 import { exclusionRules, openClosed, openLot, pickupName, rowOf } from './state';
 import { toast } from './toast';
 import type { ClosedLot, Lot } from './types';
-import { clock, openHandler, plural } from './util';
+import { clock, errorMessage, openHandler, plural } from './util';
 import { makeRow, type Row } from './view';
 import '../shared/arrayToSet';
 
@@ -66,7 +66,7 @@ function useClosed(section: ClosedSection, authed: boolean): Loaded | null {
           count: 0,
           done: true,
           at: 0,
-          error: e instanceof Error ? e.message : String(e) || String(e),
+          error: errorMessage(e) || String(e),
         }),
     );
     return () => ac.abort();
@@ -121,7 +121,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
       },
       e => {
         setOpening(null);
-        toast('bad', `Couldn’t load the lot: ${e instanceof Error ? e.message : String(e) || e}`);
+        toast('bad', `Couldn’t load the lot: ${errorMessage(e) || String(e)}`);
       },
     );
   };

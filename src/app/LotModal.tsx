@@ -18,7 +18,7 @@ import { LocationText, pastPrice, StandingBadge, TimeLeft, WatchButton } from '.
 import { fetchPastCloses } from './source';
 import { modalActions, openLot, toggleHide } from './state';
 import type { Lot, LotDetail, PastCloseDetail } from './types';
-import { clock, openHandler, parseNum, plural } from './util';
+import { clock, errorMessage, openHandler, parseNum, plural } from './util';
 import type { Row } from './view';
 import '../shared/arrayToSet';
 
@@ -68,7 +68,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
       },
       e => {
         if (active && !refreshed) {
-          setMetadataError(e instanceof Error ? e.message : String(e));
+          setMetadataError(errorMessage(e));
         }
       },
     );
@@ -88,7 +88,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
         if (!active) {
           return;
         }
-        setError(e instanceof Error ? e.message : String(e));
+        setError(errorMessage(e));
         setRefreshing(false);
       },
     );
@@ -359,7 +359,7 @@ function PastCloses({ lot }: { lot: Lot }) {
     setError(null);
     fetchPastCloses(lot.id).then(
       c => live && setCloses(c),
-      e => live && setError(e instanceof Error ? e.message : String(e)),
+      e => live && setError(errorMessage(e)),
     );
     return () => void (live = false);
   }, [lot.id, lot.pastCloses?.n, matchedIds]);

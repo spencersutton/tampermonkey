@@ -13,6 +13,7 @@
 // one title has.
 
 import './arrayToSet';
+import { byCode } from './sortKey';
 
 export const DEFAULT_NAME_MATCH = 90;
 
@@ -127,9 +128,6 @@ const tokensKey = (tokens: ReadonlySet<string>) => tokens.values().toArray().toS
 const titleKey = (title: string) => `\0${title}`;
 
 const HAS_DIGIT = /[0-9]/;
-
-/** Code-unit order, like Python's string comparison for these ASCII words. */
-const byCode = (a: string, b: string) => (a < b ? -1 : Number(a > b));
 
 /**
  * Whether two titles' words are close enough: the same words, or (below 100%) at least `minPct`% of

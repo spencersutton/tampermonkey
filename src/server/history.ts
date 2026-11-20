@@ -15,7 +15,7 @@
 // the site's Won/Lost pages get `relisted`: open lots matching each closed one.
 import { DEFAULT_NAME_MATCH, ItemIndex, setGroups } from '../shared/identity';
 import { endsAtMs, type RawLotDetail } from '../shared/lot';
-import { isRecord } from './json';
+import { field, isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';
 import type { ClosedLot, Lot, PastClose, Store } from './store';
@@ -104,12 +104,11 @@ export class History {
     const now = Date.now();
     for (const c of closed) {
       const id = c[idField];
-      const text = (key: string) => (typeof c[key] === 'string' ? c[key] : null);
       const item = {
         id: typeof id === 'number' ? id : -1,
-        title: text('title') ?? '',
-        brand: text('brand'),
-        model: text('model'),
+        title: field(c, 'title') ?? '',
+        brand: field(c, 'brand'),
+        model: field(c, 'model'),
       };
       c['relisted'] = index
         .matches(item)

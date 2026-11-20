@@ -23,6 +23,7 @@ import {
 import { applySetting, setSaveHook, type Key } from './settings';
 import { toast } from './toast';
 import type { Lot, PastCloseDetail } from './types';
+import { errorMessage } from './util';
 import '../shared/arrayToSet';
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
@@ -96,7 +97,7 @@ const typeEdits = new Map<number, { lotIds: number[]; itemType: string; seq: num
 function applyStatus(s: Status) {
   const skew = s.now - Date.now(); // server clock minus ours
   const next = s.nextPullAt - skew;
-  const fetched = s.meta.fetchedAt ? s.meta.fetchedAt : null;
+  const fetched = s.meta.fetchedAt || null;
   batch(() => {
     nextAt = next;
     fetchedAt.value = fetched;
@@ -168,7 +169,7 @@ export function applyCatalog(r: CatalogReply) {
 /** Report a failed request in the status bar. Signals ignore unchanged values. */
 function setServerError(err: unknown) {
   batch(() => {
-    error.value = err instanceof Error ? err.message : String(err);
+    error.value = errorMessage(err);
     loaded.value = true;
   });
 }
@@ -244,10 +245,7 @@ async function sendSetting(key: Key, value: unknown) {
   try {
     await call('PUT', `/api/settings/${encodeURIComponent(key)}`, { value });
   } catch (err) {
-    toast(
-      'bad',
-      `Couldn’t save ${key}: ${err instanceof Error ? err.message : String(err)}. This change has not been saved.`,
-    );
+    toast('bad', `Couldn’t save ${key}: ${errorMessage(err)}. This change has not been saved.`);
   }
 }
 

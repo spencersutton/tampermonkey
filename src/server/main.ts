@@ -23,7 +23,7 @@ import { Store } from './store';
 
 const env = (name: string) => process.env[name];
 const REPO = new URL('../../', import.meta.url).pathname;
-export const STATIC_DIR = join(REPO, 'dist');
+const STATIC_DIR = join(REPO, 'dist');
 export const DEFAULT_DB = join(
   env('XDG_DATA_HOME') ?? join(homedir(), '.local', 'share'),
   'tlx-server',

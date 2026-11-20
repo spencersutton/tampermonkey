@@ -5,19 +5,15 @@ import {
 } from '../../shared/constants';
 import { KEYS } from '../../shared/keys';
 import { AccountSettings } from '../auth';
-import { getSetting, setSetting } from '../settings';
+import { useSetting } from '../settings';
 import { parseNum } from '../util';
 import { Collapsible } from './Collapsible';
 import { NumberInput } from './NumberInput';
 
 /** Pickup location, full-refresh interval, title lines and the account. */
 export function SettingsSection() {
-  const minutes = getSetting(KEYS.syncMinutes);
-  const setMinutes = (value: ReturnType<typeof getSetting<typeof KEYS.syncMinutes>>) =>
-    setSetting(KEYS.syncMinutes, value);
-  const titleLines = getSetting(KEYS.titleLines);
-  const setTitleLines = (value: ReturnType<typeof getSetting<typeof KEYS.titleLines>>) =>
-    setSetting(KEYS.titleLines, value);
+  const [minutes, setMinutes] = useSetting(KEYS.syncMinutes);
+  const [titleLines, setTitleLines] = useSetting(KEYS.titleLines);
   return (
     <section class="panel">
       <Collapsible id="settings" title={<h2>Settings</h2>}>

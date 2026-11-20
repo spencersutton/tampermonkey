@@ -7,7 +7,6 @@ import type { ClosedLot, LotDetail } from './types';
 
 /** Prefix for the site's API (proxied on the same origin by the tlx server). */
 const BASE = '/backend';
-/** Host serving lot images. */
 
 const LOGGED_OUT = 'You’re logged out. Log in, then try again.';
 

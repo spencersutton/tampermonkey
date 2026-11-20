@@ -25,7 +25,7 @@ interface Draft {
 const PREVIEW_LIMIT = 50;
 
 let nextKey = 0;
-export const toDraft = (c: CustomCategory): Draft => ({
+const toDraft = (c: CustomCategory): Draft => ({
   key: nextKey++,
   from: c.name,
   name: c.name,
@@ -36,7 +36,7 @@ export const toDraft = (c: CustomCategory): Draft => ({
 export const clean = (d: Draft): CustomCategory => ({ name: d.name.trim(), types: d.types });
 
 /** What's wrong with a row, if anything. */
-export function rowError(d: Draft, drafts: Draft[]): string | null {
+function rowError(d: Draft, drafts: Draft[]): string | null {
   const name = d.name.trim();
   if (!name) {
     return 'Name is required';
@@ -332,7 +332,7 @@ function TypeChips({
       .map(normalizeType)
       .filter(t => t && !existing.has(t));
     if (fresh.length) {
-      onChange({ types: [...[...types, ...fresh].toSet()] });
+      onChange({ types: [...types, ...fresh].toUnique() });
     }
     setText('');
   };

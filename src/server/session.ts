@@ -50,8 +50,7 @@ export function tokenExpiry(token: string | null): number | null {
     return null;
   }
   try {
-    const claims: unknown = JSON.parse(Buffer.from(part, 'base64url').toString());
-    const exp = claims && typeof claims === 'object' && 'exp' in claims ? claims.exp : null;
+    const exp = prop(JSON.parse(Buffer.from(part, 'base64url').toString()), 'exp');
     return typeof exp === 'number' ? exp : null;
   } catch {
     return null;

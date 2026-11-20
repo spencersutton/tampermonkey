@@ -25,7 +25,7 @@ function groups(tags: Facet<string>[]): [string, Facet<string>[]][] {
 }
 
 /** Whether the brand menu shows: more than one brand among the results, or one picked. */
-export function showBrandMenu(brands: Facet<string>[], selected: string[]): boolean {
+function showBrandMenu(brands: Facet<string>[], selected: string[]): boolean {
   return selected.length > 0 || brands.filter(f => f.count > 0).length > 1;
 }
 

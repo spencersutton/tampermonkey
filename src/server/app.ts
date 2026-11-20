@@ -46,7 +46,7 @@ import { cleanType, MAX_TYPE_LENGTH } from '../shared/itemtype';
 import type { RawLotDetail } from '../shared/lot';
 import type { Catalog } from './catalog';
 import { HISTORY_LIMIT, type History } from './history';
-import { isRecord, prop } from './json';
+import { field, isRecord, prop } from './json';
 import { log } from './log';
 import { connectUpstream, relayData, type RelayData } from './relay';
 import type { SiteSession } from './session';
@@ -152,8 +152,6 @@ function ruleBody(body: Record<string, unknown>): [string, string[]] {
   return [pattern, tags];
 }
 
-const text = (v: unknown) => (typeof v === 'string' ? v : '');
-
 const digest = (s: string) => createHash('sha256').update(s).digest();
 const samePassword = (a: string, b: string) => timingSafeEqual(digest(a), digest(b));
 
@@ -192,10 +190,12 @@ export function createApp(deps: Deps) {
   };
 
   app.onError(e => {
-    if (e instanceof BadRequest || e instanceof RuleError) {
-      return error(400, e.message);
-    }
-    if (e instanceof PatternError || e instanceof TagTemplateError) {
+    if (
+      e instanceof BadRequest ||
+      e instanceof RuleError ||
+      e instanceof PatternError ||
+      e instanceof TagTemplateError
+    ) {
       return error(400, e.message);
     }
     console.error(e);
@@ -236,7 +236,7 @@ export function createApp(deps: Deps) {
   app.get('/api/health', () => json({ ok: true, version: VERSION }));
   app.get('/api/me', c => json(me(c)));
   app.post('/api/app-login', async c => {
-    const given = text(prop(await readJson(c.req.raw), 'password'));
+    const given = field(await readJson(c.req.raw), 'password') ?? '';
     if (!password || samePassword(given, password)) {
       const sid = randomBytes(32).toString('base64url');
       store.addSession(sid);
@@ -258,7 +258,10 @@ export function createApp(deps: Deps) {
   });
   app.post('/api/site-login', async c => {
     const d = await readJson(c.req.raw);
-    const failed = await session.login(text(prop(d, 'email')).trim(), text(prop(d, 'password')));
+    const failed = await session.login(
+      (field(d, 'email') ?? '').trim(),
+      field(d, 'password') ?? '',
+    );
     if (!failed) {
       catalog.requestPull(); // pick up your standings and watchlist when allowed
     }

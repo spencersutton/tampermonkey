@@ -5,7 +5,7 @@ import { hasBidOn } from './bid';
 import { getLot, updateLot } from './catalog';
 import { toast } from './toast';
 import type { Lot } from './types';
-import { observableSet } from './util';
+import { errorMessage, observableSet } from './util';
 
 /** The site hides the watchlist button once you've bid on a lot. */
 export const canWatch = (lot: Lot) => isAuthenticated() && !hasBidOn(lot);
@@ -30,7 +30,7 @@ export async function toggleWatch(lotId: number) {
     await setWatchlisted(lot.auction_period, lotId, on);
   } catch (e) {
     updateLot(lotId, { is_watchlisted: !on }, { force: true });
-    toast('bad', e instanceof Error ? e.message : String(e));
+    toast('bad', errorMessage(e));
   } finally {
     pending.delete(lotId);
   }

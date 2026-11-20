@@ -11,7 +11,6 @@ interface Props {
   facets: Facets;
   matchCounts: Map<string, number>;
   pickup: string;
-  accountPickup: string | null;
   authed: boolean;
   saved: SavedSearchesProps;
 }

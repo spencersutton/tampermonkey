@@ -67,3 +67,8 @@ export function setSetting<K extends Key>(key: K, value: Value<K>) {
   applySetting(key, value);
   onSave(key, value);
 }
+
+/** Read a setting and a typed setter for it. */
+export function useSetting<K extends Key>(key: K): [Value<K>, (value: Value<K>) => void] {
+  return [getSetting(key), value => setSetting(key, value)];
+}

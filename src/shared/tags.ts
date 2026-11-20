@@ -60,8 +60,12 @@ export function cleanTag(text: string): string | null {
       .replace(/^[\s"'`.,;]+|[\s"'`.,;]+$/g, '')
       .slice(0, MAX_TAG_PART);
   const i = text.indexOf(':');
-  if (i >= 0 && tidy(text.slice(0, i)) && tidy(text.slice(i + 1))) {
-    return `${tidy(text.slice(0, i))}: ${tidy(text.slice(i + 1))}`;
+  if (i >= 0) {
+    const left = tidy(text.slice(0, i));
+    const right = tidy(text.slice(i + 1));
+    if (left && right) {
+      return `${left}: ${right}`;
+    }
   }
   return tidy(text.replaceAll(':', ' ')) || null;
 }

@@ -116,7 +116,7 @@ export const modalActions = {
 // Pickup location
 
 /** Name of the account's pickup location (fetched at most once a day while logged in). */
-export const accountPickupName = computed(() => {
+const accountPickupName = computed(() => {
   const acct = getSetting(KEYS.accountPickup);
   if (acct?.name || acct?.id == null) {
     return acct?.name ?? null;

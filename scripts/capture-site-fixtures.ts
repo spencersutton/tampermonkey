@@ -10,12 +10,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { BunWebSocket } from '../src/server/site';
+import { BunWebSocket, USER_AGENT, WS_URL } from '../src/server/site';
+import { SITE } from '../src/shared/constants';
 import type { RawLot, RawLotDetail } from '../src/shared/lot';
 
-const SITE = 'https://triangleliquidators.com';
-const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';
-const USER_AGENT = 'tlx-server/1.0 (+https://github.com/spencersutton/tampermonkey)';
 const OUT = new URL('../tests/fixtures/site/', import.meta.url);
 const PAUSE_MS = 500;
 const arg = (name: string, fallback: number) =>

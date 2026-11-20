@@ -9,6 +9,7 @@ import { setItemType } from './source';
 import { modalActions, setView } from './state';
 import { toast } from './toast';
 import type { Lot } from './types';
+import { errorMessage } from './util';
 
 function itemTypeError(name: string): string | null {
   if (!name.trim()) {
@@ -88,7 +89,7 @@ export function ItemTypeEditor({ lot, onClose }: { lot: Lot; onClose: () => void
       toast('good', `Item type saved: ${saved}`);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
       setSaving(false);
     }
   };

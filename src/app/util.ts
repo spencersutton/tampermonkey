@@ -62,6 +62,9 @@ export function countdown(ms: number) {
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
 export const plural = (n: number, noun: string) => `${format.num(n)} ${noun}${n === 1 ? '' : 's'}`;
 
+/** Message from an Error, or the thrown value as text. */
+export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 /** Parse user-typed money/number input ("$1,200") into a number, or null if it isn't one. */
 export function parseNum(s: string): number | null {
   const n = parseFloat(s.replace(/[$,\s]/g, ''));

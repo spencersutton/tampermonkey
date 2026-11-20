@@ -94,8 +94,7 @@ async function main() {
   }
   const byCategory = new Map<string | null, Lot[]>();
   for (const lot of sample(lots, Number(values.n), seeded(0))) {
-    const value = lot.category?.value ?? null;
-    byCategory.set(value, [...(byCategory.get(value) ?? []), lot]);
+    byCategory.getOrInsertComputed(lot.category?.value ?? null, () => []).push(lot);
   }
   for (const [value, group] of byCategory) {
     const label = group[0]?.category?.label || 'Other';

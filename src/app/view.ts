@@ -14,7 +14,7 @@ import {
   prepareDoc,
   type PreparedDoc,
 } from '../shared/search';
-import { collator } from '../shared/sortKey';
+import { byCode, collator } from '../shared/sortKey';
 import { noneTag, tagGroup, toLower, tagLabel } from '../shared/tags';
 import { hasBidOn } from './bid';
 import { numericTagKey } from './filterOptions';
@@ -289,14 +289,7 @@ export interface CompiledCategories {
 export function compareCategoryNames(a: string, b: string): number {
   const left = a.trim();
   const right = b.trim();
-  const order = collator.compare(left, right);
-  if (order) {
-    return order;
-  }
-  if (left < right) {
-    return -1;
-  }
-  return left > right ? 1 : 0;
+  return collator.compare(left, right) || byCode(left, right);
 }
 
 /** Custom categories ready for categoryIndex(). */
@@ -355,7 +348,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
 }
 
 /** Brand facet key: case and spacing ignored, so "DEWALT" and "DeWalt " are one brand. */
-export const brandKey = (brand: string) => brand.trim().replace(/\s+/g, ' ').toLowerCase();
+const brandKey = (brand: string) => brand.trim().replace(/\s+/g, ' ').toLowerCase();
 
 /** Quick price ranges for the current bid (both ends inclusive; null = open-ended). */
 export const PRICE_BUCKETS: { label: string; min: number | null; max: number | null }[] = [
@@ -394,7 +387,7 @@ export interface FacetCounts {
 }
 
 /** Lots among the results (ignoring this attribute's own filter) with no tag of the attribute. */
-export const noneCount = (counts: FacetCounts, group: string) =>
+const noneCount = (counts: FacetCounts, group: string) =>
   counts.tagRows + (counts.tagOnly.get(group) ?? 0) - (counts.tagHas.get(group) ?? 0);
 
 const emptyCounts = (): FacetCounts => ({
@@ -610,7 +603,7 @@ const byCost = (a: Row, b: Row) =>
 const CONDITION_RANK: Record<string, number> = { new: 0, 'like new': 1, used: 2, 'as-is': 3 };
 
 /** How good a lot's condition is: New 0, Like New 1, Used 2, As-is 3; unknown ones last. */
-export function conditionRank(lot: Lot): number {
+function conditionRank(lot: Lot): number {
   return CONDITION_RANK[lot.condition.display_name.trim().toLowerCase()] ?? 4;
 }
 
@@ -689,7 +682,7 @@ const docCache = new WeakMap<
 >();
 
 /** A lot's searchable fields, with brand and model from the newest detail cache. */
-export function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
+function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
   const { brand, model } = itemIdentity(lot, details);
   const hit = docCache.get(lot);
   if (hit && hit.brand === brand && hit.model === model) {
@@ -865,8 +858,10 @@ const byCountThenLabel = <T>(a: Facet<T>, b: Facet<T>) =>
 function tallySpellings(values: string[], keyOf: (v: string) => string): Facet<string>[] {
   const spellings = new Map<string, Map<string, number>>();
   for (const v of values) {
-    const key = keyOf(v);
-    spellings.set(key, bump(spellings.get(key) ?? new Map<string, number>(), v));
+    bump(
+      spellings.getOrInsertComputed(keyOf(v), () => new Map()),
+      v,
+    );
   }
   return Array.from(spellings, ([value, m]) => {
     const [label] = m.entries().reduce((best, cur) => (cur[1] > best[1] ? cur : best));

@@ -4,7 +4,7 @@ import { compileFilter } from '../../shared/filters';
 import * as format from '../../shared/format';
 import { KEYS, siteUrl } from '../../shared/keys';
 import { Icon } from '../icons';
-import { getSetting, setSetting } from '../settings';
+import { useSetting } from '../settings';
 import { filteredOnly, openFiltered, openHidden } from '../state';
 import { openHandler } from '../util';
 import { Collapsible } from './Collapsible';
@@ -115,21 +115,11 @@ function Switch({
 
 /** Regex title filters and the list of manually hidden lots. */
 export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }) {
-  const words = getSetting(KEYS.words);
-  const setWords = (value: ReturnType<typeof getSetting<typeof KEYS.words>>) =>
-    setSetting(KEYS.words, value);
-  const filterOn = getSetting(KEYS.filterOn);
-  const setFilterOn = (value: ReturnType<typeof getSetting<typeof KEYS.filterOn>>) =>
-    setSetting(KEYS.filterOn, value);
-  const removeFiltered = getSetting(KEYS.removeFiltered);
-  const setRemoveFiltered = (value: ReturnType<typeof getSetting<typeof KEYS.removeFiltered>>) =>
-    setSetting(KEYS.removeFiltered, value);
-  const showHidden = getSetting(KEYS.showHidden);
-  const setShowHidden = (value: ReturnType<typeof getSetting<typeof KEYS.showHidden>>) =>
-    setSetting(KEYS.showHidden, value);
-  const hiddenLots = getSetting(KEYS.hidden);
-  const setHiddenLots = (value: ReturnType<typeof getSetting<typeof KEYS.hidden>>) =>
-    setSetting(KEYS.hidden, value);
+  const [words, setWords] = useSetting(KEYS.words);
+  const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
+  const [removeFiltered, setRemoveFiltered] = useSetting(KEYS.removeFiltered);
+  const [showHidden, setShowHidden] = useSetting(KEYS.showHidden);
+  const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
   const [input, setInput] = useState('');
   const add = () => {
     setWords([...words, input].toUnique());

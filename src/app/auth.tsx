@@ -11,6 +11,7 @@ import { useState } from 'preact/hooks';
 
 import { MINUTE } from '../shared/constants';
 import { Dialog } from './Dialog';
+import { errorMessage } from './util';
 
 const CHECK_EVERY = 5 * MINUTE;
 const FOCUS_MIN_GAP = MINUTE;
@@ -135,7 +136,7 @@ export async function authedFetch(url: string, init: RequestInit = {}): Promise<
 
 export const unlockApp = (password: string) => callMe('/api/app-login', { password });
 export const lockApp = () => callMe('/api/app-logout', {});
-export const logoutSite = () => callMe('/api/site-logout', {});
+const logoutSite = () => callMe('/api/site-logout', {});
 
 // ---------------------------------------------------------------------------
 // UI
@@ -165,7 +166,7 @@ function FormCard({
     try {
       await onSubmit();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }

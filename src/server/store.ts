@@ -303,8 +303,6 @@ function mostCommon<K>(counts: Map<K, number>): [K, number][] {
     .toReversed();
 }
 
-/** Code-unit order on lowercased text, like Python's str comparison. */
-
 export class Store {
   readonly db: Database;
   // Indexes rebuilt only after their tables change (this process makes every change).
@@ -1200,9 +1198,8 @@ export class Store {
     const spellings = new Map<string, Map<string, number>>(); // each tag's spellings, by tag key
     for (const lot of items) {
       for (const tag of lot.tags ?? []) {
-        const counts = spellings.get(tag.toLowerCase()) ?? new Map<string, number>();
+        const counts = spellings.getOrInsertComputed(tag.toLowerCase(), () => new Map());
         counts.set(tag, (counts.get(tag) ?? 0) + 1);
-        spellings.set(tag.toLowerCase(), counts);
       }
     }
     const inUse = new Map<string, number>();

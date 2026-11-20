@@ -101,7 +101,7 @@ export class Labeller {
       }
       seen.add(key);
       const value = lot.category?.value ?? null;
-      byCategory.set(value, [...(byCategory.get(value) ?? []), lot]);
+      byCategory.getOrInsertComputed(value, () => []).push(lot);
       labels.set(value, lot.category?.label || 'Other');
     }
     const total = byCategory.values().sumBy(items => items.length);

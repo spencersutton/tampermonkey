@@ -2,7 +2,7 @@ import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
 import { Icon } from '../icons';
-import { getSetting, setSetting } from '../settings';
+import { getSetting, setSetting, useSetting } from '../settings';
 import { plural } from '../util';
 import { isCustomCategory, type Facet, type Facets } from '../view';
 import '../../shared/arrayToSet';
@@ -89,9 +89,7 @@ export function CategoryList({
   /** "Show only" on a row: these categories alone (default: just selects them). */
   onOnly?: (next: string[]) => void;
 }) {
-  const collapsed = getSetting(KEYS.collapsed);
-  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) =>
-    setSetting(KEYS.collapsed, value);
+  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
   const groups = groupCategories(facets);
   const ids = groups.flatMap(expandableCategories);
   return (

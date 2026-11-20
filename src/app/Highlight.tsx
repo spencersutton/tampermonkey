@@ -3,8 +3,6 @@ import { effectiveSearch } from './state';
 import { memoLast } from './util';
 import '../shared/arrayToSet';
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 /** A regex matching the plain words and phrases of a search, or null when there are none. */
 const termsRegex = memoLast((search: string): RegExp | null => {
   const words = parseQuery(search)
@@ -17,7 +15,7 @@ const termsRegex = memoLast((search: string): RegExp | null => {
     .toUnique()
     .sortBy(w => w.length)
     .toReversed()
-    .map(escape);
+    .map(w => RegExp.escape(w));
   return new RegExp(`(${alternatives.join('|')})`, 'gi');
 });
 

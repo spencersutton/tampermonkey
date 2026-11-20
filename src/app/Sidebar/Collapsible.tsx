@@ -2,7 +2,7 @@ import type { ComponentChildren } from 'preact';
 
 import { KEYS } from '../../shared/keys';
 import { Icon } from '../icons';
-import { getSetting, setSetting } from '../settings';
+import { useSetting } from '../settings';
 
 /** Section whose open/closed state is remembered across sessions. */
 export function Collapsible({
@@ -14,9 +14,7 @@ export function Collapsible({
   title: ComponentChildren;
   children: ComponentChildren;
 }) {
-  const collapsed = getSetting(KEYS.collapsed);
-  const setCollapsed = (value: ReturnType<typeof getSetting<typeof KEYS.collapsed>>) =>
-    setSetting(KEYS.collapsed, value);
+  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
   const open = !collapsed[id];
   return (
     <div class="collapsible">

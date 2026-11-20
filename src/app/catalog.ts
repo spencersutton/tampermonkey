@@ -13,7 +13,6 @@ import type { Lot, LotDetail } from './types';
 
 /** How long a fetched lot detail is reused. */
 const DETAIL_TTL = 2 * MINUTE;
-/** Auto-refresh only if the page was used this recently. */
 
 export interface SyncProgress {
   done: number;
