@@ -910,10 +910,9 @@ export function computeFacets(
     conditions: tally(
       open.map(l => ({ value: l.condition.value, label: l.condition.display_name })),
     ).sortBy(c => c.value),
-    locations: tally(open.map(l => ({ value: l.location.name, label: l.location.name }))).sortBy(
-      l => l.count,
-      'desc',
-    ),
+    locations: tally(open.map(l => ({ value: l.location.name, label: l.location.name })))
+      .sortBy(l => l.count)
+      .toReversed(),
     types: tally(
       open.map(l => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
     ).toSorted(byCountThenLabel),
@@ -966,7 +965,9 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
     categories: recount(all.categories, counts.category),
     siteCategories: all.siteCategories,
     conditions: recount(all.conditions, counts.condition),
-    locations: recount(all.locations, counts.location).sortBy(l => l.count, 'desc'),
+    locations: recount(all.locations, counts.location)
+      .sortBy(l => l.count)
+      .toReversed(),
     types: present(all.types, counts.type, view.types),
     brands: present(all.brands, counts.brand, view.brands),
     tags: present(all.tags, tagCounts(all.tags, counts, view.tags), view.tags),

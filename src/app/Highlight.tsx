@@ -15,7 +15,8 @@ const termsRegex = memoLast((search: string): RegExp | null => {
   }
   const alternatives = words
     .toUnique()
-    .sortBy(w => w.length, 'desc')
+    .sortBy(w => w.length)
+    .toReversed()
     .map(escape);
   return new RegExp(`(${alternatives.join('|')})`, 'gi');
 });

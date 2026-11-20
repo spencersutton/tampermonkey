@@ -399,6 +399,9 @@ export class ItemIndex<R extends Row = Row> {
         }
       }
     }
-    return rows.filter(row => row.id !== item.id).sortBy(l => l.endsAt || 0, 'desc');
+    return rows
+      .filter(row => row.id !== item.id)
+      .sortBy(l => l.endsAt || 0)
+      .toReversed();
   }
 }

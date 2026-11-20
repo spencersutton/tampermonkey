@@ -139,7 +139,9 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
     const { [id]: _, ...rest } = hiddenLots;
     setHiddenLots(rest);
   };
-  const hidden = Object.entries(hiddenLots).sortBy(([, h]) => h.ts, 'desc');
+  const hidden = Object.entries(hiddenLots)
+    .sortBy(([, h]) => h.ts)
+    .toReversed();
 
   return (
     <section class="panel">

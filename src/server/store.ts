@@ -299,7 +299,8 @@ function mostCommon<K>(counts: Map<K, number>): [K, number][] {
   return counts
     .entries()
     .toArray()
-    .sortBy(([, n]) => n, 'desc');
+    .sortBy(([, n]) => n)
+    .toReversed();
 }
 
 /** Code-unit order on lowercased text, like Python's str comparison. */

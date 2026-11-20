@@ -110,7 +110,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
       typeCounts
         .entries()
         .toArray()
-        .sortBy(([, n]) => n, 'desc'),
+        .sortBy(([, n]) => n)
+        .toReversed(),
     [typeCounts],
   );
 

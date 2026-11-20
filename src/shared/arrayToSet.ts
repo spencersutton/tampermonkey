@@ -1,18 +1,20 @@
-// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, toUnique() (deduplicated array) sum(), sumBy() and sortBy() (numeric key, sorted copy) to Array and Iterator; imported for its side effect by each entry point.
+import { collator } from './sortKey';
+
+// Adds toSet() to Array and Iterator (every builtin with toArray), toArray() to Set, toUnique() (deduplicated array) sum(), sumBy() and sortBy() (sorted copy by key) to Array and Iterator; imported for its side effect by each entry point.
 declare global {
   interface Array<T> {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: readonly number[]): number;
     sumBy(fn: (value: T, index: number) => number): number;
-    sortBy(key: (value: T) => number, order?: 'asc' | 'desc'): T[];
+    sortBy<U>(key: (value: T) => U, compareFn?: (a: U, b: U) => number): T[];
   }
   interface ReadonlyArray<T> {
     toSet(): Set<T>;
     toUnique(): T[];
     sum(this: readonly number[]): number;
     sumBy(fn: (value: T, index: number) => number): number;
-    sortBy(key: (value: T) => number, order?: 'asc' | 'desc'): T[];
+    sortBy<U>(key: (value: T) => U, compareFn?: (a: U, b: U) => number): T[];
   }
   interface Set<T> {
     toArray(): T[];
@@ -112,35 +114,18 @@ Object.defineProperty(Iterator.prototype, 'sumBy', {
   writable: true,
 });
 
-// A sorted copy, ordered by a numeric key (ascending unless `order` is 'desc').
+const compareKeys = (a: unknown, b: unknown): number => collator.compare(String(a), String(b));
+
+// An ascending sorted copy, ordered by a key: numbers/bigints numerically, anything else via the
+// collator, unless a comparator on the keys is given. Chain .reverse() for descending.
 // oxlint-disable-next-line no-extend-native -- deliberate
 Object.defineProperty(Array.prototype, 'sortBy', {
-  value: function sortBy<T>(
+  value: function sortBy<T, U>(
     this: readonly T[],
-    key: (value: T) => T,
-    order: 'asc' | 'desc' = 'asc',
+    key: (value: T) => U,
+    compareFn: (a: U, b: U) => number = compareKeys,
   ): T[] {
-    const sign = order === 'desc' ? -1 : 1;
-    return this.toSorted((a, b) => {
-      let keyA = key(a);
-      let keyB = key(b);
-      if (typeof keyA === 'number' && typeof keyB === 'number') {
-        return sign * (keyA - keyB);
-      }
-      if (typeof keyA === 'string' && typeof keyB === 'string') {
-        return sign * keyA.localeCompare(keyB);
-      }
-      if (typeof keyA === 'bigint' && typeof keyB === 'bigint') {
-        if (keyA > keyB) {
-          return sign;
-        }
-        if (keyA < keyB) {
-          return -sign;
-        }
-        return 0;
-      }
-      return 0;
-    });
+    return this.toSorted((a, b) => compareFn(key(a), key(b)));
   },
   configurable: true,
   writable: true,
