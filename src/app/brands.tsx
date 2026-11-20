@@ -52,10 +52,10 @@ export function startBrandWatch() {
   }
 
   const dispose = effect(() => {
+    // Subscribe explicitly: pump() uses .peek() so early breaks and async .finally() calls
+    // don't drop or accidentally create signal dependencies.
     void onScreen.value;
     void lots.value;
-    void lotBrands.value;
-    void lotModels.value;
     void errors.value;
     pump();
   });

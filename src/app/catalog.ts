@@ -36,7 +36,7 @@ export const error = signal<string | null>(null);
 
 /** Look up a lot by id, following its live updates. */
 export function getLot(id: number): Lot | undefined {
-  void rev.value;
+  void rev.value; // subscribe to in-place lot updates
   return lots.value.get(id);
 }
 

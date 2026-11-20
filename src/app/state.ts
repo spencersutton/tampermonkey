@@ -242,7 +242,7 @@ export const onScreen = signal<number[]>([]);
 const searchDetails = computed(() => ({ brands: lotBrands.value, models: lotModels.value }));
 /** The grid: lots through the view's filters and sort, recomputed on every lot update. */
 export const gridView = computed(() => {
-  void rev.value;
+  void rev.value; // subscribe to in-place lot updates
   return computeView(
     lots.value.values(),
     storedView.value,
@@ -301,7 +301,7 @@ export const rowOf = (lot: Lot) => makeRow(lot, pickupName.value, exclusionRules
 export const highlight = signal<{ id: string; since: number } | null>(null);
 
 export const searchStats = computed(() => {
-  void rev.value;
+  void rev.value; // subscribe to in-place lot updates
   return savedSearchStats(
     lots.value.values(),
     getSetting(KEYS.savedSearches),
