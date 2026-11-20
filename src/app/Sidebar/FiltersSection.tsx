@@ -5,7 +5,7 @@ import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 import { siteConditions } from '../conditions';
 import { Icon } from '../icons';
-import { getSetting } from '../settings';
+import { getSetting, useSetting } from '../settings';
 import { closed, modalActions, openClosed, setView } from '../state';
 import { parseNum } from '../util';
 import {
@@ -105,6 +105,73 @@ function FacetList(props: {
         </button>
       )}
     </>
+  );
+}
+
+/** Collapsible, scrollable list of hidden item types, searchable once it grows long. */
+function ExcludedTypeList(props: {
+  excludedTypes: string[];
+  onUnhide: (type: string) => void;
+  onShowAll: () => void;
+}) {
+  const { excludedTypes, onUnhide, onShowAll } = props;
+  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+  const [query, setQuery] = useState('');
+  const open = !collapsed['f-excluded-types'];
+  const q = query.trim().toLowerCase();
+  const sorted = excludedTypes.toSorted();
+  const shown = q ? sorted.filter(t => t.toLowerCase().includes(q)) : sorted;
+  return (
+    <div class="excluded-types">
+      <div class="excluded-types-head">
+        <button
+          type="button"
+          class="excluded-types-toggle"
+          aria-expanded={open}
+          onClick={() => setCollapsed({ ...collapsed, 'f-excluded-types': open })}
+        >
+          <Icon name="expandMore" size={16} />
+          <span class="muted small">Hidden ({excludedTypes.length})</span>
+        </button>
+        <button type="button" class="btn-text" onClick={onShowAll}>
+          Show all
+        </button>
+      </div>
+      {open && (
+        <>
+          {excludedTypes.length > 8 && (
+            <input
+              class="facet-find"
+              type="search"
+              placeholder="Find hidden types"
+              aria-label="Find hidden item types"
+              value={query}
+              onInput={e => setQuery(e.currentTarget.value)}
+            />
+          )}
+          {shown.length > 0 ? (
+            <ul class="filter-list excluded-types-list">
+              {shown.map(t => (
+                <li key={t} class="filter-row">
+                  <button
+                    type="button"
+                    class="filter-remove"
+                    aria-label={`Unhide item type ${t}`}
+                    title={`Unhide item type: ${t}`}
+                    onClick={() => onUnhide(t)}
+                  >
+                    <Icon name="cancel" size={16} />
+                  </button>
+                  <span class="filter-pattern">{t}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="muted small">No hidden item types match “{query.trim()}”.</p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -266,36 +333,11 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
             }
           />
           {view.excludedTypes.length > 0 && (
-            <div class="excluded-types">
-              <div class="excluded-types-head">
-                <span class="muted small">Hidden ({view.excludedTypes.length})</span>
-                <button
-                  type="button"
-                  class="btn-text"
-                  onClick={() => setView({ excludedTypes: [] })}
-                >
-                  Show all
-                </button>
-              </div>
-              <ul class="filter-list">
-                {view.excludedTypes.toSorted().map(t => (
-                  <li key={t} class="filter-row">
-                    <button
-                      type="button"
-                      class="filter-remove"
-                      aria-label={`Unhide item type ${t}`}
-                      title={`Unhide item type: ${t}`}
-                      onClick={() =>
-                        setView({ excludedTypes: view.excludedTypes.filter(x => x !== t) })
-                      }
-                    >
-                      <Icon name="cancel" size={16} />
-                    </button>
-                    <span class="filter-pattern">{t}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <ExcludedTypeList
+              excludedTypes={view.excludedTypes}
+              onUnhide={t => setView({ excludedTypes: view.excludedTypes.filter(x => x !== t) })}
+              onShowAll={() => setView({ excludedTypes: [] })}
+            />
           )}
         </Collapsible>
       )}

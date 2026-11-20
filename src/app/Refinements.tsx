@@ -143,8 +143,10 @@ export function Refinements() {
   const result = gridView.value;
   const chips = chipsFor(view, pickupName.value);
   const isCategory = (c: Chip) => c.key.startsWith('cat:');
+  const isExcludedType = (c: Chip) => c.key.startsWith('exType:');
   const catChips = chips.filter(isCategory);
-  const otherChips = chips.filter(c => !isCategory(c));
+  const exTypeChips = chips.filter(isExcludedType);
+  const otherChips = chips.filter(c => !isCategory(c) && !isExcludedType(c));
   const chipButton = (c: Chip) => (
     <button
       type="button"
@@ -185,7 +187,13 @@ export function Refinements() {
           {catChips.map(chipButton)}
         </div>
       )}
-      {chips.length > 0 && (
+      {exTypeChips.length > 0 && (
+        // Hiding item types can accumulate dozens, so they share one row that scrolls sideways.
+        <div class="chips chips-scroll" aria-label="Hidden item types">
+          {exTypeChips.map(chipButton)}
+        </div>
+      )}
+      {(otherChips.length > 0 || chips.length > 1) && (
         <div class="chips" aria-label="Active filters">
           {otherChips.map(chipButton)}
           {chips.length > 1 && (

@@ -1228,6 +1228,33 @@ h3 {
   margin-bottom: 4px;
 }
 
+.excluded-types-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.excluded-types-toggle svg {
+  transition: transform 0.15s;
+}
+
+.excluded-types-toggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.excluded-types-list {
+  max-height: 180px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+
 .item-type {
   display: inline-flex;
   align-items: center;
