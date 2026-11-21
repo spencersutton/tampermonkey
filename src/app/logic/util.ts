@@ -99,3 +99,9 @@ export function memoLast<A, R>(fn: (arg: A) => R): (arg: A) => R {
     return result;
   };
 }
+
+export function assert(condition: unknown, message?: string): asserts condition {
+  if (!condition) {
+    throw new Error(message ?? 'Assertion failed');
+  }
+}

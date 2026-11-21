@@ -5,7 +5,43 @@
 // an item type yet—fall back to the site's original category.
 import { collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
+import { assert } from './util';
 import type { Facet } from './view';
+
+type SiteCategory =
+  | 'health-beauty'
+  | 'outdoor'
+  | 'electronics-appliances'
+  | 'baby-kids'
+  | 'General-Merchandise'
+  | 'Pets'
+  | 'automotive'
+  | 'tools'
+  | 'home'
+  | 'Toys_Sports'
+  | 'Building_Hardware'
+  | 'Apparel'
+  | 'lighting-electrical'
+  | 'plumbing-bath';
+
+function isSiteCategory(value: string): value is SiteCategory {
+  return [
+    'health-beauty',
+    'outdoor',
+    'electronics-appliances',
+    'baby-kids',
+    'General-Merchandise',
+    'Pets',
+    'automotive',
+    'tools',
+    'home',
+    'Toys_Sports',
+    'Building_Hardware',
+    'Apparel',
+    'lighting-electrical',
+    'plumbing-bath',
+  ].includes(value);
+}
 
 export interface CategoryDef {
   /** Stable slug used in ViewState.categories, e.g. "tools/power-tools". */
@@ -15,7 +51,7 @@ export interface CategoryDef {
   /** Subcategory label shown in the tree, on cards, and in filter chips. */
   label: string;
   /** Matches the lot's lowercase itemType (and optionally its site category value). */
-  match: RegExp | ((type: string, siteCategory: string) => boolean);
+  match: RegExp | ((type: string, siteCategory: SiteCategory) => boolean);
 }
 
 /**
@@ -84,7 +120,7 @@ export const CATEGORIES: readonly CategoryDef[] = [
     parent: 'Tools',
     label: 'Outdoor Power',
     match:
-      /\b((?:lawn|reel|riding|push)\s+mower|mower|string\s+trimmer|weed\s+(?:eater|whacker|trimmer)|leaf\s+blower|blower|chainsaws?|pole\s+saws?|hedge\s+trimmer|pressure\s+washer|surface\s+cleaner|snow\s+blower|tiller|cultivator|lawn\s+edger|edger\b|log\s+splitter|wood\s+chipper|earth\s+auger|post\s+hole\s+digger|stump\s+grinder|dethatcher|aerator|backpack\s+sprayer|pump\s+sprayer|sprayer\b(?!.*(?:paint|head|faucet|sink))|trimmer\s+(?:line|head|spool|attachment)|chainsaw\s+chain|guide\s+bar)\b/,
+      /\b(ice auger|(?:lawn|reel|riding|push)\s+mower|mower|string\s+trimmer|weed\s+(?:eater|whacker|trimmer)|leaf\s+blower|blower|chainsaws?|pole\s+saws?|hedge\s+trimmer|pressure\s+washer|surface\s+cleaner|snow\s+blower|tiller|cultivator|lawn\s+edger|edger\b|log\s+splitter|wood\s+chipper|earth\s+auger|post\s+hole\s+digger|stump\s+grinder|dethatcher|aerator|backpack\s+sprayer|pump\s+sprayer|sprayer\b(?!.*(?:paint|head|faucet|sink))|trimmer\s+(?:line|head|spool|attachment)|chainsaw\s+chain|guide\s+bar)\b/,
   },
   {
     value: 'tools/batteries-chargers',
@@ -105,8 +141,14 @@ export const CATEGORIES: readonly CategoryDef[] = [
     value: 'tools/power-tools',
     parent: 'Tools',
     label: 'Power Tools',
-    match:
-      /\b(drill(?:\s+driver)?|impact\s+(?:driver|wrench)|hammer\s+drill|rotary\s+hammer|miter\s+saw|circular\s+saw|reciprocating\s+saw|table\s+saw|jigsaw|band\s+saw|scroll\s+saw|track\s+saw|tile\s+saw|cut-off\s+saw|chop\s+saw|oscillating\s+(?:tool|multi-tool)|multi-tool|angle\s+grinder|bench\s+grinder|die\s+grinder|sanders?|polishers?|buffers?|wood\s+router|plunge\s+router|trim\s+router|planers?|jointers?|nailers?|nail\s+gun|brad\s+nailer|framing\s+nailer|power\s+tool|combo\s+kit|grease\s+gun|caulk\s+gun|heat\s+gun|glue\s+gun|soldering|welders?|welding|plasma\s+cutter|powder\s+actuated|rivet\s+gun|paint\s+sprayer|concrete\s+vibrator|drywall\s+screw\s+gun|nibbler|cutout\s+tool|air\s+inflator|inflator\b)\b/,
+    match: (itemType, category) => {
+      if (category === 'tools' && itemType.startsWith('cordless')) {
+        return true;
+      }
+      return /\b(tool[ -]only|cordless (ratchet|press tool)|drill(?:\s+driver)?|impact\s+(?:driver|wrench)|hammer\s+drill|rotary\s+hammer|miter\s+saw|circular\s+saw|reciprocating\s+saw|table\s+saw|jigsaw|band\s+saw|scroll\s+saw|track\s+saw|tile\s+saw|cut-off\s+saw|chop\s+saw|oscillating\s+(?:tool|multi-tool)|multi-tool|angle\s+grinder|bench\s+grinder|die\s+grinder|sanders?|polishers?|buffers?|wood\s+router|plunge\s+router|trim\s+router|planers?|jointers?|nailers?|nail\s+gun|brad\s+nailer|framing\s+nailer|power\s+tool|combo\s+kit|grease\s+gun|caulk\s+gun|heat\s+gun|glue\s+gun|soldering|welders?|welding|plasma\s+cutter|powder\s+actuated|rivet\s+gun|paint\s+sprayer|concrete\s+vibrator|drywall\s+screw\s+gun|nibbler|cutout\s+tool|air\s+inflator|inflator\b)\b/.test(
+        itemType,
+      );
+    },
   },
   {
     value: 'tools/safety-workwear',
@@ -120,7 +162,7 @@ export const CATEGORIES: readonly CategoryDef[] = [
     parent: 'Tools',
     label: 'Tool Storage',
     match:
-      /\b(tool\s+(?:chest|box(?:es)?|bag|belt|pouch(?:es)?|organizer|cabinet|cart|tote|roll|stand|rack|holster)|parts\s+organizer|workbench(?:es)?|sawhorses?)\b/,
+      /\b(?<!hair )(tool\s+(?:chest|box(?:es)?|bag|belt|pouch(?:es)?|organizer|cabinet|cart|tote|roll|stand|rack|holster)|parts\s+organizer|workbench(?:es)?|sawhorses?)\b/,
   },
   {
     value: 'tools/ladders-moving',
@@ -134,14 +176,21 @@ export const CATEGORIES: readonly CategoryDef[] = [
     parent: 'Tools',
     label: 'Shop Equipment',
     match:
-      /\b(tool\s+lot|air\s+compressors?|generators?|shop\s+vac|wet[\s/-]+dry\s+vac|air\s+movers?|dust\s+extractor|work\s+lights?|shop\s+lights?|trouble\s+light|vises?|anvils?|air\s+hose)\b/,
+      /\b(tool\s+lot|air\s+compressors?|(?<!steam )generators?|shop\s+vac|wet[\s/-]+dry\s+vac|air\s+movers?|dust\s+extractor|work\s+lights?|shop\s+lights?|trouble\s+light|vises?|anvils?|air\s+hose)\b/,
   },
   {
     value: 'tools/hand-measuring',
     parent: 'Tools',
     label: 'Hand Tools',
-    match:
-      /\b(pliers|wrench(?:es)?|screwdrivers?|hammers?|mallets?|sledgehammers?|clamps?|laser\s+levels?|levels?\b|tape\s+measures?|measuring\s+(?:tape|wheel)|(?:utility|folding|pocket)\s+knives?|(?:utility|folding|pocket)\s+knife|box\s+cutters?|sheet\s+cutter|chisels?|pry\s+bars?|crowbars?|bolt\s+cutters?|wire\s+(?:stripper|cutter|crimper)|crimpers?|snips|shears|torque\s+wrench|stud\s+finders?|multimeters?|voltage\s+tester|circuit\s+tester|moisture\s+meter|calipers?|micrometers?|framing\s+square|speed\s+square|hex\s+keys?|allen\s+wrench|hand\s+saws?|hacksaws?|coping\s+saw|axes?|hatchets?|mauls?|trowels?|putty\s+knives?|putty\s+knife|scrapers?|ratchets?|breaker\s+bar|tap\s+and\s+die|pipe\s+cutter|tube\s+cutter|fish\s+tape|chalk\s+line|plumb\s+bob|riveters?|staple\s+guns?|extension\s+poles?|torch(?:es)?|hand\s+tools?|tool\s+sets?|tool\s+kits?|mechanic.*set)\b/,
+    match: itemType => {
+      if (itemType.includes('cordless')) {
+        return false;
+      }
+
+      return /\b(fitting removal tool|pvc cutter|aviation snips?|pliers|wrench(?:es)?|screwdrivers?|hammers?|mallets?|sledgehammers?|clamps?|laser\s+levels?|levels?\b|tape\s+measures?|measuring\s+(?:tape|wheel)|(?:utility|folding|pocket)\s+knives?|(?:utility|folding|pocket)\s+knife|box\s+cutters?|sheet\s+cutter|chisels?|pry\s+bars?|crowbars?|bolt\s+cutters?|wire\s+(?:stripper|cutter|crimper)|crimpers?|snips|shears|torque\s+wrench|stud\s+finders?|multimeters?|voltage\s+tester|circuit\s+tester|moisture\s+meter|calipers?|micrometers?|framing\s+square|speed\s+square|hex\s+keys?|allen\s+wrench|hand\s+saws?|hacksaws?|coping\s+saw|axes?|hatchets?|mauls?|trowels?|putty\s+knives?|putty\s+knife|scrapers?|ratchets?|breaker\s+bar|tap\s+and\s+die|pipe\s+cutter|tube\s+cutter|fish\s+tape|chalk\s+line|plumb\s+bob|riveters?|staple\s+guns?|extension\s+poles?|torch(?:es)?|hand\s+tools?|tool\s+sets?|tool\s+kits?|mechanic.*set)\b/.test(
+        itemType,
+      );
+    },
   },
 
   // --- HVAC & Air (before Lighting/Electrical & Appliances) ---
@@ -560,7 +609,7 @@ const SITE_FALLBACK_PARENT: Record<string, string> = {
   'plumbing-bath': 'Plumbing & Bath',
   tools: 'Tools',
   Toys_Sports: 'Sports & Toys',
-};
+} satisfies Record<SiteCategory, string>;
 
 /**
  * Single-subcategory parents whose matching site category can absorb unmapped lots directly instead
@@ -582,6 +631,7 @@ export function categorizeLot(lot: Pick<Lot, 'category' | 'itemType'>): {
 } {
   const type = lot.itemType?.trim().toLowerCase();
   const site = lot.category.value;
+  assert(isSiteCategory(site), `Unexpected site category: ${site}`);
   if (type) {
     for (const def of CATEGORIES) {
       const matched =
