@@ -1,0 +1,379 @@
+:root {
+  --bg: #f4f5f7;
+  --paper: #ffffff;
+  --text: #1a1d21;
+  --muted: #5f6670;
+  --line: #dde1e6;
+  --hover: rgba(0, 0, 0, 0.05);
+  --primary: #0e3a7e;
+  --primary-soft: rgba(14, 58, 126, 0.09);
+  --on-primary: #ffffff;
+  --good: #1b7a3d;
+  --good-soft: #e3f4e8;
+  --bad: #b3261e;
+  --bad-soft: #fbe5e3;
+  --warn: #c2410c;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.05);
+  --radius: 10px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317;
+    --paper: #1b1e23;
+    --text: #e8eaed;
+    --muted: #9aa1ab;
+    --line: #2e333a;
+    --hover: rgba(255, 255, 255, 0.06);
+    --primary: #8cb4ff;
+    --primary-soft: rgba(140, 180, 255, 0.12);
+    --on-primary: #0b1730;
+    --good: #6fd08f;
+    --good-soft: rgba(111, 208, 143, 0.14);
+    --bad: #ff8a80;
+    --bad-soft: rgba(255, 138, 128, 0.14);
+    --warn: #ffb27a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px/1.45 system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body:has(dialog[open]) {
+  overflow: hidden;
+}
+
+a {
+  color: var(--primary);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 16px 0 6px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12.5px;
+}
+
+.error {
+  color: var(--bad);
+}
+
+.row-gap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn[aria-disabled='true'],
+.btn:disabled {
+  background: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.btn-small {
+  min-height: 30px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.btn-outline:hover {
+  background: var(--hover);
+  filter: none;
+}
+
+.btn-outline:disabled {
+  background: transparent;
+}
+
+.btn-text,
+.btn.btn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 0;
+}
+
+.btn-text:hover:not(:disabled) {
+  background: var(--primary-soft);
+  filter: none;
+}
+
+.btn-text:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.75;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Form controls */
+.search,
+.sort,
+.field input,
+.field select,
+.add-filter {
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 0 10px;
+  min-width: 0;
+}
+
+.search:focus,
+.sort:focus,
+.field input:focus,
+.field select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -1px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+
+.field input,
+.field select {
+  color: var(--text);
+  font-size: 14px;
+  width: 100%;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+
+.check input {
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.check .count {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.switch-row input {
+  appearance: none;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  margin: 0;
+  position: relative;
+  background: var(--line);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.switch-row input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: left 0.15s;
+}
+
+.switch-row input:checked {
+  background: var(--primary);
+}
+
+.switch-row input:checked::after {
+  left: 16px;
+}
+
+/* Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pill-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.pill-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.pill-new {
+  flex: none;
+  border: 0;
+  background: var(--primary);
+  color: var(--on-primary);
+  cursor: pointer;
+  font-size: 11.5px;
+  padding: 1px 7px;
+}
+
+.pill-dupes {
+  border: 0;
+  cursor: pointer;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-size: 11.5px;
+  padding: 1px 7px;
+}
+
+.pill-watch {
+  background: #fff;
+  color: #d49a00;
+  padding: 3px 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.watch-btn {
+  border: 0;
+  cursor: pointer;
+  color: #666;
+}
+
+.watch-btn.on,
+.watch-btn:hover {
+  color: #d49a00;
+}
+
+.watch-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
