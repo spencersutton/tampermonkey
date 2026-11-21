@@ -83,7 +83,6 @@ export type Modal =
   | { kind: 'bid'; req: BidRequest }
   | { kind: 'categories' }
   | { kind: 'shortcuts' }
-  | { kind: 'typeCategory'; lot: Lot } // making the lot's item type a category
   | { kind: 'itemType'; lot: Lot };
 /** The popup over everything else, including the lot popup. */
 export const modal = signal<Modal | null>(null);
@@ -91,9 +90,6 @@ export const modal = signal<Modal | null>(null);
 export const modalActions = {
   startBid: (req: BidRequest) => {
     modal.value = { kind: 'bid', req };
-  },
-  addType: (lot: Lot) => {
-    modal.value = { kind: 'typeCategory', lot };
   },
   editType: (lot: Lot) => {
     modal.value = { kind: 'itemType', lot };

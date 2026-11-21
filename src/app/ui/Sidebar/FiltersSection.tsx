@@ -260,6 +260,11 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
       </Collapsible>
 
       <Collapsible id="f-category" title="Category">
+        <CheckList
+          facets={facets.categories}
+          selected={view.categories}
+          onChange={categories => setView({ categories, noCategories: false })}
+        />
         {view.noCategories && (
           <div>
             <p class="muted">No categories selected.</p>
