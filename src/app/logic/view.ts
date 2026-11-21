@@ -1,5 +1,12 @@
 import { dequal } from 'dequal';
 
+import {
+  attrKey,
+  compareAttrValues,
+  extractAttrs,
+  parseAttrKey,
+  type Attrs,
+} from '../../shared/attrs';
 import { HOUR } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
@@ -130,6 +137,7 @@ export interface ViewState {
   types: string[]; // item types (lowercase)
   excludedTypes: string[]; // item types to exclude (lowercase)
   brands: string[]; // brand keys (see brandKey)
+  attrs: string[]; // attribute keys (e.g. "hose length:50 ft", lowercase)
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -151,6 +159,7 @@ export const DEFAULT_VIEW: ViewState = {
   types: [],
   excludedTypes: [],
   brands: [],
+  attrs: [],
   conditions: [],
   locations: [],
   reachable: false,
@@ -175,6 +184,10 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
+    attrs: strings(view.attrs)
+      .map(s => s.toLowerCase())
+      .filter(s => parseAttrKey(s) != null)
+      .toUnique(),
     newSince: typeof view.newSince === 'number' ? view.newSince : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
     ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
@@ -195,6 +208,7 @@ export const activeFilterCount = (v: ViewState) =>
     v.types.length,
     v.excludedTypes.length,
     v.brands.length,
+    v.attrs.length,
     v.conditions.length,
     v.locations.length,
     v.reachable,
@@ -213,6 +227,7 @@ export interface Exclusions {
 }
 
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
+const lotAttrs = memoizeWeak((lot: Lot): Attrs => extractAttrs(lot.title));
 
 /**
  * The filter words whose regex matches a lot's title (in filter order), cached by title until the
@@ -266,28 +281,36 @@ const inBucket = (price: number, b: (typeof PRICE_BUCKETS)[number]) =>
   (b.min == null || price >= b.min) && (b.max == null || price <= b.max);
 
 /**
- * Facet dimensions whose counts ignore their own selection (so you can pick several). Each tag
- * group is one: `tag:finish`, or `tag:` for plain tags.
+ * Facet dimensions whose counts ignore their own selection (so you can pick several). Each
+ * attribute group is one: `attr:hose length`, `attr:size`, etc.
  */
-type Dim = 'category' | 'condition' | 'location' | 'type' | 'brand' | 'price' | `tag:${string}`;
+type Dim = 'category' | 'condition' | 'location' | 'type' | 'brand' | 'price' | `attr:${string}`;
 
 /** Lot counts per facet value among the results, each ignoring its own facet's filter. */
 export interface FacetCounts {
+  total: number; // matching lots (ignoring no dimensions)
   category: Map<string, number>;
   condition: Map<number, number>;
   location: Map<string, number>;
   type: Map<string, number>;
   brand: Map<string, number>;
   price: number[]; // per PRICE_BUCKETS entry
+  attr: Map<string, Map<string, { label: string; count: number }>>; // group key -> attrKey -> count
+  attrLabels: Map<string, string>; // group key -> display label (e.g. "hose length" -> "Hose length")
+  attrLots: Map<string, number>; // group key -> matching lots having this attribute
 }
 
 const emptyCounts = (): FacetCounts => ({
+  total: 0,
   category: new Map(),
   condition: new Map(),
   location: new Map(),
   type: new Map(),
   brand: new Map(),
   price: PRICE_BUCKETS.map(() => 0),
+  attr: new Map(),
+  attrLabels: new Map(),
+  attrLots: new Map(),
 });
 
 const bump = <K>(m: Map<K, number>, k: K) => m.set(k, (m.get(k) ?? 0) + 1);
@@ -298,8 +321,26 @@ function brandOf(lot: Lot, details?: ItemDetails): string | null {
   return brand || null;
 }
 
+function tallyAttrGroup(counts: FacetCounts, groupKey: string, label: string, values: string[]) {
+  counts.attrLabels.set(groupKey, label);
+  bump(counts.attrLots, groupKey);
+  const group = counts.attr.getOrInsertComputed(groupKey, () => new Map());
+  for (const val of values) {
+    const key = attrKey(label, val);
+    const cur = group.get(key);
+    if (cur) {
+      cur.count++;
+    } else {
+      group.set(key, { label: val, count: 1 });
+    }
+  }
+}
+
 function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: ItemDetails) {
   const { lot } = row;
+  if (only == null) {
+    counts.total++;
+  }
   if (only == null || only === 'category') {
     bump(counts.category, row.category.value);
   }
@@ -324,6 +365,18 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
         counts.price[i]!++;
       }
     });
+  }
+  if (only == null) {
+    for (const [label, values] of Object.entries(lotAttrs(lot))) {
+      tallyAttrGroup(counts, label.toLowerCase(), label, values);
+    }
+  } else if (only.startsWith('attr:')) {
+    const target = only.slice(5);
+    for (const [label, values] of Object.entries(lotAttrs(lot))) {
+      if (label.toLowerCase() === target) {
+        tallyAttrGroup(counts, target, label, values);
+      }
+    }
   }
 }
 
@@ -638,6 +691,28 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
         (v.priceMax == null || r.lot.current_price <= v.priceMax),
     ]);
   }
+  if (v.attrs.length) {
+    const byGroup = new Map<string, Set<string>>();
+    for (const key of v.attrs) {
+      const parsed = parseAttrKey(key);
+      if (parsed) {
+        byGroup.getOrInsertComputed(parsed.name, () => new Set()).add(key);
+      }
+    }
+    for (const [groupKey, wanted] of byGroup) {
+      dims.push([
+        `attr:${groupKey}`,
+        r => {
+          for (const [label, values] of Object.entries(lotAttrs(r.lot))) {
+            if (label.toLowerCase() === groupKey) {
+              return values.some(val => wanted.has(attrKey(label, val)));
+            }
+          }
+          return false;
+        },
+      ]);
+    }
+  }
   return {
     search: makeSearch(v, details),
     dims,
@@ -668,13 +743,20 @@ export interface Facet<T> {
   count: number;
 }
 
+export interface AttrFacetGroup {
+  key: string; // lowercase attribute name, e.g. "hose length"
+  label: string; // display name, e.g. "Hose length"
+  facets: Facet<string>[]; // value is attrKey ("hose length:50 ft"), label is "50 ft"
+}
+
 export interface Facets {
   categories: Facet<string>[];
-  siteCategories: Facet<string>[]; // the site's own categories, before custom ones take lots out
+  siteCategories: Facet<string>[];
   conditions: Facet<number>[];
   locations: Facet<string>[];
   types: Facet<string>[]; // item types, most lots first
   brands: Facet<string>[]; // by brandKey, labelled with the most common spelling; most lots first
+  attrs: AttrFacetGroup[]; // contextual item attributes relevant to the current results
   prices: Facet<number>[]; // index into PRICE_BUCKETS
 }
 
@@ -737,7 +819,7 @@ export function computeFacets(lots: Iterable<Lot>, now: number, details?: ItemDe
       open.map(l => (l.itemType ? { value: l.itemType, label: l.itemType } : null)),
     ).toSorted(byCountThenLabel),
     brands: tallyBrands(open.map(l => brandOf(l, details))),
-    // Tags differing only in case are one value, shown in its most common spelling.
+    attrs: [],
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,
       label: b.label,
@@ -763,6 +845,67 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
       count: m.get(value) ?? 0,
     })).toSorted(byCountThenLabel);
   };
+
+  // Show contextual attribute facets only when narrowed (search, category, type, brand, or an
+  // active attribute) and when an attribute covers >= 25% of matching lots with >= 2 values.
+  const selectedByGroup = new Map<string, string[]>();
+  for (const key of view.attrs) {
+    const parsed = parseAttrKey(key);
+    if (parsed) {
+      selectedByGroup.getOrInsertComputed(parsed.name, () => []).push(key);
+    }
+  }
+  const narrowed = Boolean(
+    view.search.trim() ||
+      view.categories.length ||
+      view.types.length ||
+      view.brands.length ||
+      view.attrs.length,
+  );
+  const groupKeys = [...counts.attr.keys(), ...selectedByGroup.keys()].toSet();
+  const attrGroups: (AttrFacetGroup & { selected: boolean; coverage: number })[] = [];
+  for (const groupKey of groupKeys) {
+    const selected = selectedByGroup.get(groupKey) ?? [];
+    const valueMap = counts.attr.get(groupKey);
+    const lotCount = counts.attrLots.get(groupKey) ?? 0;
+    const distinct = valueMap ? valueMap.size : 0;
+    const relevant =
+      narrowed &&
+      lotCount >= 2 &&
+      counts.total > 0 &&
+      lotCount / counts.total >= 0.25 &&
+      distinct >= 2;
+    if (!selected.length && !relevant) {
+      continue;
+    }
+    const label =
+      counts.attrLabels.get(groupKey) ??
+      groupKey.replace(/\b[a-z]/g, c => c.toUpperCase());
+    const keys = [...(valueMap?.keys() ?? []), ...selected].toSet();
+    const facets = Array.from(keys, key => {
+      const entry = valueMap?.get(key);
+      return {
+        value: key,
+        label: entry?.label ?? parseAttrKey(key)?.value ?? key,
+        count: entry?.count ?? 0,
+      };
+    }).toSorted((a, b) => compareAttrValues(a.label, b.label));
+    attrGroups.push({
+      key: groupKey,
+      label,
+      facets,
+      selected: selected.length > 0,
+      coverage: lotCount,
+    });
+  }
+  attrGroups.sort(
+    (a, b) => Number(b.selected) - Number(a.selected) || b.coverage - a.coverage || collator.compare(a.label, b.label),
+  );
+  const selectedCount = attrGroups.filter(g => g.selected).length;
+  const attrs: AttrFacetGroup[] = attrGroups
+    .slice(0, Math.max(4, selectedCount))
+    .map(({ key, label, facets }) => ({ key, label, facets }));
+
   return {
     categories: recount(all.categories, counts.category),
     siteCategories: all.siteCategories,
@@ -772,6 +915,7 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
       .toReversed(),
     types: present(all.types, counts.type, view.types),
     brands: present(all.brands, counts.brand, view.brands),
+    attrs,
     prices: all.prices.map(f => ({ ...f, count: counts.price[f.value] ?? 0 })),
   };
 }

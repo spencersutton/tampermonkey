@@ -251,3 +251,49 @@ test('a combined card leads with the best condition and notes a cheaper worse on
   assert.equal(alone.lot.title, 'Saw new');
   assert.equal(alone.cheaper, null, 'no note when the worse condition costs more');
 });
+
+test('contextual attributes stay hidden when unfiltered and surface with natural sort and disjunctive counts when narrowed', () => {
+  const items = [
+    lot('Flexzilla 50 ft. 5/8 in. Garden Hose', { itemType: 'garden hose' }),
+    lot('Flexzilla 100 ft. 5/8 in. Garden Hose', { itemType: 'garden hose' }),
+    lot('Zero-G 25 ft. 3/4 in. Garden Hose', { itemType: 'garden hose' }),
+    lot('8x10 Blue Area Rug', { itemType: 'area rug' }),
+    lot('5x7 Gray Area Rug', { itemType: 'area rug' }),
+  ];
+  const all = computeFacets(items, now);
+
+  // Unfiltered homepage: no attribute facets shown.
+  const unfiltered = contextualFacets(all, run(items, DEFAULT_VIEW).facetCounts, DEFAULT_VIEW);
+  assert.deepEqual(unfiltered.attrs, []);
+
+  // Narrowed to garden hose: Hose length & Hose diameter appear in natural numeric order.
+  const hoseView = { ...DEFAULT_VIEW, types: ['garden hose'] };
+  const hoseFacets = contextualFacets(all, run(items, hoseView).facetCounts, hoseView);
+  const lengthGroup = hoseFacets.attrs.find(g => g.key === 'hose length');
+  assert.ok(lengthGroup);
+  assert.deepEqual(
+    lengthGroup.facets.map(f => [f.label, f.count]),
+    [
+      ['25 ft', 1],
+      ['50 ft', 1],
+      ['100 ft', 1],
+    ],
+  );
+
+  // OR within same attribute, AND across attributes, disjunctive counts, and URL round-trip.
+  const filteredView = {
+    ...hoseView,
+    attrs: ['hose length:50 ft', 'hose length:100 ft', 'hose diameter:5/8 in'],
+  };
+  const filtered = run(items, filteredView);
+  assert.deepEqual(titles(filtered).toSorted(), [
+    'Flexzilla 100 ft. 5/8 in. Garden Hose',
+    'Flexzilla 50 ft. 5/8 in. Garden Hose',
+  ]);
+  const filteredFacets = contextualFacets(all, filtered.facetCounts, filteredView);
+  const diaGroup = filteredFacets.attrs.find(g => g.key === 'hose diameter');
+  assert.equal(diaGroup.facets.find(f => f.label === '5/8 in').count, 2);
+
+  const nav = navFromUrl('?type=garden+hose&attr=hose+length%3A50+ft');
+  assert.deepEqual(nav.view.attrs, ['hose length:50 ft']);
+});

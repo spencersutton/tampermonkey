@@ -52,6 +52,15 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
       remove: { brands: without(v.brands, b) },
     });
   }
+  for (const a of v.attrs) {
+    const group = facets.attrs.find(g => g.facets.some(f => f.value === a));
+    const item = group?.facets.find(f => f.value === a);
+    chips.push({
+      key: `attr:${a}`,
+      label: group && item ? `${group.label}: ${item.label}` : a,
+      remove: { attrs: without(v.attrs, a) },
+    });
+  }
   for (const c of v.conditions) {
     chips.push({
       key: `cond:${c}`,
