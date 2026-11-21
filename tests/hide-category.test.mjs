@@ -23,9 +23,8 @@ const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/server/s
 const { lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { hideItemType, toggleHide, storedView, page, rowOf, exclusionRules } =
   await vite.ssrLoadModule('/src/app/ui/state.ts');
-const { DEFAULT_VIEW, computeView, activeFilterCount } = await vite.ssrLoadModule(
-  '/src/app/logic/view.ts',
-);
+const { DEFAULT_VIEW, computeView, activeFilterCount } =
+  await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 const { LotCard } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
@@ -156,4 +155,16 @@ test('toggleHide adds and removes an escaped exact-title regex in filterWords', 
   toggleHide(special);
   assert.deepEqual(getSetting(KEYS.words), []);
   assert.deepEqual(visibleIds(), [9, 10]);
+});
+
+test('random sort stays stable across recomputations and lot updates', () => {
+  const many = Array.from({ length: 20 }, (_, i) => fixture(i + 1, 'tools', 'Tools', 'hammer'));
+  const view = { ...DEFAULT_VIEW, sort: 'random' };
+  const order = () =>
+    computeView(many, view, 'Raleigh', exclusionRules.value, now).rows.map(r => r.lot.id);
+
+  const first = order();
+  assert.deepEqual(order(), first);
+  many[0] = { ...many[0], current_price: 99 };
+  assert.deepEqual(order(), first);
 });

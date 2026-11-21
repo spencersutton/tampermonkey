@@ -35,6 +35,17 @@ export interface Row {
 
 type Compare = (a: Row, b: Row) => number;
 
+/** Per-page-load random key per lot, so the random order stays put until the page refreshes. */
+const randomKeys = new Map<number, number>();
+const randomKey = (id: number) => {
+  let k = randomKeys.get(id);
+  if (k === undefined) {
+    k = Math.random();
+    randomKeys.set(id, k);
+  }
+  return k;
+};
+
 /** Sort options. Ties always fall back to ending soonest. */
 export const SORTS = {
   relevance: { label: 'Best match', compare: (a, b) => b.score - a.score },
@@ -67,7 +78,7 @@ export const SORTS = {
     label: 'Retail price: high to low',
     compare: (a, b) => b.lot.estimated_retail_price - a.lot.estimated_retail_price,
   },
-  random: { label: 'Random', compare: () => Math.random() - 0.5 },
+  random: { label: 'Random', compare: (a, b) => randomKey(a.lot.id) - randomKey(b.lot.id) },
 } satisfies Record<string, { label: string; compare: Compare }>;
 export type SortId = keyof typeof SORTS;
 
