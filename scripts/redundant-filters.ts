@@ -28,7 +28,7 @@ Find regex filters in tlx.db that are redundant or overlap on open lot titles.
   --db FILE       SQLite file (default ${DEFAULT_DB})
   --examples N    Max multi-matched titles to print (default ${DEFAULT_EXAMPLES}; 0 to hide)
   --all           Print every multi-matched title
-  --remove        Remove fully redundant filters from the database (preserving coverage)
+  --remove        Remove fully redundant and 0-match filters from the database (preserving coverage)
   --json          Output results as JSON
   -h, --help      Show this help
 `;
@@ -198,8 +198,8 @@ export interface PruneResult {
 }
 
 /**
- * Iteratively remove fully redundant filters while preserving exact open-lot coverage. Unmatched
- * and invalid patterns are kept untouched.
+ * Iteratively remove fully redundant and unmatched (0-match) filters while preserving exact
+ * open-lot coverage. Invalid patterns are kept untouched.
  */
 export function pruneRedundantFilters(patterns: string[], titles: string[]): PruneResult {
   const uniquePatterns: string[] = [];
@@ -214,6 +214,7 @@ export function pruneRedundantFilters(patterns: string[], titles: string[]): Pru
   const valid = buildRegexes(uniquePatterns).filter(f => f.re !== null);
   const matchedByFilter = new Map<string, Set<number>>();
   const lotCoverCount = new Int32Array(titles.length);
+  const unmatched: string[] = [];
 
   for (const f of valid) {
     const matched = new Set<number>();
@@ -225,6 +226,8 @@ export function pruneRedundantFilters(patterns: string[], titles: string[]): Pru
     }
     if (matched.size > 0) {
       matchedByFilter.set(f.word, matched);
+    } else {
+      unmatched.push(f.word);
     }
   }
 
@@ -291,6 +294,12 @@ export function pruneRedundantFilters(patterns: string[], titles: string[]): Pru
     matchedByFilter.delete(pick.pattern);
     removedSet.add(pick.pattern);
     removed.push(pick.pattern);
+  }
+
+  unmatched.sort((a, b) => a.localeCompare(b));
+  for (const pattern of unmatched) {
+    removedSet.add(pattern);
+    removed.push(pattern);
   }
 
   const kept = patterns.filter(p => !removedSet.has(p));
@@ -430,10 +439,10 @@ function main() {
     if (args.json) {
       console.log(JSON.stringify({ removed, keptCount: kept.length, rev }, null, 2));
     } else if (removed.length === 0) {
-      console.log('No fully redundant filters to remove.');
+      console.log('No redundant or unmatched filters to remove.');
     } else {
       console.log(
-        `Removed ${plural(removed.length, 'fully redundant filter')} (${kept.length} remaining, settings rev ${rev}):`,
+        `Removed ${plural(removed.length, 'redundant or unmatched filter')} (${kept.length} remaining, settings rev ${rev}):`,
       );
       for (const p of removed) {
         console.log(`  - ${p}`);

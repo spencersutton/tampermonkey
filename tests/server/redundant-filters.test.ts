@@ -122,17 +122,26 @@ describe('pruneRedundantFilters', () => {
     return titles.filter(t => compiled.some(f => filterMatches(f, t)));
   };
 
-  test('preserves exact coverage when two filters have identical matches', () => {
+  test('preserves exact coverage when two filters have identical matches and removes 0-match filters', () => {
     const titles = ['Phone Case', 'Desk Lamp'];
     const patterns = ['phone case', 'phone', 'unmatched', '[invalid'];
     const { kept, removed } = pruneRedundantFilters(patterns, titles);
 
     // `phone case` and `phone` match the exact same title; removes the longer one, keeps the other,
-    // and leaves unmatched/invalid filters alone.
-    expect(removed).toEqual(['phone case']);
-    expect(kept).toEqual(['phone', 'unmatched', '[invalid']);
+    // removes 0-match filters, and leaves invalid filters alone.
+    expect(removed).toEqual(['phone case', 'unmatched']);
+    expect(kept).toEqual(['phone', '[invalid']);
     expect(matchedTitles(kept, titles)).toEqual(matchedTitles(patterns, titles));
     expect(analyzeFilters(kept, titles).redundant).toEqual([]);
+  });
+
+  test('removes filters with 0 matches even when no filters overlap', () => {
+    const titles = ['Desk Lamp'];
+    const patterns = ['lamp', 'zebra', 'apple'];
+    const { kept, removed } = pruneRedundantFilters(patterns, titles);
+
+    expect(removed).toEqual(['apple', 'zebra']);
+    expect(kept).toEqual(['lamp']);
   });
 
   test('removes strictly subsumed filters and leaves no remaining redundancy', () => {
