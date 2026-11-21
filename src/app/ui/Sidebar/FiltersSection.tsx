@@ -298,7 +298,6 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
             selected={view.brands}
             onChange={brands => setView({ brands })}
           />
-          <p class="muted small">Only lots whose brand has loaded are listed.</p>
         </Collapsible>
       )}
 
