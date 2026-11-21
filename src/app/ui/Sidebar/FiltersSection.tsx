@@ -170,7 +170,7 @@ function ExcludedTypeList(props: {
   );
 }
 
-/** Two-level collapsible category tree: parents toggle all subcategories at once. */
+/** Two-level collapsible category menu: clicking a category shows only that category. */
 function CategoryTree(props: {
   facets: Facet<string>[];
   selected: string[];
@@ -179,34 +179,64 @@ function CategoryTree(props: {
   const { facets, selected, onChange } = props;
   const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
   const groups = groupCategories(facets);
+  const total = groups.reduce((sum, g) => sum + g.count, 0);
+
+  const isExact = (values: string[]) =>
+    values.length > 0 &&
+    selected.length === values.length &&
+    values.every(v => selected.includes(v));
 
   return (
-    <div class="cat-tree">
+    <div class="cat-tree" role="navigation" aria-label="Categories">
+      <button
+        type="button"
+        class={`cat-item cat-leaf ${selected.length === 0 ? 'active' : ''}`}
+        aria-current={selected.length === 0 ? 'true' : undefined}
+        onClick={() => onChange([])}
+      >
+        <span class="cat-label">All categories</span>
+        <span class="count">{format.num(total)}</span>
+      </button>
       {groups.map(g => {
         const values = groupValues(g);
-        const selectedCount = values.filter(v => selected.includes(v)).length;
-        const allSelected = values.length > 0 && selectedCount === values.length;
-        const someSelected = selectedCount > 0 && !allSelected;
-        const toggleGroup = () => {
-          if (allSelected) {
-            onChange(selected.filter(v => !values.includes(v)));
-          } else {
-            onChange([...new Set([...selected, ...values])]);
-          }
-        };
+        const active = isExact(values);
+        const hasActive = !active && values.some(v => selected.includes(v));
 
         if (g.subs.length === 0) {
           return (
-            <label key={g.id} class={`check cat-leaf ${g.count || allSelected ? '' : 'zero'}`}>
-              <input type="checkbox" checked={allSelected} onChange={toggleGroup} />
-              <span>{g.label}</span>
+            <button
+              key={g.id}
+              type="button"
+              class={`cat-item cat-leaf ${active ? 'active' : ''} ${g.count || active ? '' : 'zero'}`}
+              aria-current={active ? 'true' : undefined}
+              onClick={() => onChange(active ? [] : values)}
+            >
+              <span class="cat-label">{g.label}</span>
               <span class="count">{format.num(g.count)}</span>
-            </label>
+            </button>
           );
         }
 
         const cid = categoryCollapseId(g.id);
         const open = collapsed[cid] === false;
+        const selectParent = () => {
+          if (active) {
+            onChange([]);
+          } else {
+            onChange(values);
+            if (!open) {
+              setCollapsed({ ...collapsed, [cid]: false });
+            }
+          }
+        };
+
+        let parentState = '';
+        if (active) {
+          parentState = 'active';
+        } else if (hasActive) {
+          parentState = 'has-active';
+        }
+
         return (
           <div key={g.id} class="cat-group">
             <div class="cat-parent">
@@ -219,24 +249,33 @@ function CategoryTree(props: {
               >
                 <Icon name="expandMore" size={16} />
               </button>
-              <label class={`check ${g.count || selectedCount > 0 ? '' : 'zero'}`}>
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  ref={el => {
-                    if (el) {
-                      el.indeterminate = someSelected;
-                    }
-                  }}
-                  onChange={toggleGroup}
-                />
-                <span>{g.label}</span>
+              <button
+                type="button"
+                class={`cat-item ${parentState} ${g.count || active || hasActive ? '' : 'zero'}`}
+                aria-current={active ? 'true' : undefined}
+                onClick={selectParent}
+              >
+                <span class="cat-label">{g.label}</span>
                 <span class="count">{format.num(g.count)}</span>
-              </label>
+              </button>
             </div>
             {open && (
               <div class="cat-subs">
-                <CheckList facets={g.subs} selected={selected} onChange={onChange} />
+                {g.subs.map(s => {
+                  const subActive = isExact([s.value]);
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      class={`cat-item ${subActive ? 'active' : ''} ${s.count || subActive ? '' : 'zero'}`}
+                      aria-current={subActive ? 'true' : undefined}
+                      onClick={() => onChange(subActive ? [] : [s.value])}
+                    >
+                      <span class="cat-label">{s.label}</span>
+                      <span class="count">{format.num(s.count)}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
