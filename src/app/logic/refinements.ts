@@ -39,7 +39,8 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
     } else {
       for (const s of g.subs) {
         if (pending.has(s.value)) {
-          categoryChip(s.value, s.label, [s.value]);
+          const label = s.label === 'Other' ? `${g.label}: Other` : s.label;
+          categoryChip(s.value, label, [s.value]);
         }
       }
     }

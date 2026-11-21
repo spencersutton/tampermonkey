@@ -470,6 +470,34 @@ const BY_VALUE = new Map(CATEGORIES.map(c => [c.value, c]));
 
 const CUSTOM_PARENTS = new Set(CATEGORIES.map(c => c.parent));
 
+/**
+ * Where unmapped site-category fallbacks nest in the two-level tree so they never appear as
+ * duplicate top-level rows alongside a custom parent.
+ */
+const SITE_FALLBACK_PARENT: Record<string, string> = {
+  automotive: 'Automotive',
+  Building_Hardware: 'Building & Hardware',
+  'electronics-appliances': 'Electronics',
+  'General-Merchandise': 'Office, Shipping & Misc',
+  'health-beauty': 'Health & Beauty',
+  home: 'Home',
+  'lighting-electrical': 'Lighting & Electrical',
+  outdoor: 'Outdoor & Garden',
+  'plumbing-bath': 'Plumbing & Bath',
+  tools: 'Tools',
+  Toys_Sports: 'Sports, Fitness & Toys',
+};
+
+/**
+ * Single-subcategory parents whose matching site category can absorb unmapped lots directly instead
+ * of creating a redundant "Other" child.
+ */
+const SINGLE_SUB_FALLBACK: Record<string, CategoryDef> = {
+  Apparel: BY_VALUE.get('apparel/clothing-accessories')!,
+  'baby-kids': BY_VALUE.get('baby-kids/gear')!,
+  Pets: BY_VALUE.get('pets/supplies')!,
+};
+
 /** Whether a category value belongs to a fixed custom category (not a site fallback). */
 export const isCustomCategory = (value: string): boolean => BY_VALUE.has(value);
 
@@ -479,8 +507,8 @@ export function categorizeLot(lot: Pick<Lot, 'category' | 'itemType'>): {
   label: string;
 } {
   const type = lot.itemType?.trim().toLowerCase();
+  const site = lot.category.value;
   if (type) {
-    const site = lot.category.value;
     for (const def of CATEGORIES) {
       const matched =
         typeof def.match === 'function' ? def.match(type, site) : def.match.test(type);
@@ -488,6 +516,10 @@ export function categorizeLot(lot: Pick<Lot, 'category' | 'itemType'>): {
         return { value: def.value, label: def.label };
       }
     }
+  }
+  const single = SINGLE_SUB_FALLBACK[site];
+  if (single) {
+    return { value: single.value, label: single.label };
   }
   return lot.category;
 }
@@ -517,10 +549,12 @@ export const categoryCollapseId = (id: string) => `cat:${id}`;
 
 /**
  * Group flat category facets into a two-level tree: custom categories nested under their parent,
- * with any unmapped site-category fallbacks at the top level.
+ * with unmapped site-category fallbacks nested as "Other" under their matching parent so no parent
+ * name is duplicated at the top level.
  */
 export function groupCategories(facets: Facet<string>[]): CategoryGroup[] {
   const byParent = new Map<string, Facet<string>[]>();
+  const fallbackByParent = new Map<string, Facet<string>[]>();
   const standalone: CategoryGroup[] = [];
 
   for (const f of facets) {
@@ -532,6 +566,18 @@ export function groupCategories(facets: Facet<string>[]): CategoryGroup[] {
         byParent.set(def.parent, list);
       }
       list.push(f);
+      continue;
+    }
+
+    const fallbackParent =
+      SITE_FALLBACK_PARENT[f.value] ?? (CUSTOM_PARENTS.has(f.label) ? f.label : undefined);
+    if (fallbackParent) {
+      let list = fallbackByParent.get(fallbackParent);
+      if (!list) {
+        list = [];
+        fallbackByParent.set(fallbackParent, list);
+      }
+      list.push({ ...f, label: 'Other' });
     } else {
       standalone.push({
         id: f.value,
@@ -543,13 +589,19 @@ export function groupCategories(facets: Facet<string>[]): CategoryGroup[] {
     }
   }
 
+  const allParents = new Set([...byParent.keys(), ...fallbackByParent.keys()]);
   const groups: CategoryGroup[] = [];
-  for (const [parent, subs] of byParent) {
-    const sortedSubs = subs.toSorted((a, b) => collator.compare(a.label, b.label));
-    if (sortedSubs.length === 1 && !CUSTOM_PARENTS.has(sortedSubs[0]!.label)) {
-      // Single-subcategory parents (Pets, Baby & Kids, Apparel, Seasonal) still
+  for (const parent of allParents) {
+    const customSubs = (byParent.get(parent) ?? []).toSorted((a, b) =>
+      collator.compare(a.label, b.label),
+    );
+    const otherSubs = fallbackByParent.get(parent) ?? [];
+    const subs = [...customSubs, ...otherSubs];
+
+    if (subs.length === 1 && otherSubs.length === 0 && !CUSTOM_PARENTS.has(subs[0]!.label)) {
+      // Single-subcategory parents (Pets, Baby & Kids, Apparel & Bags, Seasonal & Holiday)
       // work cleanly as standalone top-level checkboxes without redundant nesting.
-      const only = sortedSubs[0]!;
+      const only = subs[0]!;
       groups.push({
         id: only.value,
         label: parent,
@@ -561,8 +613,8 @@ export function groupCategories(facets: Facet<string>[]): CategoryGroup[] {
       groups.push({
         id: parent,
         label: parent,
-        count: sortedSubs.reduce((sum, s) => sum + s.count, 0),
-        subs: sortedSubs,
+        count: subs.reduce((sum, s) => sum + s.count, 0),
+        subs,
         facet: null,
       });
     }

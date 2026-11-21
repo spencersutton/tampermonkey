@@ -89,34 +89,46 @@ test('groupCategories nests subcategories under parents and keeps single-sub and
     makeLot('cordless drill', 'tools', 'Tools'),
     makeLot('impact driver', 'tools', 'Tools'),
     makeLot('hammer', 'tools', 'Tools'),
+    makeLot('mystery tool', 'tools', 'Tools'),
     makeLot('dog bed', 'home', 'Home'),
+    makeLot('mystery pet item', 'Pets', 'Pets'),
     makeLot('flux capacitor', 'miscellaneous', 'Miscellaneous'),
   ];
   const facets = computeFacets(lots, now);
   const groups = groupCategories(facets.categories);
 
+  // Unmapped "tools" lots nest as "Other" under Tools instead of duplicating Tools.
+  assert.equal(groups.filter(g => g.label === 'Tools').length, 1);
   const tools = groups.find(g => g.id === 'Tools');
   assert.ok(tools);
-  assert.equal(tools.count, 3);
+  assert.equal(tools.count, 4);
   assert.deepEqual(
-    tools.subs.map(s => [s.value, s.count]),
+    tools.subs.map(s => [s.value, s.label, s.count]),
     [
-      ['tools/hand-measuring', 1],
-      ['tools/power-tools', 2],
+      ['tools/hand-measuring', 'Hand Tools & Measuring', 1],
+      ['tools/power-tools', 'Power Tools', 2],
+      ['tools', 'Other', 1],
     ],
   );
-  assert.deepEqual(groupValues(tools), ['tools/hand-measuring', 'tools/power-tools']);
+  assert.deepEqual(groupValues(tools), ['tools/hand-measuring', 'tools/power-tools', 'tools']);
 
+  // Single-sub site fallback ("Pets") merges directly into pets/supplies.
   const pets = groups.find(g => g.id === 'pets/supplies');
   assert.ok(pets);
   assert.equal(pets.subs.length, 0);
-  assert.equal(pets.count, 1);
+  assert.equal(pets.count, 2);
   assert.deepEqual(groupValues(pets), ['pets/supplies']);
 
+  // Unknown site categories still appear as standalone fallbacks.
   const misc = groups.find(g => g.id === 'miscellaneous');
   assert.ok(misc);
   assert.equal(misc.subs.length, 0);
   assert.equal(misc.count, 1);
+
+  // Selecting only the "Other" fallback subcategory labels the chip "<Parent>: Other".
+  const otherChip = chipsFor({ ...DEFAULT_VIEW, categories: ['tools'] }, facets, 'Raleigh');
+  assert.equal(otherChip.length, 1);
+  assert.equal(otherChip[0].label, 'Tools: Other');
 });
 
 test('refinements and suggestName collapse a parent category when all its subcategories are selected', () => {
