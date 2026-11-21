@@ -359,9 +359,14 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin: 2px 0 4px 10px;
-  padding-left: 12px;
+  margin: 2px 0 4px 26px;
+  padding-left: 10px;
   border-left: 1px solid var(--line);
+}
+
+.cat-subs .cat-item {
+  padding: 3px 8px;
+  font-size: 13px;
 }
 
 .facet-find {
