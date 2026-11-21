@@ -3,8 +3,15 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { analyzeFilters, formatReport, loadFromDb } from '../../scripts/redundant-filters';
+import {
+  analyzeFilters,
+  formatReport,
+  loadFromDb,
+  pruneRedundantFilters,
+  saveToDb,
+} from '../../scripts/redundant-filters';
 import { Store } from '../../src/server/store';
+import { buildRegexes, filterMatches } from '../../src/shared/filters';
 import { KEYS } from '../../src/shared/keys';
 import { rawLot } from '../raw-lot.mjs';
 
@@ -95,5 +102,54 @@ describe('loadFromDb', () => {
     const loaded = loadFromDb(dbPath);
     expect(loaded.patterns).toEqual(['phone', 'case']);
     expect(loaded.titles).toEqual(['Laptop Stand']);
+  });
+
+  test('saveToDb updates filterWords and bumps settings revision', () => {
+    const dbPath = join(dir, 'save.db');
+    const store = new Store(dbPath);
+    const rev1 = store.putSetting(KEYS.words, ['cable', 'usb-c cable']);
+    store.close();
+
+    const rev2 = saveToDb(dbPath, ['cable']);
+    expect(rev2).toBeGreaterThan(rev1);
+    expect(loadFromDb(dbPath).patterns).toEqual(['cable']);
+  });
+});
+
+describe('pruneRedundantFilters', () => {
+  const matchedTitles = (patterns: string[], titles: string[]) => {
+    const compiled = buildRegexes(patterns);
+    return titles.filter(t => compiled.some(f => filterMatches(f, t)));
+  };
+
+  test('preserves exact coverage when two filters have identical matches', () => {
+    const titles = ['Phone Case', 'Desk Lamp'];
+    const patterns = ['phone case', 'phone', 'unmatched', '[invalid'];
+    const { kept, removed } = pruneRedundantFilters(patterns, titles);
+
+    // `phone case` and `phone` match the exact same title; removes the longer one, keeps the other,
+    // and leaves unmatched/invalid filters alone.
+    expect(removed).toEqual(['phone case']);
+    expect(kept).toEqual(['phone', 'unmatched', '[invalid']);
+    expect(matchedTitles(kept, titles)).toEqual(matchedTitles(patterns, titles));
+    expect(analyzeFilters(kept, titles).redundant).toEqual([]);
+  });
+
+  test('removes strictly subsumed filters and leaves no remaining redundancy', () => {
+    const titles = [
+      'Anker USB-C Cable 6ft',
+      'HDMI Cable 10ft',
+      'Red Phone Case',
+      'Blue Phone Charger',
+      'Red Mug',
+      'Blue Pen',
+    ];
+    const patterns = ['cable', 'usb-c cable', 'usb-c', 'phone', 'red', 'blue'];
+    const { kept, removed } = pruneRedundantFilters(patterns, titles);
+
+    expect(removed).toEqual(['usb-c cable', 'usb-c', 'phone']);
+    expect(kept).toEqual(['cable', 'red', 'blue']);
+    expect(matchedTitles(kept, titles)).toEqual(matchedTitles(patterns, titles));
+    expect(analyzeFilters(kept, titles).redundant).toEqual([]);
   });
 });

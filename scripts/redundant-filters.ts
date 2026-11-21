@@ -9,6 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { Store } from '../src/server/store';
 import { buildRegexes, filterMatches } from '../src/shared/filters';
 import { KEYS } from '../src/shared/keys';
 
@@ -27,6 +28,7 @@ Find regex filters in tlx.db that are redundant or overlap on open lot titles.
   --db FILE       SQLite file (default ${DEFAULT_DB})
   --examples N    Max multi-matched titles to print (default ${DEFAULT_EXAMPLES}; 0 to hide)
   --all           Print every multi-matched title
+  --remove        Remove fully redundant filters from the database (preserving coverage)
   --json          Output results as JSON
   -h, --help      Show this help
 `;
@@ -190,6 +192,121 @@ export function analyzeFilters(patterns: string[], titles: string[]): FilterAnal
   };
 }
 
+export interface PruneResult {
+  kept: string[];
+  removed: string[];
+}
+
+/**
+ * Iteratively remove fully redundant filters while preserving exact open-lot coverage. Unmatched
+ * and invalid patterns are kept untouched.
+ */
+export function pruneRedundantFilters(patterns: string[], titles: string[]): PruneResult {
+  const uniquePatterns: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of patterns) {
+    if (raw.trim() && !seen.has(raw)) {
+      seen.add(raw);
+      uniquePatterns.push(raw);
+    }
+  }
+
+  const valid = buildRegexes(uniquePatterns).filter(f => f.re !== null);
+  const matchedByFilter = new Map<string, Set<number>>();
+  const lotCoverCount = new Int32Array(titles.length);
+
+  for (const f of valid) {
+    const matched = new Set<number>();
+    for (let i = 0; i < titles.length; i++) {
+      if (filterMatches(f, titles[i] ?? '')) {
+        matched.add(i);
+        lotCoverCount[i] = (lotCoverCount[i] ?? 0) + 1;
+      }
+    }
+    if (matched.size > 0) {
+      matchedByFilter.set(f.word, matched);
+    }
+  }
+
+  const isStrictSuperset = (sub: Set<number>, sup: Set<number>): boolean => {
+    if (sup.size <= sub.size) {
+      return false;
+    }
+    for (const id of sub) {
+      if (!sup.has(id)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const removedSet = new Set<string>();
+  const removed: string[] = [];
+
+  for (;;) {
+    const candidates: { pattern: string; total: number; strictSubsumed: boolean }[] = [];
+    for (const [pattern, matched] of matchedByFilter) {
+      let redundant = true;
+      for (const id of matched) {
+        if ((lotCoverCount[id] ?? 0) <= 1) {
+          redundant = false;
+          break;
+        }
+      }
+      if (!redundant) {
+        continue;
+      }
+      let strictSubsumed = false;
+      for (const [other, theirs] of matchedByFilter) {
+        if (other !== pattern && isStrictSuperset(matched, theirs)) {
+          strictSubsumed = true;
+          break;
+        }
+      }
+      candidates.push({ pattern, total: matched.size, strictSubsumed });
+    }
+
+    if (candidates.length === 0) {
+      break;
+    }
+
+    candidates.sort(
+      (a, b) =>
+        Number(b.strictSubsumed) - Number(a.strictSubsumed) ||
+        a.total - b.total ||
+        b.pattern.length - a.pattern.length ||
+        a.pattern.localeCompare(b.pattern),
+    );
+
+    const pick = candidates.at(0);
+    if (!pick) {
+      break;
+    }
+    const matched = matchedByFilter.get(pick.pattern);
+    if (matched) {
+      for (const id of matched) {
+        lotCoverCount[id] = (lotCoverCount[id] ?? 0) - 1;
+      }
+    }
+    matchedByFilter.delete(pick.pattern);
+    removedSet.add(pick.pattern);
+    removed.push(pick.pattern);
+  }
+
+  const kept = patterns.filter(p => !removedSet.has(p));
+  return { kept, removed };
+}
+
+/** Persist updated filterWords to tlx.db via Store (bumping settingsRev). */
+export function saveToDb(dbPath: string, patterns: string[]): number {
+  const store = new Store(dbPath);
+  try {
+    return store.putSetting(KEYS.words, patterns);
+  } finally {
+    store.close();
+  }
+}
+
 /** Read filterWords and open lot titles from a tlx-server SQLite database. */
 export function loadFromDb(dbPath: string): { patterns: string[]; titles: string[] } {
   const db = new Database(dbPath, { readonly: true });
@@ -283,6 +400,7 @@ function main() {
       db: { type: 'string', default: DEFAULT_DB },
       examples: { type: 'string', default: String(DEFAULT_EXAMPLES) },
       all: { type: 'boolean', default: false },
+      remove: { type: 'boolean', default: false },
       json: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
@@ -305,6 +423,25 @@ function main() {
   }
 
   const { patterns, titles } = loadFromDb(args.db);
+
+  if (args.remove) {
+    const { kept, removed } = pruneRedundantFilters(patterns, titles);
+    const rev = removed.length > 0 ? saveToDb(args.db, kept) : null;
+    if (args.json) {
+      console.log(JSON.stringify({ removed, keptCount: kept.length, rev }, null, 2));
+    } else if (removed.length === 0) {
+      console.log('No fully redundant filters to remove.');
+    } else {
+      console.log(
+        `Removed ${plural(removed.length, 'fully redundant filter')} (${kept.length} remaining, settings rev ${rev}):`,
+      );
+      for (const p of removed) {
+        console.log(`  - ${p}`);
+      }
+    }
+    return;
+  }
+
   const analysis = analyzeFilters(patterns, titles);
 
   if (args.json) {
