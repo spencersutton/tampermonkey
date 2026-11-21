@@ -3,10 +3,12 @@ import type { SavedSearch } from '../app/logic/view';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, SITE } from './constants';
 
 export const KEYS = {
+  hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
   words: 'filterWords', // string[]
   filterOn: 'filterEnabled', // boolean
+  showHidden: 'showHidden', // boolean
   removeFiltered: 'removeFiltered', // boolean – drop filtered lots entirely instead of graying out
-  collapsed: 'collapsedLists', // { words: boolean }
+  collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
   syncMinutes: 'tlxSyncMinutes', // number – minimum minutes between full catalog pulls
   view: 'tlxView', // persisted catalog view state (sort, filters)
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
@@ -21,20 +23,30 @@ export const KEYS = {
  * per browser.
  */
 export const SERVER_KEYS = [
+  KEYS.hidden,
   KEYS.words,
   KEYS.filterOn,
+  KEYS.showHidden,
   KEYS.removeFiltered,
   KEYS.syncMinutes, // the server's own pull interval
   KEYS.savedSearches,
   KEYS.lastVisit,
 ] as const;
 
+export interface HiddenLot {
+  title: string;
+  href: string;
+  ts: number;
+}
+
 /** Value returned for each setting when nothing has been saved yet. */
 export const DEFAULTS = {
+  [KEYS.hidden]: {} as Record<string, HiddenLot>,
   [KEYS.words]: [] as string[],
   [KEYS.filterOn]: true,
+  [KEYS.showHidden]: false,
   [KEYS.removeFiltered]: false,
-  [KEYS.collapsed]: { words: false } as Record<string, boolean>,
+  [KEYS.collapsed]: { words: false, hidden: false } as Record<string, boolean>,
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.view]: null as unknown,
   [KEYS.savedSearches]: [] as SavedSearch[],
@@ -46,3 +58,6 @@ export const DEFAULTS = {
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
 export const lotHref = (auctionPeriod: string, id: number) => `${SITE}/lots/${auctionPeriod}/${id}`;
+
+/** A link saved with a hidden lot as an absolute URL on the site (older ones were saved as paths). */
+export const siteUrl = (href: string) => new URL(href, `${SITE}/`).href;

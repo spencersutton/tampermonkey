@@ -4,9 +4,13 @@
 import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
 import { DAY, MINUTE } from '../../shared/constants';
-import { exactTitleFilter } from '../../shared/filters';
-import { KEYS } from '../../shared/keys';
-import { firstVisitSince, hideItemTypeView, rememberSearchList } from '../logic/catalog';
+import { KEYS, siteUrl } from '../../shared/keys';
+import {
+  firstVisitSince,
+  hideItemTypeView,
+  rememberSearchList,
+  toggleHiddenLot,
+} from '../logic/catalog';
 import type { ClosedSection } from '../logic/history';
 import { suggest } from '../logic/suggest';
 import {
@@ -21,7 +25,7 @@ import {
 import { fetchPickupLocation } from '../server/api';
 import { isAuthenticated } from '../server/auth';
 import type { BidRequest } from '../server/bid';
-import { lotBrands, lotModels, lots, rev } from '../server/catalog';
+import { getLot, lotBrands, lotModels, lots, rev } from '../server/catalog';
 import { clock } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { settingsReady } from '../server/source';
@@ -38,6 +42,15 @@ export const filteredOnly = signal(false);
 export const sidebarOpen = signal(false);
 
 export const openLot = (lot: Lot) => void (openId.value = lot.id);
+
+/** Open a hidden lot: in the popup when it's in the catalog, else on the site. */
+export function openHidden(id: number) {
+  if (getLot(id)) {
+    openId.value = id;
+  } else {
+    window.open(siteUrl(getSetting(KEYS.hidden)[id]?.href ?? '/'), '_blank', 'noopener');
+  }
+}
 
 /** Show the Won / Lost page, or the grid again for null. */
 export function openClosed(section: ClosedSection | null) {
@@ -60,19 +73,7 @@ export function openFiltered(show = true) {
 }
 
 export function toggleHide(lot: Lot) {
-  const pattern = exactTitleFilter(lot.title);
-  const words = getSetting(KEYS.words);
-  if (words.includes(pattern)) {
-    setSetting(
-      KEYS.words,
-      words.filter(w => w !== pattern),
-    );
-  } else {
-    setSetting(KEYS.words, [...words, pattern]);
-    if (!getSetting(KEYS.filterOn)) {
-      setSetting(KEYS.filterOn, true);
-    }
-  }
+  setSetting(KEYS.hidden, toggleHiddenLot(getSetting(KEYS.hidden), lot));
 }
 
 // Modal state and actions
@@ -158,6 +159,8 @@ export const exclusionRules = computed(() => ({
   words: getSetting(KEYS.words),
   filterOn: getSetting(KEYS.filterOn),
   removeFiltered: getSetting(KEYS.removeFiltered),
+  hidden: getSetting(KEYS.hidden),
+  showHidden: getSetting(KEYS.showHidden),
 }));
 
 // Catalog rows, facets and pagination
@@ -202,6 +205,7 @@ export const suggestions = computed(() =>
     filterFacets.value,
     lots.value.values(),
     clock(30_000),
+    exclusionRules.value.hidden,
     searchDetails.value,
   ),
 );

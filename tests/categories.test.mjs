@@ -159,7 +159,13 @@ test('refinements and suggestName collapse a parent category when all its subcat
   assert.deepEqual(oneChips[0].remove, { categories: [] });
 
   // Filtering by custom category filters the computed view.
-  const res = computeView(lots, oneToolView, 'Raleigh', { filterOn: false, words: [] }, now);
+  const res = computeView(
+    lots,
+    oneToolView,
+    'Raleigh',
+    { filterOn: false, words: [], hidden: {} },
+    now,
+  );
   assert.equal(res.rows.length, 1);
   assert.equal(res.rows[0].category.value, 'tools/power-tools');
 });
