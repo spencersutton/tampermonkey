@@ -53,9 +53,9 @@ export function compareAttrValues(a: string, b: string): number {
 // ---------------------------------------------------------------------------
 
 type RuleValue = string | ((m: RegExpExecArray) => string | string[]);
-type Rule = [name: string, re: RegExp, value: RuleValue, when?: RegExp | undefined];
+type Rule = [name: string, re: RegExp, value: RuleValue, when?: RegExp];
 
-const group = (name: string, entries: [RegExp, RuleValue, (RegExp | undefined)?][]): Rule[] =>
+const group = (name: string, entries: [RegExp, RuleValue, RegExp?][]): Rule[] =>
   entries.map(([re, value, when]) => [name, re, value, when]);
 
 const unit = (name: string, re: RegExp, suffix: string, when?: RegExp): Rule => [
@@ -110,7 +110,10 @@ const RULES: Rule[] = [
     ],
   ]),
   ...group('Power source', [
-    [/\bcordless\b|\bbatter(?:y|ies)\b|\brechargeable\b|\bREDLITHIUM\b|\btool[ -]only\b/i, 'Battery'],
+    [
+      /\bcordless\b|\bbatter(?:y|ies)\b|\brechargeable\b|\bREDLITHIUM\b|\btool[ -]only\b/i,
+      'Battery',
+    ],
     [
       /\bcorded\b|\b1[12]0v\b|\b(?:dewalt|ridgid)\b.*\d[ -]amps?\b|\d[ -]amps?\b.*\b(?:saws?|drill|sander|grinder|router|planer|heat gun|blower|mower|trimmer|polisher|buffer|washer|cut-off)\b/i,
       'Corded',
@@ -138,10 +141,10 @@ const RULES: Rule[] = [
   unit('GPM', /\b(\d+(?:\.\d+)?)\s*GPM\b/i, 'GPM'),
   unit('Capacity (Ah)', /\b(\d+(?:\.\d+)?)\s*Ah\b/i, 'Ah'),
   unit('Amps', /(?<![\d.])(\d+(?:\.\d+)?)[ -]amps?\b/i, 'A'),
-  unit('Lumens', /\b(\d{2,6})[ -]lumens?\b/i, 'lm'),
+  unit('Lumens', /\b(\d+)[ -]lumens?\b/i, 'lm'),
   [
     'Gauge',
-    /(?<![\d/.-])(\d{1,2}(?:\.5|-1\/2)?)[ -]?gauge\b/i,
+    /(?<![\d/.-])(\d+(?:\.5|-1\/2)?)[ -]?gauge\b/i,
     m => `${m[1]!.replace('-1/2', '.5')} Gauge`,
   ],
   unit('Chuck size', /(\d+\/\d+)\s*-?\s*(?:in\.?|")/i, 'in', /\b(?:drill|driver)\b(?! bit)/i),

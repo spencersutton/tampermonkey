@@ -301,21 +301,6 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         </Collapsible>
       )}
 
-      {facets.attrs.map(group => {
-        const prefix = `${group.key}:`;
-        const selected = view.attrs.filter(a => a.startsWith(prefix));
-        const rest = view.attrs.filter(a => !a.startsWith(prefix));
-        return (
-          <Collapsible key={group.key} id={`f-attr-${group.key}`} title={group.label}>
-            <CheckList
-              facets={group.facets}
-              selected={selected}
-              onChange={next => setView({ attrs: [...rest, ...next] })}
-            />
-          </Collapsible>
-        );
-      })}
-
       <Collapsible id="f-condition" title="Condition">
         <CheckList
           facets={facets.conditions}
