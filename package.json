@@ -11,6 +11,7 @@
     "lint:fix": "oxlint --fix",
     "capture-fixtures": "bun scripts/capture-site-fixtures.ts",
     "check-filters": "bun scripts/redundant-filters.ts",
+    "list-filters": "bun scripts/list-filters.ts",
     "server": "bun src/server/main.ts",
     "server:watch": "bun --watch src/server/main.ts",
     "build:watch": "vite build --watch",
