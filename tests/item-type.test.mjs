@@ -55,7 +55,7 @@ const reply = (seq, rows, fields = {}) => ({
   ...fields,
 });
 
-test('title corrections replace the catalog Map and update category matching and counts immediately', () => {
+test('title corrections replace the catalog Map and update item type counts immediately', () => {
   lots.value = new Map(
     [
       catalogLot(1, 'Drill', 'battery'),
@@ -76,12 +76,9 @@ test('title corrections replace the catalog Map and update category matching and
     ['drill driver', 'drill driver', 'saw', 'battery'],
   );
   assert.equal(previous.get(1).itemType, 'battery');
-  const cats = [{ name: 'Tools - Drills', types: ['drill driver'] }];
-  assert.equal(categoryOf(lots.peek().get(1), cats).value, 'custom:Tools - Drills');
+  assert.equal(categoryOf(lots.peek().get(1)).value, 'tools');
   assert.equal(
-    computeFacets(lots.peek().values(), 1000, cats).categories.find(
-      f => f.value === 'custom:Tools - Drills',
-    ).count,
+    computeFacets(lots.peek().values(), 1000).types.find(f => f.value === 'drill driver').count,
     2,
   );
 });

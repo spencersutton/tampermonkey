@@ -6,18 +6,15 @@
 import { useState } from 'preact/hooks';
 
 import * as format from '../../shared/format';
-import { groupLabel, isNoneTag, parseTag, tagGroup } from '../../shared/tags';
 import {
   hasFilterMenusFor,
   orderFilterOptions,
   showBrandMenu,
-  tagGroups,
-  tagMenuOptions,
   toggleFilterOption,
   type FilterOption,
 } from '../logic/filterOptions';
 import { Icon } from './icons';
-import { filterFacets, gridView, setView, sidebarFacets, storedView } from './state';
+import { setView, sidebarFacets, storedView } from './state';
 
 /** Menus with this many values or more get a box to filter them. */
 const FIND_AT = 10;
@@ -30,11 +27,7 @@ export function hasFilterMenus(): boolean {
 export function FilterMenus() {
   const view = storedView.value;
   const facets = sidebarFacets.value;
-  const tags = tagGroups(facets.tags, view.tags);
   const brands = showBrandMenu(facets.brands, view.brands);
-  if (!brands && !tags.length) {
-    return null;
-  }
   return (
     <div class="tag-menus" aria-label="Filter by brand and attribute">
       {brands && (
@@ -46,26 +39,6 @@ export function FilterMenus() {
           onClear={() => setView({ brands: [] })}
         />
       )}
-      {tags.map(([group, list]) => {
-        // The attribute name as tags write it ("Battery system"); the group itself is lowercase.
-        const written = list.find(f => !isNoneTag(f.value))?.label;
-        return (
-          <FilterMenu
-            key={`tag:${group}`}
-            label={groupLabel((written && parseTag(written).name) || group)}
-            facets={tagMenuOptions(
-              list,
-              gridView.value.facetCounts.numericTag,
-              filterFacets.value.tags,
-            )}
-            selected={view.tags}
-            isNone={isNoneTag}
-            valueLabel={f => parseTag(f.label).value}
-            onToggle={t => setView({ tags: toggleFilterOption(view.tags, t) })}
-            onClear={() => setView({ tags: view.tags.filter(t => tagGroup(t) !== group) })}
-          />
-        );
-      })}
     </div>
   );
 }

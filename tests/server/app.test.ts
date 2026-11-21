@@ -257,7 +257,6 @@ describe('static files', () => {
       expect(res.headers.get('Cache-Control')).toBe('no-cache');
       expect(res.headers.get('Content-Type')).toStartWith('text/html');
     }
-    expect(await (await request('/tags')).text()).toContain('Tags');
     const asset = await request('/assets/app-1234.js', { headers: { 'Accept-Encoding': 'gzip' } });
     expect(asset.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable');
     expect(asset.headers.get('Content-Encoding')).toBe('gzip');

@@ -98,9 +98,6 @@ export const modalActions = {
   editType: (lot: Lot) => {
     modal.value = { kind: 'itemType', lot };
   },
-  editCategories: () => {
-    modal.value = { kind: 'categories' };
-  },
   showShortcuts: () => {
     modal.value = { kind: 'shortcuts' };
   },
@@ -127,9 +124,7 @@ export const pickupName = computed(() => accountPickupName.value || 'Raleigh');
 
 // Filters and debounced search
 
-export const storedView = computed(() =>
-  initialView(getSetting(KEYS.view), getSetting(KEYS.defaultFilters)),
-);
+export const storedView = computed(() => initialView(getSetting(KEYS.view)));
 export const searchDraft = signal('');
 const committedSearch = computed(() => storedView.value.search);
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -180,7 +175,6 @@ export const exclusionRules = computed(() => ({
   removeFiltered: getSetting(KEYS.removeFiltered),
   hidden: getSetting(KEYS.hidden),
   showHidden: getSetting(KEYS.showHidden),
-  customCategories: getSetting(KEYS.customCategories),
 }));
 
 // Catalog rows, facets and pagination
@@ -208,12 +202,7 @@ export const gridView = computed(() => {
 });
 /** Every filter option among open lots, with catalog-wide counts; these don't follow live prices. */
 export const filterFacets = computed(() =>
-  computeFacets(
-    lots.value.values(),
-    clock(30_000),
-    getSetting(KEYS.customCategories),
-    searchDetails.value,
-  ),
+  computeFacets(lots.value.values(), clock(30_000), searchDetails.value),
 );
 /** The sidebar's filter options, counted among the current results (each ignoring its own filter). */
 export const sidebarFacets = computed(() =>

@@ -4,7 +4,7 @@ import { HOUR } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../../shared/filters';
-import { type CustomCategory, type DefaultFilters, type HiddenLot } from '../../shared/keys';
+import { type HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import { itemIdentity, type ItemDetails } from '../../shared/names';
 import {
@@ -15,10 +15,8 @@ import {
   type PreparedDoc,
 } from '../../shared/search';
 import { byCode, collator } from '../../shared/sortKey';
-import { noneTag, tagGroup, toLower, tagLabel } from '../../shared/tags';
 import type { Lot } from '../types';
 import { hasBidOn } from './bid';
-import { numericTagKey } from './filterOptions';
 import { memoize, memoizeWeak, memoLast } from './util';
 import '../../shared/arrayToSet';
 
@@ -135,7 +133,6 @@ export interface ViewState {
   types: string[]; // item types (lowercase)
   excludedTypes: string[]; // item types to exclude (lowercase)
   brands: string[]; // brand keys (see brandKey)
-  tags: string[]; // tag keys (toLower); OR within an attribute (or among plain tags), AND across them
   conditions: number[];
   locations: string[];
   reachable: boolean; // only lots available at my pickup location (there already, or transferable)
@@ -158,7 +155,6 @@ export const DEFAULT_VIEW: ViewState = {
   types: [],
   excludedTypes: [],
   brands: [],
-  tags: [],
   conditions: [],
   locations: [],
   reachable: false,
@@ -182,9 +178,7 @@ export function normalizeView(v: unknown): ViewState {
   return {
     ...view,
     types: strings(view.types),
-    excludedTypes: strings(view.excludedTypes).map(toLower).toUnique(),
     brands: strings(view.brands),
-    tags: strings(view.tags).map(toLower).toUnique(),
     noCategories: !view.categories.length && view.noCategories,
     newSince: typeof view.newSince === 'number' ? view.newSince : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
@@ -193,35 +187,9 @@ export function normalizeView(v: unknown): ViewState {
   };
 }
 
-/** Reset all filters to the saved defaults while preserving the current sort. */
-export function defaultFilterView(
-  defaults: DefaultFilters,
-  sort: SortId = DEFAULT_VIEW.sort,
-): ViewState {
-  return {
-    ...DEFAULT_VIEW,
-    sort,
-    categories: [...defaults.categories],
-    noCategories: !defaults.categories.length && defaults.noCategories === true,
-    conditions: [...defaults.conditions],
-    excludedTypes: [...(defaults.excludedTypes ?? [])],
-  };
-}
-
 /** Use saved defaults only when the browser has no view of its own. */
-export function initialView(stored: unknown, defaults: DefaultFilters): ViewState {
-  return stored == null ? defaultFilterView(defaults) : normalizeView(stored);
-}
-
-/** Compare default filter selections without depending on their order. */
-export function sameDefaultFilters(view: DefaultFilters, defaults: DefaultFilters): boolean {
-  const same = <T>(a: T[], b: T[]) => a.length === b.length && a.every(v => b.includes(v));
-  return (
-    Boolean(view.noCategories) === Boolean(defaults.noCategories) &&
-    same(view.categories, defaults.categories) &&
-    same(view.conditions, defaults.conditions) &&
-    same(view.excludedTypes ?? [], defaults.excludedTypes ?? [])
-  );
+export function initialView(stored: unknown): ViewState {
+  return normalizeView(stored);
 }
 
 /** How many filters the view has turned on (shown on the "Clear" button). */
@@ -232,7 +200,6 @@ export const activeFilterCount = (v: ViewState) =>
     v.types.length,
     v.excludedTypes.length,
     v.brands.length,
-    v.tags.length,
     v.conditions.length,
     v.locations.length,
     v.reachable,
@@ -250,7 +217,6 @@ export interface Exclusions {
   removeFiltered: boolean;
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
-  customCategories: CustomCategory[];
 }
 
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
@@ -287,20 +253,6 @@ export function compareCategoryNames(a: string, b: string): number {
   return collator.compare(left, right) || byCode(left, right);
 }
 
-/** Custom categories ready for categoryIndex(). */
-export function compileCategories(cats: CustomCategory[]): CompiledCategories {
-  const byType = new Map<string, number>();
-  const ordered = cats
-    .map((category, index) => ({ category, index }))
-    .toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
-  for (const { category: c, index: i } of ordered) {
-    for (const t of c.types) {
-      byType.getOrInsert(t, i);
-    }
-  }
-  return { byType };
-}
-
 /**
  * Index of the lot's custom category, or -1 for none. The alphabetically first category listing the
  * lot's item type wins.
@@ -310,12 +262,9 @@ export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number 
   return t != null ? (byType.get(t) ?? -1) : -1;
 }
 
-const compiledCategories = memoLast(compileCategories);
-
 /** The lot's category: its custom category (see categoryIndex) if any, else the site's. */
-export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
-  const c = cats[categoryIndex(lot, compiledCategories(cats))];
-  return c ? { value: customCategoryValue(c.name), label: c.name } : lot.category;
+export function categoryOf(lot: Lot): Lot['category'] {
+  return lot.category;
 }
 
 /**
@@ -327,7 +276,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   return {
     lot,
-    category: categoryOf(lot, ex.customCategories),
+    category: categoryOf(lot),
     transferFee,
     pickupOnly: elsewhere && !lot.is_transferable,
     total: totalCost(lot.current_price, transferFee),
@@ -371,19 +320,8 @@ export interface FacetCounts {
   location: Map<string, number>;
   type: Map<string, number>;
   brand: Map<string, number>;
-  tag: Map<string, number>; // by tag key
-  numericTag: Map<string, number>; // equivalent numeric spellings counted once per lot
-  // For each attribute's "none" count: rows tallied in every dim, rows tallied only in `tag:<name>`
-  // (they fail just that one), and rows of either kind with a tag of that attribute.
-  tagRows: number;
-  tagOnly: Map<string, number>;
-  tagHas: Map<string, number>;
   price: number[]; // per PRICE_BUCKETS entry
 }
-
-/** Lots among the results (ignoring this attribute's own filter) with no tag of the attribute. */
-const noneCount = (counts: FacetCounts, group: string) =>
-  counts.tagRows + (counts.tagOnly.get(group) ?? 0) - (counts.tagHas.get(group) ?? 0);
 
 const emptyCounts = (): FacetCounts => ({
   category: new Map(),
@@ -391,11 +329,6 @@ const emptyCounts = (): FacetCounts => ({
   location: new Map(),
   type: new Map(),
   brand: new Map(),
-  tag: new Map(),
-  numericTag: new Map(),
-  tagRows: 0,
-  tagOnly: new Map(),
-  tagHas: new Map(),
   price: PRICE_BUCKETS.map(() => 0),
 });
 
@@ -425,30 +358,6 @@ function tallyRow(counts: FacetCounts, row: Row, only: Dim | null, details?: Ite
     const brand = brandOf(lot, details);
     if (brand) {
       bump(counts.brand, brandKey(brand));
-    }
-  }
-  for (const tag of lot.tags ?? []) {
-    if (only == null || only === `tag:${tagGroup(tag)}`) {
-      bump(counts.tag, tag.toLowerCase());
-    }
-  }
-  const numericTags = (lot.tags ?? [])
-    .map(numericTagKey)
-    .filter((tag): tag is string => tag != null)
-    .toSet();
-  for (const tag of numericTags) {
-    if (only == null || only === `tag:${tagGroup(tag)}`) {
-      bump(counts.numericTag, tag);
-    }
-  }
-  if (only == null) {
-    counts.tagRows++;
-  } else if (only.startsWith('tag:')) {
-    bump(counts.tagOnly, only.slice(4));
-  }
-  for (const group of (lot.tags ?? []).map(tagGroup).toSet()) {
-    if (only == null || only === `tag:${group}`) {
-      bump(counts.tagHas, group);
     }
   }
   if (only == null || only === 'price') {
@@ -689,7 +598,6 @@ function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
     brand,
     model,
     itemType: lot.itemType,
-    tags: lot.tags,
   });
   docCache.set(lot, { brand, model, doc });
   return doc;
@@ -716,13 +624,7 @@ export function makeSearch(
     }
     return lot => {
       const { brand, model } = itemIdentity(lot, details);
-      const hay = [
-        `${lot.title} ${lot.lot_number}`,
-        brand,
-        model,
-        lot.itemType,
-        ...(lot.tags ?? []),
-      ]
+      const hay = [`${lot.title} ${lot.lot_number}`, brand, model, lot.itemType]
         .filter(Boolean)
         .join(' ');
       return re.test(hay) ? 1 : null;
@@ -774,18 +676,6 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
       },
     ]);
   }
-  for (const [group, tags] of Map.groupBy(v.tags, tagGroup)) {
-    const wanted = tags.toSet();
-    // "None" picks lots without any tag of this attribute.
-    const none = wanted.has(noneTag(group));
-    dims.push([
-      `tag:${group}`,
-      r => {
-        const own = (r.lot.tags ?? []).filter(t => tagGroup(t) === group);
-        return own.some(t => wanted.has(t.toLowerCase())) || (none && !own.length);
-      },
-    ]);
-  }
   if (v.priceMin != null || v.priceMax != null) {
     dims.push([
       'price',
@@ -831,7 +721,6 @@ export interface Facets {
   locations: Facet<string>[];
   types: Facet<string>[]; // item types, most lots first
   brands: Facet<string>[]; // by brandKey, labelled with the most common spelling; most lots first
-  tags: Facet<string>[]; // by tag key, labelled with its most common spelling (group with tagGroup); most lots first
   prices: Facet<number>[]; // index into PRICE_BUCKETS
 }
 
@@ -878,24 +767,9 @@ function tallyBrands(brands: (string | null)[]): Facet<string>[] {
  * Categories (custom ones included), conditions, locations, item types, brands and price ranges
  * among open lots, with counts, for the filter lists.
  */
-export function computeFacets(
-  lots: Iterable<Lot>,
-  now: number,
-  customCategories: CustomCategory[],
-  details?: ItemDetails,
-): Facets {
+export function computeFacets(lots: Iterable<Lot>, now: number, details?: ItemDetails): Facets {
   const open = Array.from(lots).filter(l => endsAtMs(l) > now);
-  const categories = tally(open.map(l => categoryOf(l, customCategories)));
-  // Keep custom parents visible when all their open lots moved into descendants.
-  for (const c of customCategories) {
-    const value = customCategoryValue(c.name);
-    if (
-      !categories.some(f => f.value === value) &&
-      categories.some(f => isCustomCategory(f.value) && f.label.startsWith(c.name + ' - '))
-    ) {
-      categories.push({ value, label: c.name, count: 0 });
-    }
-  }
+  const categories = tally(open.map(l => categoryOf(l)));
   return {
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map(l => l.category)),
@@ -910,30 +784,12 @@ export function computeFacets(
     ).toSorted(byCountThenLabel),
     brands: tallyBrands(open.map(l => brandOf(l, details))),
     // Tags differing only in case are one value, shown in its most common spelling.
-    tags: tallySpellings(
-      open.flatMap(l => l.tags ?? []),
-      toLower,
-    ),
     prices: PRICE_BUCKETS.map((b, i) => ({
       value: i,
       label: b.label,
       count: open.filter(l => inBucket(l.current_price, b)).length,
     })),
   };
-}
-
-/** Tag counts plus each attribute's "none" count (attributes found among the lots or selected). */
-function tagCounts(all: Facet<string>[], counts: FacetCounts, selected: string[]) {
-  const m = new Map(counts.tag);
-  const groups = [...all, ...selected.map(value => ({ value }))]
-    .map(f => tagGroup(f.value))
-    .toSet();
-  for (const group of groups) {
-    if (group) {
-      m.set(noneTag(group), noneCount(counts, group));
-    }
-  }
-  return m;
 }
 
 /**
@@ -962,7 +818,6 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
       .toReversed(),
     types: present(all.types, counts.type, view.types),
     brands: present(all.brands, counts.brand, view.brands),
-    tags: present(all.tags, tagCounts(all.tags, counts, view.tags), view.tags),
     prices: all.prices.map(f => ({ ...f, count: counts.price[f.value] ?? 0 })),
   };
 }
@@ -997,7 +852,6 @@ export function suggestName(v: ViewState, facets: Facets): string {
     ...v.categories.map(c => facets.categories.find(f => f.value === c)?.label ?? c),
     ...v.types,
     ...v.brands.map(b => facets.brands.find(f => f.value === b)?.label ?? b),
-    ...v.tags.map(t => tagLabel(facets.tags.find(f => f.value === t)?.label ?? t)),
     v.locations.join('/'),
     v.priceMax != null && `≤ $${v.priceMax}`,
     v.totalMax != null && `total ≤ $${v.totalMax}`,

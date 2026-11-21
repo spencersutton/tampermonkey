@@ -1,6 +1,5 @@
 import type { Facets, ViewState } from '../../logic/view';
 import { modalActions } from '../state';
-import { filterShortcuts } from './filterShortcuts';
 import { FiltersSection } from './FiltersSection';
 import { HideFilterSection } from './HideFilterSection';
 import { SavedSearchesSection, type SavedSearchesProps } from './SavedSearchesSection';
@@ -18,7 +17,7 @@ interface Props {
 /** Left sidebar: saved searches, filters, hide/regex filters and settings. */
 export function Sidebar(props: Props) {
   return (
-    <div class="sidebar-inner" ref={filterShortcuts}>
+    <div class="sidebar-inner">
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
       <HideFilterSection matchCounts={props.matchCounts} />

@@ -6,7 +6,6 @@
 //   "cordless drill"         an exact phrase
 //   brand:dewalt model:dcd   restrict a term to one field (quote multi-word values)
 //   type:"pressure washer"   restrict a term to the item type
-//   tag:nickel               restrict a term to the lot's tags
 //   -refurbished             exclude lots containing the word
 //
 // Plain words also match their singular/plural forms ("drills" finds "drill")
@@ -14,7 +13,7 @@
 // where a word matched (item type and brand count more than the title) and how
 // (a whole word counts more than part of one).
 
-export type Field = 'brand' | 'model' | 'type' | 'tag';
+export type Field = 'brand' | 'model' | 'type';
 
 export interface Term {
   field: Field | null;
@@ -30,21 +29,17 @@ export interface SearchDoc {
   brand?: string | null | undefined;
   model?: string | null | undefined;
   itemType?: string | undefined;
-  tags?: string[] | undefined;
 }
 
 const TERM_RE =
-  /(?:^|\s+)(-(?=\S))?(?:(brand|model|type|tag):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g;
+  /(?:^|\s+)(-(?=\S))?(?:(brand|model|type):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g;
 
 /** Split a query into terms. Blank input gives no terms. */
 export function parseQuery(query: string): Term[] {
   return Array.from(query.toLowerCase().matchAll(TERM_RE), ([, neg, field, raw = '']) => {
     const phrase = raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"');
     return {
-      field:
-        field === 'brand' || field === 'model' || field === 'type' || field === 'tag'
-          ? field
-          : null,
+      field: field === 'brand' || field === 'model' || field === 'type' ? field : null,
       value: phrase ? raw.slice(1, -1).replace(/\\(["\\])/g, '$1') : raw,
       phrase,
       negate: Boolean(neg),
@@ -154,9 +149,9 @@ export function matchQuality(hay: string, needle: string): number {
   return best;
 }
 
-const WEIGHTS = { itemType: 6, brand: 5, tags: 5, model: 4, lotNumber: 4, title: 3 } as const;
+const WEIGHTS = { itemType: 6, brand: 5, model: 4, lotNumber: 4, title: 3 } as const;
 type DocField = keyof typeof WEIGHTS;
-const DOC_FIELDS: DocField[] = ['itemType', 'brand', 'tags', 'model', 'lotNumber', 'title'];
+const DOC_FIELDS: DocField[] = ['itemType', 'brand', 'model', 'lotNumber', 'title'];
 
 /** A document's fields, lowercased, ready for matching. */
 export interface PreparedDoc {
@@ -165,9 +160,8 @@ export interface PreparedDoc {
   brand: string;
   model: string;
   itemType: string;
-  tags: string; // every tag, separated by " | "
   all: string; // every field, space separated
-  stems: Partial<Record<DocField, string>>; // title, item type and tags with each word singular
+  stems: Partial<Record<DocField, string>>; // title and item type with each word singular
 }
 
 const stemWords = (text: string) => text.replace(/[\p{L}\p{N}]+/gu, stem);
@@ -179,16 +173,14 @@ export function prepareDoc(doc: SearchDoc): PreparedDoc {
   const brand = (doc.brand ?? '').toLowerCase();
   const model = (doc.model ?? '').toLowerCase();
   const itemType = (doc.itemType ?? '').toLowerCase();
-  const tags = (doc.tags ?? []).join(' | ').toLowerCase();
   return {
     title,
     lotNumber,
     brand,
     model,
     itemType,
-    tags,
-    all: [`${title} ${lotNumber}`, brand, model, itemType, tags].filter(Boolean).join(' '),
-    stems: { title: stemWords(title), itemType: stemWords(itemType), tags: stemWords(tags) },
+    all: [`${title} ${lotNumber}`, brand, model, itemType].filter(Boolean).join(' '),
+    stems: { title: stemWords(title), itemType: stemWords(itemType) },
   };
 }
 
@@ -196,7 +188,6 @@ const FIELD_OF: Record<Field, DocField> = {
   brand: 'brand',
   model: 'model',
   type: 'itemType',
-  tag: 'tags',
 };
 
 /** MatchQuality, except one or two letters inside a word ("ac" in "back") don't count. */
@@ -304,7 +295,7 @@ export function compileQuery(query: string): CompiledQuery {
 export function buildVocabulary(docs: Iterable<PreparedDoc>): Map<string, number> {
   const vocab = new Map<string, number>();
   for (const d of docs) {
-    for (const w of `${d.title} ${d.brand} ${d.itemType} ${d.tags}`.split(/[^\p{L}\p{N}]+/u)) {
+    for (const w of `${d.title} ${d.brand} ${d.itemType}`.split(/[^\p{L}\p{N}]+/u)) {
       if (w.length >= 3 && !/^\d+$/.test(w)) {
         vocab.set(w, (vocab.get(w) ?? 0) + 1);
       }

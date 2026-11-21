@@ -5,25 +5,19 @@ import * as format from '../../../shared/format';
 import { KEYS } from '../../../shared/keys';
 import { parseNum } from '../../logic/util';
 import {
-  activeFilterCount,
-  defaultFilterView,
   DEFAULT_VIEW,
   ENDING,
   MINE,
   PRICE_BUCKETS,
-  sameDefaultFilters,
-  sameFilters,
   type Facet,
   type Facets,
   type ViewState,
 } from '../../logic/view';
 import { siteConditions } from '../../server/conditions';
-import { getSetting, useSetting } from '../../server/settings';
+import { useSetting } from '../../server/settings';
 import { Icon } from '../icons';
-import { closed, modalActions, openClosed, setView } from '../state';
-import { CategoryList } from './CategoryList';
+import { closed, openClosed, setView } from '../state';
 import { Collapsible } from './Collapsible';
-import { applyFilterDefaults, saveFilterDefaults } from './filterShortcuts';
 import { NumberInput } from './NumberInput';
 
 /** A checkbox per facet value with its lot count; checking none means no filter. */
@@ -195,25 +189,7 @@ interface Props {
 
 /** Search, category, condition, location, price, ending and "my lots" filters. */
 export function FiltersSection({ view, facets, pickup, authed }: Props) {
-  const n = activeFilterCount(view);
-  const defaults = getSetting(KEYS.defaultFilters);
-  const reset = defaultFilterView(defaults, view.sort);
-  const canDefault =
-    view.newSince != null ||
-    !sameDefaultFilters(view, defaults) ||
-    !sameFilters(
-      {
-        ...view,
-        categories: reset.categories,
-        noCategories: reset.noCategories,
-        conditions: reset.conditions,
-        excludedTypes: reset.excludedTypes,
-      },
-      reset,
-    );
   const conditions = siteConditions();
-  const custom = getSetting(KEYS.customCategories);
-  const customCount = custom.length;
   return (
     <section class="panel">
       <div class="panel-head">
@@ -221,17 +197,6 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         <button type="button" class="btn-text" onClick={() => setView(DEFAULT_VIEW)}>
           Clear
         </button>
-        {canDefault && (
-          <button
-            type="button"
-            class="btn-text"
-            aria-keyshortcuts="Alt+D"
-            title="Switch to default filters (Alt+D)"
-            onClick={applyFilterDefaults}
-          >
-            Default{n > 0 ? ` (${n})` : ''}
-          </button>
-        )}
       </div>
 
       <label class="field">
@@ -307,16 +272,6 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
             </button>
           </div>
         )}
-        <CategoryList
-          facets={facets}
-          selected={view.categories}
-          onChange={categories => setView({ categories, noCategories: false })}
-          onOnly={categories => setView({ ...DEFAULT_VIEW, sort: view.sort, categories })}
-        />
-        <button type="button" class="btn-text cat-edit-btn" onClick={modalActions.editCategories}>
-          <Icon name="edit" size={16} />{' '}
-          {customCount ? `Edit custom categories (${customCount})` : 'Add custom categories'}
-        </button>
       </Collapsible>
 
       {(facets.types.length > 0 || view.types.length > 0 || view.excludedTypes.length > 0) && (
@@ -378,17 +333,6 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
           </details>
         )}
       </Collapsible>
-
-      <button
-        type="button"
-        class="btn-text default-filters-btn"
-        aria-keyshortcuts="Alt+Shift+D"
-        disabled={sameDefaultFilters(view, defaults)}
-        onClick={saveFilterDefaults}
-        title="Save the current category, condition and hidden item type selections as defaults (Alt+Shift+D)"
-      >
-        Save default filters
-      </button>
 
       <Collapsible id="f-price" title="Price">
         <div class="price-buckets" role="group" aria-label="Current bid ranges">

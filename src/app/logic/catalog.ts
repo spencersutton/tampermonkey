@@ -39,7 +39,6 @@ export function mergeCatalogLots(
             ...mine,
             firstSeenAt: fresh.firstSeenAt,
             itemType: fresh.itemType,
-            tags: fresh.tags,
             pastCloses: fresh.pastCloses,
             groupId: fresh.groupId,
           }

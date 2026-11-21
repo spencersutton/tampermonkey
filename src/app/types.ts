@@ -6,7 +6,6 @@ export interface Lot extends RawLot {
   brand?: string | null | undefined; // server-cached detail; absent until fetched, null when no brand is provided
   model?: string | null | undefined; // same cache semantics as brand
   firstSeenAt?: number | undefined; // epoch ms when a full pull first saw this lot (0 = already there on the first pull)
-  tags?: string[] | undefined; // labels beyond the item type; "name: value" ones are attributes (see shared/tags.ts)
   itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
   groupId?: number | undefined; // set by the server on lots that list the same item as another open lot (any condition when brand and model match, else the same one): the smallest id among them

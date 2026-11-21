@@ -18,7 +18,6 @@ import { canWatch, toggleWatch, watchPending } from '../server/watch';
 import type { Lot } from '../types';
 import { LoginLink } from './Auth';
 import { CardBrandModel } from './Brands';
-import { CardTags } from './CardTags';
 import { openHandler } from './dom';
 import { Highlight } from './Highlight';
 import { Icon } from './icons';
@@ -191,7 +190,6 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
             </button>
           </span>
           <ItemTypeActions lot={lot} />
-          <CardTags lot={lot} />
         </div>
         <div class="card-summary">
           <div class="card-price">

@@ -30,14 +30,11 @@ const {
   activeFilterCount,
   savedFilters,
   savedSearchStats,
-  initialView,
-  sameDefaultFilters,
 } = await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 const { LotCard } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
 const now = Date.now();
-const custom = 'custom:Tools - Drills';
 const fixture = (id, value, label, itemType) => ({
   id,
   title: `Fixture ${id}`,
@@ -64,8 +61,6 @@ const fixtures = [
 beforeEach(() => {
   storage.clear();
   applySetting(KEYS.view, DEFAULT_VIEW);
-  applySetting(KEYS.defaultFilters, { categories: [], conditions: [] });
-  applySetting(KEYS.customCategories, [{ name: 'Tools - Drills', types: ['drill'] }]);
   applySetting(KEYS.hidden, {});
   lots.value = new Map(fixtures.map(lot => [lot.id, lot]));
 });
@@ -80,17 +75,17 @@ const visibleIds = () =>
   ).rows.map(r => r.lot.id);
 
 test('hiding from an unfiltered view selects all other assigned categories', () => {
-  hideCategory(custom);
-  assert.deepEqual(new Set(storedView.value.categories), new Set(['tools', 'garden']));
+  hideCategory('tools');
+  assert.deepEqual(new Set(storedView.value.categories), new Set(['garden']));
   assert.equal(storedView.value.noCategories, false);
-  assert.deepEqual(visibleIds(), [1, 3]);
+  assert.deepEqual(visibleIds(), [3]);
   assert.deepEqual(getSetting(KEYS.hidden), {});
 });
 
-test('hiding a selected category preserves other filters and its descendants', () => {
+test('hiding a selected category preserves other filters', () => {
   const view = {
     ...DEFAULT_VIEW,
-    categories: ['tools', custom, 'garden'],
+    categories: ['tools', 'garden'],
     search: 'Fixture',
     sort: 'total-desc',
     priceMax: 20,
@@ -99,14 +94,14 @@ test('hiding a selected category preserves other filters and its descendants', (
   applySetting(KEYS.view, view);
   page.value = 4;
   hideCategory('tools');
-  assert.deepEqual(storedView.value, { ...view, categories: [custom, 'garden'] });
+  assert.deepEqual(storedView.value, { ...view, categories: ['garden'] });
   assert.equal(page.value, 4, 'keeps the loaded cards so the grid does not jump');
   assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.view}`)), storedView.value);
 });
 
-test('hiding the final selection matches nothing and survives storage, searches and defaults', () => {
-  setView({ categories: [custom] });
-  hideCategory(custom);
+test('hiding the final selection matches nothing and survives storage and searches', () => {
+  setView({ categories: ['garden'] });
+  hideCategory('garden');
   assert.deepEqual(storedView.value.categories, []);
   assert.equal(storedView.value.noCategories, true);
   assert.deepEqual(visibleIds(), []);
@@ -121,10 +116,6 @@ test('hiding the final selection matches nothing and survives storage, searches 
     now,
   );
   assert.deepEqual(stats.get('empty'), { total: 0, fresh: 0 });
-  const defaults = { categories: [], conditions: [], noCategories: true };
-  assert.equal(initialView(null, defaults).noCategories, true);
-  assert.equal(sameDefaultFilters(restored, defaults), true);
-  assert.equal(sameDefaultFilters(restored, { categories: [], conditions: [] }), false);
 });
 
 test('hiding the only catalog category also matches nothing', () => {
@@ -135,9 +126,9 @@ test('hiding the only catalog category also matches nothing', () => {
 });
 
 test('repeated hide actions stay hidden; selecting a category or clearing recovers', () => {
-  setView({ categories: [custom] });
-  hideCategory(custom);
-  hideCategory(custom);
+  setView({ categories: ['garden'] });
+  hideCategory('garden');
+  hideCategory('garden');
   assert.deepEqual(visibleIds(), []);
   setView({ categories: ['garden'], noCategories: false });
   assert.deepEqual(visibleIds(), [3]);
@@ -162,20 +153,20 @@ function renderCard(lot) {
   return tree;
 }
 
-test('the card exposes a labeled category hide button targeting its assigned custom category', () => {
+test('the card exposes a labeled category hide button targeting its site category', () => {
   const tree = renderCard(fixtures[1]);
   const button = nodes(tree).find(n => n.props?.class === 'icon-btn category-hide');
   assert.equal(button.props.type, 'button');
-  assert.equal(button.props['aria-label'], 'Hide category: Tools - Drills');
+  assert.equal(button.props['aria-label'], 'Hide category: Tools');
   assert.equal(button.props.title, button.props['aria-label']);
   button.props.onClick();
-  assert.deepEqual(visibleIds(), [1, 3]);
+  assert.deepEqual(visibleIds(), [3]);
 });
 
 test('clicking a card category selects only its assigned category and preserves other filters', () => {
   for (const [lot, category, expected] of [
-    [fixtures[0], 'tools', [1]],
-    [fixtures[1], custom, [2]],
+    [fixtures[0], 'tools', [1, 2]],
+    [fixtures[2], 'garden', [3]],
   ]) {
     const view = { ...DEFAULT_VIEW, search: 'Fixture', sort: 'total-desc', priceMax: 20 };
     applySetting(KEYS.view, { ...view, categories: ['garden'] });
@@ -213,8 +204,8 @@ test('explicit empty categories round-trip through URLs and browser history', ()
   };
   globalThis.window = { addEventListener() {} };
   startHistory();
-  setView({ categories: [custom] });
-  hideCategory(custom);
+  setView({ categories: ['garden'] });
+  hideCategory('garden');
   const entry = entries.at(-1);
   assert.equal(entry.state.view.noCategories, true);
   assert.equal(entry.url, '/tlx?noCategories=1');
@@ -244,9 +235,6 @@ test('the card exposes a hide item type button, preserves page/filters, and roun
     'drill',
     'hammer',
   ]);
-  const defaults = { categories: [], conditions: [], excludedTypes: ['drill'] };
-  assert.equal(sameDefaultFilters(storedView.value, defaults), true);
-  assert.deepEqual(initialView(null, defaults).excludedTypes, ['drill']);
 });
 
 test('regex filters match only lot titles, not item types', () => {

@@ -7,7 +7,6 @@ import { CDN } from '../../shared/constants';
 import { dollars } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
-import { tagGroup, tagLabel } from '../../shared/tags';
 import { searchOptionsFor, type SearchOption } from '../logic/suggest';
 import { searchRegexOf } from '../logic/view';
 import { getSetting, setSetting } from '../server/settings';
@@ -27,7 +26,6 @@ const GROUP_TITLES: Record<SearchOption['kind'], string | null> = {
   recent: 'Recent searches',
   type: 'Item types',
   brand: 'Brands',
-  tag: 'Tags',
   category: 'Categories',
   lot: 'Lots',
 };
@@ -70,16 +68,6 @@ export function SearchBox() {
         rememberSearch(draft);
         setView({ search: '', brands: [o.facet.value] });
         break;
-      case 'tag': {
-        // Replace any value of the same attribute; keep other tag filters.
-        const group = tagGroup(o.facet.value);
-        rememberSearch(draft);
-        setView({
-          search: '',
-          tags: [...view.tags.filter(t => tagGroup(t) !== group), o.facet.value],
-        });
-        break;
-      }
       case 'category':
         rememberSearch(draft);
         setView({ search: '', categories: [o.facet.value], noCategories: false });
@@ -240,13 +228,6 @@ function OptionBody({ option: o }: { option: SearchOption }) {
       );
     case 'recent':
       return <span>{o.text}</span>;
-    case 'tag':
-      return (
-        <>
-          <span class="search-option-label">{tagLabel(o.facet.label)}</span>
-          <span class="count">{format.num(o.facet.count)}</span>
-        </>
-      );
     case 'type':
     case 'brand':
     case 'category':

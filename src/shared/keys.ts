@@ -11,11 +11,8 @@ export const KEYS = {
   collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
   syncMinutes: 'tlxSyncMinutes', // number – minimum minutes between full catalog pulls
   view: 'tlxView', // persisted catalog view state (sort, filters)
-  defaultFilters: 'tlxDefaultFilters', // default category and condition filters
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
-  customCategories: 'tlxCustomCategories', // CustomCategory[] – item types that move lots into a category of their own
-  lastCategory: 'tlxLastCategory', // last category used or created in this browser
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
   lastVisit: 'tlxLastVisit', // epoch ms | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
   recentSearches: 'tlxRecentSearches', // string[] – searches typed in this browser, most recent first
@@ -33,8 +30,6 @@ export const SERVER_KEYS = [
   KEYS.removeFiltered,
   KEYS.syncMinutes, // the server's own pull interval
   KEYS.savedSearches,
-  KEYS.defaultFilters,
-  KEYS.customCategories,
   KEYS.lastVisit,
 ] as const;
 
@@ -42,22 +37,6 @@ export interface HiddenLot {
   title: string;
   href: string;
   ts: number;
-}
-
-/**
- * A category of my own: lots whose item type is one of `types` go in it instead of their site
- * category. A category without matches can head a group of child categories.
- */
-export interface CustomCategory {
-  name: string;
-  types: string[];
-}
-
-export interface DefaultFilters {
-  categories: string[];
-  noCategories?: boolean;
-  conditions: number[];
-  excludedTypes?: string[];
 }
 
 /** Value returned for each setting when nothing has been saved yet. */
@@ -70,11 +49,8 @@ export const DEFAULTS = {
   [KEYS.collapsed]: { words: false, hidden: false } as Record<string, boolean>,
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.view]: null as unknown,
-  [KEYS.defaultFilters]: { categories: [], conditions: [] } as DefaultFilters,
   [KEYS.savedSearches]: [] as SavedSearch[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
-  [KEYS.customCategories]: [] as CustomCategory[],
-  [KEYS.lastCategory]: null as string | null,
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
   [KEYS.lastVisit]: null as number | null,
   [KEYS.recentSearches]: [] as string[],

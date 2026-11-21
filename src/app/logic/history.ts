@@ -28,7 +28,6 @@ const LISTS = [
   'types',
   'excludedTypes',
   'brands',
-  'tags',
   'conditions',
   'locations',
 ] as const;
@@ -39,7 +38,6 @@ const LIST_PARAM = {
   types: 'type',
   excludedTypes: 'excludeType',
   brands: 'brand',
-  tags: 'tag',
   conditions: 'condition',
   locations: 'location',
 } as const;
@@ -92,7 +90,6 @@ export function navFromUrl(search: string): NavState | null {
     types: q.getAll('type'),
     excludedTypes: q.getAll('excludeType'),
     brands: q.getAll('brand'),
-    tags: q.getAll('tag'),
     conditions: q.getAll('condition').map(Number).filter(Number.isFinite),
     locations: q.getAll('location'),
     reachable: q.has('reachable') && q.get('reachable') !== '0',

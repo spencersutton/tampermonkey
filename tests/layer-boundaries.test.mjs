@@ -29,7 +29,7 @@ const stripComments = source =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 test('pure logic layer has no Preact, signals, server, UI, or DOM/network dependencies', () => {
-  const files = [...listFiles('src/app/logic'), 'src/tags/logic.ts'];
+  const files = listFiles('src/app/logic');
   assert.ok(files.length > 0);
   const forbiddenGlobals =
     /(?<![.\w$])(?:window|document|localStorage|sessionStorage|fetch|EventSource|IntersectionObserver)\b(?!\s*:)/;
@@ -60,7 +60,7 @@ test('pure logic layer has no Preact, signals, server, UI, or DOM/network depend
 });
 
 test('server/data layer has no Preact or UI dependencies', () => {
-  const files = [...listFiles('src/app/server'), 'src/tags/api.ts', 'src/tags/state.ts'];
+  const files = listFiles('src/app/server');
   assert.ok(files.length > 0);
   for (const file of files) {
     assert.ok(!file.endsWith('.tsx'), `${file} should not be a .tsx file`);

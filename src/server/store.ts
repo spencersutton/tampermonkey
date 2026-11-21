@@ -27,17 +27,7 @@ import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { endsAtMs, type LotImage, type LotMetadata, type Standing } from '../shared/lot';
-import { byCode } from '../shared/sortKey';
-import { toLower } from '../shared/tags';
 import { isRecord } from './json';
-import {
-  cleanTags,
-  CompiledRule,
-  compileTagPattern,
-  ruleTags,
-  type TagRule,
-  uniqueTags,
-} from './tags';
 import '../shared/arrayToSet';
 
 const SCHEMA = `
@@ -71,9 +61,6 @@ CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
 CREATE TABLE IF NOT EXISTS identity_item_types (
   brand TEXT NOT NULL, model TEXT NOT NULL, title TEXT NOT NULL, type TEXT NOT NULL, category TEXT,
   at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (brand, model, title)
-);
-CREATE TABLE IF NOT EXISTS tag_rules (
-  id INTEGER PRIMARY KEY, pattern TEXT NOT NULL, tags TEXT NOT NULL, at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS closed_lots (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at INTEGER, price REAL, bid_count INTEGER,
@@ -153,10 +140,9 @@ export interface Lot {
   brand?: string | null;
   model?: string | null;
   itemType?: string;
-  tags?: string[];
 }
 
-/** Something with a title, and maybe an id and identity: what item types and tags are looked up by. */
+/** Something with a title, and maybe an id and identity: what item types are looked up by. */
 export interface Item {
   id?: number;
   title: string;
@@ -164,7 +150,6 @@ export interface Item {
   model?: string | null | undefined;
   category?: { value: string; label?: string | null } | null | undefined;
   itemType?: string;
-  tags?: string[];
 }
 
 /** A lot detail as saved (RawLotDetail in src/shared/lot.ts; tests may leave fields out). */
@@ -203,11 +188,6 @@ export interface CatalogChanges {
 
 const num = (v: unknown) => (typeof v === 'number' ? v : null);
 const now = () => Date.now() / 1000;
-/** A JSON list of strings, as tags are saved. */
-function jsonList(text: string): string[] {
-  const v: unknown = JSON.parse(text);
-  return Array.isArray(v) ? v.filter((t): t is string => typeof t === 'string') : [];
-}
 
 function catalogMeta(v: unknown): CatalogMeta {
   const field = (key: keyof CatalogMeta): unknown => (isRecord(v) ? v[key] : undefined);
@@ -288,20 +268,10 @@ const savedImage = (im: LotImage): SavedImage => ({
 
 const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(', ');
 
-/** Commonest first; ties keep the order first seen (Python's Counter.most_common). */
-function mostCommon<K>(counts: Map<K, number>): [K, number][] {
-  return counts
-    .entries()
-    .toArray()
-    .sortBy(([, n]) => n)
-    .toReversed();
-}
-
 export class Store {
   readonly db: Database;
   // Indexes rebuilt only after their tables change (this process makes every change).
   private typeIndexCache: ItemTypeIndex | null = null;
-  private rulesCache: CompiledRule[] | null = null;
   private lastStamp = 0;
 
   constructor(path: string) {
@@ -524,17 +494,8 @@ export class Store {
     return this.typeIndexCache;
   }
 
-  private compiledRules(): CompiledRule[] {
-    this.rulesCache ??= this.tagRules().map(r => new CompiledRule(r.pattern, r.tags));
-    return this.rulesCache;
-  }
-
   private changedTypes() {
     this.typeIndexCache = null;
-  }
-
-  private changedTags() {
-    this.rulesCache = null;
   }
 
   /** Attach saved brand/model details (by `idField`), including to the site's closed-lot pages. */
@@ -552,26 +513,18 @@ export class Store {
   }
 
   /**
-   * Attach cached identities, item types and tags (before comparing a catalog pull, or reading
-   * lots).
+   * Attach cached identities and item types (before comparing a catalog pull, or reading lots).
    */
   annotateItems(lots: Iterable<Item>): void {
     const list = [...lots];
     this.annotateIdentities(list, 'id');
     const index = this.typeIndex();
-    const rules = this.compiledRules();
     for (const lot of list) {
       const record = index.match(lot);
       if (record) {
         lot.itemType = record.type;
       } else {
         delete lot.itemType;
-      }
-      const tags = rules.flatMap(rule => rule.tagsFor(lot.title) ?? []);
-      if (tags.length) {
-        lot.tags = uniqueTags(tags);
-      } else {
-        delete lot.tags;
       }
     }
   }
@@ -584,10 +537,6 @@ export class Store {
 
   private typeAssignments(): Map<number, string | null> {
     return new Map(this.titles().map(lot => [lot.id!, lot.itemType ?? null]));
-  }
-
-  private tagAssignments(): Map<number, string[] | null> {
-    return new Map(this.titles().map(lot => [lot.id!, lot.tags ?? null]));
   }
 
   /** Give lots whose assignment changed a new sequence; returns their new values, by lot id. */
@@ -975,159 +924,6 @@ export class Store {
       this.changedTypes();
       return this.touchChanges(previous, this.typeAssignments());
     });
-  }
-
-  // -- tags -------------------------------------------------------------------------------------
-  /** Every tag rule, oldest first. */
-  tagRules(): TagRule[] {
-    return this.all<{ id: number; pattern: string; tags: string }>(
-      'SELECT id, pattern, tags FROM tag_rules ORDER BY id',
-    ).map(r => ({ id: r.id, pattern: r.pattern, tags: jsonList(r.tags) }));
-  }
-
-  /**
-   * Tag every lot whose title matches `pattern`, now and in future pulls. Throws for an invalid
-   * pattern or no tags. Returns the rule and the new tags of the lots that changed.
-   */
-  addTagRule(pattern: string, tags: Iterable<string>): [TagRule, Map<number, string[] | null>] {
-    const cleaned = ruleTags(pattern, tags);
-    return this.tx(() => {
-      const previous = this.tagAssignments();
-      const id = Number(
-        this.db
-          .query('INSERT INTO tag_rules (pattern, tags, at) VALUES (?, ?, ?)')
-          .run(pattern, JSON.stringify(cleaned), now()).lastInsertRowid,
-      );
-      this.changedTags();
-      return [{ id, pattern, tags: cleaned }, this.touchChanges(previous, this.tagAssignments())];
-    });
-  }
-
-  /**
-   * Change a tag rule's pattern and tags (checked as for addTagRule). Null when there is no such
-   * rule.
-   */
-  updateTagRule(
-    id: number,
-    pattern: string,
-    tags: Iterable<string>,
-  ): [TagRule, Map<number, string[] | null>] | null {
-    const cleaned = ruleTags(pattern, tags);
-    return this.tx(() => {
-      const previous = this.tagAssignments();
-      if (
-        !this.run(
-          'UPDATE tag_rules SET pattern = ?, tags = ? WHERE id = ?',
-          pattern,
-          JSON.stringify(cleaned),
-          id,
-        )
-      ) {
-        return null;
-      }
-      this.changedTags();
-      return [{ id, pattern, tags: cleaned }, this.touchChanges(previous, this.tagAssignments())];
-    });
-  }
-
-  /**
-   * Drop a tag rule. Returns the new tags of the lots that changed, or null when there is no such
-   * rule.
-   */
-  removeTagRule(id: number): Map<number, string[] | null> | null {
-    return this.tx(() => {
-      const previous = this.tagAssignments();
-      if (!this.run('DELETE FROM tag_rules WHERE id = ?', id)) {
-        return null;
-      }
-      this.changedTags();
-      return this.touchChanges(previous, this.tagAssignments());
-    });
-  }
-
-  /**
-   * Every rule with how many current lots it matches, and every tag in use (ignoring case, in its
-   * most common spelling) with its lot count, commonest first.
-   */
-  tagOverview(): { rules: [TagRule, number][]; tags: [string, number][] } {
-    const items = this.titles();
-    const titles = new Map<string, number>();
-    for (const lot of items) {
-      titles.set(lot.title, (titles.get(lot.title) ?? 0) + 1);
-    }
-    const rules = this.tagRules().map((rule): [TagRule, number] => {
-      const rx = compileTagPattern(rule.pattern);
-      let n = 0;
-      for (const [title, count] of titles) {
-        if (rx.test(title)) {
-          n += count;
-        }
-      }
-      return [rule, n];
-    });
-    const spellings = new Map<string, Map<string, number>>(); // each tag's spellings, by tag key
-    for (const lot of items) {
-      for (const tag of lot.tags ?? []) {
-        const counts = spellings.getOrInsertComputed(tag.toLowerCase(), () => new Map());
-        counts.set(tag, (counts.get(tag) ?? 0) + 1);
-      }
-    }
-    const inUse = new Map<string, number>();
-    for (const counts of spellings.values()) {
-      const [spelling = ''] = mostCommon(counts)[0] ?? [];
-      inUse.set(spelling, counts.values().sum());
-    }
-    return { rules, tags: mostCommon(inUse) };
-  }
-
-  /**
-   * The current lots a pattern matches, one entry per distinct title (most lots first): an example
-   * lot id, the lot count, where the pattern matched (in code points), the title's current tags,
-   * and those of `tags` (with groups filled in) it doesn't have yet. Throws PatternError or
-   * TagTemplateError for a bad rule.
-   */
-  previewTagRule(pattern: string, tags: Iterable<string>, limit: number) {
-    const rule = new CompiledRule(pattern, cleanTags(tags));
-    interface Match {
-      title: string;
-      lotId: number;
-      lots: number;
-      span: [number, number];
-      tags: string[];
-      adds: string[];
-    }
-    const groups = new Map<string, Match>();
-    for (const lot of this.titles()) {
-      const group = groups.get(lot.title);
-      if (group) {
-        group.lots += 1;
-        continue;
-      }
-      const m = rule.rx.exec(lot.title);
-      if (m) {
-        const current = lot.tags ?? [];
-        const have = current.map(toLower).toSet();
-        // Code points, which the tags page counts in.
-        const codePoints = (end: number) => Array.from(lot.title.slice(0, end)).length;
-        groups.set(lot.title, {
-          title: lot.title,
-          lotId: lot.id!,
-          lots: 1,
-          span: [codePoints(m.index), codePoints(m.index + m[0].length)],
-          tags: current,
-          adds: (rule.tagsFor(lot.title) ?? []).filter(t => !have.has(t.toLowerCase())),
-        });
-      }
-    }
-    const ranked = groups
-      .values()
-      .toArray()
-      .toSorted((a, b) => b.lots - a.lots || byCode(a.title.toLowerCase(), b.title.toLowerCase()));
-    return {
-      lots: ranked.sumBy(g => g.lots),
-      titles: ranked.length,
-      matches: ranked.slice(0, limit),
-    };
   }
 
   // -- settings ------------------------------------------------------------------------------------

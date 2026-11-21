@@ -18,11 +18,6 @@
 //     PUT  /api/settings/<key>    {"value": ...}; last write wins
 //     PUT  /api/item-type         {"lotId", "itemType"}; correct every listing of the same item; replies with their lotIds
 //     GET  /api/history?id=N      closed lots matching item N, most recent first
-//     GET  /api/tag-rules         tag rules with their lot counts, and every tag in use
-//     GET  /api/tag-rules/preview?pattern=P&tag=T...   the current lots a pattern matches, by title, with the tags it'd add
-//     POST /api/tag-rules         {"pattern", "tags"}; add a rule
-//     PUT  /api/tag-rules/<id>    {"pattern", "tags"}; change a rule
-//     DELETE /api/tag-rules/<id>
 //     GET  /api/health
 //
 // Because the server is logged in to your account (and can bid), every request
@@ -52,7 +47,6 @@ import { connectUpstream, relayData, type RelayData } from './relay';
 import type { SiteSession } from './session';
 import { VERSION, WS_URL } from './site';
 import type { Store } from './store';
-import { PatternError, RuleError, TagTemplateError } from './tags';
 import '../shared/arrayToSet';
 
 const MAX_BODY = 4 * 1024 * 1024;
@@ -72,14 +66,11 @@ const PROXY_HEADERS = [
 const LOT_DETAIL_PATH = /^\/backend\/v1\/auctions\/lots\/[^/]+\/\d+\/$/;
 const CLOSED_PATH = /^\/backend\/v1\/auctions\/control-panel\/closed\/(won|lost)\/$/;
 const SETTING_KEY = /^[A-Za-z0-9_]{1,64}$/;
-const PREVIEW_LIMIT = 300;
 const MAX_ID = Number.MAX_SAFE_INTEGER;
 const PAGES: Record<string, string> = {
   '/': 'index.html',
   '/tlx': 'index.html',
   '/tlx/': 'index.html',
-  '/tags': 'tags.html',
-  '/tags/': 'tags.html',
 };
 
 export interface Deps {
@@ -139,19 +130,6 @@ function integer(v: string | undefined): number | null {
 // Characters Python's str.isprintable() refuses, other than whitespace.
 const UNPRINTABLE = /(?![\s])[\p{C}\p{Zl}\p{Zp}]/u;
 
-function ruleBody(body: Record<string, unknown>): [string, string[]] {
-  const pattern = prop(body, 'pattern');
-  const tags = prop(body, 'tags');
-  if (
-    typeof pattern !== 'string' ||
-    !Array.isArray(tags) ||
-    !tags.every(t => typeof t === 'string')
-  ) {
-    throw new BadRequest('Expected {"pattern": string, "tags": [string]}');
-  }
-  return [pattern, tags];
-}
-
 const digest = (s: string) => createHash('sha256').update(s).digest();
 const samePassword = (a: string, b: string) => timingSafeEqual(digest(a), digest(b));
 
@@ -190,12 +168,7 @@ export function createApp(deps: Deps) {
   };
 
   app.onError(e => {
-    if (
-      e instanceof BadRequest ||
-      e instanceof RuleError ||
-      e instanceof PatternError ||
-      e instanceof TagTemplateError
-    ) {
+    if (e instanceof BadRequest) {
       return error(400, e.message);
     }
     console.error(e);
@@ -349,46 +322,6 @@ export function createApp(deps: Deps) {
       itemType,
       seq: store.seq(),
     });
-  });
-  app.get('/api/tag-rules', () => {
-    const { rules, tags } = store.tagOverview();
-    return json({ rules: rules.map(([rule, lots]) => ({ ...rule, lots })), tags });
-  });
-  app.get('/api/tag-rules/preview', c => {
-    try {
-      return json(
-        store.previewTagRule(
-          c.req.query('pattern') ?? '',
-          c.req.queries('tag') ?? [],
-          PREVIEW_LIMIT,
-        ),
-      );
-    } catch (e) {
-      if (e instanceof PatternError || e instanceof TagTemplateError) {
-        return json(
-          { error: e.message, field: e instanceof PatternError ? 'pattern' : 'tags' },
-          400,
-        );
-      }
-      throw e;
-    }
-  });
-  app.post('/api/tag-rules', async c => {
-    const [rule, changed] = store.addTagRule(...ruleBody(await readJson(c.req.raw)));
-    return json({ rule, changed: changed.size });
-  });
-  app.put('/api/tag-rules/:id{[0-9]{1,9}}', async c => {
-    const updated = store.updateTagRule(
-      Number(c.req.param('id')),
-      ...ruleBody(await readJson(c.req.raw)),
-    );
-    return updated
-      ? json({ rule: updated[0], changed: updated[1].size })
-      : error(404, 'No such tag rule');
-  });
-  app.delete('/api/tag-rules/:id{[0-9]{1,9}}', c => {
-    const changed = store.removeTagRule(Number(c.req.param('id')));
-    return changed ? json({ changed: changed.size }) : error(404, 'No such tag rule');
   });
   app.all('/api/*', () => error(404, 'Not found'));
 

@@ -134,7 +134,6 @@ test('startup uses server values and defaults without uploading stale browser se
   await source.settingsReady;
   assert.equal(source.settingsLoaded.value, true);
   assert.deepEqual(settings.getSetting(KEYS.words), []);
-  assert.deepEqual(settings.getSetting(KEYS.customCategories), []);
   assert.equal(settings.getSetting(KEYS.lastVisit), 123);
   assert.equal(settings.getSetting(KEYS.savedSearches)[0].lastViewedAt, 456);
   assert.deepEqual(settings.getSetting(KEYS.view), { search: 'local view' });

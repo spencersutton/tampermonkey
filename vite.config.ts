@@ -19,11 +19,9 @@ export default defineConfig({
     outDir: fileURLToPath(new URL('dist', import.meta.url)),
     emptyOutDir: true,
     target: 'es2023',
-    // Two pages: the catalog, and the tag rules editor (/tags).
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL('web/index.html', import.meta.url)),
-        tags: fileURLToPath(new URL('web/tags.html', import.meta.url)),
       },
     },
   },

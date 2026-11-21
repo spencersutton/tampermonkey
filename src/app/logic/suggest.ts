@@ -5,14 +5,13 @@ import type { HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import type { ItemDetails } from '../../shared/names';
 import { matchQuality, stem } from '../../shared/search';
-import { parseTag } from '../../shared/tags';
 import type { Lot } from '../types';
 import { makeSearch, type Facet, type Facets } from './view';
 
 export type SearchOption =
   | { kind: 'search'; text: string }
   | { kind: 'recent'; text: string }
-  | { kind: 'type' | 'brand' | 'tag' | 'category'; facet: Facet<string> }
+  | { kind: 'type' | 'brand' | 'category'; facet: Facet<string> }
   | { kind: 'lot'; lot: Lot };
 
 /** Options to list for the text in the search box, in display order. */
@@ -29,7 +28,6 @@ export function searchOptionsFor(
     { kind: 'search', text: q },
     ...suggestions.types.map(facet => ({ kind: 'type' as const, facet })),
     ...suggestions.brands.map(facet => ({ kind: 'brand' as const, facet })),
-    ...suggestions.tags.map(facet => ({ kind: 'tag' as const, facet })),
     ...suggestions.categories.map(facet => ({ kind: 'category' as const, facet })),
     ...suggestions.lots.map(lot => ({ kind: 'lot' as const, lot })),
   ];
@@ -39,14 +37,12 @@ export interface Suggestions {
   query: string; // trimmed
   types: Facet<string>[];
   brands: Facet<string>[];
-  tags: Facet<string>[]; // value is the tag key, label the tag as written
   categories: Facet<string>[];
   lots: Lot[];
 }
 
 const MAX_TYPES = 5;
 const MAX_BRANDS = 3;
-const MAX_TAGS = 4;
 const MAX_CATEGORIES = 3;
 const MAX_LOTS = 4;
 
@@ -135,7 +131,6 @@ export function suggest(
     types: matchFacets(facets.types, words, query, MAX_TYPES),
     brands: matchFacets(facets.brands, words, query, MAX_BRANDS),
     // Tags match on their value ("nickel" finds "finish: satin nickel").
-    tags: matchFacets(facets.tags, words, query, MAX_TAGS, f => parseTag(f.value).value),
     categories: matchFacets(facets.categories, words, query, MAX_CATEGORIES),
     lots: best,
   };
