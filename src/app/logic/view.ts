@@ -14,7 +14,7 @@ import {
   prepareDoc,
   type PreparedDoc,
 } from '../../shared/search';
-import { byCode, collator } from '../../shared/sortKey';
+import { collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
 import { hasBidOn } from './bid';
 import { memoize, memoizeWeak, memoLast } from './util';
@@ -233,40 +233,6 @@ const lotMatcher = memoLast((words: string[]) => {
   return (lot: Lot) => byTitle(lot.title);
 });
 
-/** Prefix that keeps custom category values apart from the site's. */
-const CUSTOM_PREFIX = 'custom:';
-
-/** Filter value of a custom category. */
-export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
-
-/** Whether a category value is one of my custom categories. */
-export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFIX);
-
-export interface CompiledCategories {
-  byType: Map<string, number>; // item type -> original index of the alphabetically first matching category
-}
-
-/** Compare category names in the same order used for display and matching. */
-export function compareCategoryNames(a: string, b: string): number {
-  const left = a.trim();
-  const right = b.trim();
-  return collator.compare(left, right) || byCode(left, right);
-}
-
-/**
- * Index of the lot's custom category, or -1 for none. The alphabetically first category listing the
- * lot's item type wins.
- */
-export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number {
-  const t = lot.itemType;
-  return t != null ? (byType.get(t) ?? -1) : -1;
-}
-
-/** The lot's category: its custom category (see categoryIndex) if any, else the site's. */
-export function categoryOf(lot: Lot): Lot['category'] {
-  return lot.category;
-}
-
 /**
  * Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden
  * state.
@@ -276,7 +242,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   return {
     lot,
-    category: categoryOf(lot),
+    category: lot.category,
     transferFee,
     pickupOnly: elsewhere && !lot.is_transferable,
     total: totalCost(lot.current_price, transferFee),
@@ -769,7 +735,7 @@ function tallyBrands(brands: (string | null)[]): Facet<string>[] {
  */
 export function computeFacets(lots: Iterable<Lot>, now: number, details?: ItemDetails): Facets {
   const open = Array.from(lots).filter(l => endsAtMs(l) > now);
-  const categories = tally(open.map(l => categoryOf(l)));
+  const categories = tally(open.map(l => l.category));
   return {
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map(l => l.category)),
