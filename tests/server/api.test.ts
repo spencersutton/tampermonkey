@@ -213,4 +213,3 @@ describe('/api/history', () => {
     expect((await request('/api/history')).status).toBe(400);
   });
 });
-

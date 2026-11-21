@@ -512,9 +512,7 @@ export class Store {
     }
   }
 
-  /**
-   * Attach cached identities and item types (before comparing a catalog pull, or reading lots).
-   */
+  /** Attach cached identities and item types (before comparing a catalog pull, or reading lots). */
   annotateItems(lots: Iterable<Item>): void {
     const list = [...lots];
     this.annotateIdentities(list, 'id');

@@ -31,8 +31,7 @@ export interface SearchDoc {
   itemType?: string | undefined;
 }
 
-const TERM_RE =
-  /(?:^|\s+)(-(?=\S))?(?:(brand|model|type):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g;
+const TERM_RE = /(?:^|\s+)(-(?=\S))?(?:(brand|model|type):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g;
 
 /** Split a query into terms. Blank input gives no terms. */
 export function parseQuery(query: string): Term[] {

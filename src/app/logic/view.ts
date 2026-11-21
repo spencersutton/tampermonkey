@@ -857,10 +857,10 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
   }
   const narrowed = Boolean(
     view.search.trim() ||
-      view.categories.length ||
-      view.types.length ||
-      view.brands.length ||
-      view.attrs.length,
+    view.categories.length ||
+    view.types.length ||
+    view.brands.length ||
+    view.attrs.length,
   );
   const groupKeys = [...counts.attr.keys(), ...selectedByGroup.keys()].toSet();
   const attrGroups: (AttrFacetGroup & { selected: boolean; coverage: number })[] = [];
@@ -879,8 +879,7 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
       continue;
     }
     const label =
-      counts.attrLabels.get(groupKey) ??
-      groupKey.replace(/\b[a-z]/g, c => c.toUpperCase());
+      counts.attrLabels.get(groupKey) ?? groupKey.replace(/\b[a-z]/g, c => c.toUpperCase());
     const keys = [...(valueMap?.keys() ?? []), ...selected].toSet();
     const facets = Array.from(keys, key => {
       const entry = valueMap?.get(key);
@@ -899,7 +898,10 @@ export function contextualFacets(all: Facets, counts: FacetCounts, view: ViewSta
     });
   }
   attrGroups.sort(
-    (a, b) => Number(b.selected) - Number(a.selected) || b.coverage - a.coverage || collator.compare(a.label, b.label),
+    (a, b) =>
+      Number(b.selected) - Number(a.selected) ||
+      b.coverage - a.coverage ||
+      collator.compare(a.label, b.label),
   );
   const selectedCount = attrGroups.filter(g => g.selected).length;
   const attrs: AttrFacetGroup[] = attrGroups

@@ -53,9 +53,9 @@ export function compareAttrValues(a: string, b: string): number {
 // ---------------------------------------------------------------------------
 
 type RuleValue = string | ((m: RegExpExecArray) => string | string[]);
-type Rule = [name: string, re: RegExp, value: RuleValue, when?: RegExp];
+type Rule = [name: string, re: RegExp, value: RuleValue, when?: RegExp | undefined];
 
-const group = (name: string, entries: [RegExp, RuleValue, RegExp?][]): Rule[] =>
+const group = (name: string, entries: [RegExp, RuleValue, (RegExp | undefined)?][]): Rule[] =>
   entries.map(([re, value, when]) => [name, re, value, when]);
 
 const unit = (name: string, re: RegExp, suffix: string, when?: RegExp): Rule => [

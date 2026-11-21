@@ -2,8 +2,8 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { CDN } from '../../shared/constants';
 import { costBreakdown, dollars, money } from '../../shared/cost';
-import * as format from '../../shared/format';
 import { exactTitleFilter } from '../../shared/filters';
+import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs, type LotMetadata } from '../../shared/lot';
 import { bidBlocker, isLeading, maxBidError, minMaxBid, quickBidAmount } from '../logic/bid';

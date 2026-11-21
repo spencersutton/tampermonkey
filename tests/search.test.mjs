@@ -154,7 +154,6 @@ test('search still intersects with category and price filters', () => {
   assert.equal(matches('brand:black', fixture(), { categories: ['tools'], priceMax: 20 }), true);
   assert.equal(matches('brand:black', fixture(), { categories: ['garden'] }), false);
   assert.equal(matches('brand:black', fixture(), { priceMax: 19 }), false);
-
 });
 
 test('newer detail maps override stale lot fields, including explicitly missing values', () => {
