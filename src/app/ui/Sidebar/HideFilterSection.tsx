@@ -2,11 +2,10 @@ import { useState } from 'preact/hooks';
 
 import { compileFilter } from '../../../shared/filters';
 import * as format from '../../../shared/format';
-import { KEYS, siteUrl } from '../../../shared/keys';
+import { KEYS } from '../../../shared/keys';
 import { useSetting } from '../../server/settings';
-import { openHandler } from '../dom';
 import { Icon } from '../icons';
-import { filteredOnly, openFiltered, openHidden } from '../state';
+import { filteredOnly, openFiltered } from '../state';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
 import '../../../shared/arrayToSet';
@@ -113,25 +112,16 @@ function Switch({
   );
 }
 
-/** Regex title filters and the list of manually hidden lots. */
+/** Regex title filters. */
 export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }) {
   const [words, setWords] = useSetting(KEYS.words);
   const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
   const [removeFiltered, setRemoveFiltered] = useSetting(KEYS.removeFiltered);
-  const [showHidden, setShowHidden] = useSetting(KEYS.showHidden);
-  const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
   const [input, setInput] = useState('');
   const add = () => {
     setWords([...words, input].toUnique());
     setInput('');
   };
-  const unhide = (id: string) => {
-    const { [id]: _, ...rest } = hiddenLots;
-    setHiddenLots(rest);
-  };
-  const hidden = Object.entries(hiddenLots)
-    .sortBy(([, h]) => h.ts)
-    .toReversed();
 
   return (
     <section class="panel">
@@ -181,41 +171,6 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
         checked={removeFiltered}
         onChange={setRemoveFiltered}
       />
-      <Switch label="Show hidden lots" checked={showHidden} onChange={setShowHidden} />
-
-      <Collapsible id="hidden" title={`Hidden lots (${hidden.length})`}>
-        <ul class="hidden-list">
-          {hidden.map(([id, info]) => (
-            <li>
-              <a
-                href={siteUrl(info.href)}
-                title={info.title}
-                onClick={openHandler(() => openHidden(Number(id)))}
-              >
-                {info.title || `Lot ${id}`}
-              </a>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Unhide"
-                aria-label={`Unhide ${info.title}`}
-                onClick={() => unhide(id)}
-              >
-                <Icon name="visibility" size={18} />
-              </button>
-            </li>
-          ))}
-        </ul>
-        {hidden.length > 0 && (
-          <button
-            type="button"
-            class="btn-text"
-            onClick={() => confirm('Unhide all hidden lots?') && setHiddenLots({})}
-          >
-            Unhide all
-          </button>
-        )}
-      </Collapsible>
     </section>
   );
 }

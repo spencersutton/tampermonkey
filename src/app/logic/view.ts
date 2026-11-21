@@ -4,7 +4,6 @@ import { HOUR } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../../shared/filters';
-import { type HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import { itemIdentity, type ItemDetails } from '../../shared/names';
 import {
@@ -29,7 +28,6 @@ export interface Row {
   total: number;
   retailPct: number | null;
   matched: string | null; // regex filter that matched the title
-  hidden: boolean;
   others: Row[]; // listings of the same item folded into this card (best condition, then cheapest, first)
   cheaper: Row | null; // the cheapest of `others` in a worse condition that costs less than this lot
   score: number; // search relevance (0 without a search)
@@ -201,8 +199,6 @@ export interface Exclusions {
   words: string[];
   filterOn: boolean;
   removeFiltered: boolean;
-  hidden: Record<string, HiddenLot>;
-  showHidden: boolean;
 }
 
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
@@ -236,7 +232,6 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
       ? Math.round((lot.current_price / lot.estimated_retail_price) * 100) / 100
       : null,
     matched: ex.filterOn ? (lotMatcher(ex.words)(lot)[0] ?? null) : null,
-    hidden: Boolean(ex.hidden[lot.id]),
     others: [],
     cheaper: null,
     score: 0,
@@ -363,12 +358,8 @@ export function computeView(
     if (filteredOnly && !row.matched) {
       continue;
     }
-    // My lots views show every lot of mine, hidden or regex-filtered included.
-    if (
-      !filteredOnly &&
-      !view.mine &&
-      ((row.hidden && !ex.showHidden) || (row.matched && ex.removeFiltered))
-    ) {
+    // My lots views show every lot of mine, regex-filtered included.
+    if (!filteredOnly && !view.mine && row.matched && ex.removeFiltered) {
       removed++;
     } else {
       candidates.push(row);
@@ -478,7 +469,7 @@ const byConditionThenCost = (a: Row, b: Row) =>
  * best search score in its group.
  */
 function combineDuplicates(rows: Row[]): { cards: Row[]; groups: Map<number, Row[]> } {
-  const ownCard = (row: Row) => hasBidOn(row.lot) || row.hidden || Boolean(row.matched);
+  const ownCard = (row: Row) => hasBidOn(row.lot) || Boolean(row.matched);
   const cards = rows.filter(ownCard);
   const groups = new Map<number, Row[]>();
   const candidates = rows.filter(row => !ownCard(row));
@@ -835,7 +826,7 @@ export function savedSearchStats(
       continue;
     }
     const row = makeRow(lot, pickup, ex);
-    if (row.hidden || row.matched) {
+    if (row.matched) {
       continue;
     }
     for (const { since, matches, stats } of matchers) {

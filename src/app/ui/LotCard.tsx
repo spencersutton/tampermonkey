@@ -3,6 +3,7 @@ import { useCallback } from 'preact/hooks';
 
 import { CDN } from '../../shared/constants';
 import { costBreakdown, dollars, money } from '../../shared/cost';
+import { exactTitleFilter } from '../../shared/filters';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
@@ -116,9 +117,10 @@ interface Props {
 
 /** One lot in the grid: image, title, price, total, time left and actions. */
 export const LotCard = memo(function LotCard({ row, isNew }: Props) {
-  const { lot, matched, hidden, category } = row;
+  const { lot, matched, category } = row;
+  const isHidden = matched === exactTitleFilter(lot.title);
   const href = lotHref(lot.auction_period, lot.id);
-  const dim = Boolean(matched) || hidden;
+  const dim = Boolean(matched);
   const img = lot.images[0];
   const open = openHandler(() => openLot(lot));
   const conditions = siteConditions();
@@ -137,11 +139,11 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         <button
           type="button"
           class="icon-btn hide-btn"
-          title={hidden ? 'Unhide this lot' : 'Hide this lot'}
-          aria-label={hidden ? 'Unhide this lot' : 'Hide this lot'}
+          title={isHidden ? 'Unhide this title' : 'Hide this title'}
+          aria-label={isHidden ? 'Unhide this title' : 'Hide this title'}
           onClick={() => toggleHide(lot)}
         >
-          <Icon name={hidden ? 'visibility' : 'visibilityOff'} />
+          <Icon name={isHidden ? 'visibility' : 'visibilityOff'} />
         </button>
         <div class="media-tr">
           {isNew && <span class="pill pill-new">New</span>}
@@ -149,9 +151,9 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
         </div>
-        {(hidden || matched) && (
-          <span class="media-badge" title={hidden ? 'Hidden' : `Filtered: ${matched}`}>
-            {hidden ? 'Hidden' : `Filtered: ${matched}`}
+        {matched && (
+          <span class="media-badge" title={`Filtered: ${matched}`}>
+            Filtered: {matched}
           </span>
         )}
       </div>
@@ -290,7 +292,7 @@ function CardBidButton({ row }: { row: Row }) {
   const pending = bidPending(lot.id);
   const authed = isAuthenticated();
   const blocker = bidBlocker(row, authed);
-  if (blocker && !authed && !row.hidden && !row.matched) {
+  if (blocker && !authed && !row.matched) {
     return (
       <LoginLink class="btn btn-small" title="Log in to Triangle Liquidators to bid here">
         Bid

@@ -1,7 +1,6 @@
 // Typeahead for the search box: item types, brands and categories whose names
 // match what's being typed, plus the best-matching lots, like a shop's search
 // dropdown.
-import type { HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import type { ItemDetails } from '../../shared/names';
 import { matchQuality, stem } from '../../shared/search';
@@ -87,11 +86,10 @@ export function suggest(
   facets: Facets,
   lots: Iterable<Lot>,
   now: number,
-  hidden: Record<string, HiddenLot>,
   details?: ItemDetails,
 ): Suggestions {
   const query = text.trim().toLowerCase().replace(/\s+/g, ' ');
-  const none = { query, types: [], brands: [], tags: [], categories: [], lots: [] };
+  const none = { query, types: [], brands: [], categories: [], lots: [] };
   // Qualifiers and phrases are precise searches already; suggest only for plain words.
   if (!query || /[":]/.test(query) || /(?:^|\s)-/.test(query)) {
     return none;
@@ -101,7 +99,7 @@ export function suggest(
   const score = makeSearch({ search: query, searchRegex: false }, details);
   const top: { lot: Lot; s: number }[] = [];
   for (const lot of lots) {
-    if (endsAtMs(lot) <= now || hidden[lot.id]) {
+    if (endsAtMs(lot) <= now) {
       continue;
     }
     const s = score(lot);

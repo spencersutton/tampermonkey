@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { CDN } from '../../shared/constants';
 import { costBreakdown, dollars, money } from '../../shared/cost';
 import * as format from '../../shared/format';
+import { exactTitleFilter } from '../../shared/filters';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs, type LotMetadata } from '../../shared/lot';
 import { bidBlocker, isLeading, maxBidError, minMaxBid, quickBidAmount } from '../logic/bid';
@@ -222,8 +223,10 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
             </a>
             <WatchButton lot={lot} />
             <button type="button" class="btn btn-text" onClick={() => toggleHide(lot)}>
-              <Icon name={row.hidden ? 'visibility' : 'visibilityOff'} />{' '}
-              {row.hidden ? 'Unhide' : 'Hide'}
+              <Icon
+                name={row.matched === exactTitleFilter(lot.title) ? 'visibility' : 'visibilityOff'}
+              />{' '}
+              {row.matched === exactTitleFilter(lot.title) ? 'Unhide' : 'Hide'}
             </button>
           </div>
 

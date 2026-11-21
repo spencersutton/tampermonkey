@@ -27,9 +27,6 @@ const ex = {
   words: [],
   filterOn: false,
   removeFiltered: false,
-  hidden: {},
-  showHidden: false,
-  customCategories: [],
 };
 let nextId = 1;
 const lot = (title, patch = {}) => ({
@@ -211,25 +208,23 @@ test('typeahead suggests matching item types, brands, categories and top lots', 
     lot('Greenworks Pressure Washer', { itemType: 'pressure washer', groupId: 9 }),
     lot('Greenworks Pressure Washer copy', { itemType: 'pressure washer', groupId: 9 }),
     lot('Pressure Washer Hose', { itemType: 'pressure washer hose' }),
-    lot('Hidden washer', { itemType: 'pressure washer' }),
   ];
   const facets = computeFacets(items, now);
-  const s = suggest('press', facets, items, now, { 5: {} });
+  const s = suggest('press', facets, items, now);
   assert.deepEqual(
     s.types.map(f => [f.label, f.count]),
     [
-      ['pressure washer', 4],
+      ['pressure washer', 3],
       ['pressure washer hose', 1],
     ],
   );
-  assert.equal(s.lots.length, 3, 'one lot per duplicate group, hidden lots left out');
-  assert.ok(!s.lots.some(l => l.title === 'Hidden washer'));
+  assert.equal(s.lots.length, 3, 'one lot per duplicate group');
   assert.deepEqual(
-    suggest('ryo', facets, items, now, {}).brands.map(f => f.label),
+    suggest('ryo', facets, items, now).brands.map(f => f.label),
     ['Ryobi'],
   );
-  assert.deepEqual(suggest('brand:ryobi', facets, items, now, {}).lots, []);
-  assert.deepEqual(suggest('  ', facets, items, now, {}).types, []);
+  assert.deepEqual(suggest('brand:ryobi', facets, items, now).lots, []);
+  assert.deepEqual(suggest('  ', facets, items, now).types, []);
 });
 
 test('a combined card leads with the best condition and notes a cheaper worse one', () => {

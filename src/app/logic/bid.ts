@@ -34,13 +34,10 @@ export function minMaxBid(lot: Lot): number {
 
 /** Why bidding is unavailable for this row, or null if it's allowed. */
 export function bidBlocker(
-  row: { lot: Lot; hidden: boolean; matched: string | null },
+  row: { lot: Lot; matched: string | null },
   authenticated: boolean,
   now = Date.now(),
 ): string | null {
-  if (row.hidden) {
-    return 'Bidding is disabled for hidden lots';
-  }
   if (row.matched) {
     return `Bidding is disabled for filtered lots (${row.matched})`;
   }

@@ -17,6 +17,10 @@ interface CompiledFilter {
   re: RegExp | null; // tested against the title
 }
 
+/** Regex pattern matching an exact lot title (case-insensitive). */
+export const exactTitleFilter = (title: string) =>
+  `^${title.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+
 /** Compile every non-blank filter word; invalid patterns keep `re: null` so the UI can flag them. */
 export function buildRegexes(words: string[]): CompiledFilter[] {
   return words.filter(w => w.trim()).map(w => ({ word: w, re: compileFilter(w) }));

@@ -21,7 +21,7 @@ after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
 const { lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
-const { hideItemType, storedView, page, rowOf, exclusionRules } =
+const { hideItemType, toggleHide, storedView, page, rowOf, exclusionRules } =
   await vite.ssrLoadModule('/src/app/ui/state.ts');
 const { DEFAULT_VIEW, computeView, activeFilterCount } = await vite.ssrLoadModule(
   '/src/app/logic/view.ts',
@@ -56,7 +56,6 @@ const fixtures = [
 beforeEach(() => {
   storage.clear();
   applySetting(KEYS.view, DEFAULT_VIEW);
-  applySetting(KEYS.hidden, {});
   lots.value = new Map(fixtures.map(lot => [lot.id, lot]));
 });
 
@@ -136,4 +135,25 @@ test('regex filters match only lot titles, not item types', () => {
   applySetting(KEYS.words, ['Fixture 2']);
   assert.deepEqual(visibleIds(), [1, 3]);
   applySetting(KEYS.words, []);
+});
+
+test('toggleHide adds and removes an escaped exact-title regex in filterWords', () => {
+  applySetting(KEYS.words, []);
+  applySetting(KEYS.filterOn, false);
+  applySetting(KEYS.removeFiltered, true);
+  const special = { ...fixtures[0], id: 9, title: 'DEWALT 20V MAX* Drill (DCD771C2)' };
+  const longer = { ...fixtures[1], id: 10, title: 'DEWALT 20V MAX* Drill (DCD771C2) Kit' };
+  lots.value = new Map([
+    [9, special],
+    [10, longer],
+  ]);
+
+  toggleHide(special);
+  assert.equal(getSetting(KEYS.filterOn), true);
+  assert.deepEqual(getSetting(KEYS.words), ['^DEWALT 20V MAX\\* Drill \\(DCD771C2\\)$']);
+  assert.deepEqual(visibleIds(), [10]);
+
+  toggleHide(special);
+  assert.deepEqual(getSetting(KEYS.words), []);
+  assert.deepEqual(visibleIds(), [9, 10]);
 });

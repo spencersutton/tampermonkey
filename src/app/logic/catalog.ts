@@ -2,7 +2,6 @@ import { DAY } from '../../shared/constants';
 import { dollars } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
-import { lotHref, type HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
 import type { Lot, PastClose } from '../types';
@@ -144,21 +143,6 @@ export function hideItemTypeView(view: ViewState, type: string): ViewState {
     : [...view.excludedTypes, key];
   const types = view.types.filter(t => t !== key);
   return { ...view, types, excludedTypes };
-}
-
-/** Toggle a lot in the hidden-lots map. */
-export function toggleHiddenLot(
-  hidden: Record<string, HiddenLot>,
-  lot: Lot,
-  now = Date.now(),
-): Record<string, HiddenLot> {
-  const { [lot.id]: wasHidden, ...rest } = hidden;
-  return wasHidden
-    ? rest
-    : {
-        ...rest,
-        [lot.id]: { title: lot.title, href: lotHref(lot.auction_period, lot.id), ts: now },
-      };
 }
 
 /** Add a search to the recent-searches list, deduplicated case-insensitively and capped. */

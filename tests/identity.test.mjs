@@ -72,13 +72,12 @@ test('lots the server grouped fold into one card; ungrouped lots keep their own'
   );
 });
 
-test('dedupe preserves condition, cost ordering, and independent bid/hidden/filtered cards', () => {
+test('dedupe preserves condition, cost ordering, and independent bid/filtered cards', () => {
   const items = [
     lot(1, { title: 'Expensive kit', current_price: 30, groupId: 1 }),
     lot(2, { title: 'Cheap tool', current_price: 5, groupId: 1 }),
     lot(3, { condition: { value: 1, display_name: 'New' } }),
     lot(4, { has_bid: true, groupId: 1 }),
-    lot(5, { title: 'Hide me', groupId: 1 }),
     lot(6, { title: 'Excluded item', groupId: 1 }),
   ];
   const result = computeView(
@@ -87,8 +86,6 @@ test('dedupe preserves condition, cost ordering, and independent bid/hidden/filt
     'Raleigh',
     {
       ...ex,
-      hidden: { 5: {} },
-      showHidden: true,
       words: ['Excluded'],
       filterOn: true,
     },
@@ -105,7 +102,7 @@ test('dedupe preserves condition, cost ordering, and independent bid/hidden/filt
     result.groups.get(1).map(row => row.lot.id),
     [2, 1],
   );
-  assert.equal(result.rows.length, 5);
+  assert.equal(result.rows.length, 4);
 });
 
 test('live identity changes re-sort by brand/model without a price update', () => {
