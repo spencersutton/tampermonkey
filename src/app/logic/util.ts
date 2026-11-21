@@ -69,41 +69,6 @@ export function parseNum(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const PLAIN_NUMBER = /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$/;
-
-/** Canonical plain decimal text, without rounding large numbers or precise fractions. */
-export function numericLabel(text: string): string | null {
-  const value = text.trim();
-  if (!PLAIN_NUMBER.test(value)) {
-    return null;
-  }
-  const [whole = '', fraction = ''] = value.replace(/^[-+]/, '').split('.');
-  const integer = whole.replace(/^0+/, '') || '0';
-  const decimal = fraction.replace(/0+$/, '');
-  const isZero = integer === '0' && decimal === '';
-  const sign = value.startsWith('-') && !isZero ? '-' : '';
-  return decimal ? `${sign}${integer}.${decimal}` : `${sign}${integer}`;
-}
-
-/**
- * `items` sorted by value, smallest first, when every one's text is a plain number ("8", "1.5",
- * "-.25"); null when any isn't (or there are none). Equal numbers keep their order.
- */
-export function numericOrder<T>(items: T[], text: (item: T) => string): T[] | null {
-  if (items.length === 0) {
-    return null;
-  }
-  const entries: { item: T; value: number }[] = [];
-  for (const item of items) {
-    const raw = text(item).trim();
-    if (!PLAIN_NUMBER.test(raw)) {
-      return null;
-    }
-    entries.push({ item, value: Number(raw) });
-  }
-  return entries.toSorted((a, b) => a.value - b.value).map(e => e.item);
-}
-
 /**
  * `fn`, cached per argument object; an entry goes when nothing else holds its key (e.g. a lot
  * object replaced by a live update).

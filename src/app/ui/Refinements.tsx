@@ -4,7 +4,6 @@
 import * as format from '../../shared/format';
 import { chipsFor, type Chip } from '../logic/refinements';
 import { DEFAULT_VIEW } from '../logic/view';
-import { FilterMenus, hasFilterMenus } from './FilterMenus';
 import { Icon } from './icons';
 import { filterFacets, gridView, pickupName, setView, sidebarFacets, storedView } from './state';
 
@@ -33,8 +32,7 @@ export function Refinements() {
   );
   const types = view.types.length ? [] : sidebarFacets.value.types.slice(0, MAX_TYPE_PILLS);
   const showTypes = result.rows.length > 0 && types.length > 1;
-  const showMenus = hasFilterMenus();
-  if (!result.correctedSearch && !chips.length && !showTypes && !showMenus) {
+  if (!result.correctedSearch && !chips.length && !showTypes) {
     return null;
   }
   return (
@@ -79,7 +77,6 @@ export function Refinements() {
           )}
         </div>
       )}
-      {showMenus && <FilterMenus />}
       {showTypes && (
         <div class="type-pills" aria-label="Narrow by item type">
           <span class="muted">Item type:</span>
