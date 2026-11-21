@@ -37,17 +37,6 @@ export interface Row {
 
 type Compare = (a: Row, b: Row) => number;
 
-/** Per-page-load seed, so the random order stays put as lots update but changes on reload. */
-const shuffleSeed = Math.floor(Math.random() * 2 ** 32);
-
-/** Deterministic pseudo-random key for a lot id (murmur3 finalizer mixed with the seed). */
-function shuffleKey(id: number): number {
-  let h = (id ^ shuffleSeed) >>> 0;
-  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  return (h ^ (h >>> 16)) >>> 0;
-}
-
 /** Sort options. Ties always fall back to ending soonest. */
 export const SORTS = {
   relevance: { label: 'Best match', compare: (a, b) => b.score - a.score },
@@ -80,7 +69,7 @@ export const SORTS = {
     label: 'Retail price: high to low',
     compare: (a, b) => b.lot.estimated_retail_price - a.lot.estimated_retail_price,
   },
-  random: { label: 'Random', compare: (a, b) => shuffleKey(a.lot.id) - shuffleKey(b.lot.id) },
+  random: { label: 'Random', compare: () => Math.random() - 0.5 },
 } satisfies Record<string, { label: string; compare: Compare }>;
 export type SortId = keyof typeof SORTS;
 
