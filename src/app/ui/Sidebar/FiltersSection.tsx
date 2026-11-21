@@ -222,6 +222,9 @@ function CategoryTree(props: {
         const selectParent = () => {
           if (active) {
             onChange([]);
+            if (open) {
+              setCollapsed({ ...collapsed, [cid]: true });
+            }
           } else {
             onChange(values);
             if (!open) {
