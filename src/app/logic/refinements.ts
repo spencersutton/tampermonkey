@@ -1,4 +1,5 @@
 import * as format from '../../shared/format';
+import { groupCategories, groupValues } from './categories';
 import { ENDING, MINE, type Facets, type ViewState } from './view';
 import '../../shared/arrayToSet';
 
@@ -18,7 +19,7 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
   if (v.search.trim()) {
     chips.push({ key: 'search', label: `“${v.search.trim()}”`, remove: { search: '' } });
   }
-  // A parent category gets one chip only when it and all its subcategories are selected;
+  // A parent category gets one chip only when all its subcategories are selected;
   // otherwise each selected subcategory gets its own.
   const pending = v.categories.toSet();
   const categoryChip = (value: string, label: string, values: string[]) => {
@@ -31,6 +32,18 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
       remove: { categories: v.categories.filter(x => !values.includes(x)) },
     });
   };
+  for (const g of groupCategories(facets.categories)) {
+    const vals = groupValues(g);
+    if (vals.length > 0 && vals.every(x => pending.has(x))) {
+      categoryChip(g.id, g.label, vals);
+    } else {
+      for (const s of g.subs) {
+        if (pending.has(s.value)) {
+          categoryChip(s.value, s.label, [s.value]);
+        }
+      }
+    }
+  }
   // Selections no longer among the lots' categories.
   for (const c of pending) {
     categoryChip(c, labelOf(facets.categories, c), [c]);

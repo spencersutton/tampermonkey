@@ -84,8 +84,9 @@ function renderCard(lot) {
 
 test('clicking a card category selects only its assigned category and preserves other filters', () => {
   for (const [lot, category, expected] of [
-    [fixtures[0], 'tools', [1, 2]],
-    [fixtures[2], 'garden', [3]],
+    [fixtures[0], 'tools/hand-measuring', [1]],
+    [fixtures[1], 'tools/power-tools', [2]],
+    [fixtures[2], 'outdoor/lawn-garden', [3]],
   ]) {
     const view = { ...DEFAULT_VIEW, search: 'Fixture', sort: 'total-desc', priceMax: 20 };
     applySetting(KEYS.view, { ...view, categories: ['garden'] });

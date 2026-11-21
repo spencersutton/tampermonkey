@@ -3,6 +3,7 @@ import { useState } from 'preact/hooks';
 
 import * as format from '../../../shared/format';
 import { KEYS } from '../../../shared/keys';
+import { categoryCollapseId, groupCategories, groupValues } from '../../logic/categories';
 import { parseNum } from '../../logic/util';
 import {
   DEFAULT_VIEW,
@@ -169,6 +170,82 @@ function ExcludedTypeList(props: {
   );
 }
 
+/** Two-level collapsible category tree: parents toggle all subcategories at once. */
+function CategoryTree(props: {
+  facets: Facet<string>[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const { facets, selected, onChange } = props;
+  const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+  const groups = groupCategories(facets);
+
+  return (
+    <div class="cat-tree">
+      {groups.map(g => {
+        const values = groupValues(g);
+        const selectedCount = values.filter(v => selected.includes(v)).length;
+        const allSelected = values.length > 0 && selectedCount === values.length;
+        const someSelected = selectedCount > 0 && !allSelected;
+        const toggleGroup = () => {
+          if (allSelected) {
+            onChange(selected.filter(v => !values.includes(v)));
+          } else {
+            onChange([...new Set([...selected, ...values])]);
+          }
+        };
+
+        if (g.subs.length === 0) {
+          return (
+            <label key={g.id} class={`check cat-leaf ${g.count || allSelected ? '' : 'zero'}`}>
+              <input type="checkbox" checked={allSelected} onChange={toggleGroup} />
+              <span>{g.label}</span>
+              <span class="count">{format.num(g.count)}</span>
+            </label>
+          );
+        }
+
+        const cid = categoryCollapseId(g.id);
+        const open = collapsed[cid] === false;
+        return (
+          <div key={g.id} class="cat-group">
+            <div class="cat-parent">
+              <button
+                type="button"
+                class="cat-toggle"
+                aria-expanded={open}
+                aria-label={`${open ? 'Collapse' : 'Expand'} ${g.label}`}
+                onClick={() => setCollapsed({ ...collapsed, [cid]: open })}
+              >
+                <Icon name="expandMore" size={16} />
+              </button>
+              <label class={`check ${g.count || selectedCount > 0 ? '' : 'zero'}`}>
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={el => {
+                    if (el) {
+                      el.indeterminate = someSelected;
+                    }
+                  }}
+                  onChange={toggleGroup}
+                />
+                <span>{g.label}</span>
+                <span class="count">{format.num(g.count)}</span>
+              </label>
+            </div>
+            {open && (
+              <div class="cat-subs">
+                <CheckList facets={g.subs} selected={selected} onChange={onChange} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Dollar amount; empty means no limit (null). */
 function PriceField(props: {
   label: string;
@@ -260,7 +337,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
       </Collapsible>
 
       <Collapsible id="f-category" title="Category">
-        <CheckList
+        <CategoryTree
           facets={facets.categories}
           selected={view.categories}
           onChange={categories => setView({ categories })}

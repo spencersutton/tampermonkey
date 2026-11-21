@@ -23,6 +23,7 @@ import {
 import { collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
 import { hasBidOn } from './bid';
+import { categorizeLot, groupCategories, groupValues } from './categories';
 import { memoize, memoizeWeak, memoLast } from './util';
 import '../../shared/arrayToSet';
 
@@ -250,7 +251,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   return {
     lot,
-    category: lot.category,
+    category: categorizeLot(lot),
     transferFee,
     pickupOnly: elsewhere && !lot.is_transferable,
     total: totalCost(lot.current_price, transferFee),
@@ -805,7 +806,7 @@ function tallyBrands(brands: (string | null)[]): Facet<string>[] {
  */
 export function computeFacets(lots: Iterable<Lot>, now: number, details?: ItemDetails): Facets {
   const open = Array.from(lots).filter(l => endsAtMs(l) > now);
-  const categories = tally(open.map(l => l.category));
+  const categories = tally(open.map(categorizeLot));
   return {
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map(l => l.category)),
@@ -946,9 +947,23 @@ export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boole
 
 /** Default name for a new saved search, built from its filters. */
 export function suggestName(v: ViewState, facets: Facets): string {
+  const pending = v.categories.toSet();
+  const catLabels: string[] = [];
+  for (const g of groupCategories(facets.categories)) {
+    const vals = groupValues(g);
+    if (vals.length > 0 && vals.every(x => pending.has(x))) {
+      for (const x of vals) {
+        pending.delete(x);
+      }
+      catLabels.push(g.label);
+    }
+  }
+  for (const c of pending) {
+    catLabels.push(facets.categories.find(f => f.value === c)?.label ?? c);
+  }
   const parts = [
     v.search.trim(),
-    ...v.categories.map(c => facets.categories.find(f => f.value === c)?.label ?? c),
+    ...catLabels,
     ...v.types,
     ...v.brands.map(b => facets.brands.find(f => f.value === b)?.label ?? b),
     v.locations.join('/'),
