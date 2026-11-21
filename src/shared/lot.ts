@@ -41,7 +41,7 @@ export interface RawLot {
 
 export interface RawLotDetail extends RawLot {
   description: string;
-  brand: string;
+  brand: string | null;
   model: string | null;
   lot_fee: number;
   bid_history: { bidder_label: string; amount: number; is_you: boolean }[];

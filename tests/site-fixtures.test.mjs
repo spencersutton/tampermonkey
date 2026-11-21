@@ -78,7 +78,7 @@ const LOT = {
 const DETAIL = {
   ...LOT,
   description: 'string',
-  brand: 'string',
+  brand: nullable('string'),
   model: nullable('string'),
   lot_fee: 'number',
   bid_history: [{ bidder_label: 'string', amount: 'number', is_you: 'boolean' }],
