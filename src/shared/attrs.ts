@@ -41,7 +41,6 @@ const titleCase = (s: string) =>
  */
 const normNum = (s: string) => {
   const n = Number(s);
-  console.log(s, n);
   return Number.isFinite(n) ? String(n) : s;
 };
 

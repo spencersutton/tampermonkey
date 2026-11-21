@@ -120,7 +120,7 @@ export const CATEGORIES: readonly CategoryDef[] = [
     parent: 'Tools',
     label: 'Outdoor Power',
     match:
-      /\b(ice auger|(?:lawn|reel|riding|push)\s+mower|mower|string\s+trimmer|weed\s+(?:eater|whacker|trimmer)|leaf\s+blower|blower|chainsaws?|pole\s+saws?|hedge\s+trimmer|pressure\s+washer|surface\s+cleaner|snow\s+blower|tiller|cultivator|lawn\s+edger|edger\b|log\s+splitter|wood\s+chipper|earth\s+auger|post\s+hole\s+digger|stump\s+grinder|dethatcher|aerator|backpack\s+sprayer|pump\s+sprayer|sprayer\b(?!.*(?:paint|head|faucet|sink))|trimmer\s+(?:line|head|spool|attachment)|chainsaw\s+chain|guide\s+bar)\b/,
+      /\b(ice auger|(?:lawn|reel|riding|push)\s+mower|mower|string\s+trimmer|weed\s+(?:eater|whacker|trimmer)|leaf\s+blower|blower$|chainsaws?|pole\s+saws?|hedge\s+trimmer|pressure\s+washer|surface\s+cleaner|snow\s+blower|tiller|cultivator|lawn\s+edger|edger\b|log\s+splitter|wood\s+chipper|earth\s+auger|post\s+hole\s+digger|stump\s+grinder|dethatcher|aerator|backpack\s+sprayer|pump\s+sprayer|sprayer\b(?!.*(?:paint|head|faucet|sink))|trimmer\s+(?:line|head|spool|attachment)|chainsaw\s+chain|guide\s+bar)\b/,
   },
   {
     value: 'tools/batteries-chargers',
@@ -145,6 +145,7 @@ export const CATEGORIES: readonly CategoryDef[] = [
       if (category === 'tools' && itemType.startsWith('cordless')) {
         return true;
       }
+
       return /\b(tool[ -]only|cordless (ratchet|press tool)|drill(?:\s+driver)?|impact\s+(?:driver|wrench)|hammer\s+drill|rotary\s+hammer|miter\s+saw|circular\s+saw|reciprocating\s+saw|table\s+saw|jigsaw|band\s+saw|scroll\s+saw|track\s+saw|tile\s+saw|cut-off\s+saw|chop\s+saw|oscillating\s+(?:tool|multi-tool)|multi-tool|angle\s+grinder|bench\s+grinder|die\s+grinder|sanders?|polishers?|buffers?|wood\s+router|plunge\s+router|trim\s+router|planers?|jointers?|nailers?|nail\s+gun|brad\s+nailer|framing\s+nailer|power\s+tool|combo\s+kit|grease\s+gun|caulk\s+gun|heat\s+gun|glue\s+gun|soldering|welders?|welding|plasma\s+cutter|powder\s+actuated|rivet\s+gun|paint\s+sprayer|concrete\s+vibrator|drywall\s+screw\s+gun|nibbler|cutout\s+tool|air\s+inflator|inflator\b)\b/.test(
         itemType,
       );
@@ -183,7 +184,7 @@ export const CATEGORIES: readonly CategoryDef[] = [
     parent: 'Tools',
     label: 'Hand Tools',
     match: itemType => {
-      if (itemType.includes('cordless')) {
+      if (['cordless', 'fireplace'].some(x => itemType.startsWith(x))) {
         return false;
       }
 
