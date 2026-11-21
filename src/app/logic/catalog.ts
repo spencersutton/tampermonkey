@@ -6,7 +6,7 @@ import { lotHref, type HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
 import type { Lot, PastClose } from '../types';
-import type { Facets, ViewState } from './view';
+import type { ViewState } from './view';
 import '../../shared/arrayToSet';
 
 export interface PendingTypeEdit {
@@ -134,16 +134,6 @@ export function firstVisitSince(lots: Iterable<Lot>, now: number): number {
     return now;
   }
   return Math.max(0, first - 1);
-}
-
-/** Next view state after hiding one category from the grid. */
-export function hideCategoryView(view: ViewState, facets: Facets, value: string): ViewState {
-  const selected =
-    view.categories.length || view.noCategories
-      ? view.categories
-      : facets.categories.map(f => f.value);
-  const categories = selected.filter(v => v !== value);
-  return { ...view, categories, noCategories: !categories.length };
 }
 
 /** Next view state after excluding an item type from the grid. */

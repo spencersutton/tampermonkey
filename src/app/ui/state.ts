@@ -7,7 +7,6 @@ import { DAY, MINUTE } from '../../shared/constants';
 import { KEYS, siteUrl } from '../../shared/keys';
 import {
   firstVisitSince,
-  hideCategoryView,
   hideItemTypeView,
   rememberSearchList,
   toggleHiddenLot,
@@ -145,15 +144,6 @@ export function setView(patch: Partial<ViewState>) {
     page.value = 1;
     closed.value = null; // changing the filters goes back to the grid
   });
-}
-
-/**
- * Drop a category from the grid without moving the page: keep the cards already loaded, and put the
- * next card that survives where the clicked one was.
- */
-export function hideCategory(value: string, from?: EventTarget | null) {
-  const next = hideCategoryView(storedView.value, filterFacets.value, value);
-  keepScrollAnchor(from, () => setSetting(KEYS.view, next));
 }
 
 /**

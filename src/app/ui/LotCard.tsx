@@ -22,7 +22,7 @@ import { openHandler } from './dom';
 import { Highlight } from './Highlight';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { hideCategory, modalActions, openLot, setView, toggleHide } from './state';
+import { modalActions, openLot, setView, toggleHide } from './state';
 import { observeLot } from './viewport';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
@@ -178,15 +178,6 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
               onClick={() => setView({ categories: [category.value], noCategories: false })}
             >
               {category.label}
-            </button>
-            <button
-              type="button"
-              class="icon-btn category-hide"
-              title={`Hide category: ${category.label}`}
-              aria-label={`Hide category: ${category.label}`}
-              onClick={(e?: MouseEvent) => hideCategory(category.value, e?.currentTarget)}
-            >
-              <Icon name="visibilityOff" size={14} />
             </button>
           </span>
           <ItemTypeActions lot={lot} />
