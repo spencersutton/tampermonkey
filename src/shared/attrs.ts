@@ -40,6 +40,8 @@ const titleCase = (s: string) =>
  * unchanged.
  */
 const normNum = (s: string) => {
+  // Strip commas from numeric strings before conversion
+  s = s.replace(/,/g, '');
   const n = Number(s);
   return Number.isFinite(n) ? String(n) : s;
 };
@@ -237,7 +239,7 @@ const RULES: Rule[] = [
   unit('Hose length', /\b(\d+)\s*-?\s*ft\b/i, 'ft', /\bhose\b(?! reel)/i),
   unit('Hose diameter', /(\d+\/\d+)\s*(?:in\.?|")/i, 'in', /\bhose\b/i),
   unit('Watts', /\b(\d+(?:\.\d+)?)[\s-]*W(?:atts?)?\b/i, 'Watts'),
-  unit('PSI', /\b(\d+(?:\.\d+)?)\s*PSI\b/i, 'PSI'),
+  unit('PSI', /\b([\d,]+(?:\.\d+)?)\s*PSI\b/i, 'PSI'),
   unit('GPM', /\b(\d+(?:\.\d+)?)\s*GPM\b/i, 'GPM'),
   unit('Capacity (Ah)', /\b(\d+(?:\.\d+)?)\s*Ah\b/i, 'Ah'),
   // Negative lookbehind avoids matching partial decimals (e.g. ".5-amp" inside "1.5-amp").
