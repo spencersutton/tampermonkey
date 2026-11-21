@@ -129,7 +129,6 @@ export interface ViewState {
   search: string;
   searchRegex: boolean; // the search box holds a case-insensitive regex rather than words
   categories: string[];
-  noCategories: boolean; // explicitly match none; an empty categories list otherwise means all
   types: string[]; // item types (lowercase)
   excludedTypes: string[]; // item types to exclude (lowercase)
   brands: string[]; // brand keys (see brandKey)
@@ -151,7 +150,6 @@ export const DEFAULT_VIEW: ViewState = {
   search: '',
   searchRegex: false,
   categories: [],
-  noCategories: false,
   types: [],
   excludedTypes: [],
   brands: [],
@@ -179,7 +177,6 @@ export function normalizeView(v: unknown): ViewState {
     ...view,
     types: strings(view.types),
     brands: strings(view.brands),
-    noCategories: !view.categories.length && view.noCategories,
     newSince: typeof view.newSince === 'number' ? view.newSince : null,
     sort: Object.hasOwn(SORTS, view.sort) ? view.sort : DEFAULT_VIEW.sort,
     ending: Object.hasOwn(ENDING, view.ending) ? view.ending : DEFAULT_VIEW.ending,
@@ -196,7 +193,7 @@ export function initialView(stored: unknown): ViewState {
 export const activeFilterCount = (v: ViewState) =>
   [
     v.search.trim(),
-    v.categories.length || v.noCategories,
+    v.categories.length,
     v.types.length,
     v.excludedTypes.length,
     v.brands.length,
@@ -616,9 +613,9 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
   const excludedTypes = v.excludedTypes.toSet();
   const dims: Predicates['dims'] = [];
-  if (v.noCategories || v.categories.length) {
+  if (v.categories.length) {
     const category = oneOf(v.categories);
-    dims.push(['category', r => !v.noCategories && category(r.category.value)]);
+    dims.push(['category', r => category(r.category.value)]);
   }
   if (v.conditions.length) {
     const condition = oneOf(v.conditions);
@@ -814,7 +811,6 @@ export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boole
 export function suggestName(v: ViewState, facets: Facets): string {
   const parts = [
     v.search.trim(),
-    v.noCategories && 'No categories',
     ...v.categories.map(c => facets.categories.find(f => f.value === c)?.label ?? c),
     ...v.types,
     ...v.brands.map(b => facets.brands.find(f => f.value === b)?.label ?? b),

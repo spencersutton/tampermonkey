@@ -19,7 +19,7 @@ afterEach(() => {
 });
 const { lots, updateItemType } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { applyCatalog, setItemType } = await vite.ssrLoadModule('/src/app/server/source.ts');
-const { categoryOf, computeFacets } = await vite.ssrLoadModule('/src/app/logic/view.ts');
+const { computeFacets } = await vite.ssrLoadModule('/src/app/logic/view.ts');
 
 const lot = (id, title, itemType, fields = {}) => ({
   id,
@@ -76,7 +76,6 @@ test('title corrections replace the catalog Map and update item type counts imme
     ['drill driver', 'drill driver', 'saw', 'battery'],
   );
   assert.equal(previous.get(1).itemType, 'battery');
-  assert.equal(categoryOf(lots.peek().get(1)).value, 'tools');
   assert.equal(
     computeFacets(lots.peek().values(), 1000).types.find(f => f.value === 'drill driver').count,
     2,

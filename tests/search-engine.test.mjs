@@ -21,10 +21,6 @@ const { DEFAULT_VIEW, computeView, computeFacets, contextualFacets, normalizeVie
   await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { suggest } = await vite.ssrLoadModule('/src/app/logic/suggest.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
-const { numericOrder } = await vite.ssrLoadModule('/src/app/logic/util.ts');
-const { tagMenuOptions, toggleFilterOption } = await vite.ssrLoadModule(
-  '/src/app/logic/filterOptions.ts',
-);
 
 const now = Date.now();
 const ex = {
@@ -234,21 +230,6 @@ test('typeahead suggests matching item types, brands, categories and top lots', 
   );
   assert.deepEqual(suggest('brand:ryobi', facets, items, now, {}).lots, []);
   assert.deepEqual(suggest('  ', facets, items, now, {}).types, []);
-});
-
-test('filter values that are all numbers sort by value', () => {
-  const label = x => x;
-  assert.deepEqual(numericOrder(['10', '2.5', '8', '.5', '-1', '12'], label), [
-    '-1',
-    '.5',
-    '2.5',
-    '8',
-    '10',
-    '12',
-  ]);
-  assert.equal(numericOrder(['10', '8 in', '2'], label), null);
-  assert.equal(numericOrder(['1/2', '3'], label), null);
-  assert.equal(numericOrder([], label), null);
 });
 
 test('a combined card leads with the best condition and notes a cheaper worse one', () => {

@@ -18,13 +18,6 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
   if (v.search.trim()) {
     chips.push({ key: 'search', label: `“${v.search.trim()}”`, remove: { search: '' } });
   }
-  if (v.noCategories) {
-    chips.push({
-      key: 'nocat',
-      label: 'No categories',
-      remove: { categories: [], noCategories: false },
-    });
-  }
   // A parent category gets one chip only when it and all its subcategories are selected;
   // otherwise each selected subcategory gets its own.
   const pending = v.categories.toSet();

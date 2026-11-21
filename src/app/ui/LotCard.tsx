@@ -175,7 +175,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
               class="btn-text category-only"
               title={`Show only ${category.label}`}
               aria-label={`Show only ${category.label}`}
-              onClick={() => setView({ categories: [category.value], noCategories: false })}
+              onClick={() => setView({ categories: [category.value] })}
             >
               {category.label}
             </button>

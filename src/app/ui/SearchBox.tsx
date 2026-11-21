@@ -70,7 +70,7 @@ export function SearchBox() {
         break;
       case 'category':
         rememberSearch(draft);
-        setView({ search: '', categories: [o.facet.value], noCategories: false });
+        setView({ search: '', categories: [o.facet.value] });
         break;
       case 'lot':
         rememberSearch(draft);

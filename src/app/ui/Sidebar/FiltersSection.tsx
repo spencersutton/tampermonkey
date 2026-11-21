@@ -263,20 +263,8 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
         <CheckList
           facets={facets.categories}
           selected={view.categories}
-          onChange={categories => setView({ categories, noCategories: false })}
+          onChange={categories => setView({ categories })}
         />
-        {view.noCategories && (
-          <div>
-            <p class="muted">No categories selected.</p>
-            <button
-              type="button"
-              class="btn-text"
-              onClick={() => setView({ categories: [], noCategories: false })}
-            >
-              Show all categories
-            </button>
-          </div>
-        )}
       </Collapsible>
 
       {(facets.types.length > 0 || view.types.length > 0 || view.excludedTypes.length > 0) && (

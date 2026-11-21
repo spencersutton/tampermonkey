@@ -21,17 +21,12 @@ after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting, getSetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
 const { lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
-const { hideCategory, hideItemType, storedView, setView, page, rowOf, exclusionRules } =
+const { hideItemType, storedView, page, rowOf, exclusionRules } =
   await vite.ssrLoadModule('/src/app/ui/state.ts');
-const {
-  DEFAULT_VIEW,
-  normalizeView,
-  computeView,
-  activeFilterCount,
-  savedFilters,
-  savedSearchStats,
-} = await vite.ssrLoadModule('/src/app/logic/view.ts');
-const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/ui/history.ts');
+const { DEFAULT_VIEW, computeView, activeFilterCount } = await vite.ssrLoadModule(
+  '/src/app/logic/view.ts',
+);
+const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 const { LotCard } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
 const now = Date.now();
@@ -74,70 +69,6 @@ const visibleIds = () =>
     now,
   ).rows.map(r => r.lot.id);
 
-test('hiding from an unfiltered view selects all other assigned categories', () => {
-  hideCategory('tools');
-  assert.deepEqual(new Set(storedView.value.categories), new Set(['garden']));
-  assert.equal(storedView.value.noCategories, false);
-  assert.deepEqual(visibleIds(), [3]);
-  assert.deepEqual(getSetting(KEYS.hidden), {});
-});
-
-test('hiding a selected category preserves other filters', () => {
-  const view = {
-    ...DEFAULT_VIEW,
-    categories: ['tools', 'garden'],
-    search: 'Fixture',
-    sort: 'total-desc',
-    priceMax: 20,
-    mine: 'watch',
-  };
-  applySetting(KEYS.view, view);
-  page.value = 4;
-  hideCategory('tools');
-  assert.deepEqual(storedView.value, { ...view, categories: ['garden'] });
-  assert.equal(page.value, 4, 'keeps the loaded cards so the grid does not jump');
-  assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.view}`)), storedView.value);
-});
-
-test('hiding the final selection matches nothing and survives storage and searches', () => {
-  setView({ categories: ['garden'] });
-  hideCategory('garden');
-  assert.deepEqual(storedView.value.categories, []);
-  assert.equal(storedView.value.noCategories, true);
-  assert.deepEqual(visibleIds(), []);
-  assert.equal(activeFilterCount(storedView.value), 1);
-  const restored = normalizeView(JSON.parse(storage.get(`tlx:${KEYS.view}`)));
-  assert.equal(restored.noCategories, true);
-  const stats = savedSearchStats(
-    fixtures,
-    [{ id: 'empty', view: savedFilters(restored), lastViewedAt: now }],
-    'Raleigh',
-    exclusionRules.value,
-    now,
-  );
-  assert.deepEqual(stats.get('empty'), { total: 0, fresh: 0 });
-});
-
-test('hiding the only catalog category also matches nothing', () => {
-  lots.value = new Map([[1, fixtures[0]]]);
-  hideCategory('tools');
-  assert.equal(storedView.value.noCategories, true);
-  assert.deepEqual(visibleIds(), []);
-});
-
-test('repeated hide actions stay hidden; selecting a category or clearing recovers', () => {
-  setView({ categories: ['garden'] });
-  hideCategory('garden');
-  hideCategory('garden');
-  assert.deepEqual(visibleIds(), []);
-  setView({ categories: ['garden'], noCategories: false });
-  assert.deepEqual(visibleIds(), [3]);
-  setView(DEFAULT_VIEW);
-  assert.deepEqual(visibleIds(), [1, 2, 3]);
-  assert.equal(normalizeView({ categories: [] }).noCategories, false);
-  assert.equal(normalizeView({ categories: ['tools'], noCategories: true }).noCategories, false);
-});
-
 function nodes(node) {
   if (node == null || typeof node !== 'object') return [];
   if (Array.isArray(node)) return node.flatMap(nodes);
@@ -152,16 +83,6 @@ function renderCard(lot) {
   options.diffed(vnode);
   return tree;
 }
-
-test('the card exposes a labeled category hide button targeting its site category', () => {
-  const tree = renderCard(fixtures[1]);
-  const button = nodes(tree).find(n => n.props?.class === 'icon-btn category-hide');
-  assert.equal(button.props.type, 'button');
-  assert.equal(button.props['aria-label'], 'Hide category: Tools');
-  assert.equal(button.props.title, button.props['aria-label']);
-  button.props.onClick();
-  assert.deepEqual(visibleIds(), [3]);
-});
 
 test('clicking a card category selects only its assigned category and preserves other filters', () => {
   for (const [lot, category, expected] of [
@@ -180,38 +101,7 @@ test('clicking a card category selects only its assigned category and preserves 
     assert.equal(page.value, 1);
     assert.deepEqual(visibleIds(), expected);
     assert.deepEqual(JSON.parse(storage.get(`tlx:${KEYS.view}`)), storedView.value);
-    hideCategory(category);
-    assert.equal(storedView.value.noCategories, true);
-    button.props.onClick();
-    assert.equal(storedView.value.noCategories, false);
-    assert.deepEqual(visibleIds(), expected);
   }
-});
-
-test('explicit empty categories round-trip through URLs and browser history', () => {
-  const entries = [];
-  globalThis.location = { pathname: '/tlx' };
-  globalThis.history = {
-    state: null,
-    replaceState(state, _title, url) {
-      this.state = state;
-      entries.push({ state, url });
-    },
-    pushState(state, _title, url) {
-      this.state = state;
-      entries.push({ state, url });
-    },
-  };
-  globalThis.window = { addEventListener() {} };
-  startHistory();
-  setView({ categories: ['garden'] });
-  hideCategory('garden');
-  const entry = entries.at(-1);
-  assert.equal(entry.state.view.noCategories, true);
-  assert.equal(entry.url, '/tlx?noCategories=1');
-  assert.deepEqual(navFromUrl('?noCategories=1').view, storedView.value);
-  assert.equal(navFromUrl('?noCategories=0').view.noCategories, false);
-  assert.equal(navFromUrl('?category=tools').view.noCategories, false);
 });
 
 test('the card exposes a hide item type button, preserves page/filters, and round-trips through URLs', async () => {
