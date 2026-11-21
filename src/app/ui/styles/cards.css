@@ -214,9 +214,11 @@
 }
 
 .card-title mark {
-  background: none;
+  background: var(--mark);
   color: inherit;
-  font-weight: 700;
+  border-radius: 3px;
+  padding: 0 2px;
+  box-decoration-break: clone;
 }
 
 .card-meta {
