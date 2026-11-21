@@ -44,11 +44,12 @@ test('categorizeLot maps item types to logical custom categories and resolves or
     ['cordless drill', 'tools', 'tools/power-tools'],
     ['drill bit set', 'tools', 'tools/accessories'],
     ['torque wrench', 'tools', 'tools/hand-measuring'],
-    ['tool box', 'tools', 'tools/shop-storage'],
+    ['tool box', 'tools', 'tools/tool-storage'],
+    ['extension ladder', 'tools', 'tools/ladders-moving'],
     ['bathroom exhaust fan', 'plumbing-bath', 'hvac/ventilation'],
     ['ceiling fan', 'lighting-electrical', 'hvac/heating-cooling'],
     ['garden hose', 'garden', 'outdoor/lawn-garden'],
-    ['air hose', 'tools', 'tools/shop-storage'],
+    ['air hose', 'tools', 'tools/shop-equipment'],
     ['doormat', 'home', 'home/rugs-mats'],
     ['floor mat', 'automotive', 'automotive/interior-tech'],
     ['floor mat', 'home', 'home/rugs-mats'],
@@ -105,7 +106,7 @@ test('groupCategories nests subcategories under parents and keeps single-sub and
   assert.deepEqual(
     tools.subs.map(s => [s.value, s.label, s.count]),
     [
-      ['tools/hand-measuring', 'Hand Tools & Measuring', 1],
+      ['tools/hand-measuring', 'Hand Tools', 1],
       ['tools/power-tools', 'Power Tools', 2],
       ['tools', 'Other', 1],
     ],
