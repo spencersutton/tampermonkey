@@ -3,9 +3,12 @@ const dateTimeFormat = new Intl.DateTimeFormat([], {
   dateStyle: 'short',
   timeStyle: 'medium',
 });
-const usdOptions = { style: 'currency', currency: 'USD' } as const;
-const moneyFormat = new Intl.NumberFormat([], usdOptions);
-const dollarsFormat = new Intl.NumberFormat([], { ...usdOptions, maximumFractionDigits: 0 });
+const moneyFormat = new Intl.NumberFormat([], { style: 'currency', currency: 'USD' });
+const dollarsFormat = new Intl.NumberFormat([], {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
 const shortTimeFormat = new Intl.DateTimeFormat([], {
   weekday: 'short',
   hour: 'numeric',
