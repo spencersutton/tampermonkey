@@ -7,8 +7,8 @@
 //
 // A lot is a row of `lots` with its site category, condition and location in
 // lookup tables, its images in `lot_images`, its item type joined from
-// `identity_item_types` by brand/model (or `item_types` by title when identity
-// is missing), its tags from every `tag_rules` pattern its title matches, and
+// `item_types` (by brand/model when known, or by title when identity is
+// missing), its tags from every `tag_rules` pattern its title matches, and
 // its most recent past closes in `lot_past_closes`, pointing at `closed_lots`.
 // The store hands lots out, and takes them in, as one object each, in the shape
 // the app gets them (ServerLot in src/app/server/api.ts).
@@ -55,13 +55,11 @@ CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS item_types (
-  title TEXT PRIMARY KEY, type TEXT NOT NULL, category TEXT, at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0
+  brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
+  type TEXT NOT NULL, category TEXT, at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (brand, model, title)
 );
 CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
-CREATE TABLE IF NOT EXISTS identity_item_types (
-  brand TEXT NOT NULL, model TEXT NOT NULL, title TEXT NOT NULL, type TEXT NOT NULL, category TEXT,
-  at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (brand, model, title)
-);
 CREATE TABLE IF NOT EXISTS closed_lots (
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at INTEGER, price REAL, bid_count INTEGER,
   sold INTEGER NOT NULL, final INTEGER NOT NULL, condition TEXT, location TEXT, category TEXT, retail REAL
@@ -484,12 +482,12 @@ export class Store {
         category: string | null;
         at: number;
         manual: number;
-        brand: string | null;
-        model: string | null;
-      }>(
-        `SELECT title, type, category, at, manual, NULL AS brand, NULL AS model FROM item_types
-         UNION ALL SELECT title, type, category, at, manual, brand, model FROM identity_item_types`,
-      ).map(r => ({ ...r, manual: Boolean(r.manual) })),
+        brand: string;
+        model: string;
+      }>('SELECT title, type, category, at, manual, brand, model FROM item_types').map(r => ({
+        ...r,
+        manual: Boolean(r.manual),
+      })),
     );
     return this.typeIndexCache;
   }
@@ -872,9 +870,7 @@ export class Store {
   /** The item types given most often to titles in a site category. */
   commonTypes(category: string | null, limit: number): string[] {
     return this.all<{ type: string }>(
-      `SELECT type FROM (
-         SELECT type, category FROM item_types UNION ALL SELECT type, category FROM identity_item_types
-       ) WHERE category IS ? GROUP BY type ORDER BY count(*) DESC, type LIMIT ?`,
+      'SELECT type FROM item_types WHERE category IS ? GROUP BY type ORDER BY count(*) DESC, type LIMIT ?',
       category,
       limit,
     ).map(r => r.type);
@@ -896,28 +892,18 @@ export class Store {
         if (!manual && record?.manual) {
           continue;
         }
-        const values = [
+        const identity = brandModelKey(lot);
+        const [brand, model] = identity ? identity.split('\n') : ['', ''];
+        this.run(
+          'INSERT OR REPLACE INTO item_types (brand, model, title, type, category, at, manual) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          brand!,
+          model!,
           lot.title,
           label,
           lot.category?.value ?? null,
           this.stamp(),
           manual ? 1 : 0,
-        ];
-        const identity = brandModelKey(lot);
-        if (identity) {
-          const [brand, model] = identity.split('\n');
-          this.run(
-            'INSERT OR REPLACE INTO identity_item_types (brand, model, title, type, category, at, manual) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            brand!,
-            model!,
-            ...values,
-          );
-        } else {
-          this.run(
-            'INSERT OR REPLACE INTO item_types (title, type, category, at, manual) VALUES (?, ?, ?, ?, ?)',
-            ...values,
-          );
-        }
+        );
       }
       this.changedTypes();
       return this.touchChanges(previous, this.typeAssignments());
