@@ -16,8 +16,9 @@ import {
 } from '../../logic/view';
 import { siteConditions } from '../../server/conditions';
 import { useSetting } from '../../server/settings';
+import { hasModifierKey } from '../dom';
 import { Icon } from '../icons';
-import { closed, openClosed, setView } from '../state';
+import { closed, hideItemType, openClosed, setView } from '../state';
 import { Collapsible } from './Collapsible';
 import { NumberInput } from './NumberInput';
 
@@ -27,26 +28,51 @@ function CheckList<T>(props: {
   selected: T[];
   onChange: (next: T[]) => void;
   titleOf?: (v: T) => string | undefined;
+  onHide?: (v: T, e?: MouseEvent) => void;
 }) {
-  const { facets, selected, onChange, titleOf } = props;
+  const { facets, selected, onChange, titleOf, onHide } = props;
   const toggle = (v: T) =>
     onChange(selected.includes(v) ? selected.filter(x => x !== v) : [...selected, v]);
   return (
     <>
-      {facets.map(f => (
-        <label
-          class={`check ${f.count || selected.includes(f.value) ? '' : 'zero'}`}
-          title={titleOf?.(f.value)}
-        >
-          <input
-            type="checkbox"
-            checked={selected.includes(f.value)}
-            onChange={() => toggle(f.value)}
-          />
-          <span>{f.label}</span>
-          <span class="count">{format.num(f.count)}</span>
-        </label>
-      ))}
+      {facets.map(f => {
+        const zero = f.count || selected.includes(f.value) ? '' : 'zero';
+        if (onHide) {
+          return (
+            <div class={`check-row ${zero}`}>
+              <label class="check" title={titleOf?.(f.value)}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(f.value)}
+                  onChange={() => toggle(f.value)}
+                />
+                <span>{f.label}</span>
+              </label>
+              <button
+                type="button"
+                class="icon-btn facet-hide"
+                title={`Hide item type: ${f.label} (hold modifier key for this search only)`}
+                aria-label={`Hide item type: ${f.label}`}
+                onClick={e => onHide(f.value, e)}
+              >
+                <Icon name="visibilityOff" size={14} />
+              </button>
+              <span class="count">{format.num(f.count)}</span>
+            </div>
+          );
+        }
+        return (
+          <label class={`check ${zero}`} title={titleOf?.(f.value)}>
+            <input
+              type="checkbox"
+              checked={selected.includes(f.value)}
+              onChange={() => toggle(f.value)}
+            />
+            <span>{f.label}</span>
+            <span class="count">{format.num(f.count)}</span>
+          </label>
+        );
+      })}
     </>
   );
 }
@@ -60,8 +86,9 @@ function FacetList(props: {
   facets: Facet<string>[];
   selected: string[];
   onChange: (next: string[]) => void;
+  onHide?: (v: string, e?: MouseEvent) => void;
 }) {
-  const { name, facets, selected, onChange } = props;
+  const { name, facets, selected, onChange, onHide } = props;
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
   const INITIAL = 8;
@@ -83,7 +110,12 @@ function FacetList(props: {
           onInput={e => setQuery(e.currentTarget.value)}
         />
       )}
-      <CheckList facets={[...picked, ...shown]} selected={selected} onChange={onChange} />
+      <CheckList
+        facets={[...picked, ...shown]}
+        selected={selected}
+        onChange={onChange}
+        onHide={onHide}
+      />
       {q && !rest.length && (
         <p class="muted small">
           No {name} match “{query.trim()}”.
@@ -398,6 +430,7 @@ export function FiltersSection({ view, facets, pickup, authed }: Props) {
                 excludedTypes: view.excludedTypes.filter(t => !types.includes(t)),
               })
             }
+            onHide={(t, e) => hideItemType(t, null, Boolean(e && hasModifierKey(e)))}
           />
           {view.excludedTypes.length > 0 && (
             <ExcludedTypeList

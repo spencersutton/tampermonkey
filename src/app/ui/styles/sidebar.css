@@ -284,8 +284,43 @@
 }
 
 /* Facets */
-.check.zero {
+.check.zero,
+.check-row.zero {
   opacity: 0.5;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.check-row .check {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.check-row .count {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.facet-hide {
+  flex: none;
+  padding: 2px;
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.check-row:hover .facet-hide,
+.facet-hide:focus-visible {
+  opacity: 1;
+}
+
+.facet-hide:hover {
+  color: var(--bad);
 }
 
 .cat-tree {
