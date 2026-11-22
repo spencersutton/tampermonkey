@@ -97,6 +97,18 @@ export function pastPrice(
     : null;
 }
 
+const STRIPPED_DESC_LINE = /^\s*(?:quantity|brand|model)\s*:.*$/i;
+
+/** Remove boilerplate Quantity/Brand/Model lines from a lot description and tidy blank lines. */
+export function cleanDescription(description: string): string {
+  return description
+    .split(/\r?\n/)
+    .filter(line => !STRIPPED_DESC_LINE.test(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** One past close as a line of text. */
 export const pastCloseText = (c: PastClose) =>
   `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${format.shortDate(c.endsAt)}`;

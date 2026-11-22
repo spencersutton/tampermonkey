@@ -194,6 +194,17 @@ test('LotAttrs renders every extracted attribute on the lot detail view and filt
   assert.deepEqual(selected, ['psi:3200 psi']);
 });
 
+test('cleanDescription strips Quantity, Brand, and Model lines and trims blank lines', async () => {
+  const { cleanDescription } = await vite.ssrLoadModule('/src/app/logic/catalog.ts');
+  assert.equal(
+    cleanDescription(
+      'Quantity: 1,\n\nHeavy-duty duplex receptacle.\n\nLot Number: 22616679,\nBrand: Leviton,\nModel: 5320-W,',
+    ),
+    'Heavy-duty duplex receptacle.\n\nLot Number: 22616679,',
+  );
+  assert.equal(cleanDescription('Quantity: 2,\nBrand: N/A,\nModel: ABC-123'), '');
+});
+
 test('watchlist excludes bid-on lots even when the site watchlist flag remains set', () => {
   lots.value = new Map([
     [1, lot(1, 'Watched drill', { is_watchlisted: true, bid_count: 3 })],

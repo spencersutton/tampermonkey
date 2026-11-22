@@ -128,6 +128,11 @@
   color: #d49a00;
 }
 
+.modal-info h3 .collapse-head {
+  font: inherit;
+  color: inherit;
+}
+
 .modal-price {
   display: flex;
   flex-wrap: wrap;

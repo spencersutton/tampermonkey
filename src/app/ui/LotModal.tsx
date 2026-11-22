@@ -7,7 +7,7 @@ import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs, type LotMetadata } from '../../shared/lot';
 import { bidBlocker, isLeading, maxBidError, minMaxBid, quickBidAmount } from '../logic/bid';
-import { openSimilarLots, pastPrice } from '../logic/catalog';
+import { cleanDescription, openSimilarLots, pastPrice } from '../logic/catalog';
 import { errorMessage, parseNum, plural } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
@@ -104,6 +104,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   }, [lot.id, lot.version, lot.your_standing?.your_max_bid, lot.your_standing?.is_leading, authed]);
 
   const images = metadata?.images ?? lot.images;
+  const description = metadata?.description ? cleanDescription(metadata.description) : '';
   const auction = detail && detail.version >= lot.version ? detail : null;
   const img = images[Math.min(imgIdx, images.length - 1)];
   /** Move through the images by `delta`, wrapping around. */
@@ -239,13 +240,13 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           {group && group.length > 1 && (
             <SameListings group={group} current={lot} onOpen={onOpenLot} />
           )}
-          {lot.pastCloses && <PastCloses lot={lot} />}
 
           {metadataError && <p class="error">Couldn’t load saved item details: {metadataError}</p>}
           {error && <p class="error">Couldn’t refresh auction data: {error}</p>}
           {!metadata && !error && !metadataError && <p class="muted">Loading details…</p>}
           {refreshing && metadata && <p class="muted">Refreshing auction data…</p>}
-          {metadata?.description && <div class="description">{metadata.description}</div>}
+          {description && <div class="description">{description}</div>}
+          {lot.pastCloses && <PastCloses lot={lot} />}
           {auction && (
             <>
               {auction.bid_history.length > 0 && (
@@ -397,74 +398,95 @@ function Similar({
 
 /** What earlier matching items closed at, refreshed when the matched listings change. */
 function PastCloses({ lot }: { lot: Lot }) {
+  const [open, setOpen] = useState(false);
   const [closes, setCloses] = useState<PastCloseDetail[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const matchedIds = lot.pastCloses?.recent.map(close => close.id).join(',');
   useEffect(() => {
-    let live = true;
     setCloses(null);
     setError(null);
+  }, [lot.id, lot.pastCloses?.n, matchedIds]);
+  useEffect(() => {
+    if (!open || closes || error) {
+      return;
+    }
+    let live = true;
     fetchPastCloses(lot.id).then(
       c => live && setCloses(c),
       e => live && setError(errorMessage(e)),
     );
     return () => void (live = false);
-  }, [lot.id, lot.pastCloses?.n, matchedIds]);
+  }, [open, closes, error, lot.id, lot.pastCloses?.n, matchedIds]);
   const p = pastPrice(lot);
   return (
     <div>
       <h3>
-        Closed before ({format.num(lot.pastCloses!.n)})
-        {p && (
-          <span class="muted small">
-            {' '}
-            · usually {dollars(p.median)}
-            {p.sameCondition ? ` (${lot.condition.display_name})` : ''}
-          </span>
-        )}
-      </h3>
-      {error && <p class="error">Couldn’t load past closes: {error}</p>}
-      {!closes && !error && <p class="muted small">Loading…</p>}
-      {closes && (
-        <ol class="past">
-          {closes.map(c => (
-            <li>
-              <span
-                class="price"
-                title={
-                  c.final
-                    ? undefined
-                    : 'The last price seen before it closed; the site no longer has the lot'
-                }
-              >
-                {c.sold ? dollars(c.price) : 'No sale'}
-                {!c.final && '*'}
+        <button
+          type="button"
+          class="collapse-head"
+          aria-expanded={open}
+          onClick={() => setOpen(o => !o)}
+        >
+          <span>
+            Closed before ({format.num(lot.pastCloses!.n)})
+            {p && (
+              <span class="muted small">
+                {' '}
+                · usually {dollars(p.median)}
+                {p.sameCondition ? ` (${lot.condition.display_name})` : ''}
               </span>
-              <span class="past-what muted small">
-                {c.title !== lot.title && (
+            )}
+          </span>
+          <Icon name="expandMore" size={18} />
+        </button>
+      </h3>
+      {open && (
+        <>
+          {error && <p class="error">Couldn’t load past closes: {error}</p>}
+          {!closes && !error && <p class="muted small">Loading…</p>}
+          {closes && (
+            <ol class="past">
+              {closes.map(c => (
+                <li>
+                  <span
+                    class="price"
+                    title={
+                      c.final
+                        ? undefined
+                        : 'The last price seen before it closed; the site no longer has the lot'
+                    }
+                  >
+                    {c.sold ? dollars(c.price) : 'No sale'}
+                    {!c.final && '*'}
+                  </span>
+                  <span class="past-what muted small">
+                    {c.title !== lot.title && (
+                      <a
+                        class="dupe-title"
+                        href={lotHref(c.auctionPeriod, c.id)}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {c.title}
+                      </a>
+                    )}
+                    {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} ·{' '}
+                    {plural(c.bidCount, 'bid')}
+                  </span>
                   <a
-                    class="dupe-title"
+                    class="muted small"
                     href={lotHref(c.auctionPeriod, c.id)}
                     target="_blank"
                     rel="noopener"
+                    title="Open on Triangle Liquidators"
                   >
-                    {c.title}
+                    {format.shortDate(c.endsAt)}
                   </a>
-                )}
-                {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} · {plural(c.bidCount, 'bid')}
-              </span>
-              <a
-                class="muted small"
-                href={lotHref(c.auctionPeriod, c.id)}
-                target="_blank"
-                rel="noopener"
-                title="Open on Triangle Liquidators"
-              >
-                {format.shortDate(c.endsAt)}
-              </a>
-            </li>
-          ))}
-        </ol>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
       )}
     </div>
   );
