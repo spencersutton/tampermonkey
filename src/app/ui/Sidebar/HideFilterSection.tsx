@@ -151,7 +151,10 @@ export function HideFilterSection({
   const hidden = Object.entries(hiddenLots)
     .sortBy(([, h]) => h.ts)
     .toReversed();
-  const typeSuggestions = filterFacets.value.types.map(t => t.value);
+  const filteredSet = filterTypes.map(t => t.trim().toLowerCase()).toSet();
+  const typeSuggestions = filterFacets.value.types
+    .map(t => t.value)
+    .filter(t => !filteredSet.has(t.trim().toLowerCase()));
 
   return (
     <section class="panel">

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 
 import 'temporal-polyfill/global';
+import { Component, h, options } from 'preact';
 import { createServer } from 'vite';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
@@ -128,6 +129,69 @@ test('global item type filters behave like regex filters across dimming, removal
   openFiltered();
   assert.deepEqual(ids(), [2]);
   assert.equal(gridView.value.rows[0].matched, 'rake');
+});
+
+test('filtered item type suggestions omit item types that are already filtered', async () => {
+  const { HideFilterSection } = await vite.ssrLoadModule(
+    '/src/app/ui/Sidebar/HideFilterSection.tsx',
+  );
+  const nodes = node => {
+    if (node == null || typeof node !== 'object') return [];
+    if (Array.isArray(node)) return node.flatMap(nodes);
+    return [node, ...nodes(node.props?.children)];
+  };
+  applySetting(KEYS.filterTypes, ['rake']);
+  const vnode = h(HideFilterSection, {
+    matchCounts: new Map(),
+    typeMatchCounts: new Map([['rake', 1]]),
+  });
+  vnode.__c = new Component(vnode.props);
+  vnode.__c.__h = [];
+  options.__r(vnode);
+  const tree = vnode.type(vnode.props);
+  options.diffed(vnode);
+  options.unmount?.(vnode);
+  const datalist = nodes(tree).find(
+    n => n.type === 'datalist' && n.props?.id === 'filter-type-options',
+  );
+  assert.ok(datalist);
+  const values = nodes(datalist)
+    .filter(n => n.type === 'option')
+    .map(n => n.props.value)
+    .toSorted();
+  assert.deepEqual(values, ['drill', 'saw']);
+});
+
+test('LotAttrs renders every extracted attribute on the lot detail view and filters on click', async () => {
+  const { LotAttrs } = await vite.ssrLoadModule('/src/app/ui/LotModal.tsx');
+  const nodes = node => {
+    if (node == null || typeof node !== 'object') return [];
+    if (Array.isArray(node)) return node.flatMap(nodes);
+    return [node, ...nodes(node.props?.children)];
+  };
+  assert.equal(LotAttrs({ title: 'Plain item with no specs', onSelect() {} }), null);
+
+  const selected = [];
+  const tree = LotAttrs({
+    title: 'Milwaukee M18 3200 PSI 50 ft Black & Red Pressure Washer Hose',
+    onSelect: key => selected.push(key),
+  });
+  assert.ok(tree);
+  const labels = nodes(tree)
+    .filter(n => n.type === 'dt')
+    .map(n => n.props.children);
+  assert.ok(labels.includes('Battery system'));
+  assert.ok(labels.includes('Power source'));
+  assert.ok(labels.includes('PSI'));
+  assert.ok(labels.includes('Hose length'));
+  assert.ok(labels.includes('Color'));
+
+  const psiBtn = nodes(tree).find(
+    n => n.type === 'button' && n.props?.title === 'Filter by PSI: 3200 PSI',
+  );
+  assert.ok(psiBtn);
+  psiBtn.props.onClick();
+  assert.deepEqual(selected, ['psi:3200 psi']);
 });
 
 test('watchlist excludes bid-on lots even when the site watchlist flag remains set', () => {
