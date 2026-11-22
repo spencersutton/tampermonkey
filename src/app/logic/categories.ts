@@ -146,7 +146,7 @@ export const CATEGORIES: readonly CategoryDef[] = [
         return true;
       }
 
-      return /\b(tool[ -]only|cordless (ratchet|press tool)|drill(?:\s+driver)?|impact\s+(?:driver|wrench)|hammer\s+drill|rotary\s+hammer|miter\s+saw|circular\s+saw|reciprocating\s+saw|table\s+saw|jigsaw|band\s+saw|scroll\s+saw|track\s+saw|tile\s+saw|cut-off\s+saw|chop\s+saw|oscillating\s+(?:tool|multi-tool)|multi-tool|angle\s+grinder|bench\s+grinder|die\s+grinder|sanders?|polishers?|buffers?|wood\s+router|plunge\s+router|trim\s+router|planers?|jointers?|nailers?|nail\s+gun|brad\s+nailer|framing\s+nailer|power\s+tool|combo\s+kit|grease\s+gun|caulk\s+gun|heat\s+gun|glue\s+gun|soldering|welders?|welding|plasma\s+cutter|powder\s+actuated|rivet\s+gun|paint\s+sprayer|concrete\s+vibrator|drywall\s+screw\s+gun|nibbler|cutout\s+tool|air\s+inflator|inflator\b)\b/.test(
+      return /\b(tool[ -]only|cordless (ratchet|press tool)|drill(?:\s+driver)?|impact\s+(?:driver|wrench)|hammer\s+drill|rotary\s+hammer|miter\s+saw|circular\s+saw|reciprocating\s+saw|table\s+saw|jigsaw$|band\s+saw|scroll\s+saw|track\s+saw|tile\s+saw|cut-off\s+saw|chop\s+saw|oscillating\s+(?:tool|multi-tool)|multi-tool|angle\s+grinder|bench\s+grinder|die\s+grinder|sanders?|polishers?|buffers?|wood\s+router|plunge\s+router|trim\s+router|planers?|jointers?|nailers?|nail\s+gun|brad\s+nailer|framing\s+nailer|power\s+tool|combo\s+kit|grease\s+gun|caulk\s+gun|heat\s+gun|glue\s+gun|soldering|welders?|welding|plasma\s+cutter|powder\s+actuated|rivet\s+gun|paint\s+sprayer|concrete\s+vibrator|drywall\s+screw\s+gun|nibbler|cutout\s+tool|air\s+inflator|inflator\b)\b/.test(
         itemType,
       );
     },
