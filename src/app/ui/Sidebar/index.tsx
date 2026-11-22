@@ -9,6 +9,7 @@ interface Props {
   view: ViewState;
   facets: Facets;
   matchCounts: Map<string, number>;
+  typeMatchCounts: Map<string, number>;
   pickup: string;
   authed: boolean;
   saved: SavedSearchesProps;
@@ -20,7 +21,7 @@ export function Sidebar(props: Props) {
     <div class="sidebar-inner">
       <SavedSearchesSection {...props.saved} />
       <FiltersSection {...props} />
-      <HideFilterSection matchCounts={props.matchCounts} />
+      <HideFilterSection matchCounts={props.matchCounts} typeMatchCounts={props.typeMatchCounts} />
       <SettingsSection />
       <button
         type="button"

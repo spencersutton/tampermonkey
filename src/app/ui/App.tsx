@@ -164,6 +164,7 @@ function AppSidebar({
         view={view}
         facets={facets}
         matchCounts={gridView.value.matchCounts}
+        typeMatchCounts={gridView.value.typeMatchCounts}
         pickup={pickupName.value}
         authed={authed}
         saved={savedProps}

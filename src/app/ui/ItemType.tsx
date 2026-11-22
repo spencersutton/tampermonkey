@@ -8,6 +8,7 @@ import { setItemType } from '../server/source';
 import { toast } from '../server/toast';
 import type { Lot } from '../types';
 import { Dialog } from './Dialog';
+import { hasModifierKey } from './dom';
 import { Icon } from './icons';
 import { hideItemType, modalActions, setView, storedView } from './state';
 
@@ -33,9 +34,11 @@ export function ItemTypeActions({ lot }: { lot: Lot }) {
           <button
             type="button"
             class="icon-btn item-type-hide"
-            title={`Hide item type: ${type}`}
+            title={`Hide item type: ${type} (hold modifier key for this search only)`}
             aria-label={`Hide item type: ${type}`}
-            onClick={(e?: MouseEvent) => hideItemType(type, e?.currentTarget)}
+            onClick={(e?: MouseEvent) =>
+              hideItemType(type, e?.currentTarget, Boolean(e && hasModifierKey(e)))
+            }
           >
             <Icon name="visibilityOff" size={14} />
           </button>

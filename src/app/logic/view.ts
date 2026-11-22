@@ -225,6 +225,7 @@ export const activeFilterCount = (v: ViewState) =>
 
 export interface Exclusions {
   words: string[];
+  filterTypes?: string[];
   filterOn: boolean;
   removeFiltered: boolean;
   hidden: Record<string, HiddenLot>;
@@ -246,6 +247,21 @@ const lotMatcher = memoLast((words: string[]) => {
   return (lot: Lot) => byTitle(lot.title);
 });
 
+const typeFilterSet = memoLast((types: readonly string[]) =>
+  types
+    .map(t => t.trim().toLowerCase())
+    .filter(Boolean)
+    .toSet(),
+);
+
+function matchedType(lot: Lot, filterTypes?: string[]): string | null {
+  if (!filterTypes?.length || !lot.itemType) {
+    return null;
+  }
+  const key = lot.itemType.trim().toLowerCase();
+  return typeFilterSet(filterTypes).has(key) ? lot.itemType : null;
+}
+
 /**
  * Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden
  * state.
@@ -262,7 +278,9 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
     retailPct: lot.estimated_retail_price
       ? Math.round((lot.current_price / lot.estimated_retail_price) * 100) / 100
       : null,
-    matched: ex.filterOn ? (lotMatcher(ex.words)(lot)[0] ?? null) : null,
+    matched: ex.filterOn
+      ? (lotMatcher(ex.words)(lot)[0] ?? matchedType(lot, ex.filterTypes))
+      : null,
     hidden: Boolean(ex.hidden[lot.id]),
     others: [],
     cheaper: null,
@@ -392,6 +410,7 @@ export interface ViewResult {
   removed: number; // open lots dropped by hide / remove-filtered
   filteredOut: number; // open lots dropped by the view's own filters
   matchCounts: Map<string, number>; // open lots each regex filter matches
+  typeMatchCounts: Map<string, number>; // open lots each item type filter matches
   combined: number; // listings folded into another card as duplicates
   groups: Map<number, Row[]>; // lot id -> every listing in its group (cheapest first)
   facetCounts: FacetCounts;
@@ -409,6 +428,9 @@ export function computeView(
   filteredOnly = false,
 ): ViewResult {
   const matchCounts = new Map(ex.words.map(w => [w, 0]));
+  const filterTypes = ex.filterTypes ?? [];
+  const typeMatchCounts = new Map(filterTypes.map(t => [t, 0]));
+  const typeKeyMap = new Map(filterTypes.map(t => [t.trim().toLowerCase(), t]));
   const lotMatches = lotMatcher(ex.words);
   const rowRules = filteredOnly ? { ...ex, filterOn: true } : ex;
 
@@ -423,6 +445,11 @@ export function computeView(
     open++;
     for (const word of lotMatches(lot)) {
       matchCounts.set(word, matchCounts.get(word)! + 1);
+    }
+    const typeKey = lot.itemType?.trim().toLowerCase();
+    const matchedFilterType = typeKey ? typeKeyMap.get(typeKey) : undefined;
+    if (matchedFilterType !== undefined) {
+      typeMatchCounts.set(matchedFilterType, typeMatchCounts.get(matchedFilterType)! + 1);
     }
     const row = makeRow(lot, pickup, rowRules);
     if (filteredOnly && !row.matched) {
@@ -504,6 +531,7 @@ export function computeView(
     removed,
     filteredOut: candidates.length - rows.length,
     matchCounts,
+    typeMatchCounts,
     combined: rows.length - cards.length,
     groups,
     facetCounts: counts,

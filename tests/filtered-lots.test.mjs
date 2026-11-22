@@ -46,16 +46,23 @@ beforeEach(() => {
   closed.value = null;
   applySetting(KEYS.view, DEFAULT_VIEW);
   applySetting(KEYS.words, ['drill', 'saw']);
+  applySetting(KEYS.filterTypes, []);
   applySetting(KEYS.filterOn, true);
   applySetting(KEYS.removeFiltered, true);
   applySetting(KEYS.showHidden, false);
   applySetting(KEYS.hidden, { 3: { title: 'Circular saw', href: '/', ts: 1 } });
   applySetting(KEYS.customCategories, []);
   lots.value = new Map([
-    [1, lot(1, 'Cordless drill')],
-    [2, lot(2, 'Garden rake')],
-    [3, lot(3, 'Circular saw')],
-    [4, lot(4, 'Old drill', { ends_at: new Date(now - 1 * 3_600_000).toISOString() })],
+    [1, lot(1, 'Cordless drill', { itemType: 'drill' })],
+    [2, lot(2, 'Garden rake', { itemType: 'rake' })],
+    [3, lot(3, 'Circular saw', { itemType: 'saw' })],
+    [
+      4,
+      lot(4, 'Old drill', {
+        itemType: 'drill',
+        ends_at: new Date(now - 1 * 3_600_000).toISOString(),
+      }),
+    ],
   ]);
 });
 
@@ -98,6 +105,29 @@ test('search and sort stay on the filtered page and My lots never admits nonmatc
   assert.equal(closed.value, 'won');
   openFiltered();
   assert.equal(closed.value, null);
+});
+
+test('global item type filters behave like regex filters across dimming, removal, counts, and View filtered lots', () => {
+  applySetting(KEYS.words, []);
+  applySetting(KEYS.hidden, {});
+  applySetting(KEYS.filterTypes, ['rake']);
+  applySetting(KEYS.filterOn, true);
+  applySetting(KEYS.removeFiltered, true);
+
+  assert.deepEqual(ids(), [1, 3]);
+  assert.equal(gridView.value.typeMatchCounts.get('rake'), 1);
+
+  // Grayed out rather than removed when removeFiltered is off.
+  applySetting(KEYS.removeFiltered, false);
+  assert.deepEqual(ids(), [1, 2, 3]);
+  assert.equal(gridView.value.rows.find(r => r.lot.id === 2).matched, 'rake');
+
+  // Ignored when Apply filters is off, but still shown in View filtered lots.
+  applySetting(KEYS.filterOn, false);
+  assert.equal(gridView.value.rows.find(r => r.lot.id === 2).matched, null);
+  openFiltered();
+  assert.deepEqual(ids(), [2]);
+  assert.equal(gridView.value.rows[0].matched, 'rake');
 });
 
 test('watchlist excludes bid-on lots even when the site watchlist flag remains set', () => {

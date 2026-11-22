@@ -6,7 +6,7 @@ import { KEYS, siteUrl } from '../../../shared/keys';
 import { useSetting } from '../../server/settings';
 import { openHandler } from '../dom';
 import { Icon } from '../icons';
-import { filteredOnly, openFiltered, openHidden } from '../state';
+import { filteredOnly, filterFacets, openFiltered, openHidden } from '../state';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
 import '../../../shared/arrayToSet';
@@ -113,17 +113,36 @@ function Switch({
   );
 }
 
-/** Regex title filters and the list of manually hidden lots. */
-export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, number> }) {
+/** Regex title filters, item type filters, and the list of manually hidden lots. */
+export function HideFilterSection({
+  matchCounts,
+  typeMatchCounts,
+}: {
+  matchCounts: Map<string, number>;
+  typeMatchCounts: Map<string, number>;
+}) {
   const [words, setWords] = useSetting(KEYS.words);
+  const [filterTypes, setFilterTypes] = useSetting(KEYS.filterTypes);
   const [filterOn, setFilterOn] = useSetting(KEYS.filterOn);
   const [removeFiltered, setRemoveFiltered] = useSetting(KEYS.removeFiltered);
   const [showHidden, setShowHidden] = useSetting(KEYS.showHidden);
   const [hiddenLots, setHiddenLots] = useSetting(KEYS.hidden);
   const [input, setInput] = useState('');
+  const [typeInput, setTypeInput] = useState('');
   const add = () => {
     setWords([...words, input].toUnique());
     setInput('');
+  };
+  const addType = () => {
+    const next = typeInput
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (!next.length) {
+      return;
+    }
+    setFilterTypes([...filterTypes, ...next].toUnique());
+    setTypeInput('');
   };
   const unhide = (id: string) => {
     const { [id]: _, ...rest } = hiddenLots;
@@ -132,6 +151,7 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
   const hidden = Object.entries(hiddenLots)
     .sortBy(([, h]) => h.ts)
     .toReversed();
+  const typeSuggestions = filterFacets.value.types.map(t => t.value);
 
   return (
     <section class="panel">
@@ -171,6 +191,46 @@ export function HideFilterSection({ matchCounts }: { matchCounts: Map<string, nu
               onRemove={() => setWords(words.filter(x => x !== w))}
               onSave={next => setWords(words.map(x => (x === w ? next : x)).toUnique())}
             />
+          ))}
+        </ul>
+      </Collapsible>
+
+      <Collapsible id="filterTypes" title={`Filtered item types (${filterTypes.length})`}>
+        <div class="add-filter">
+          <input
+            type="text"
+            placeholder="Item type, e.g. phone case"
+            aria-label="Add item type filter"
+            autocomplete="off"
+            list="filter-type-options"
+            value={typeInput}
+            onInput={e => setTypeInput(e.currentTarget.value)}
+            onKeyDown={e => e.key === 'Enter' && addType()}
+          />
+          <datalist id="filter-type-options">
+            {typeSuggestions.map(t => (
+              <option key={t} value={t} />
+            ))}
+          </datalist>
+          <button type="button" class="btn-text" onClick={addType}>
+            Add
+          </button>
+        </div>
+        <ul class="filter-list">
+          {filterTypes.toSorted().map(t => (
+            <li key={t} class="filter-row">
+              <button
+                type="button"
+                class="filter-remove"
+                aria-label={`Remove ${t}`}
+                title="Remove item type filter"
+                onClick={() => setFilterTypes(filterTypes.filter(x => x !== t))}
+              >
+                <Icon name="cancel" size={16} />
+              </button>
+              <span class="filter-pattern">{t}</span>
+              <span class="count">{format.num(typeMatchCounts.get(t) ?? 0)}</span>
+            </li>
           ))}
         </ul>
       </Collapsible>

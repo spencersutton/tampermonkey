@@ -5,10 +5,11 @@ import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, SITE } from './constants';
 export const KEYS = {
   hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
   words: 'filterWords', // string[]
+  filterTypes: 'filterTypes', // string[] – item types filtered out globally, like filterWords
   filterOn: 'filterEnabled', // boolean
   showHidden: 'showHidden', // boolean
   removeFiltered: 'removeFiltered', // boolean – drop filtered lots entirely instead of graying out
-  collapsed: 'collapsedLists', // { words: boolean, hidden: boolean }
+  collapsed: 'collapsedLists', // { words: boolean, filterTypes: boolean, hidden: boolean }
   syncMinutes: 'tlxSyncMinutes', // number – minimum minutes between full catalog pulls
   view: 'tlxView', // persisted catalog view state (sort, filters)
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
@@ -25,6 +26,7 @@ export const KEYS = {
 export const SERVER_KEYS = [
   KEYS.hidden,
   KEYS.words,
+  KEYS.filterTypes,
   KEYS.filterOn,
   KEYS.showHidden,
   KEYS.removeFiltered,
@@ -43,10 +45,11 @@ export interface HiddenLot {
 export const DEFAULTS = {
   [KEYS.hidden]: {} as Record<string, HiddenLot>,
   [KEYS.words]: [] as string[],
+  [KEYS.filterTypes]: [] as string[],
   [KEYS.filterOn]: true,
   [KEYS.showHidden]: false,
   [KEYS.removeFiltered]: false,
-  [KEYS.collapsed]: { words: false, hidden: false } as Record<string, boolean>,
+  [KEYS.collapsed]: { words: false, filterTypes: false, hidden: false } as Record<string, boolean>,
   [KEYS.syncMinutes]: DEFAULT_SYNC_MINUTES,
   [KEYS.view]: null as unknown,
   [KEYS.savedSearches]: [] as SavedSearch[],

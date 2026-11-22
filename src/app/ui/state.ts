@@ -6,6 +6,7 @@ import { batch, computed, effect, signal, untracked } from '@preact/signals';
 import { DAY, MINUTE } from '../../shared/constants';
 import { KEYS, siteUrl } from '../../shared/keys';
 import {
+  addFilterType,
   firstVisitSince,
   hideItemTypeView,
   rememberSearchList,
@@ -147,16 +148,26 @@ export function setView(patch: Partial<ViewState>) {
 }
 
 /**
- * Exclude an item type from the grid without moving the page: keep the cards already loaded, and
- * put the next card that survives where the clicked one was.
+ * Hide an item type without moving the page: by default adds it to the permanent global item-type
+ * filter list; with `temporary` (when a modifier key is held), excludes it only from the current
+ * search view.
  */
-export function hideItemType(type: string, from?: EventTarget | null) {
-  const next = hideItemTypeView(storedView.value, type);
-  keepScrollAnchor(from, () => setSetting(KEYS.view, next));
+export function hideItemType(type: string, from?: EventTarget | null, temporary = false) {
+  if (temporary) {
+    const next = hideItemTypeView(storedView.value, type);
+    keepScrollAnchor(from, () => setSetting(KEYS.view, next));
+    return;
+  }
+  const cur = getSetting(KEYS.filterTypes);
+  const next = addFilterType(cur, type);
+  if (next !== cur) {
+    keepScrollAnchor(from, () => setSetting(KEYS.filterTypes, next));
+  }
 }
 
 export const exclusionRules = computed(() => ({
   words: getSetting(KEYS.words),
+  filterTypes: getSetting(KEYS.filterTypes),
   filterOn: getSetting(KEYS.filterOn),
   removeFiltered: getSetting(KEYS.removeFiltered),
   hidden: getSetting(KEYS.hidden),

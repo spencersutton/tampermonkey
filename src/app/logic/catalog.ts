@@ -146,6 +146,15 @@ export function hideItemTypeView(view: ViewState, type: string): ViewState {
   return { ...view, types, excludedTypes };
 }
 
+/** Add an item type to the global filter list, normalized to lowercase and deduplicated. */
+export function addFilterType(filterTypes: string[], type: string): string[] {
+  const key = type.trim().toLowerCase();
+  if (!key || filterTypes.includes(key)) {
+    return filterTypes;
+  }
+  return [...filterTypes, key];
+}
+
 /** Toggle a lot in the hidden-lots map. */
 export function toggleHiddenLot(
   hidden: Record<string, HiddenLot>,

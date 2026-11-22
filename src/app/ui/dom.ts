@@ -1,11 +1,12 @@
+export const hasModifierKey = (e: MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
+
 /**
  * Click handler for a link: a plain click runs `open` in-app; modified/middle clicks follow the
  * real link.
  */
 export function openHandler(open: () => void) {
   return (e: MouseEvent) => {
-    const modified = e.metaKey || e.ctrlKey || e.shiftKey || e.altKey;
-    if (e.defaultPrevented || e.button !== 0 || modified) {
+    if (e.defaultPrevented || e.button !== 0 || hasModifierKey(e)) {
       return;
     }
     e.preventDefault();

@@ -56,6 +56,10 @@ beforeEach(() => {
   storage.clear();
   applySetting(KEYS.view, DEFAULT_VIEW);
   applySetting(KEYS.hidden, {});
+  applySetting(KEYS.filterTypes, []);
+  applySetting(KEYS.words, []);
+  applySetting(KEYS.filterOn, true);
+  applySetting(KEYS.removeFiltered, false);
   lots.value = new Map(fixtures.map(lot => [lot.id, lot]));
 });
 
@@ -104,22 +108,38 @@ test('clicking a card category selects only its assigned category and preserves 
   }
 });
 
-test('the card exposes a hide item type button, preserves page/filters, and round-trips through URLs', async () => {
+test('the card hide item type button adds to global filterTypes by default and uses temporary view exclusion with a modifier key', async () => {
   const { ItemTypeActions } = await vite.ssrLoadModule('/src/app/ui/ItemType.tsx');
   const itemTree = ItemTypeActions({ lot: fixtures[1] });
   const hideBtn = nodes(itemTree).find(n => n.props?.class === 'icon-btn item-type-hide');
   assert.ok(hideBtn);
   assert.equal(hideBtn.props['aria-label'], 'Hide item type: drill');
-  assert.equal(hideBtn.props.title, 'Hide item type: drill');
+  assert.match(hideBtn.props.title, /^Hide item type: drill/);
+
+  // Plain click adds to global permanent filterTypes (not view.excludedTypes).
   page.value = 3;
   hideBtn.props.onClick();
-  assert.deepEqual(storedView.value.excludedTypes, ['drill']);
+  assert.deepEqual(getSetting(KEYS.filterTypes), ['drill']);
+  assert.deepEqual(storedView.value.excludedTypes, []);
   assert.equal(page.value, 3, 'keeps loaded cards so the grid does not jump');
-  assert.deepEqual(visibleIds(), [1, 3]);
-  assert.equal(activeFilterCount(storedView.value), 1);
+  assert.equal(activeFilterCount(storedView.value), 0);
 
-  // Hiding an already-excluded item type is idempotent; URLs round-trip excludeType.
+  // Adding the same type again (case-insensitive) is idempotent.
   hideItemType('DRILL');
+  assert.deepEqual(getSetting(KEYS.filterTypes), ['drill']);
+
+  // Modifier-key click adds to temporary search-scope excludedTypes instead of filterTypes.
+  applySetting(KEYS.filterTypes, []);
+  for (const mod of [{ shiftKey: true }, { altKey: true }, { ctrlKey: true }, { metaKey: true }]) {
+    applySetting(KEYS.view, DEFAULT_VIEW);
+    hideBtn.props.onClick(mod);
+    assert.deepEqual(storedView.value.excludedTypes, ['drill']);
+    assert.deepEqual(getSetting(KEYS.filterTypes), []);
+    assert.equal(activeFilterCount(storedView.value), 1);
+  }
+
+  // Temporary hide is idempotent; URLs round-trip excludeType.
+  hideItemType('DRILL', null, true);
   assert.deepEqual(storedView.value.excludedTypes, ['drill']);
   assert.deepEqual(navFromUrl('?excludeType=drill&excludeType=hammer').view.excludedTypes, [
     'drill',
