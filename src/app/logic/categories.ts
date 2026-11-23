@@ -102,9 +102,6 @@ export function categoryDraftError(d: CategoryDraft, drafts: CategoryDraft[]): s
   if (drafts.some(o => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
     return 'Another category has this name';
   }
-  if (!d.types.length && !drafts.some(o => o !== d && o.name.trim().startsWith(`${name} - `))) {
-    return 'Add item types';
-  }
   return null;
 }
 
