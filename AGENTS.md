@@ -40,6 +40,10 @@ committing.
 - Shared settings are listed in `SERVER_KEYS` in `src/shared/keys.ts` and
   synced to the server; other keys in `KEYS` stay browser-local in
   `localStorage`.
+- Global (no-import) TypeScript types live in `src/shared/global.d.ts`
+  (included by both root `tsconfig.json` and `src/server/tsconfig.json`). Keep
+  it as an ambient script file without `export {}` (which triggers oxlint
+  `unicorn/require-module-specifiers`).
 - Custom categories (`KEYS.customCategories`) represent hierarchy via stable
   `id` and optional `parent` (a site category `value` or `"custom:<id>"`), with
   filter values `"custom:<id>"` via `customCategoryValue()` — not dash-separated
