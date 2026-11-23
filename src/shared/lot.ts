@@ -57,5 +57,5 @@ export interface LotMetadata {
 }
 
 /** When a lot ends, as epoch ms (NaN if it has no valid time). */
-export const endsAtMs = (lot: { ends_at?: string | null | undefined }): number =>
+export const endsAtMs = (lot: { ends_at?: Nullable<string> }): number =>
   lot.ends_at ? Date.parse(lot.ends_at) : Number.NaN;

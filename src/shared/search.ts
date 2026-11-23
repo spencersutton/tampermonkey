@@ -26,8 +26,8 @@ export interface Term {
 export interface SearchDoc {
   title: string;
   lotNumber: string;
-  brand?: string | null | undefined;
-  model?: string | null | undefined;
+  brand?: Nullable<string>;
+  model?: Nullable<string>;
   itemType?: string | undefined;
 }
 

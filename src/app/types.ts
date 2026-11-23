@@ -3,8 +3,8 @@ import type { RawLot, RawLotDetail } from '../shared/lot';
 // A lot as the tlx server sends it: the site's fields (snake_case, see RawLot in
 // shared/lot.ts) plus the server's own (camelCase).
 export interface Lot extends RawLot {
-  brand?: string | null | undefined; // server-cached detail; absent until fetched, null when no brand is provided
-  model?: string | null | undefined; // same cache semantics as brand
+  brand?: Nullable<string>; // server-cached detail; absent until fetched, null when no brand is provided
+  model?: Nullable<string>; // same cache semantics as brand
   firstSeenAt?: number | undefined; // epoch ms when a full pull first saw this lot (0 = already there on the first pull)
   itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
@@ -48,7 +48,7 @@ export interface ClosedLot {
   fulfillment_status?: string; // won lots only; "Picked Up" in every capture
   collect_by_date?: string | null; // won lots only; YYYY-MM-DD
   // Added by the tlx server's proxy:
-  brand?: string | null | undefined; // saved identity, when it has one
-  model?: string | null | undefined;
+  brand?: Nullable<string>; // saved identity, when it has one
+  model?: Nullable<string>;
   relisted?: number[] | undefined; // open lots of the same item
 }

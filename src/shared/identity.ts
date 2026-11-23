@@ -19,8 +19,8 @@ export const DEFAULT_NAME_MATCH = 90;
 
 export interface Item {
   title: string;
-  brand?: string | null | undefined;
-  model?: string | null | undefined;
+  brand?: Nullable<string>;
+  model?: Nullable<string>;
 }
 
 export interface Listing extends Item {
@@ -360,7 +360,7 @@ export function setGroups(lots: Iterable<Listing>): void {
 
 export interface Row extends Item {
   id: number;
-  endsAt?: number | null | undefined;
+  endsAt?: Nullable<number>;
 }
 
 /** Exact brand/model matches plus title fallbacks for incomplete identities. */

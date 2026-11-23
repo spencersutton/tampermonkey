@@ -50,7 +50,7 @@ export function navToUrl(
   pathname = '/',
 ): string {
   const q = new URLSearchParams();
-  const put = (k: string, v: string | number | null | undefined, def?: unknown) =>
+  const put = (k: string, v: Nullable<string | number>, def?: unknown) =>
     v != null && v !== '' && v !== def && q.append(k, String(v));
   put('search', view.search.trim());
   put('regex', view.searchRegex ? 1 : null);

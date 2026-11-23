@@ -5,8 +5,8 @@
 
 export interface ItemIdentity {
   title: string;
-  brand?: string | null | undefined;
-  model?: string | null | undefined;
+  brand?: Nullable<string>;
+  model?: Nullable<string>;
 }
 
 export interface ItemDetails {

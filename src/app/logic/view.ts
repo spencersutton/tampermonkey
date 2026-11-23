@@ -613,7 +613,7 @@ export function computeView(
   if (view.sort === 'brand-model-asc') {
     const sortIdentity = (lot: Lot) => {
       const { brand, model } = itemIdentity(lot, details);
-      const tidy = (s: string | null | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');
+      const tidy = (s: Nullable<string>) => (s ?? '').trim().replace(/\s+/g, ' ');
       return tidy(brand) && tidy(model) ? [tidy(brand), tidy(model)] : [lot.title, ''];
     };
 
@@ -729,7 +729,7 @@ export function searchRegexOf(v: ViewState): RegExp | null {
 /** Prepared search text per lot, reused until the lot or its brand/model changes. */
 const docCache = new WeakMap<
   Lot,
-  { brand: string | null | undefined; model: string | null | undefined; doc: PreparedDoc }
+  { brand: Nullable<string>; model: Nullable<string>; doc: PreparedDoc }
 >();
 
 /** A lot's searchable fields, with brand and model from the newest detail cache. */

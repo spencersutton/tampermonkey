@@ -18,7 +18,7 @@ export function openHandler(open: () => void) {
  * Apply a filter change without jumping the page: keep the loaded cards and align the next
  * surviving card where the clicked card was.
  */
-export function keepScrollAnchor(from: EventTarget | null | undefined, update: () => void) {
+export function keepScrollAnchor(from: Nullable<EventTarget>, update: () => void) {
   const clicked =
     typeof Element !== 'undefined' && from instanceof Element
       ? from.closest('article[data-lot]')

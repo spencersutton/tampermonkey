@@ -144,8 +144,8 @@ export interface Lot {
 export interface Item {
   id?: number;
   title: string;
-  brand?: string | null | undefined;
-  model?: string | null | undefined;
+  brand?: Nullable<string>;
+  model?: Nullable<string>;
   category?: { value: string; label?: string | null } | null | undefined;
   itemType?: string;
 }
