@@ -7,12 +7,14 @@ import { KEYS } from '../../shared/keys';
 import {
   categoryError,
   defaultCategoryName,
+  defaultCategoryParent,
   findSimilarTypes,
   planTypeCategory,
+  siteCategoriesFromLots,
   sortCategoryChoices,
 } from '../logic/categories';
 import { plural } from '../logic/util';
-import { categoryIndex, compileCategories } from '../logic/view';
+import { categoryIndex, categoryPath, compileCategories, customCategoryValue } from '../logic/view';
 import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
 import { toast } from '../server/toast';
@@ -32,35 +34,57 @@ export function TypeCategory({
   const site = lot.category;
   const cats = getSetting(KEYS.customCategories);
   const lastCategory = getSetting(KEYS.lastCategory);
+  const siteCategories = useMemo(() => {
+    const list = siteCategoriesFromLots(lots);
+    if (!list.some(s => s.value === site.value)) {
+      return [...list, site];
+    }
+    return list;
+  }, [lots, site]);
+  const siteLabels = useMemo(
+    () => new Map(siteCategories.map(s => [s.value, s.label])),
+    [siteCategories],
+  );
   // The lot's custom category is the default parent.
   const current = cats[categoryIndex(lot, compileCategories(cats))];
   // Categories nested under this lot's site category first, then A–Z.
-  const choices = sortCategoryChoices(cats, site.label);
-  const preferred = cats.find(c => c.name === lastCategory) ?? current ?? choices[0];
-  const [mode, setMode] = useState<'new' | 'add'>(() => (cats.length ? 'add' : 'new'));
-  const [selectedCategory, setPick] = useState(() => preferred?.name ?? '');
-  const [categorySearch, setCategorySearch] = useState('');
-  const filteredChoices = choices.filter(c =>
-    c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()),
+  const choices = useMemo(
+    () => sortCategoryChoices(cats, site.value, siteLabels),
+    [cats, site.value, siteLabels],
   );
-  const selected = cats.some(category => category.name === selectedCategory)
+  const preferred =
+    cats.find(c => customCategoryValue(c) === lastCategory || c.name === lastCategory) ??
+    current ??
+    choices[0];
+  const [mode, setMode] = useState<'new' | 'add'>(() => (cats.length ? 'add' : 'new'));
+  const preferredValue = preferred ? customCategoryValue(preferred) : '';
+  const [selectedCategory, setPick] = useState(preferredValue);
+  const [categorySearch, setCategorySearch] = useState('');
+  const labelOf = (c: (typeof cats)[number]) => categoryPath(c, cats, siteLabels);
+  const filteredChoices = choices.filter(c =>
+    labelOf(c).toLowerCase().includes(categorySearch.trim().toLowerCase()),
+  );
+  const selected = cats.some(c => customCategoryValue(c) === selectedCategory)
     ? selectedCategory
-    : (preferred?.name ?? '');
-  const pick = filteredChoices.some(c => c.name === selected) ? selected : '';
-  const [name, setName] = useState(() => defaultCategoryName(type, current?.name, site.label));
+    : preferredValue;
+  const pick = filteredChoices.some(c => customCategoryValue(c) === selected) ? selected : '';
+  const [parent, setParent] = useState<string | null>(() =>
+    defaultCategoryParent(current, site.value),
+  );
+  const [name, setName] = useState(() => defaultCategoryName(type));
   const [extra, setExtra] = useState<string[]>([]);
 
-  const existing = mode === 'add' ? cats.find(c => c.name === pick) : undefined;
+  const existing = mode === 'add' ? cats.find(c => customCategoryValue(c) === pick) : undefined;
   // Other types sharing a word with this one, those sharing its last word ("washer") first.
   const similar = useMemo(() => findSimilarTypes(lots, type), [lots, type]);
 
   // The categories after saving, and the open lots the target would then take.
   const { next, target, taken, losing, types } = useMemo(
-    () => planTypeCategory({ cats, mode, existing, name, type, extra, lots }),
-    [cats, mode, existing, name, type, extra, lots],
+    () => planTypeCategory({ cats, mode, existing, name, parent, type, extra, lots }),
+    [cats, mode, existing, name, parent, type, extra, lots],
   );
 
-  const error = categoryError(mode, existing, name, cats);
+  const error = categoryError(mode, existing, name, cats, parent);
   const save = () => {
     if (error) {
       return;
@@ -70,10 +94,10 @@ export function TypeCategory({
       throw new Error('Selected category is missing');
     }
     saveCustomCategories(next);
-    setSetting(KEYS.lastCategory, category.name);
+    setSetting(KEYS.lastCategory, customCategoryValue(category));
     toast(
       'good',
-      `${existing ? 'Updated' : 'Created'} “${category.name}” · ${plural(taken.length, 'open lot')}`,
+      `${existing ? 'Updated' : 'Created'} “${categoryPath(category, next, siteLabels)}” · ${plural(taken.length, 'open lot')}`,
     );
     onClose();
   };
@@ -153,11 +177,14 @@ export function TypeCategory({
                       Pick a category
                     </option>
                   )}
-                  {filteredChoices.map(c => (
-                    <option key={c.name} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
+                  {filteredChoices.map(c => {
+                    const value = customCategoryValue(c);
+                    return (
+                      <option key={value} value={value}>
+                        {labelOf(c)}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
               {!filteredChoices.length && (
@@ -167,10 +194,42 @@ export function TypeCategory({
               )}
             </>
           ) : (
-            <label class="field">
-              <span>Name</span>
-              <input type="text" value={name} onInput={e => setName(e.currentTarget.value)} />
-            </label>
+            <>
+              <label class="field">
+                <span>Parent</span>
+                <select
+                  value={parent ?? ''}
+                  onChange={e => setParent(e.currentTarget.value || null)}
+                >
+                  <option value="">Top level</option>
+                  {siteCategories.length > 0 && (
+                    <optgroup label="Site categories">
+                      {siteCategories.map(s => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {choices.length > 0 && (
+                    <optgroup label="Custom categories">
+                      {choices.map(c => {
+                        const value = customCategoryValue(c);
+                        return (
+                          <option key={value} value={value}>
+                            {labelOf(c)}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  )}
+                </select>
+              </label>
+              <label class="field">
+                <span>Name</span>
+                <input type="text" value={name} onInput={e => setName(e.currentTarget.value)} />
+              </label>
+            </>
           )}
           <fieldset class="type-cat-types">
             <legend>Item types</legend>
@@ -194,7 +253,7 @@ export function TypeCategory({
           {losing.length > 0 && (
             <p class="muted small">
               Moves {plural(types.length, 'type')} out of{' '}
-              {losing.map(c => `“${c.name}”`).join(', ')}.
+              {losing.map(c => `“${labelOf(c)}”`).join(', ')}.
             </p>
           )}
           {error && <p class="error small">{error}</p>}

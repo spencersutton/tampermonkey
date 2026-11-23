@@ -1,5 +1,5 @@
-// Full-size editor for custom categories: add, rename, edit item types,
-// and preview which open lots each one takes.
+// Full-size editor for custom categories: add, rename, organize hierarchy,
+// edit item types, and see how many open lots each one takes.
 import { dequal } from 'dequal';
 import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 
@@ -8,15 +8,27 @@ import { KEYS, type CustomCategory } from '../../shared/keys';
 import {
   assignLotsToDrafts,
   buildCategoryRenames,
+  buildEditorTree,
   categoryDraftError,
   clean,
   countItemTypes,
+  descendantValues,
+  draftValue,
+  newCategoryId,
   normalizeType,
   parseAddedTypes,
+  removeDraft,
+  siteCategoriesFromLots,
   type CategoryDraft,
 } from '../logic/categories';
 import { plural } from '../logic/util';
-import { compareCategoryNames } from '../logic/view';
+import {
+  categoryId,
+  categoryPath,
+  compareCategoryNames,
+  customCategoryValue,
+  isCustomCategory,
+} from '../logic/view';
 import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
 import type { Lot } from '../types';
@@ -29,8 +41,10 @@ type Draft = CategoryDraft;
 let nextKey = 0;
 const toDraft = (c: CustomCategory): Draft => ({
   key: nextKey++,
-  from: c.name,
+  id: categoryId(c),
+  from: customCategoryValue(c),
   name: c.name,
+  parent: c.parent ?? null,
   types: c.types,
 });
 
@@ -65,6 +79,14 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     }
   }, [drafts]);
 
+  const siteCategories = useMemo(() => siteCategoriesFromLots(lots), [lots]);
+  const siteLabels = useMemo(
+    () => new Map(siteCategories.map(s => [s.value, s.label])),
+    [siteCategories],
+  );
+  const cleanedCats = useMemo(() => drafts.map(clean), [drafts]);
+  const rows = useMemo(() => buildEditorTree(drafts, siteCategories), [drafts, siteCategories]);
+
   // Which row takes each open lot, with counts.
   const taken = useMemo(() => assignLotsToDrafts(drafts, lots), [drafts, lots]);
 
@@ -82,14 +104,21 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
 
   const update = (key: number, patch: Partial<Draft>) =>
     setDrafts(ds => ds.map(d => (d.key === key ? { ...d, ...patch } : d)));
-  const add = () => {
-    const d: Draft = { key: nextKey++, from: null, name: '', types: [] };
+  const add = (parent: string | null = null) => {
+    const d: Draft = {
+      key: nextKey++,
+      id: newCategoryId(),
+      from: null,
+      name: '',
+      parent,
+      types: [],
+    };
     setDrafts(ds => [...ds, d]);
     setSelected(d.key);
     focusKey.current = d.key;
   };
   const remove = (d: Draft) => {
-    setDrafts(ds => ds.filter(x => x.key !== d.key));
+    setDrafts(ds => removeDraft(ds, d));
     if (selected === d.key) {
       setSelected(null);
     }
@@ -101,13 +130,24 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
     saveCustomCategories(drafts.map(clean), buildCategoryRenames(initial, drafts));
     const created = drafts.findLast(d => d.from == null);
     if (created) {
-      setSetting(KEYS.lastCategory, created.name.trim());
+      setSetting(KEYS.lastCategory, draftValue(created));
     }
     onClose();
   };
 
   const sel = drafts.find(d => d.key === selected);
   const selectedTypes = new Set(sel?.types.map(normalizeType));
+  const customParentOptions = useMemo(
+    () =>
+      drafts
+        .map((d, i) => ({
+          draft: d,
+          value: draftValue(d),
+          label: categoryPath(cleanedCats[i]!, cleanedCats, siteLabels) || 'Untitled',
+        }))
+        .toSorted((a, b) => compareCategoryNames(a.label, b.label)),
+    [drafts, cleanedCats, siteLabels],
+  );
 
   return (
     <Dialog onClose={close} aria-labelledby="cat-editor-title">
@@ -117,9 +157,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <h2 id="cat-editor-title">Custom categories</h2>
             <p class="muted small">
               Lots of a listed item type move into the category, regardless of site category. The
-              first matching category alphabetically wins. Select a row to preview its lots. Name it
-              “Parent - Name” to nest it under a site or custom category, e.g. “Tools - Drills -
-              Cordless”.
+              first matching category alphabetically wins. Nest categories under a site or custom
+              category using the Parent menu or + button.
             </p>
           </div>
           <button type="button" class="icon-btn" aria-label="Close" onClick={close}>
@@ -132,72 +171,140 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <p class="muted">No custom categories yet.</p>
           ) : (
             <ol class="cat-list">
-              {[...drafts]
-                .toSorted((a, b) => compareCategoryNames(a.name, b.name))
-                .map(d => {
-                  const err = errors.get(d.key);
-                  const count = taken.get(d.key)!.length;
-                  const label = d.name.trim() || 'New category';
+              {rows.map(row => {
+                if (row.kind === 'site') {
                   return (
-                    <li
-                      key={d.key}
-                      data-key={d.key}
-                      class={['cat-row', err && 'has-error', d.key === selected && 'selected']
-                        .filter(Boolean)
-                        .join(' ')}
-                      onFocusIn={() => setSelected(d.key)}
-                      onMouseDown={() => setSelected(d.key)}
-                    >
-                      <input
-                        ref={input => {
-                          if (input && focusKey.current === d.key) {
-                            focusKey.current = null;
-                            input.focus();
-                          }
-                        }}
-                        class="cat-name"
-                        type="text"
-                        value={d.name}
-                        placeholder="Category name"
-                        aria-label={`Name of ${label}`}
-                        aria-invalid={err ? 'true' : undefined}
-                        aria-describedby={
-                          err && d.key === selected ? 'cat-editor-error' : undefined
-                        }
-                        title={err ?? undefined}
-                        onInput={e => {
-                          const input = e.currentTarget;
-                          editedName.current = {
-                            input,
-                            start: input.selectionStart,
-                            end: input.selectionEnd,
-                          };
-                          update(d.key, { name: input.value });
-                        }}
-                      />
-                      <TypeChips
-                        types={d.types}
-                        counts={typeCounts}
-                        listId={`cat-types-${d.key}`}
-                        category={label}
-                        onChange={patch => update(d.key, patch)}
-                      />
-                      <span class="cat-count">{plural(count, 'lot')}</span>
+                    <li key={`site:${row.value}`} class="cat-site-header">
+                      <span class="cat-site-name">{row.label}</span>
+                      <span class="muted small">Site category</span>
                       <button
                         type="button"
-                        class="icon-btn cat-delete"
-                        aria-label={`Delete ${label}`}
-                        title="Delete category"
-                        onClick={() => remove(d)}
+                        class="icon-btn cat-add-sub"
+                        aria-label={`Add subcategory under ${row.label}`}
+                        title={`Add subcategory under ${row.label}`}
+                        onClick={() => add(row.value)}
                       >
-                        <Icon name="delete" size={18} />
+                        <Icon name="add" size={18} />
                       </button>
                     </li>
                   );
-                })}
+                }
+                const { draft: d, depth } = row;
+                const err = errors.get(d.key);
+                const count = taken.get(d.key)!.length;
+                const label = d.name.trim() || 'New category';
+                const val = draftValue(d);
+                const blocked = descendantValues(val, drafts);
+                const hasChildren = drafts.some(o => o.parent === val);
+                const unknownSiteParent =
+                  d.parent != null && !isCustomCategory(d.parent) && !siteLabels.has(d.parent);
+                return (
+                  <li
+                    key={d.key}
+                    data-key={d.key}
+                    style={depth > 0 ? { '--depth': depth } : undefined}
+                    class={[
+                      'cat-row',
+                      depth > 0 && 'cat-row-nested',
+                      err && 'has-error',
+                      d.key === selected && 'selected',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onFocusIn={() => setSelected(d.key)}
+                    onMouseDown={() => setSelected(d.key)}
+                  >
+                    <input
+                      ref={input => {
+                        if (input && focusKey.current === d.key) {
+                          focusKey.current = null;
+                          input.focus();
+                        }
+                      }}
+                      class="cat-name"
+                      type="text"
+                      value={d.name}
+                      placeholder="Category name"
+                      aria-label={`Name of ${label}`}
+                      aria-invalid={err ? 'true' : undefined}
+                      aria-describedby={err && d.key === selected ? 'cat-editor-error' : undefined}
+                      title={err ?? undefined}
+                      onInput={e => {
+                        const input = e.currentTarget;
+                        editedName.current = {
+                          input,
+                          start: input.selectionStart,
+                          end: input.selectionEnd,
+                        };
+                        update(d.key, { name: input.value });
+                      }}
+                    />
+                    <select
+                      class="cat-parent-select"
+                      aria-label={`Parent of ${label}`}
+                      title="Parent category"
+                      value={d.parent ?? ''}
+                      onChange={e => update(d.key, { parent: e.currentTarget.value || null })}
+                    >
+                      <option value="">Top level</option>
+                      {unknownSiteParent && <option value={d.parent!}>{d.parent}</option>}
+                      {siteCategories.length > 0 && (
+                        <optgroup label="Site categories">
+                          {siteCategories.map(s => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {customParentOptions.some(o => !blocked.has(o.value)) && (
+                        <optgroup label="Custom categories">
+                          {customParentOptions
+                            .filter(o => !blocked.has(o.value))
+                            .map(o => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                    </select>
+                    <TypeChips
+                      types={d.types}
+                      counts={typeCounts}
+                      listId={`cat-types-${d.key}`}
+                      category={label}
+                      onChange={patch => update(d.key, patch)}
+                    />
+                    <span class="cat-count">{plural(count, 'lot')}</span>
+                    <button
+                      type="button"
+                      class="icon-btn cat-add-sub"
+                      aria-label={`Add subcategory under ${label}`}
+                      title="Add subcategory"
+                      onClick={() => add(val)}
+                    >
+                      <Icon name="add" size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-btn cat-delete"
+                      aria-label={`Delete ${label}`}
+                      title={
+                        hasChildren
+                          ? 'Delete category (subcategories will move up a level)'
+                          : 'Delete category'
+                      }
+                      onClick={() => remove(d)}
+                    >
+                      <Icon name="delete" size={18} />
+                    </button>
+                  </li>
+                );
+              })}
             </ol>
           )}
-          <button type="button" class="btn btn-outline btn-small cat-add" onClick={add}>
+          <button type="button" class="btn btn-outline btn-small cat-add" onClick={() => add(null)}>
             <Icon name="add" size={18} /> Add category
           </button>
         </div>

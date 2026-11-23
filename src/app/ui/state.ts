@@ -12,6 +12,7 @@ import {
   rememberSearchList,
   toggleHiddenLot,
 } from '../logic/catalog';
+import { migrateLegacyCategories, siteCategoriesFromLots } from '../logic/categories';
 import type { ClosedSection } from '../logic/history';
 import { suggest } from '../logic/suggest';
 import {
@@ -313,6 +314,15 @@ function trackVisits() {
 /** Start the app-wide effects; call once. */
 export function startApp() {
   trackVisits();
+  void settingsReady.then(() => {
+    const migrated = migrateLegacyCategories(
+      getSetting(KEYS.customCategories),
+      siteCategoriesFromLots(lots.peek().values().toArray()),
+    );
+    if (migrated) {
+      setSetting(KEYS.customCategories, migrated);
+    }
+  });
   effect(() => resetSearch(committedSearch.value));
 
   effect(() => {

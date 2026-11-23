@@ -34,16 +34,17 @@ test('category names pluralize the last word', () => {
   }
 });
 
-test('category validation checks the selected mode and trims new names', () => {
-  const cats = [{ name: 'Drills' }];
+test('category validation checks the selected mode, trims new names, and scopes uniqueness to parent', () => {
+  const cats = [{ id: 'drills', name: 'Drills', parent: 'tools', types: [] }];
   assert.equal(categoryError('add', undefined, '', cats), 'Pick a category');
   assert.equal(categoryError('add', cats[0], '', cats), null);
-  assert.equal(categoryError('new', undefined, '   ', cats), 'Name is required');
+  assert.equal(categoryError('new', undefined, '   ', cats, 'tools'), 'Name is required');
   assert.equal(
-    categoryError('new', undefined, '  dRilLs  ', cats),
+    categoryError('new', undefined, '  dRilLs  ', cats, 'tools'),
     'There’s already a category with this name – use “Add to existing”',
   );
-  assert.equal(categoryError('new', undefined, ' Saws ', cats), null);
+  assert.equal(categoryError('new', undefined, 'Drills', cats, 'hardware'), null);
+  assert.equal(categoryError('new', undefined, ' Saws ', cats, 'tools'), null);
 });
 
 function nodes(node) {
@@ -136,20 +137,20 @@ function dialog(t, categories, item = lot(), lots = [item]) {
 
 test('existing categories default to add mode and retain the preferred category', t => {
   const categories = [
-    { name: 'Tools - Drills', types: ['drill'] },
-    { name: 'Workshop', types: ['saw'] },
+    { id: 'drills', name: 'Drills', parent: 'tools', types: ['drill'] },
+    { id: 'workshop', name: 'Workshop', types: ['saw'] },
   ];
   const d = dialog(t, categories);
-  applySetting(KEYS.lastCategory, 'Workshop');
+  applySetting(KEYS.lastCategory, 'custom:workshop');
   const rows = d.render();
   const modes = rows.filter(n => n.props.role === 'radio');
   assert.equal(modes[0].props['aria-checked'], false);
   assert.equal(modes[1].props['aria-checked'], true);
-  assert.equal(rows.find(n => n.type === 'select').props.value, 'Workshop');
+  assert.equal(rows.find(n => n.type === 'select').props.value, 'custom:workshop');
   submit(rows, 'Add');
   assert.deepEqual(getSetting(KEYS.customCategories), [
     categories[0],
-    { name: 'Workshop', types: ['saw', 'cordless drill'] },
+    { id: 'workshop', name: 'Workshop', types: ['saw', 'cordless drill'] },
   ]);
   assert.equal(d.closed(), true);
 });
@@ -190,15 +191,22 @@ for (const mode of ['add', 'new']) {
     { tagName: 'INPUT', type: 'text' },
   ]) {
     test(`Enter triggers ${mode} from the dialog or text field: ${JSON.stringify(target)}`, t => {
-      const categories = mode === 'add' ? [{ name: 'Workshop', types: ['saw'] }] : [];
+      const categories =
+        mode === 'add' ? [{ id: 'workshop', name: 'Workshop', types: ['saw'] }] : [];
       const d = dialog(t, categories);
       assert.equal(pressKey(d.render(), target), true);
-      assert.deepEqual(
-        getSetting(KEYS.customCategories),
-        mode === 'add'
-          ? [{ name: 'Workshop', types: ['saw', 'cordless drill'] }]
-          : [{ name: 'Tools - Cordless Drills', types: ['cordless drill'] }],
-      );
+      const saved = getSetting(KEYS.customCategories);
+      if (mode === 'add') {
+        assert.deepEqual(saved, [
+          { id: 'workshop', name: 'Workshop', types: ['saw', 'cordless drill'] },
+        ]);
+      } else {
+        assert.equal(saved.length, 1);
+        assert.equal(typeof saved[0].id, 'string');
+        assert.equal(saved[0].name, 'Cordless Drills');
+        assert.equal(saved[0].parent, 'tools');
+        assert.deepEqual(saved[0].types, ['cordless drill']);
+      }
       assert.equal(d.saves.filter(([key]) => key === KEYS.customCategories).length, 1);
       assert.equal(d.closed(), true);
     });

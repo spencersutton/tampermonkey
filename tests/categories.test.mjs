@@ -24,7 +24,9 @@ const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule(
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { DEFAULT_VIEW, computeFacets, suggestName } =
   await vite.ssrLoadModule('/src/app/logic/view.ts');
-const { groupCategories } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
+const { groupCategories, migrateLegacyCategories } = await vite.ssrLoadModule(
+  '/src/app/logic/categories.ts',
+);
 const { chipsFor } = await vite.ssrLoadModule('/src/app/logic/refinements.ts');
 
 function setup(categories, selected) {
@@ -135,7 +137,12 @@ test('category edits do not create a saved view in a new browser', () => {
   assert.equal(getSetting(KEYS.view), null);
 });
 
-const facet = (label, count = 0, value = `custom:${label}`) => ({ value, label, count });
+const facet = (label, count = 0, value = `custom:${label}`, parent = undefined) => ({
+  value,
+  label,
+  count,
+  ...(parent ? { parent } : {}),
+});
 const facetsFor = (categories, siteCategories = []) => ({
   categories,
   siteCategories,
@@ -147,15 +154,15 @@ const facetsFor = (categories, siteCategories = []) => ({
   prices: [],
 });
 
-test('third-tier categories nest under the longest existing name and sort each tier A-Z', () => {
+test('multi-tier categories nest under their explicit parent and sort each tier A-Z', () => {
   const groups = groupCategories(
     facetsFor(
       [
-        facet('Tools - Drills - Cordless', 3),
-        facet('Tools - Saws', 2),
-        facet('Tools - Drills', 1),
-        facet('Tools - Drills - Corded', 4),
-        facet('Tools & Hardware - Bits', 5),
+        facet('Cordless', 3, 'custom:cordless', 'custom:drills'),
+        facet('Saws', 2, 'custom:saws', 'tools'),
+        facet('Drills', 1, 'custom:drills', 'tools'),
+        facet('Corded', 4, 'custom:corded', 'custom:drills'),
+        facet('Bits', 5, 'custom:bits', 'hardware'),
       ],
       [facet('Tools', 10, 'tools'), facet('Tools & Hardware', 5, 'hardware')],
     ),
@@ -165,49 +172,52 @@ test('third-tier categories nest under the longest existing name and sort each t
       facet: facet('Tools', 0, 'tools'),
       subs: [
         {
-          facet: facet('Drills', 1, 'custom:Tools - Drills'),
+          facet: facet('Drills', 1, 'custom:drills', 'tools'),
           subs: [
-            { facet: facet('Corded', 4, 'custom:Tools - Drills - Corded'), subs: [] },
-            { facet: facet('Cordless', 3, 'custom:Tools - Drills - Cordless'), subs: [] },
+            { facet: facet('Corded', 4, 'custom:corded', 'custom:drills'), subs: [] },
+            { facet: facet('Cordless', 3, 'custom:cordless', 'custom:drills'), subs: [] },
           ],
         },
-        { facet: facet('Saws', 2, 'custom:Tools - Saws'), subs: [] },
+        { facet: facet('Saws', 2, 'custom:saws', 'tools'), subs: [] },
       ],
     },
     {
       facet: facet('Tools & Hardware', 0, 'hardware'),
-      subs: [{ facet: facet('Bits', 5, 'custom:Tools & Hardware - Bits'), subs: [] }],
+      subs: [{ facet: facet('Bits', 5, 'custom:bits', 'hardware'), subs: [] }],
     },
   ]);
 });
 
-test('custom roots can head children, while a missing parent keeps the remaining name intact', () => {
+test('custom roots can head children, names with dashes stay intact, and missing/cyclic parents fall back to top level', () => {
   const groups = groupCategories(
     facetsFor(
       [
-        facet('Favorites - Workshop', 1),
-        facet('Favorites', 2),
-        facet('Tools - Drills - Cordless', 3),
-        facet('Tools - Drill Bits', 4),
-        facet('Tools - DrillsExtra', 5),
+        facet('Workshop', 1, 'custom:workshop', 'custom:favs'),
+        facet('Favorites', 2, 'custom:favs'),
+        facet('All-in-One - Kit', 3, 'custom:kit', 'tools'),
+        facet('Orphan', 4, 'custom:orphan', 'custom:missing'),
+        facet('CycleA', 1, 'custom:a', 'custom:b'),
+        facet('CycleB', 1, 'custom:b', 'custom:a'),
       ],
       [facet('Tools', 12, 'tools')],
     ),
   );
-  assert.equal(groups[0].facet.label, 'Favorites');
-  assert.equal(groups[0].subs[0].facet.label, 'Workshop');
+  const byLabel = Object.fromEntries(groups.map(g => [g.facet.label, g]));
+  assert.equal(byLabel.Favorites.subs[0].facet.label, 'Workshop');
   assert.deepEqual(
-    groups[1].subs.map(g => g.facet.label),
-    ['Drill Bits', 'Drills - Cordless', 'DrillsExtra'],
+    byLabel.Tools.subs.map(g => g.facet.label),
+    ['All-in-One - Kit'],
   );
+  assert.ok(byLabel.Orphan);
+  assert.ok(byLabel.CycleA || byLabel.CycleB);
 });
 
-test('facets retain empty custom ancestors but not unrelated empty categories or closed lots', () => {
+test('facets retain empty custom ancestors via parent links but not unrelated empty categories or closed lots', () => {
   const cats = [
-    { name: 'Tools - Drills', types: ['drill'] },
-    { name: 'Tools - Drills - Cordless', types: ['cordless drill'] },
-    { name: 'Unused', types: ['saw'] },
-    { name: 'Tools - Drills - Corded', types: ['corded drill'] },
+    { id: 'drills', name: 'Drills', parent: 'tools', types: ['drill'] },
+    { id: 'cordless', name: 'Cordless', parent: 'custom:drills', types: ['cordless drill'] },
+    { id: 'unused', name: 'Unused', types: ['saw'] },
+    { id: 'corded', name: 'Corded', parent: 'custom:drills', types: ['corded drill'] },
   ];
   const lot = (itemType, endsAt = 2) => ({
     itemType,
@@ -218,8 +228,8 @@ test('facets retain empty custom ancestors but not unrelated empty categories or
   });
   const facets = computeFacets([lot('cordless drill'), lot('corded drill', 0)], 1, cats);
   assert.deepEqual(facets.categories, [
-    facet('Tools - Drills'),
-    facet('Tools - Drills - Cordless', 1),
+    facet('Cordless', 1, 'custom:cordless', 'custom:drills'),
+    facet('Drills', 0, 'custom:drills', 'tools'),
   ]);
   const groups = groupCategories(facets);
   assert.equal(groups[0].facet.count, 0);
@@ -227,14 +237,18 @@ test('facets retain empty custom ancestors but not unrelated empty categories or
   assert.equal(groups[0].subs[0].subs[0].facet.label, 'Cordless');
 });
 
-test('chips and saved-search names collapse a full parent branch to the parent label', () => {
+test('chips and saved-search names collapse a full parent branch and format subcategory paths', () => {
   const facets = facetsFor(
-    [facet('Tools', 2, 'tools'), facet('Tools - Drills', 1), facet('Tools - Drills - Cordless', 3)],
+    [
+      facet('Tools', 2, 'tools'),
+      facet('Drills', 1, 'custom:drills', 'tools'),
+      facet('Cordless', 3, 'custom:cordless', 'custom:drills'),
+    ],
     [facet('Tools', 6, 'tools')],
   );
   const fullBranch = {
     ...DEFAULT_VIEW,
-    categories: ['tools', 'custom:Tools - Drills', 'custom:Tools - Drills - Cordless'],
+    categories: ['tools', 'custom:drills', 'custom:cordless'],
   };
   assert.deepEqual(
     chipsFor(fullBranch, facets, 'Raleigh').map(c => c.label),
@@ -242,9 +256,38 @@ test('chips and saved-search names collapse a full parent branch to the parent l
   );
   assert.equal(suggestName(fullBranch, facets), 'Tools');
 
+  const leafOnly = { ...DEFAULT_VIEW, categories: ['custom:cordless'] };
+  assert.deepEqual(
+    chipsFor(leafOnly, facets, 'Raleigh').map(c => c.label),
+    ['Tools › Drills › Cordless'],
+  );
+  assert.equal(suggestName(leafOnly, facets), 'Tools › Drills › Cordless');
+
   const ownOnly = { ...DEFAULT_VIEW, categories: ['tools'] };
   assert.deepEqual(
     chipsFor(ownOnly, facets, 'Raleigh').map(c => c.label),
     ['Tools (other)'],
   );
+});
+
+test('migrateLegacyCategories converts dash-nested categories while preserving filter values', () => {
+  const legacy = [
+    { name: 'Tools - Drills', types: ['drill'] },
+    { name: 'Tools - Drills - Cordless', types: ['cordless drill'] },
+    { name: 'Workshop', types: ['bench'] },
+  ];
+  const site = [{ value: 'tools', label: 'Tools' }];
+  const migrated = migrateLegacyCategories(legacy, site);
+  assert.deepEqual(migrated, [
+    { id: 'Tools - Drills', name: 'Drills', parent: 'tools', types: ['drill'] },
+    {
+      id: 'Tools - Drills - Cordless',
+      name: 'Cordless',
+      parent: 'custom:Tools - Drills',
+      types: ['cordless drill'],
+    },
+    { id: 'Workshop', name: 'Workshop', types: ['bench'] },
+  ]);
+  // Running again is a no-op because categories now have explicit ids.
+  assert.equal(migrateLegacyCategories(migrated, site), null);
 });

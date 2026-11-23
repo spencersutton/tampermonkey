@@ -2,7 +2,10 @@ import type { CustomCategory } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
 import {
+  categoryId,
   categoryIndex,
+  categoryPath,
+  compareCategoryNames,
   compileCategories,
   customCategoryValue,
   isCustomCategory,
@@ -14,41 +17,73 @@ import {
 } from './view';
 import '../../shared/arrayToSet';
 
+/** Generate a short unique id for a new custom category. */
+export function newCategoryId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+/** Unique site categories present in `lots`, sorted A–Z by label. */
+export function siteCategoriesFromLots(lots: readonly Lot[]): { value: string; label: string }[] {
+  const byValue = new Map<string, string>();
+  for (const lot of lots) {
+    if (!byValue.has(lot.category.value)) {
+      byValue.set(lot.category.value, lot.category.label);
+    }
+  }
+  return Array.from(byValue, ([value, label]) => ({ value, label })).toSorted((a, b) =>
+    collator.compare(a.label, b.label),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Category tree grouping
 // ---------------------------------------------------------------------------
 
-/** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
+/** A category filter row, with its child custom categories nested under it. */
 export interface CategoryGroup {
   facet: Facet<string>;
   subs: CategoryGroup[];
 }
 
-/** Separator between a site category's name and a subcategory's in custom category names. */
-const SUB = ' - ';
+/** Whether `target` is `node` or an ancestor of `node` via `parentOf`, preventing cycles. */
+function isAncestorOrSelf(
+  node: string,
+  target: string,
+  parentOf: (v: string) => string | undefined,
+): boolean {
+  let cur: string | undefined = node;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur)) {
+    if (cur === target) {
+      return true;
+    }
+    seen.add(cur);
+    cur = parentOf(cur);
+  }
+  return false;
+}
 
-/** Nest custom categories under the longest matching site or custom category name. */
+/** Nest custom categories under their declared parent site or custom category. */
 export function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
   const all = new Map(
     [...siteCategories.map(f => ({ ...f, count: 0 })), ...categories].map(f => [f.value, f]),
   );
-  const parents = all
-    .values()
-    .toArray()
-    .sortBy(f => f.label.length)
-    .toReversed();
   const groups = new Map(
     all.entries().map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]),
   );
+  const parentOf = (v: string) => all.get(v)?.parent;
   const top: CategoryGroup[] = [];
   for (const f of categories) {
-    const p = isCustomCategory(f.value)
-      ? parents.find(s => f.label.startsWith(s.label + SUB))
-      : undefined;
     const group = groups.get(f.value)!;
-    if (p) {
-      group.facet = { ...f, label: f.label.slice(p.label.length + SUB.length) };
-      groups.get(p.value)!.subs.push(group);
+    const parent =
+      isCustomCategory(f.value) &&
+      f.parent &&
+      groups.has(f.parent) &&
+      !isAncestorOrSelf(f.parent, f.value, parentOf)
+        ? f.parent
+        : undefined;
+    if (parent) {
+      groups.get(parent)!.subs.push(group);
     } else {
       top.push(group);
     }
@@ -76,22 +111,116 @@ export const groupFacets = (g: CategoryGroup): Facet<string>[] => [
 export const categoryCollapseId = (value: string) => `cat:${value}`;
 
 // ---------------------------------------------------------------------------
+// Legacy "Parent - Child" migration
+// ---------------------------------------------------------------------------
+
+const LEGACY_SUB = ' - ';
+
+/**
+ * Convert legacy dash-nested categories (`{ name: "Tools - Drills" }` with no `id` or `parent`)
+ * into explicit `parent` links while preserving each category's filter value via `id`. Returns
+ * `null` if no category needs migration.
+ */
+export function migrateLegacyCategories(
+  cats: readonly CustomCategory[],
+  siteCategories: readonly { value: string; label: string }[],
+): CustomCategory[] | null {
+  const legacy = cats.filter(c => c.id == null && c.parent == null);
+  if (!legacy.length) {
+    return null;
+  }
+  const parents = [
+    ...siteCategories.map(s => ({ value: s.value, label: s.label })),
+    ...cats.map(c => ({ value: customCategoryValue(c), label: c.name })),
+  ]
+    .sortBy(p => p.label.length)
+    .toReversed();
+
+  let changed = false;
+  const migrated: CustomCategory[] = [];
+  for (const c of cats) {
+    const id = categoryId(c);
+    if (c.id != null || c.parent != null) {
+      migrated.push(c);
+      continue;
+    }
+    const selfValue = customCategoryValue(c);
+    const match = parents.find(
+      p => p.value !== selfValue && c.name.startsWith(p.label + LEGACY_SUB),
+    );
+    if (!match) {
+      migrated.push({ id, name: c.name, types: c.types });
+      continue;
+    }
+    changed = true;
+    migrated.push({
+      id,
+      name: c.name.slice(match.label.length + LEGACY_SUB.length),
+      parent: match.value,
+      types: c.types,
+    });
+  }
+  return changed ? migrated : null;
+}
+
+// ---------------------------------------------------------------------------
 // Category editor logic
 // ---------------------------------------------------------------------------
 
-/** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
+/** A category being edited; `from` is its saved filter value (null if new). */
 export interface CategoryDraft {
   key: number;
+  id: string;
   from: string | null;
   name: string;
+  parent: string | null;
   types: string[];
 }
 
+export const draftValue = (d: Pick<CategoryDraft, 'id'>) => customCategoryValue(d.id);
+
 /** The category a draft saves as. */
-export const clean = (d: Pick<CategoryDraft, 'name' | 'types'>): CustomCategory => ({
+export const clean = (
+  d: Pick<CategoryDraft, 'id' | 'name' | 'parent' | 'types'>,
+): CustomCategory => ({
+  id: d.id,
   name: d.name.trim(),
+  ...(d.parent ? { parent: d.parent } : {}),
   types: d.types,
 });
+
+/** Filter values of `value` and all its descendant drafts (for cycle prevention). */
+export function descendantValues(
+  value: string,
+  drafts: readonly Pick<CategoryDraft, 'id' | 'parent'>[],
+): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const d of drafts) {
+    if (d.parent) {
+      children.getOrInsertComputed(d.parent, () => []).push(draftValue(d));
+    }
+  }
+  const result = new Set<string>([value]);
+  const stack = [value];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    for (const child of children.get(cur) ?? []) {
+      if (!result.has(child)) {
+        result.add(child);
+        stack.push(child);
+      }
+    }
+  }
+  return result;
+}
+
+/** Remove `target` from `drafts`, reparenting its direct children to `target.parent`. */
+export function removeDraft(drafts: CategoryDraft[], target: CategoryDraft): CategoryDraft[] {
+  const targetVal = draftValue(target);
+  return drafts
+    .filter(x => x.key !== target.key)
+    .map(x => (x.parent === targetVal ? { ...x, parent: target.parent } : x));
+}
 
 /** What's wrong with a category editor row, if anything. */
 export function categoryDraftError(d: CategoryDraft, drafts: CategoryDraft[]): string | null {
@@ -99,10 +228,95 @@ export function categoryDraftError(d: CategoryDraft, drafts: CategoryDraft[]): s
   if (!name) {
     return 'Name is required';
   }
-  if (drafts.some(o => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
-    return 'Another category has this name';
+  const parent = d.parent ?? null;
+  if (
+    drafts.some(
+      o =>
+        o !== d &&
+        (o.parent ?? null) === parent &&
+        o.name.trim().toLowerCase() === name.toLowerCase(),
+    )
+  ) {
+    return 'Another category under this parent has this name';
+  }
+  if (parent && descendantValues(draftValue(d), drafts).has(parent)) {
+    return 'Category cannot be nested under itself';
   }
   return null;
+}
+
+export type EditorRow =
+  | { kind: 'site'; value: string; label: string }
+  | { kind: 'draft'; draft: CategoryDraft; depth: number };
+
+/** Flatten drafts into visual tree order, grouping site-parented categories under site headers. */
+export function buildEditorTree(
+  drafts: readonly CategoryDraft[],
+  siteCategories: readonly { value: string; label: string }[],
+): EditorRow[] {
+  const siteLabels = new Map(siteCategories.map(s => [s.value, s.label]));
+  const byValue = new Map(drafts.map(d => [draftValue(d), d]));
+  const parentOf = (v: string) => byValue.get(v)?.parent ?? undefined;
+
+  const customChildren = new Map<string, CategoryDraft[]>();
+  const siteChildren = new Map<string, CategoryDraft[]>();
+  const rootDrafts: CategoryDraft[] = [];
+
+  for (const d of drafts) {
+    const val = draftValue(d);
+    const p = d.parent;
+    if (p && byValue.has(p) && !isAncestorOrSelf(p, val, parentOf)) {
+      customChildren.getOrInsertComputed(p, () => []).push(d);
+    } else if (p && !isCustomCategory(p)) {
+      siteChildren.getOrInsertComputed(p, () => []).push(d);
+    } else {
+      rootDrafts.push(d);
+    }
+  }
+
+  const sortDrafts = (list: CategoryDraft[]) =>
+    list.toSorted((a, b) => compareCategoryNames(a.name, b.name) || a.key - b.key);
+
+  const rows: EditorRow[] = [];
+  const emitDraft = (d: CategoryDraft, depth: number) => {
+    rows.push({ kind: 'draft', draft: d, depth });
+    const kids = customChildren.get(draftValue(d));
+    if (kids) {
+      for (const kid of sortDrafts(kids)) {
+        emitDraft(kid, depth + 1);
+      }
+    }
+  };
+
+  type TopItem =
+    | { kind: 'site'; value: string; label: string; kids: CategoryDraft[] }
+    | { kind: 'draft'; label: string; draft: CategoryDraft };
+
+  const top: TopItem[] = [
+    ...Array.from(siteChildren, ([value, kids]) => ({
+      kind: 'site' as const,
+      value,
+      label: siteLabels.get(value) ?? value,
+      kids,
+    })),
+    ...rootDrafts.map(draft => ({
+      kind: 'draft' as const,
+      label: draft.name,
+      draft,
+    })),
+  ].toSorted((a, b) => compareCategoryNames(a.label, b.label));
+
+  for (const item of top) {
+    if (item.kind === 'site') {
+      rows.push({ kind: 'site', value: item.value, label: item.label });
+      for (const kid of sortDrafts(item.kids)) {
+        emitDraft(kid, 1);
+      }
+    } else {
+      emitDraft(item.draft, 0);
+    }
+  }
+  return rows;
 }
 
 /** Which category draft takes each open lot. */
@@ -130,15 +344,18 @@ export function countItemTypes(lots: Lot[]): Map<string, number> {
   return by;
 }
 
-/** Build the rename/delete map from initial categories and final drafts. */
+/**
+ * Build the rename/delete map (keyed by custom category value) from initial categories and final
+ * drafts.
+ */
 export function buildCategoryRenames(
   initial: CustomCategory[],
   drafts: CategoryDraft[],
 ): Map<string, string | null> {
-  const renames = new Map<string, string | null>(initial.map(c => [c.name, null]));
+  const renames = new Map<string, string | null>(initial.map(c => [customCategoryValue(c), null]));
   for (const d of drafts) {
     if (d.from != null) {
-      renames.set(d.from, d.name.trim());
+      renames.set(d.from, draftValue(d));
     }
   }
   return renames;
@@ -183,6 +400,7 @@ export function categoryError(
   existing: CustomCategory | undefined,
   name: string,
   cats: CustomCategory[],
+  parent: string | null = null,
 ): string | null {
   if (mode === 'add') {
     return existing ? null : 'Pick a category';
@@ -191,7 +409,12 @@ export function categoryError(
   if (!trimmed) {
     return 'Name is required';
   }
-  if (cats.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+  if (
+    cats.some(
+      c =>
+        (c.parent ?? null) === (parent ?? null) && c.name.toLowerCase() === trimmed.toLowerCase(),
+    )
+  ) {
     return 'There’s already a category with this name – use “Add to existing”';
   }
   return null;
@@ -205,26 +428,57 @@ const typeWords = (t: string) =>
 const loses = (c: CustomCategory, types: string[]) => c.types.some(t => types.includes(t));
 
 /** `c` without `types`, retaining empty parents of child categories. */
-function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
+function without(
+  c: CustomCategory,
+  types: string[],
+  parentsInUse: ReadonlySet<string>,
+): CustomCategory[] {
   const rest = c.types.filter(t => !types.includes(t));
-  return rest.length || names.some(name => name.startsWith(`${c.name} - `))
-    ? [{ ...c, types: rest }]
-    : [];
+  return rest.length || parentsInUse.has(customCategoryValue(c)) ? [{ ...c, types: rest }] : [];
 }
 
-/** Categories nested under the lot's site category first, then A–Z. */
-export function sortCategoryChoices(cats: CustomCategory[], siteLabel: string): CustomCategory[] {
-  const near = (c: CustomCategory) => c.name.startsWith(`${siteLabel} - `);
-  return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
+/** Root site category value of `cat`, or null if top-level custom. */
+export function rootSiteCategory(
+  cat: CustomCategory,
+  cats: readonly CustomCategory[],
+): string | null {
+  const byValue = new Map(cats.map(c => [customCategoryValue(c), c]));
+  const seen = new Set([customCategoryValue(cat)]);
+  let parent = cat.parent;
+  while (parent && !seen.has(parent)) {
+    seen.add(parent);
+    const p = byValue.get(parent);
+    if (!p) {
+      return isCustomCategory(parent) ? null : parent;
+    }
+    parent = p.parent;
+  }
+  return null;
 }
 
-export function defaultCategoryName(
-  type: string,
-  currentCategoryName: string | undefined,
-  siteLabel: string,
-): string {
-  const parent = currentCategoryName ?? siteLabel;
-  return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
+/** Categories nested under the lot's site category first, then A–Z by full path. */
+export function sortCategoryChoices(
+  cats: CustomCategory[],
+  siteValue: string,
+  siteLabels?: ReadonlyMap<string, string>,
+): CustomCategory[] {
+  const near = (c: CustomCategory) => rootSiteCategory(c, cats) === siteValue;
+  return cats.toSorted(
+    (a, b) =>
+      +near(b) - +near(a) ||
+      collator.compare(categoryPath(a, cats, siteLabels), categoryPath(b, cats, siteLabels)),
+  );
+}
+
+export function defaultCategoryName(type: string): string {
+  return categoryName(type);
+}
+
+export function defaultCategoryParent(
+  current: CustomCategory | undefined,
+  siteValue: string,
+): string | null {
+  return current ? customCategoryValue(current) : siteValue || null;
 }
 
 /** Other item types sharing a word with `type`, those sharing its head word first. */
@@ -251,6 +505,7 @@ export function planTypeCategory({
   mode,
   existing,
   name,
+  parent = null,
   type,
   extra,
   lots,
@@ -259,30 +514,40 @@ export function planTypeCategory({
   mode: 'new' | 'add';
   existing: CustomCategory | undefined;
   name: string;
+  parent?: string | null;
   type: string;
   extra: string[];
   lots: Lot[];
 }) {
   const types = [type, ...extra];
   const losing = cats.filter(c => c !== existing && loses(c, types));
-  const names = [
-    ...cats
-      .filter(c => !losing.includes(c) || c.types.some(t => !types.includes(t)))
-      .map(c => c.name),
-    ...(mode === 'new' ? [name.trim()] : []),
-  ];
+  const parentsInUse = new Set<string>();
+  for (const c of cats) {
+    if ((!losing.includes(c) || c.types.some(t => !types.includes(t))) && c.parent) {
+      parentsInUse.add(c.parent);
+    }
+  }
+  if (mode === 'new' && parent) {
+    parentsInUse.add(parent);
+  }
   const next = cats.flatMap(c => {
     if (c === existing) {
       return [{ ...c, types: [...c.types, ...types].toUnique() }];
     }
-    return losing.includes(c) ? without(c, types, names) : [c];
+    return losing.includes(c) ? without(c, types, parentsInUse) : [c];
   });
   if (mode === 'new') {
-    next.push({ name: name.trim(), types });
+    next.push({
+      id: newCategoryId(),
+      name: name.trim(),
+      ...(parent ? { parent } : {}),
+      types,
+    });
   }
   let target = -1;
   if (existing) {
-    target = next.findIndex(c => c.name === existing.name);
+    const existingVal = customCategoryValue(existing);
+    target = next.findIndex(c => customCategoryValue(c) === existingVal);
   } else if (mode === 'new') {
     target = next.length - 1;
   }
@@ -308,38 +573,40 @@ export interface CategorySettingsUpdates {
   savedSearches?: SavedSearch[];
 }
 
+const toFilterValue = (v: string) => (isCustomCategory(v) ? v : customCategoryValue(v));
+
 /** Compute setting updates needed when custom categories are renamed or removed. */
 export function computeCategoryUpdates(
   categories: CustomCategory[],
   renames: ReadonlyMap<string, string | null>,
   snapshot: CategorySettingsSnapshot,
 ): CategorySettingsUpdates {
-  const names = categories.map(c => c.name).toSet();
-  const changes = new Map<string, string | null>(
-    snapshot.customCategories.filter(c => !names.has(c.name)).map(c => [c.name, null] as const),
+  const values = categories.map(customCategoryValue).toSet();
+  const byValue = new Map<string, string | null>(
+    snapshot.customCategories
+      .map(customCategoryValue)
+      .filter(v => !values.has(v))
+      .map(v => [v, null] as const),
   );
   for (const [from, to] of renames) {
-    if (from !== to) {
-      changes.set(from, to);
+    const fromVal = toFilterValue(from);
+    const toVal = to == null ? null : toFilterValue(to);
+    if (fromVal !== toVal) {
+      byValue.set(fromVal, toVal);
     }
   }
-  if (!changes.size) {
+  if (!byValue.size) {
     return {};
   }
 
   const updates: CategorySettingsUpdates = {};
-  if (snapshot.lastCategory != null && changes.has(snapshot.lastCategory)) {
-    updates.lastCategory = changes.get(snapshot.lastCategory) ?? null;
+  if (snapshot.lastCategory != null) {
+    const lastVal = toFilterValue(snapshot.lastCategory);
+    if (byValue.has(lastVal)) {
+      updates.lastCategory = byValue.get(lastVal) ?? null;
+    }
   }
 
-  const byValue = new Map(
-    changes
-      .entries()
-      .map(([from, to]) => [
-        customCategoryValue(from),
-        to == null ? null : customCategoryValue(to),
-      ]),
-  );
   const fix = (cats: string[]) =>
     cats.flatMap(v => {
       const next = byValue.get(v);

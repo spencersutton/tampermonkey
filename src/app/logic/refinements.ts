@@ -1,6 +1,6 @@
 import * as format from '../../shared/format';
 import { groupCategories, groupFacets, type CategoryGroup } from './categories';
-import { ENDING, MINE, type Facets, type ViewState } from './view';
+import { CATEGORY_PATH_SEP, ENDING, MINE, type Facets, type ViewState } from './view';
 import '../../shared/arrayToSet';
 
 export interface Chip {
@@ -32,9 +32,10 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
       remove: { categories: v.categories.filter(x => !values.includes(x)) },
     });
   };
-  const addGroup = (g: CategoryGroup) => {
+  const addGroup = (g: CategoryGroup, ancestors: string[] = []) => {
     const { value } = g.facet;
-    const full = labelOf([...facets.categories, ...facets.siteCategories], value);
+    const path = [...ancestors, g.facet.label];
+    const full = path.join(CATEGORY_PATH_SEP);
     const values = groupFacets(g).map(f => f.value);
     if (!g.subs.length || values.every(x => pending.has(x))) {
       if (pending.has(value)) {
@@ -45,9 +46,9 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
     if (pending.has(value)) {
       categoryChip(value, `${full} (other)`, [value]);
     }
-    g.subs.forEach(addGroup);
+    g.subs.forEach(sub => addGroup(sub, path));
   };
-  groupCategories(facets).forEach(addGroup);
+  groupCategories(facets).forEach(g => addGroup(g));
   // Selections no longer among the lots' categories.
   for (const c of pending) {
     categoryChip(c, labelOf(facets.categories, c), [c]);

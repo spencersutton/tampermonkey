@@ -46,10 +46,14 @@ export interface HiddenLot {
 
 /**
  * A category of my own: lots whose item type is one of `types` go in it instead of their site
- * category. A category without matches can head a group of child categories.
+ * category. Optional `parent` nests it under a site category (its value, e.g. `"tools"`) or another
+ * custom category (`"custom:<id>"`). A category without matches can head a group of child
+ * categories.
  */
 export interface CustomCategory {
+  id?: string;
   name: string;
+  parent?: string;
   types: string[];
 }
 

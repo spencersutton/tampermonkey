@@ -266,14 +266,49 @@ function matchedType(lot: Lot, filterTypes?: string[]): string | null {
 /** Prefix that keeps custom category values apart from the site's. */
 const CUSTOM_PREFIX = 'custom:';
 
-/** Filter value of a custom category. */
-export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
+/** Separator used when formatting a category's ancestor path as a single label. */
+export const CATEGORY_PATH_SEP = ' › ';
+
+/** Stable identifier for a custom category (falls back to `name` for legacy entries). */
+export const categoryId = (c: Pick<CustomCategory, 'id' | 'name'>) => c.id ?? c.name;
+
+/** Filter value of a custom category (accepts either a category object or an id/name string). */
+export const customCategoryValue = (cat: string | Pick<CustomCategory, 'id' | 'name'>) =>
+  CUSTOM_PREFIX + (typeof cat === 'string' ? cat : categoryId(cat));
 
 /** Whether a category value is one of my custom categories. */
 export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFIX);
 
+/** Full display path for a custom category, e.g. "Tools › Drills › Cordless". */
+export function categoryPath(
+  cat: CustomCategory,
+  cats: readonly CustomCategory[],
+  siteLabels?: ReadonlyMap<string, string>,
+): string {
+  const byValue = new Map(cats.map(c => [customCategoryValue(c), c]));
+  const parts = [cat.name.trim()];
+  const seen = new Set([customCategoryValue(cat)]);
+  let parent = cat.parent;
+  while (parent && !seen.has(parent)) {
+    seen.add(parent);
+    const p = byValue.get(parent);
+    if (p) {
+      parts.push(p.name.trim());
+      parent = p.parent;
+    } else {
+      const siteLabel = siteLabels?.get(parent);
+      if (siteLabel) {
+        parts.push(siteLabel);
+      }
+      break;
+    }
+  }
+  return parts.toReversed().join(CATEGORY_PATH_SEP);
+}
+
 export interface CompiledCategories {
   byType: Map<string, number>; // item type -> original index of the alphabetically first matching category
+  byValue: Map<string, CustomCategory>;
 }
 
 /** Compare category names in the same order used for display and matching. */
@@ -286,15 +321,16 @@ export function compareCategoryNames(a: string, b: string): number {
 /** Custom categories ready for categoryIndex(). */
 export function compileCategories(cats: CustomCategory[]): CompiledCategories {
   const byType = new Map<string, number>();
+  const byValue = new Map(cats.map(c => [customCategoryValue(c), c]));
   const ordered = cats
-    .map((category, index) => ({ category, index }))
-    .toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
+    .map((category, index) => ({ category, index, path: categoryPath(category, cats) }))
+    .toSorted((a, b) => compareCategoryNames(a.path, b.path));
   for (const { category: c, index: i } of ordered) {
     for (const t of c.types) {
       byType.getOrInsert(t, i);
     }
   }
-  return { byType };
+  return { byType, byValue };
 }
 
 /**
@@ -309,9 +345,18 @@ export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number 
 const compiledCategories = memoLast(compileCategories);
 
 /** The lot's category: its custom category (see categoryIndex) if any, else the site's. */
-export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
-  const c = cats[categoryIndex(lot, compiledCategories(cats))];
-  return c ? { value: customCategoryValue(c.name), label: c.name } : lot.category;
+export function categoryOf(
+  lot: Lot,
+  cats: CustomCategory[],
+  siteLabels?: ReadonlyMap<string, string>,
+): Lot['category'] {
+  const compiled = compiledCategories(cats);
+  const c = cats[categoryIndex(lot, compiled)];
+  if (!c) {
+    return lot.category;
+  }
+  const labels = siteLabels ?? new Map([[lot.category.value, lot.category.label]]);
+  return { value: customCategoryValue(c), label: categoryPath(c, cats, labels) };
 }
 
 /**
@@ -831,6 +876,7 @@ export interface Facet<T> {
   value: T;
   label: string;
   count: number;
+  parent?: string;
 }
 
 export interface AttrFacetGroup {
@@ -900,15 +946,38 @@ export function computeFacets(
   details?: ItemDetails,
 ): Facets {
   const open = Array.from(lots).filter(l => endsAtMs(l) > now);
-  const categories = tally(open.map(l => categoryOf(l, customCategories)));
+  const byValue = new Map(customCategories.map(c => [customCategoryValue(c), c]));
+  const categories = tally(
+    open.map(l => {
+      const cat = categoryOf(l, customCategories);
+      const custom = byValue.get(cat.value);
+      return custom ? { value: cat.value, label: custom.name } : cat;
+    }),
+  ).map(f => {
+    const custom = byValue.get(f.value);
+    return custom?.parent ? { ...f, parent: custom.parent } : f;
+  });
   // Keep custom parents visible when all their open lots moved into descendants.
-  for (const c of customCategories) {
-    const value = customCategoryValue(c.name);
-    if (
-      !categories.some(f => f.value === value) &&
-      categories.some(f => isCustomCategory(f.value) && f.label.startsWith(`${c.name} - `))
-    ) {
-      categories.push({ value, label: c.name, count: 0 });
+  const present = new Set(categories.map(f => f.value));
+  for (const f of categories.slice()) {
+    let parent = byValue.get(f.value)?.parent;
+    const seen = new Set([f.value]);
+    while (parent && !seen.has(parent)) {
+      seen.add(parent);
+      const ancestor = byValue.get(parent);
+      if (!ancestor) {
+        break;
+      }
+      if (!present.has(parent)) {
+        present.add(parent);
+        categories.push({
+          value: parent,
+          label: ancestor.name,
+          count: 0,
+          ...(ancestor.parent ? { parent: ancestor.parent } : {}),
+        });
+      }
+      parent = ancestor.parent;
     }
   }
   return {
@@ -1055,18 +1124,19 @@ export function suggestName(v: ViewState, facets: Facets): string {
   const catLabel = (value: string) => allCats.find(f => f.value === value)?.label ?? value;
   const pending = v.categories.toSet();
   const catLabels: string[] = [];
-  const collectGroup = (g: CategoryGroup) => {
+  const collectGroup = (g: CategoryGroup, ancestors: string[] = []) => {
+    const path = [...ancestors, g.facet.label];
     const vals = groupFacets(g).map(f => f.value);
     if (vals.length > 0 && vals.every(x => pending.has(x))) {
       for (const x of vals) {
         pending.delete(x);
       }
-      catLabels.push(catLabel(g.facet.value));
+      catLabels.push(path.join(CATEGORY_PATH_SEP));
       return;
     }
-    g.subs.forEach(collectGroup);
+    g.subs.forEach(sub => collectGroup(sub, path));
   };
-  groupCategories(facets).forEach(collectGroup);
+  groupCategories(facets).forEach(g => collectGroup(g));
   for (const c of pending) {
     catLabels.push(catLabel(c));
   }
