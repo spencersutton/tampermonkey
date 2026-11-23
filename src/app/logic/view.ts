@@ -608,19 +608,24 @@ export function computeView(
   }
 
   const { cards, groups } = combineDuplicates(rows);
-  const sortIdentity = (lot: Lot) => {
-    const { brand, model } = itemIdentity(lot, details);
-    const tidy = (s: string | null | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');
-    return tidy(brand) && tidy(model) ? [tidy(brand), tidy(model)] : [lot.title, ''];
-  };
-  const compare: Compare =
-    view.sort === 'brand-model-asc'
-      ? (a, b) => {
-          const left = sortIdentity(a.lot),
-            right = sortIdentity(b.lot);
-          return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
-        }
-      : SORTS[view.sort].compare;
+
+  let compare: Compare;
+  if (view.sort === 'brand-model-asc') {
+    const sortIdentity = (lot: Lot) => {
+      const { brand, model } = itemIdentity(lot, details);
+      const tidy = (s: string | null | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');
+      return tidy(brand) && tidy(model) ? [tidy(brand), tidy(model)] : [lot.title, ''];
+    };
+
+    compare = (a, b) => {
+      const left = sortIdentity(a.lot);
+      const right = sortIdentity(b.lot);
+      return collator.compare(left[0]!, right[0]!) || collator.compare(left[1]!, right[1]!);
+    };
+  } else {
+    compare = SORTS[view.sort].compare;
+  }
+
   cards.sort((a, b) => compare(a, b) || endsAtMs(a.lot) - endsAtMs(b.lot) || a.lot.id - b.lot.id);
   return {
     rows: cards,
