@@ -6,7 +6,7 @@ import { KEYS, siteUrl } from '../../../shared/keys';
 import { useSetting } from '../../server/settings';
 import { openHandler } from '../dom';
 import { Icon } from '../icons';
-import { filteredOnly, filterFacets, openFiltered, openHidden } from '../state';
+import { filteredOnly, filterFacets, openFiltered, openFilteredType, openHidden } from '../state';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
 import '../../../shared/arrayToSet';
@@ -231,7 +231,14 @@ export function HideFilterSection({
               >
                 <Icon name="cancel" size={16} />
               </button>
-              <span class="filter-pattern">{t}</span>
+              <button
+                type="button"
+                class="filter-pattern filter-type-btn"
+                title={`View filtered ${t} lots`}
+                onClick={() => openFilteredType(t)}
+              >
+                {t}
+              </button>
               <span class="count">{format.num(typeMatchCounts.get(t) ?? 0)}</span>
             </li>
           ))}

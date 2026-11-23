@@ -18,6 +18,7 @@ import {
   computeFacets,
   computeView,
   contextualFacets,
+  DEFAULT_VIEW,
   initialView,
   makeRow,
   savedSearchStats,
@@ -66,6 +67,20 @@ export function openClosed(section: ClosedSection | null) {
 export function openFiltered(show = true) {
   batch(() => {
     filteredOnly.value = show;
+    closed.value = null;
+    page.value = 1;
+    sidebarOpen.value = false;
+  });
+  window.scrollTo(0, 0);
+}
+
+/** Open the Filtered lots view narrowed to a single filtered item type. */
+export function openFilteredType(type: string) {
+  const key = type.trim().toLowerCase();
+  batch(() => {
+    resetSearch('');
+    setSetting(KEYS.view, { ...DEFAULT_VIEW, sort: storedView.value.sort, types: [key] });
+    filteredOnly.value = true;
     closed.value = null;
     page.value = 1;
     sidebarOpen.value = false;

@@ -160,6 +160,15 @@ test('filtered item type suggestions omit item types that are already filtered',
     .map(n => n.props.value)
     .toSorted();
   assert.deepEqual(values, ['drill', 'saw']);
+
+  // Clicking a filtered item type opens the Filtered lots view narrowed to that type.
+  const rakeBtn = nodes(tree).find(
+    n => n.type === 'button' && n.props?.class === 'filter-pattern filter-type-btn',
+  );
+  assert.ok(rakeBtn);
+  rakeBtn.props.onClick();
+  assert.equal(filteredOnly.value, true);
+  assert.deepEqual(ids(), [2]);
 });
 
 test('LotAttrs renders every extracted attribute on the lot detail view and filters on click', async () => {

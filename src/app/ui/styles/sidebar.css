@@ -144,6 +144,10 @@
   background: var(--hover);
 }
 
+.filter-type-btn {
+  cursor: pointer;
+}
+
 .pattern {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px;
