@@ -112,7 +112,6 @@ npm run dev       # web app with hot reload; API calls go to a tlx server on 127
 npm test          # web tests (node --test) and server tests (bun test)
 npm run server    # the server (see above)
 npm run watch     # rebuild the web app and restart the server whenever the code changes; server options go after `--`
-npm run capture-fixtures  # refresh the real site replies in tests/fixtures/site/
 ```
 
 `tests/fixtures/site/` holds real replies from triangleliquidators.com (public, anonymous endpoints only, captured by `scripts/capture-site-fixtures.ts`): catalog pages, lot details, errors, next-auth's logged-out replies, and a few minutes of websocket frames. `tests/site-fixtures.test.mjs` checks them against the shapes the code declares, so after a refresh a failing test means the site changed. Lot channels only publish when someone bids, so if the capture records no publication, run it again closer to closing time with `--ws-seconds=600`.

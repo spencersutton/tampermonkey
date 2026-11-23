@@ -366,8 +366,15 @@ export const CATEGORIES: readonly CategoryDef[] = [
     value: 'building/doors-hardware',
     parent: 'Building & Hardware',
     label: 'Doors & Locks',
-    match:
-      /\b(door\s+(?:knobs?|handles?|levers?|hinges?|closers?|stops?|sweeps?|bottoms?|locks?|viewers?|knockers?|hardware|slabs?|kits?|tracks?)|^doors?$|deadbolts?|smart\s+locks?|keypad\s+locks?|padlocks?|locksets?|^locks?$|gate\s+(?:latch(?:es)?|hinges?|kits?|hardware)|barn\s+doors?|pocket\s+doors?|screen\s+doors?|storm\s+doors?|bifold\s+doors?|mailbox(?:es)?|house\s+numbers?|address\s+plaques?|hasps?|key\s+box|lock\s+box)\b/,
+    match: itemType => {
+      if (['electronic lock'].includes(itemType)) {
+        return true;
+      }
+
+      return /\b(door\s+(?:knobs?|handles?|levers?|hinges?|closers?|stops?|sweeps?|bottoms?|locks?|viewers?|knockers?|hardware|slabs?|kits?|tracks?)|^doors?$|deadbolts?|smart\s+locks?|keypad\s+locks?|padlocks?|locksets?|^locks?$|gate\s+(?:latch(?:es)?|hinges?|kits?|hardware)|barn\s+doors?|pocket\s+doors?|screen\s+doors?|storm\s+doors?|bifold\s+doors?|mailbox(?:es)?|house\s+numbers?|address\s+plaques?|hasps?|key\s+box|lock\s+box)\b/.test(
+        itemType,
+      );
+    },
   },
   {
     value: 'building/flooring-tile',

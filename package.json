@@ -3,21 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "build:watch": "vite build --watch",
     "build": "npm run lint && npm run typecheck && vite build",
-    "test": "npm run test:web; web=$?; npm run test:server && exit $web",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/server/tsconfig.json",
+    "check-filters": "bun scripts/redundant-filters.ts",
+    "dev": "vite",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "capture-fixtures": "bun scripts/capture-site-fixtures.ts",
-    "check-filters": "bun scripts/redundant-filters.ts",
-    "list-filters": "bun scripts/list-filters.ts",
     "server": "bun src/server/main.ts",
     "server:watch": "bun --watch src/server/main.ts",
-    "build:watch": "vite build --watch",
-    "watch": "bun scripts/watch.ts",
+    "test": "npm run test:web; web=$?; npm run test:server && exit $web",
+    "test:server": "bun test ./tests/server/",
     "test:web": "node --test 'tests/*.test.mjs'",
-    "test:server": "bun test ./tests/server/"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/server/tsconfig.json",
+    "watch": "bun scripts/watch.ts"
   },
   "dependencies": {
     "@preact/signals": "^2.11.4",
