@@ -2,7 +2,6 @@ import type { CustomCategory } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
 import {
-  categoryId,
   categoryIndex,
   categoryPath,
   compareCategoryNames,
@@ -107,59 +106,6 @@ export const groupFacets = (g: CategoryGroup): Facet<string>[] => [
 ];
 
 export const categoryCollapseId = (value: string) => `cat:${value}`;
-
-// ---------------------------------------------------------------------------
-// Legacy "Parent - Child" migration
-// ---------------------------------------------------------------------------
-
-const LEGACY_SUB = ' - ';
-
-/**
- * Convert legacy dash-nested categories (`{ name: "Tools - Drills" }` with no `id` or `parent`)
- * into explicit `parent` links while preserving each category's filter value via `id`. Returns
- * `null` if no category needs migration.
- */
-export function migrateLegacyCategories(
-  cats: readonly CustomCategory[],
-  siteCategories: readonly { value: string; label: string }[],
-): CustomCategory[] | null {
-  const legacy = cats.filter(c => c.id == null && c.parent == null);
-  if (!legacy.length) {
-    return null;
-  }
-  const parents = [
-    ...siteCategories.map(s => ({ value: s.value, label: s.label })),
-    ...cats.map(c => ({ value: customCategoryValue(c), label: c.name })),
-  ]
-    .sortBy(p => p.label.length)
-    .toReversed();
-
-  let changed = false;
-  const migrated: CustomCategory[] = [];
-  for (const c of cats) {
-    const id = categoryId(c);
-    if (c.id != null || c.parent != null) {
-      migrated.push(c);
-      continue;
-    }
-    const selfValue = customCategoryValue(c);
-    const match = parents.find(
-      p => p.value !== selfValue && c.name.startsWith(p.label + LEGACY_SUB),
-    );
-    if (!match) {
-      migrated.push({ id, name: c.name, types: c.types });
-      continue;
-    }
-    changed = true;
-    migrated.push({
-      id,
-      name: c.name.slice(match.label.length + LEGACY_SUB.length),
-      parent: match.value,
-      types: c.types,
-    });
-  }
-  return changed ? migrated : null;
-}
 
 // ---------------------------------------------------------------------------
 // Category editor logic
