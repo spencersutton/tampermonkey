@@ -25,6 +25,7 @@
     "typescript/no-unnecessary-condition": "error",
     "typescript/no-unnecessary-type-assertion": "warn",
     "unicorn/consistent-function-scoping": "off",
-    "unicorn/no-array-sort": "warn"
+    "unicorn/no-array-sort": "warn",
+    "eslint/no-else-return": "warn"
   }
 }
