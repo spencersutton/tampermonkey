@@ -1,5 +1,5 @@
 import * as format from '../../shared/format';
-import { groupCategories, groupValues } from './categories';
+import { groupCategories, groupFacets, type CategoryGroup } from './categories';
 import { ENDING, MINE, type Facets, type ViewState } from './view';
 import '../../shared/arrayToSet';
 
@@ -32,19 +32,22 @@ export function chipsFor(v: ViewState, facets: Facets, pickup: string): Chip[] {
       remove: { categories: v.categories.filter(x => !values.includes(x)) },
     });
   };
-  for (const g of groupCategories(facets.categories)) {
-    const vals = groupValues(g);
-    if (vals.length > 0 && vals.every(x => pending.has(x))) {
-      categoryChip(g.id, g.label, vals);
-    } else {
-      for (const s of g.subs) {
-        if (pending.has(s.value)) {
-          const label = s.label === 'Other' ? `${g.label}: Other` : s.label;
-          categoryChip(s.value, label, [s.value]);
-        }
+  const addGroup = (g: CategoryGroup) => {
+    const { value } = g.facet;
+    const full = labelOf([...facets.categories, ...facets.siteCategories], value);
+    const values = groupFacets(g).map(f => f.value);
+    if (!g.subs.length || values.every(x => pending.has(x))) {
+      if (pending.has(value)) {
+        categoryChip(value, full, values);
       }
+      return;
     }
-  }
+    if (pending.has(value)) {
+      categoryChip(value, `${full} (other)`, [value]);
+    }
+    g.subs.forEach(addGroup);
+  };
+  groupCategories(facets).forEach(addGroup);
   // Selections no longer among the lots' categories.
   for (const c of pending) {
     categoryChip(c, labelOf(facets.categories, c), [c]);

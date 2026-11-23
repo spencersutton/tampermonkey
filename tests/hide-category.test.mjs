@@ -56,6 +56,7 @@ beforeEach(() => {
   storage.clear();
   applySetting(KEYS.view, DEFAULT_VIEW);
   applySetting(KEYS.hidden, {});
+  applySetting(KEYS.customCategories, []);
   applySetting(KEYS.filterTypes, []);
   applySetting(KEYS.words, []);
   applySetting(KEYS.filterOn, true);
@@ -88,10 +89,11 @@ function renderCard(lot) {
 }
 
 test('clicking a card category selects only its assigned category and preserves other filters', () => {
+  applySetting(KEYS.customCategories, [{ name: 'Tools - Drills', types: ['drill'] }]);
   for (const [lot, category, expected] of [
-    [fixtures[0], 'tools/hand-measuring', [1]],
-    [fixtures[1], 'tools/power-tools', [2]],
-    [fixtures[2], 'outdoor/lawn-garden', [3]],
+    [fixtures[0], 'tools', [1]],
+    [fixtures[1], 'custom:Tools - Drills', [2]],
+    [fixtures[2], 'garden', [3]],
   ]) {
     const view = { ...DEFAULT_VIEW, search: 'Fixture', sort: 'total-desc', priceMax: 20 };
     applySetting(KEYS.view, { ...view, categories: ['garden'] });

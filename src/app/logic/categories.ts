@@ -1,2469 +1,366 @@
-// Fixed two-level custom category taxonomy derived from item types.
-//
-// Each lot with an item type is matched against the ordered rules below (first
-// match wins). Lots whose item type doesn't match any rule—or that don't have
-// an item type yet—fall back to the site's original category.
+import type { CustomCategory } from '../../shared/keys';
 import { collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
-import { assert } from './util';
-import type { Facet } from './view';
+import {
+  categoryIndex,
+  compileCategories,
+  customCategoryValue,
+  isCustomCategory,
+  normalizeView,
+  type Facet,
+  type Facets,
+  type SavedSearch,
+  type ViewState,
+} from './view';
+import '../../shared/arrayToSet';
 
-type SiteCategory =
-  | 'health-beauty'
-  | 'outdoor'
-  | 'electronics-appliances'
-  | 'baby-kids'
-  | 'General-Merchandise'
-  | 'Pets'
-  | 'automotive'
-  | 'tools'
-  | 'home'
-  | 'Toys_Sports'
-  | 'Building_Hardware'
-  | 'Apparel'
-  | 'lighting-electrical'
-  | 'plumbing-bath';
+// ---------------------------------------------------------------------------
+// Category tree grouping
+// ---------------------------------------------------------------------------
 
-function isSiteCategory(value: string): value is SiteCategory {
-  return [
-    'health-beauty',
-    'outdoor',
-    'electronics-appliances',
-    'baby-kids',
-    'General-Merchandise',
-    'Pets',
-    'automotive',
-    'tools',
-    'home',
-    'Toys_Sports',
-    'Building_Hardware',
-    'Apparel',
-    'lighting-electrical',
-    'plumbing-bath',
-  ].includes(value);
+/** A category filter row, with the custom categories named "<it> - <sub>" nested under it. */
+export interface CategoryGroup {
+  facet: Facet<string>;
+  subs: CategoryGroup[];
 }
 
-export interface CategoryDef {
-  /** Stable slug used in ViewState.categories, e.g. "tools/power-tools". */
-  value: string;
-  /** Top-level parent group shown in the sidebar tree, e.g. "Tools". */
-  parent: string;
-  /** Subcategory label shown in the tree, on cards, and in filter chips. */
-  label: string;
-  /** Matches the lot's lowercase itemType (and optionally its site category value). */
-  match: RegExp | readonly RegExp[] | ((type: string, siteCategory: SiteCategory) => boolean);
+/** Separator between a site category's name and a subcategory's in custom category names. */
+const SUB = ' - ';
+
+/** Nest custom categories under the longest matching site or custom category name. */
+export function groupCategories({ categories, siteCategories }: Facets): CategoryGroup[] {
+  const all = new Map(
+    [...siteCategories.map(f => ({ ...f, count: 0 })), ...categories].map(f => [f.value, f]),
+  );
+  const parents = all
+    .values()
+    .toArray()
+    .sortBy(f => f.label.length)
+    .toReversed();
+  const groups = new Map(
+    all.entries().map(([value, facet]): [string, CategoryGroup] => [value, { facet, subs: [] }]),
+  );
+  const top: CategoryGroup[] = [];
+  for (const f of categories) {
+    const p = isCustomCategory(f.value)
+      ? parents.find(s => f.label.startsWith(s.label + SUB))
+      : undefined;
+    const group = groups.get(f.value)!;
+    if (p) {
+      group.facet = { ...f, label: f.label.slice(p.label.length + SUB.length) };
+      groups.get(p.value)!.subs.push(group);
+    } else {
+      top.push(group);
+    }
+  }
+  // A site category whose lots all moved into subcategories still heads them.
+  for (const p of siteCategories) {
+    const group = groups.get(p.value)!;
+    if (group.subs.length && !top.includes(group)) {
+      top.push(group);
+    }
+  }
+  const sort = (rows: CategoryGroup[]): CategoryGroup[] =>
+    rows
+      .toSorted((a, b) => collator.compare(a.facet.label, b.facet.label))
+      .map(g => ({ ...g, subs: sort(g.subs) }));
+  return sort(top);
 }
 
-const matchesAny = (patterns: readonly RegExp[], value: string): boolean =>
-  patterns.some(pattern => pattern.test(value));
-
-/**
- * Ordered classification rules. All rules match on `itemType` (never broad `site === ...`
- * catch-alls), so items misfiled by the auction site still land in the right logical category.
- * Narrow site-category tie-breakers are only used for genuinely ambiguous nouns like "battery" or
- * "floor mat".
- */
-export const CATEGORIES: readonly CategoryDef[] = [
-  // --- Seasonal & Holiday (pulls together scattered holiday/party items) ---
-  {
-    value: 'seasonal/holiday-decor',
-    parent: 'Seasonal & Holiday',
-    label: 'Seasonal & Holiday',
-    match: [
-      /\bchristmas\b/,
-      /\bhalloween\b/,
-      /\banimatronic\b/,
-      /\bwreaths?\b/,
-      /\bgarlands?\b/,
-      /\bornaments?\b/,
-      /\bnativity\b/,
-      /\bsanta\b/,
-      /\bsnowman\b/,
-      /\bpumpkins?\b/,
-      /\bskeletons?\b/,
-      /\bholiday\s+decor(?:ation)?s?\b/,
-      /\btree\s+(?:skirt|stand|topper)\b/,
-      /\bstocking\s+holder\b/,
-      /\bnutcracker\b/,
-      /\bmenorah\b/,
-      /\beaster\b/,
-      /\bvalentine\b/,
-      /\bthanksgiving\b/,
-      /\bharvest\s+decor(?:ation)?s?\b/,
-      /\bprop\s+bat\b/,
-      /\bstandup\s+prop\b/,
-      /\btombstone\b/,
-      /\bfog\s+machine\b/,
-      /\bcostumes?\b/,
-    ],
-  },
-
-  // --- Pets (before Home/Furniture/Hardware so dog beds, pet gates, etc. stay in Pets) ---
-  {
-    value: 'pets/supplies',
-    parent: 'Pets',
-    label: 'Pets',
-    match: [
-      /\bdog\b/,
-      /\bcat\b/,
-      /\bpet\b/,
-      /\bpuppy\b/,
-      /\bkitten\b/,
-      /\baquariums?\b/,
-      /\bfish\s+tanks?\b/,
-      /\breptiles?\b/,
-      /\bhamsters?\b/,
-      /\brabbits?\b/,
-      /\bchicken\s+coop\b/,
-      /\bbird\s+cages?\b/,
-      /\blitter\s+box\b/,
-      /\bscratching\s+post\b/,
-      /\bleash(es)?\b/,
-      /\bkennels?\b/,
-      /\bcrate\s+pad\b/,
-      /\bpee\s+pad\b/,
-      /\banimal\s+trap\b/,
-      /\bkibble\b/,
-      /\bterrarium\b/,
-      /\blivestock\b/,
-    ],
-  },
-
-  // --- Baby & Kids (before Home/Furniture/Hardware so baby gates, cribs, high chairs stay here) ---
-  {
-    value: 'baby-kids/gear',
-    parent: 'Baby & Kids',
-    label: 'Baby & Kids',
-    match: [
-      /\bbaby\b/,
-      /\btoddler\b/,
-      /\binfant\b/,
-      /\bcribs?\b/,
-      /\bbassinets?\b/,
-      /\bstrollers?\b/,
-      /\bcar\s+seats?\b/,
-      /\bbooster\s+seats?\b/,
-      /\bhigh\s+chairs?\b/,
-      /\bplaypens?\b/,
-      /\bplayards?\b/,
-      /\bchanging\s+(pad|table)\b/,
-      /\bdiapers?\b/,
-      /\bbottle\s+(warmer|sterilizer)\b/,
-      /\bbreast\s+pump\b/,
-      /\bnursing\s+pillow\b/,
-      /\bpregnancy\s+pillow\b/,
-      /\bpacifiers?\b/,
-      /\bbouncers?\b/,
-      /\bactivity\s+jumper\b/,
-      /\bbanister\s+guard\b/,
-      /\bpotty\b/,
-      /\bsippy\b/,
-      /\bswaddles?\b/,
-      /\bnursery\b/,
-      /\bpack\s+n\s+play\b/,
-      /\bhooded\s+towel\b/,
-    ],
-  },
-
-  // --- Automotive (before Lighting, HVAC, Home Mats, Tools) ---
-  {
-    value: 'automotive/jacks-maintenance',
-    parent: 'Automotive',
-    label: 'Jacks & Maintenance',
-    match: [
-      /\bbottle\s+jack\b/,
-      /\bfloor\s+jack\b/,
-      /\bgarage\s+jack\b/,
-      /\btrolley\s+jack\b/,
-      /\bscissor\s+jack\b/,
-      /\bjack\s+stand\b/,
-      /\bcar\s+ramp\b/,
-      /\bjump\s+starter\b/,
-      /\btire\s+(inflator|gauge|chain|cover)\b/,
-      /\bfuel\s+can\b/,
-      /\bgas\s+can\b/,
-      /\bjerry\s+can\b/,
-      /\bantifreeze\b/,
-      /\bmotor\s+oil\b/,
-      /\b2-cycle\s+oil\b/,
-      /\bobd\b/,
-      /\bcode\s+reader\b/,
-      /\btow\s+strap\b/,
-      /\bwheel\s+chock\b/,
-      /\bbattery\s+tender\b/,
-      /\btrickle\s+charger\b/,
-      /\boil\s+filter\b/,
-      /\bfunnel\b/,
-      /\bgrease\s+fitting\b/,
-      /\bcar\s+wash\b/,
-    ],
-  },
-  {
-    value: 'automotive/parts-exterior',
-    parent: 'Automotive',
-    label: 'Parts & Exterior',
-    match: [
-      /\bheadlights?\b/,
-      /\btail\s*lights?\b/,
-      /\bfog\s+lights?\b/,
-      /\bbrake\s+(caliper|pad|rotor|line|kit)\b/,
-      /\bwindshield\s+wiper\b/,
-      /\bwiper\s+blade\b/,
-      /\b[w]indow\s+deflector\b/,
-      /\brain\s+guard\b/,
-      /\bsplash\s+shield\b/,
-      /\bfenders?\b/,
-      /\bbumpers?\b/,
-      /\bgrille\b/,
-      /\bdoor\s+mirror\b/,
-      /\bside\s+mirror\b/,
-      /\bradiator\b/,
-      /\balternator\b/,
-      /\bstarter\s+motor\b/,
-      /\bcatalytic\b/,
-      /\bmuffler\b/,
-      /\bexhaust\s+pipe\b/,
-      /\bcontrol\s+arm\b/,
-      /\bball\s+joint\b/,
-      /\bwheel\s+bearing\b/,
-      /\bhub\s+assembly\b/,
-      /\bstruts?\b/,
-      /\bshock\s+absorber\b/,
-      /\bspark\s+plug\b/,
-      /\bignition\s+coil\b/,
-      /\bfuel\s+pump\b/,
-      /\btonneau\b/,
-      /\broof\s+rack\b/,
-      /\bhitch\b/,
-      /\btrailer\b/,
-      /\brv\s+cover\b/,
-      /\bcar\s+cover\b/,
-      /\bgolf\s+cart\b/,
-      /\bmotorcycle\b/,
-      /\batv\b/,
-      /\butv\b/,
-      /\bautomotive\b/,
-      /\bweatherstrip\b/,
-      /\brunning\s+board\b/,
-      /\bmud\s+flap\b/,
-      /\blicense\s+plate\b/,
-      /\blug\s+nut\b/,
-      /\bwheel\s+cover\b/,
-      /\bhubcap\b/,
-    ],
-  },
-  {
-    value: 'automotive/interior-tech',
-    parent: 'Automotive',
-    label: 'Interior & Tech',
-    match: (t, site) =>
-      matchesAny(
-        [
-          /\bseat\s+covers?\b/,
-          /\bcar\s+stereo\b/,
-          /\bdash\s+cam\b/,
-          /\bbackup\s+camera\b/,
-          /\bsteering\s+wheel\b/,
-          /\bcar\s+charger\b/,
-          /\bsun\s+shade\b/,
-          /\btrunk\s+organizer\b/,
-          /\bcargo\s+liner\b/,
-          /\bcar\s+mount\b/,
-          /\bbluetooth\s+headset\s+adapter\b/,
-          /\bfm\s+transmitter\b/,
-          /\b(auto|car|garage)\s+floor\s+mat\b/,
-        ],
-        t,
-      ) ||
-      (site === 'automotive' &&
-        matchesAny([/\bfloor\s+mat\b/, /\bseat\s+cushion\b/, /\bmat\b/], t)),
-  },
-
-  // --- Tools (accessories & outdoor power before general power tools) ---
-  {
-    value: 'tools/outdoor-power',
-    parent: 'Tools',
-    label: 'Outdoor Power',
-    match: [
-      /\bice auger\b/,
-      /\b(?:lawn|reel|riding|push)\s+mower\b/,
-      /\bmower\b/,
-      /\bstring\s+trimmer\b/,
-      /\bweed\s+(?:eater|whacker|trimmer)\b/,
-      /\bleaf\s+blower\b/,
-      /\bblower$/,
-      /\bchainsaws?\b/,
-      /\bpole\s+saws?\b/,
-      /\bhedge\s+trimmer\b/,
-      /\bpressure\s+washer\b/,
-      /\bsurface\s+cleaner\b/,
-      /\bsnow\s+blower\b/,
-      /\btiller\b/,
-      /\bcultivator\b/,
-      /\blawn\s+edger\b/,
-      /\bedger\b/,
-      /\blog\s+splitter\b/,
-      /\bwood\s+chipper\b/,
-      /\bearth\s+auger\b/,
-      /\bpost\s+hole\s+digger\b/,
-      /\bstump\s+grinder\b/,
-      /\bdethatcher\b/,
-      /\baerator\b/,
-      /\bbackpack\s+sprayer\b/,
-      /\bpump\s+sprayer\b/,
-      /\bsprayer\b(?!.*(?:paint|head|faucet|sink))/,
-      /\btrimmer\s+(?:line|head|spool|attachment)\b/,
-      /\bchainsaw\s+chain\b/,
-      /\bguide\s+bar\b/,
-    ],
-  },
-  {
-    value: 'tools/batteries-chargers',
-    parent: 'Tools',
-    label: 'Batteries & Chargers',
-    match: (t, site) =>
-      matchesAny([/\btool\s+battery\b/, /\btool\s+charger\b/, /\bbattery\s+charger.*tool\b/], t) ||
-      (site === 'tools' && matchesAny([/\bbattery\b/, /\bcharger\b/, /\binverter\b/], t)),
-  },
-  {
-    value: 'tools/accessories',
-    parent: 'Tools',
-    label: 'Bits & Blades',
-    match: [
-      /\bdrill\s+bits?\b/,
-      /\bdriver\s+bits?\b/,
-      /\bimpact\s+bits?\b/,
-      /\brouter\s+bits?\b/,
-      /\bscrewdriver\s+bit\b/,
-      /\bbit\s+set\b/,
-      /\bhole\s+saws?\b/,
-      /\bsaw\s+blades?\b/,
-      /\bblade\s+set\b/,
-      /\boscillating\s+blades?\b/,
-      /\bsanding\s+(?:discs?|belts?|pads?|sheets?|blocks?)\b/,
-      /\bsandpaper\b/,
-      /\bgrinding\s+(?:wheels?|discs?)\b/,
-      /\bcutting\s+(?:wheels?|discs?)\b/,
-      /\bflap\s+discs?\b/,
-      /\bwire\s+(?:wheels?|brush(?:es)?)\b/,
-      /\bsocket\s+sets?\b/,
-      /\bimpact\s+sockets?\b/,
-      /\bsocket\s+adapter\b/,
-      /\bchucks?\b/,
-      /\barbors?\b/,
-      /\bmandrels?\b/,
-      /\bcollets?\b/,
-      /\bdado\b/,
-      /\babrasive\b/,
-      /\bsharpening\s+stone\b/,
-      /\bdiamond\s+blade\b/,
-    ],
-  },
-  {
-    value: 'tools/power-tools',
-    parent: 'Tools',
-    label: 'Power Tools',
-    match: (itemType, category) => {
-      if (category === 'tools' && itemType.startsWith('cordless')) {
-        return true;
-      }
-
-      return matchesAny(
-        [
-          /\btool[ -]only\b/,
-          /\bcordless (ratchet|press tool)\b/,
-          /\bdrill(?:\s+driver)?\b/,
-          /\bimpact\s+(?:driver|wrench)\b/,
-          /\bhammer\s+drill\b/,
-          /\brotary\s+hammer\b/,
-          /\bmiter\s+saw\b/,
-          /\bcircular\s+saw\b/,
-          /\breciprocating\s+saw\b/,
-          /\btable\s+saw\b/,
-          /\bjigsaw$/,
-          /\bband\s+saw\b/,
-          /\bscroll\s+saw\b/,
-          /\btrack\s+saw\b/,
-          /\btile\s+saw\b/,
-          /\bcut-off\s+saw\b/,
-          /\bchop\s+saw\b/,
-          /\boscillating\s+(?:tool|multi-tool)\b/,
-          /\bmulti-tool\b/,
-          /\bangle\s+grinder\b/,
-          /\bbench\s+grinder\b/,
-          /\bdie\s+grinder\b/,
-          /\bsanders?\b/,
-          /\bpolishers?\b/,
-          /\bbuffers?\b/,
-          /\bwood\s+router\b/,
-          /\bplunge\s+router\b/,
-          /\btrim\s+router\b/,
-          /\bplaners?\b/,
-          /\bjointers?\b/,
-          /\bnailers?\b/,
-          /\bnail\s+gun\b/,
-          /\bbrad\s+nailer\b/,
-          /\bframing\s+nailer\b/,
-          /\bpower\s+tool\b/,
-          /\bcombo\s+kit\b/,
-          /\bgrease\s+gun\b/,
-          /\bcaulk\s+gun\b/,
-          /\bheat\s+gun\b/,
-          /\bglue\s+gun\b/,
-          /\bsoldering\b/,
-          /\bwelders?\b/,
-          /\bwelding\b/,
-          /\bplasma\s+cutter\b/,
-          /\bpowder\s+actuated\b/,
-          /\brivet\s+gun\b/,
-          /\bpaint\s+sprayer\b/,
-          /\bconcrete\s+vibrator\b/,
-          /\bdrywall\s+screw\s+gun\b/,
-          /\bnibbler\b/,
-          /\bcutout\s+tool\b/,
-          /\bair\s+inflator\b/,
-          /\binflator\b/,
-        ],
-        itemType,
-      );
-    },
-  },
-  {
-    value: 'tools/safety-workwear',
-    parent: 'Tools',
-    label: 'Safety & Workwear',
-    match: [
-      /\bhard\s+hats?\b/,
-      /\bsafety\s+(?:glasses|goggles?|vest|harness|helmet|boot|shoe)\b/,
-      /\bgoggles\b/,
-      /\bwork\s+gloves?\b/,
-      /\bnitrile\s+gloves?\b/,
-      /\bleather\s+gloves?\b/,
-      /\bcut-resistant\s+gloves?\b/,
-      /\bear\s+(?:muffs?|plugs?|protection)\b/,
-      /\bhearing\s+protection\b/,
-      /\bknee\s+pads?\b/,
-      /\brespirators?\b/,
-      /\bdust\s+masks?\b/,
-      /\bface\s+shields?\b/,
-      /\bwelding\s+(?:helmet|glove|jacket)\b/,
-      /\bfall\s+protection\b/,
-      /\bhi-vis\b/,
-      /\bhigh\s+visibility\b/,
-      /\bcoveralls\b/,
-      /\bwork\s+apron\b/,
-    ],
-  },
-  {
-    value: 'tools/tool-storage',
-    parent: 'Tools',
-    label: 'Tool Storage',
-    match: [
-      /\b(?<!hair )tool\s+(?:chest|box(?:es)?|bag|belt|pouch(?:es)?|organizer|cabinet|cart|tote|roll|stand|rack|holster)\b/,
-      /\bparts\s+organizer\b/,
-      /\bworkbench(?:es)?\b/,
-      /\bsawhorses?\b/,
-    ],
-  },
-  {
-    value: 'tools/ladders-moving',
-    parent: 'Tools',
-    label: 'Ladders & Moving',
-    match: [
-      /\bladders?\b/,
-      /\bstep\s+stools?\b/,
-      /\bscaffolding\b/,
-      /\bscaffolds?\b/,
-      /\bwork\s+platform\b/,
-      /\bhand\s+trucks?\b/,
-      /\bdollies\b/,
-      /\bdolly\b/,
-      /\bplatform\s+truck\b/,
-      /\bhoists?\b/,
-      /\bwinch(?:es)?\b/,
-    ],
-  },
-  {
-    value: 'tools/shop-equipment',
-    parent: 'Tools',
-    label: 'Shop Equipment',
-    match: [
-      /\btool\s+lot\b/,
-      /\bair\s+compressors?\b/,
-      /\b(?<!steam )generators?\b/,
-      /\bshop\s+vac\b/,
-      /\bwet[\s/-]+dry\s+vac\b/,
-      /\bair\s+movers?\b/,
-      /\bdust\s+extractor\b/,
-      /\bwork\s+lights?\b/,
-      /\bshop\s+lights?\b/,
-      /\btrouble\s+light\b/,
-      /\bvises?\b/,
-      /\banvils?\b/,
-      /\bair\s+hose\b/,
-    ],
-  },
-  {
-    value: 'tools/hand-measuring',
-    parent: 'Tools',
-    label: 'Hand Tools',
-    match: itemType => {
-      if (['cordless', 'fireplace'].some(x => itemType.startsWith(x))) {
-        return false;
-      }
-
-      return matchesAny(
-        [
-          /\bfitting removal tool\b/,
-          /\bpvc cutter\b/,
-          /\baviation snips?\b/,
-          /\bpliers\b/,
-          /\bwrench(?:es)?\b/,
-          /\bscrewdrivers?\b/,
-          /\bhammers?\b/,
-          /\bmallets?\b/,
-          /\bsledgehammers?\b/,
-          /\bclamps?\b/,
-          /\blaser\s+levels?\b/,
-          /\blevels?\b/,
-          /\btape\s+measures?\b/,
-          /\bmeasuring\s+(?:tape|wheel)\b/,
-          /\b(?:utility|folding|pocket)\s+knives?\b/,
-          /\b(?:utility|folding|pocket)\s+knife\b/,
-          /\bbox\s+cutters?\b/,
-          /\bsheet\s+cutter\b/,
-          /\bchisels?\b/,
-          /\bpry\s+bars?\b/,
-          /\bcrowbars?\b/,
-          /\bbolt\s+cutters?\b/,
-          /\bwire\s+(?:stripper|cutter|crimper)\b/,
-          /\bcrimpers?\b/,
-          /\bsnips\b/,
-          /\bshears\b/,
-          /\btorque\s+wrench\b/,
-          /\bstud\s+finders?\b/,
-          /\bmultimeters?\b/,
-          /\bvoltage\s+tester\b/,
-          /\bcircuit\s+tester\b/,
-          /\bmoisture\s+meter\b/,
-          /\bcalipers?\b/,
-          /\bmicrometers?\b/,
-          /\bframing\s+square\b/,
-          /\bspeed\s+square\b/,
-          /\bhex\s+keys?\b/,
-          /\ballen\s+wrench\b/,
-          /\bhand\s+saws?\b/,
-          /\bhacksaws?\b/,
-          /\bcoping\s+saw\b/,
-          /\baxes?\b/,
-          /\bhatchets?\b/,
-          /\bmauls?\b/,
-          /\btrowels?\b/,
-          /\bputty\s+knives?\b/,
-          /\bputty\s+knife\b/,
-          /\bscrapers?\b/,
-          /\bratchets?\b/,
-          /\bbreaker\s+bar\b/,
-          /\btap\s+and\s+die\b/,
-          /\bpipe\s+cutter\b/,
-          /\btube\s+cutter\b/,
-          /\bfish\s+tape\b/,
-          /\bchalk\s+line\b/,
-          /\bplumb\s+bob\b/,
-          /\briveters?\b/,
-          /\bstaple\s+guns?\b/,
-          /\bextension\s+poles?\b/,
-          /\btorch(?:es)?\b/,
-          /\bhand\s+tools?\b/,
-          /\btool\s+sets?\b/,
-          /\btool\s+kits?\b/,
-          /\bmechanic.*set\b/,
-        ],
-        itemType,
-      );
-    },
-  },
-
-  // --- HVAC & Air (before Lighting/Electrical & Appliances) ---
-  {
-    value: 'hvac/ventilation',
-    parent: 'HVAC & Air',
-    label: 'Ventilation & Fans',
-    match: [
-      /\bexhaust\s+fans?\b/,
-      /\bbath\s+fans?\b/,
-      /\bbathroom\s+fans?\b/,
-      /\bfan\s+motors?\b/,
-      /\binline\s+fan\b/,
-      /\bduct\s+(?:fan|cap)\b/,
-      /\battic\s+fan\b/,
-      /\bgable\s+fan\b/,
-      /\bcrawl\s+space\s+fan\b/,
-      /\bvent\s+(?:cover|grille|register|hood|cap|pipe|duct)\b/,
-      /\bair\s+register\b/,
-      /\bfloor\s+register\b/,
-      /\breturn\s+grille\b/,
-      /\bductwork\b/,
-      /\bdryer\s+vent\b/,
-      /\bdampers?\b/,
-      /\broof\s+vent\b/,
-      /\bsoffit\s+vent\b/,
-      /\bchimney\s+cap\b/,
-    ],
-  },
-  {
-    value: 'hvac/air-quality',
-    parent: 'HVAC & Air',
-    label: 'Air Quality',
-    match: [
-      /\bair\s+filters?\b/,
-      /\bfurnace\s+filters?\b/,
-      /\bhvac\s+filters?\b/,
-      /\bair\s+purifiers?\b/,
-      /\bhepa\s+filters?\b/,
-      /\bdehumidifiers?\b/,
-      /\bhumidifiers?\b/,
-      /\bthermostats?\b/,
-      /\bhygrometers?\b/,
-      /\bair\s+quality\b/,
-      /\bevaporative\s+cooler\b/,
-      /\bmoisture\s+absorber\b/,
-    ],
-  },
-  {
-    value: 'hvac/heating-cooling',
-    parent: 'HVAC & Air',
-    label: 'Heating & Cooling',
-    match: [
-      /\bspace\s+heaters?\b/,
-      /\bpropane\s+heaters?\b/,
-      /\bgas\s+heaters?\b/,
-      /\bbaseboard\s+heaters?\b/,
-      /\bwall\s+heaters?\b/,
-      /\bgarage\s+heaters?\b/,
-      /\bradiant\s+heaters?\b/,
-      /\belectric\s+fireplaces?\b/,
-      /\bfireplace\s+insert\b/,
-      /\bair\s+conditioners?\b/,
-      /\bmini\s+split\b/,
-      /\bac\s+units?\b/,
-      /\bceiling\s+fans?\b/,
-      /\btower\s+fans?\b/,
-      /\bbox\s+fans?\b/,
-      /\bpedestal\s+fans?\b/,
-      /\bdesk\s+fans?\b/,
-      /\boscillating\s+fans?\b/,
-      /\bwall\s+mount\s+fans?\b/,
-      /\bdrum\s+fans?\b/,
-      /\bmisting\s+fans?\b/,
-      /\bfloor\s+fans?\b/,
-      /\bportable\s+fans?\b/,
-      /\bhandheld\s+fans?\b/,
-      /\bneck\s+fans?\b/,
-    ],
-  },
-
-  // --- Lighting & Electrical ---
-  {
-    value: 'lighting/outdoor',
-    parent: 'Lighting & Electrical',
-    label: 'Outdoor Lighting',
-    match: [
-      /\bpost\s+lights?\b/,
-      /\boutdoor\s+(?:wall\s+)?(?:lights?|lanterns?|sconces?|fixtures?|lamps?)\b/,
-      /\bflood\s+lights?\b/,
-      /\bsecurity\s+lights?\b/,
-      /\bmotion\s+(?:sensor\s+)?lights?\b/,
-      /\bpath(?:way)?\s+lights?\b/,
-      /\blandscape\s+lights?\b/,
-      /\bsolar\s+(?:spot\s+)?lights?\b/,
-      /\bstring\s+lights?\b/,
-      /\bdeck\s+lights?\b/,
-      /\bstep\s+lights?\b/,
-      /\bporch\s+lights?\b/,
-      /\bbarn\s+lights?\b/,
-      /\bdusk\s+to\s+dawn\b/,
-      /\barea\s+lights?\b/,
-      /\bbollard\s+lights?\b/,
-      /\bbollards?\b/,
-      /\bpier\s+mount\b/,
-    ],
-  },
-  {
-    value: 'lighting/bulbs-strips',
-    parent: 'Lighting & Electrical',
-    label: 'Bulbs & Strips',
-    match: [
-      /\bled\s+bulbs?\b/,
-      /\blight\s+bulbs?\b/,
-      /\bbulbs?\b/,
-      /\bled\s+(?:light\s+)?strips?\b/,
-      /\bstrip\s+lights?\b/,
-      /\btape\s+lights?\b/,
-      /\bneon\s+signs?\b/,
-      /\bled\s+signs?\b/,
-      /\bgrow\s+lights?\b/,
-      /\bfluorescent\s+tubes?\b/,
-      /\bled\s+tubes?\b/,
-      /\brope\s+lights?\b/,
-    ],
-  },
-  {
-    value: 'lighting/indoor',
-    parent: 'Lighting & Electrical',
-    label: 'Indoor Lighting',
-    match: [
-      /\bpendant\s+(?:lights?|lamps?)\b/,
-      /\bceiling\s+lights?\b/,
-      /\bflush\s+mount\b/,
-      /\bsemi-flush\b/,
-      /\bchandeliers?\b/,
-      /\bvanity\s+lights?\b/,
-      /\bwall\s+sconces?\b/,
-      /\bsconces?\b/,
-      /\brecessed\s+lights?\b/,
-      /\brecessed\s+.*trim\b/,
-      /\bdownlights?\b/,
-      /\bcan\s+lights?\b/,
-      /\btrack\s+light(?:ing|s)?\b/,
-      /\bfloor\s+lamps?\b/,
-      /\btable\s+lamps?\b/,
-      /\bdesk\s+lamps?\b/,
-      /\bbedside\s+lamps?\b/,
-      /\bmood\s+lamps?\b/,
-      /\blamp\s*shades?\b/,
-      /\bled\s+panel\b/,
-      /\bpanel\s+lights?\b/,
-      /\bhigh\s+bay\b/,
-      /\bunder[\s-]+cabinet\s+light(?:ing|s)?\b/,
-      /\bpuck\s+lights?\b/,
-      /\bnight\s+lights?\b/,
-      /\bpicture\s+lights?\b/,
-      /\breading\s+lights?\b/,
-      /\bring\s+lights?\b/,
-      /\blight\s+fixtures?\b/,
-      /\blinear\s+lights?\b/,
-      /\btroffers?\b/,
-      /\bwraparound\s+light\b/,
-      /\bcloset\s+light\b/,
-      /\bgarage\s+light\b/,
-      /\bled\s+lights?\b/,
-    ],
-  },
-  {
-    value: 'lighting/detectors',
-    parent: 'Lighting & Electrical',
-    label: 'Detectors & Alarms',
-    match: [
-      /\bsmoke\s+(?:and\s+co\s+)?detectors?\b/,
-      /\bsmoke\s+alarms?\b/,
-      /\bco\s+detectors?\b/,
-      /\bcarbon\s+monoxide\b/,
-      /\bradon\s+detectors?\b/,
-      /\bfire\s+alarms?\b/,
-    ],
-  },
-  {
-    value: 'lighting/electrical-safety',
-    parent: 'Lighting & Electrical',
-    label: 'Electrical & Wiring',
-    match: [
-      /\bcircuit\s+breakers?\b/,
-      /\bbreaker\s+box\b/,
-      /\bload\s+center\b/,
-      /\belectrical\s+panel\b/,
-      /\btransfer\s+switch(?:es)?\b/,
-      /\bduplex\s+outlets?\b/,
-      /\bgfci\b/,
-      /\boutlets?\b/,
-      /\breceptacles?\b/,
-      /\bwall\s+plates?\b/,
-      /\b(?:light|dimmer|toggle|rocker|timer)\s+switch(?:es)?\b/,
-      /^switch(?:es)?$/,
-      /\bextension\s+cords?\b/,
-      /\bsurge\s+protectors?\b/,
-      /\bpower\s+strips?\b/,
-      /\boutdoor\s+timers?\b/,
-      /\bconduit\b/,
-      /\bjunction\s+box(?:es)?\b/,
-      /\belectrical\s+box(?:es)?\b/,
-      /\blamp\s+sockets?\b/,
-      /\belectrical\s+wire\b/,
-      /\bromex\b/,
-      /\bwire\s+connectors?\b/,
-      /\bwire\s+nuts?\b/,
-      /\bground\s+rod\b/,
-      /\btransformers?\b/,
-      /\bballasts?\b/,
-      /\bev\s+chargers?\b/,
-      /\bdoorbells?\b/,
-    ],
-  },
-
-  // --- Health & Beauty (before Plumbing/Computers/Appliances for raised toilet seats, BP monitors, flat irons) ---
-  {
-    value: 'health/massage',
-    parent: 'Health & Beauty',
-    label: 'Massage & Recovery',
-    match: [
-      /\b(?:back|foot|neck)\s+massagers?\b/,
-      /\bmassage\s+guns?\b/,
-      /\bmassagers?\b/,
-      /\bfoot\s+(?:bath|spa)\b/,
-      /\bheating\s+pads?\b/,
-      /\bice\s+packs?\b/,
-      /\btens\s+unit\b/,
-    ],
-  },
-  {
-    value: 'health/mobility-medical',
-    parent: 'Health & Beauty',
-    label: 'Mobility & Medical',
-    match: (t, site) =>
-      matchesAny(
-        [
-          /\braised\s+toilet\s+seat\b/,
-          /\bbed\s+rails?\b/,
-          /\bshower\s+(?:seats?|chairs?|bench(?:es)?|stools?)\b/,
-          /\bbath\s+(?:seats?|bench(?:es)?|chairs?)\b/,
-          /\btransfer\s+bench\b/,
-          /\bgrab\s+bars?\b/,
-          /\bwheelchairs?\b/,
-          /\bwheelchair\s+ramp\b/,
-          /\brollators?\b/,
-          /\bcanes?\b/,
-          /\bcrutch(?:es)?\b/,
-          /\bblood\s+pressure\b/,
-          /\bthermometers?\b/,
-          /\boximeters?\b/,
-          /\bglucose\b/,
-          /\bnebulizers?\b/,
-          /\bcpap\b/,
-          /\bhearing\s+aids?\b/,
-          /\b(?:knee|ankle|back|wrist)\s+brace\b/,
-          /\bbrace\b/,
-          /\bsplints?\b/,
-          /\bcompression\s+(?:socks?|sleeves?)\b/,
-          /\bwedge\s+pillows?\b/,
-          /\bbed\s+wedge\b/,
-          /\bincontinence\b/,
-          /\badult\s+diapers?\b/,
-          /\bfirst\s+aid\b/,
-          /\bbandages?\b/,
-          /\bgauze\b/,
-          /\bpill\s+organizers?\b/,
-          /\bstethoscopes?\b/,
-          /\bbathroom\s+scale\b/,
-          /\bbody\s+scale\b/,
-        ],
-        t,
-      ) ||
-      (site === 'health-beauty' && /\bseat\s+cushion\b/.test(t)),
-  },
-  {
-    value: 'health/personal-care',
-    parent: 'Health & Beauty',
-    label: 'Personal Care',
-    match: [
-      /\bbody\s+(?:wash|lotion|oil|scrub|butter|cream)\b/,
-      /\bshampoo\b/,
-      /\bconditioner\b/,
-      /\bcologne\b/,
-      /\bperfume\b/,
-      /\bfragrance\b/,
-      /\bdeodorant\b/,
-      /\bface\s+(?:wash|cream|serum|mask)\b/,
-      /\bmoisturizer\b/,
-      /\bsunscreen\b/,
-      /\blip\s+balm\b/,
-      /\bacne\s+patch(?:es)?\b/,
-      /\bskincare\b/,
-      /\bmakeup\b/,
-      /\bcosmetics?\b/,
-      /\bnail\s+(?:polish|lamp|drill|clipper)\b/,
-      /\belectric\s+toothbrush(?:es)?\b/,
-      /\btoothbrush(?:es)?\b/,
-      /\bwater\s+flosser\b/,
-      /\bmouthwash\b/,
-      /\brazors?\b/,
-      /\bshavers?\b/,
-      /\bbeard\s+trimmer\b/,
-      /\bnose\s+trimmer\b/,
-      /\bhair\s+(?:dryer|straightener|curler|clipper|trimmer|bundle|clip|brush(?:es)?|comb|extension|oil|mask)\b/,
-      /\bflat\s+iron\b/,
-      /\bcurling\s+iron\b/,
-      /\bhairspray\b/,
-      /\bwigs?\b/,
-      /\beyelash(?:es)?\b/,
-      /\btweezers?\b/,
-      /\bepilators?\b/,
-      /\bipl\b/,
-      /\bsupplements?\b/,
-      /\bvitamins?\b/,
-      /\bprotein\s+powder\b/,
-      /\bcollagen\b/,
-      /\bprobiotics?\b/,
-      /\bmelatonin\b/,
-      /\bessential\s+oils?\b/,
-      /\bdiffusers?\b/,
-      /\bbath\s+bombs?\b/,
-      /\bhand\s+sanitizer\b/,
-      /\bhand\s+soap\b/,
-      /\bbar\s+soap\b/,
-      /\bcotton\s+swab\b/,
-      /\bfeminine\b/,
-      /\btampons?\b/,
-      /\bsanitary\b/,
-    ],
-  },
-
-  // --- Plumbing & Bath ---
-  {
-    value: 'plumbing/toilets-bidets',
-    parent: 'Plumbing & Bath',
-    label: 'Toilets & Bidets',
-    match: [
-      /\btoilets?\b(?!\s+(?:paper\s+holder|brush))/,
-      /\bbidets?\b/,
-      /\burinals?\b/,
-      /\bflush\s+valve\b/,
-      /\bfill\s+valve\b/,
-      /\bflapper\b/,
-      /\bwax\s+ring\b/,
-      /\bplungers?\b/,
-    ],
-  },
-  {
-    value: 'plumbing/vanities-mirrors',
-    parent: 'Plumbing & Bath',
-    label: 'Vanities & Mirrors',
-    match: [
-      /\bbathroom\s+vanity\b/,
-      /\bvanity\s+(?:top|cabinet|sidesplash|backsplash|mirror)\b/,
-      /\bvanity\b(?!\s+light)/,
-      /\bbathroom\s+mirror\b/,
-      /\bled\s+mirror\b/,
-      /\bmedicine\s+cabinet\b/,
-    ],
-  },
-  {
-    value: 'plumbing/water-filters-heaters',
-    parent: 'Plumbing & Bath',
-    label: 'Water Filters & Heaters',
-    match: [
-      /\bwater\s+heaters?\b/,
-      /\btankless\b/,
-      /\bwater\s+filters?\b/,
-      /\bfridge\s+filters?\b/,
-      /\brefrigerator\s+.*filter\b/,
-      /\bwater\s+softener\b/,
-      /\breverse\s+osmosis\b/,
-      /\bro\s+system\b/,
-      /\bfiltration\b/,
-      /\bice\s+maker\s+connector\b/,
-    ],
-  },
-  {
-    value: 'plumbing/pumps-water',
-    parent: 'Plumbing & Bath',
-    label: 'Pumps & Pipe Fittings',
-    match: [
-      /\b(?:utility|sump|sewage|well|transfer|booster|circulation|submersible|water)\s+pumps?\b/,
-      /\bmacerator\b/,
-      /\bdrain\s+hose\b/,
-      /\bsupply\s+line\b/,
-      /\bgas\s+line\b/,
-      /\bpex\b/,
-      /\bpvc\s+pipe\b/,
-      /\bcopper\s+pipe\b/,
-      /\bpipe\s+fitting\b/,
-      /\btube\s+cap\b/,
-      /\bball\s+valve\b/,
-      /\bcheck\s+valve\b/,
-      /\bshut-off\s+valve\b/,
-      /\bpressure\s+regulator\b/,
-      /\bbackflow\b/,
-      /\bexpansion\s+tank\b/,
-      /\bmanifold\b/,
-      /\bdrain\s+(?:auger|snake)\b/,
-      /^elbow$/,
-    ],
-  },
-  {
-    value: 'plumbing/showers-tubs',
-    parent: 'Plumbing & Bath',
-    label: 'Showers & Tubs',
-    match: [
-      /\bshower\s+(?:faucet|head|valve|trim|arm|door|enclosure|pan|base|niche|drain|caddy|curtain|rod|system|panel|kit|tote)\b/,
-      /\bhandheld\s+shower\b/,
-      /\btub\s+(?:spout|drain|faucet|filler|door|surround)\b/,
-      /\bbath\s+drain\b/,
-      /\bbathtubs?\b/,
-      /\btowel\s+(?:bar|ring|rack|warmer|hook)\b/,
-      /\btoilet\s+paper\s+holder\b/,
-      /\brobe\s+hook\b/,
-      /\bbathroom\s+hardware\b/,
-      /\bbath\s+hardware\b/,
-      /\bbathroom\s+accessory\b/,
-    ],
-  },
-  {
-    value: 'plumbing/faucets-sinks',
-    parent: 'Plumbing & Bath',
-    label: 'Faucets & Sinks',
-    match: [
-      /\bfaucets?\b/,
-      /\b(?:kitchen|bathroom|laundry|utility|vessel|undermount|drop-in|bar)\s+sinks?\b/,
-      /\bsinks?\b/,
-      /\bpop-up\s+drain\b/,
-      /\bsink\s+drain\b/,
-      /\bchannel\s+drain\b/,
-      /\bfloor\s+drain\b/,
-      /\btrench\s+drain\b/,
-      /\bdrain\s+kit\b/,
-      /\bgarbage\s+disposal\b/,
-      /\bsoap\s+dispensers?\b/,
-      /\bpot\s+filler\b/,
-      /\bsprayer\s+head\b/,
-      /\baerators?\b/,
-      /\bp-trap\b/,
-    ],
-  },
-
-  // --- Outdoor & Garden (before Building/Hardware so edging & landscape fabric stay here) ---
-  {
-    value: 'outdoor/grills-fire',
-    parent: 'Outdoor & Garden',
-    label: 'Grills & Fire Pits',
-    match: [
-      /\bgrills?\b/,
-      /\bsmokers?\b/,
-      /\bfire\s+pits?\b/,
-      /\bfire\s+table\b/,
-      /\bpatio\s+heaters?\b/,
-      /\bpropane\s+(?:hose|tank|regulator)\b/,
-      /\bcoolers?\b(?!.*(?:wine|beverage|evaporative|cpu))/,
-      /\bice\s+chest\b/,
-      /\bpool\s+(?:chemical|float|pump|filter|cover|ladder|vacuum|net|toy|cleaner)\b/,
-      /\binflatable\s+float\b/,
-      /\bhot\s+tub\b/,
-      /\bspa\s+cover\b/,
-    ],
-  },
-  {
-    value: 'outdoor/patio-grills-pools',
-    parent: 'Outdoor & Garden',
-    label: 'Patio & Shade',
-    match: [
-      /\bcanopies\b/,
-      /\bcanopy\b/,
-      /\bgazebos?\b/,
-      /\bpergolas?\b/,
-      /\bpatio\s+umbrellas?\b/,
-      /\bumbrella\s+(?:base|stand)\b/,
-      /\bawnings?\b/,
-      /\bshade\s+(?:sails?|cloths?)\b/,
-      /\bprivacy\s+screens?\b/,
-      /\bpatio\s+(?:furniture|chair|table|sofa|set|bench|cushion)\b/,
-      /\badirondack\b/,
-      /\bhammocks?\b/,
-      /\bporch\s+swing\b/,
-      /\boutdoor\s+(?:chair|table|rug|cushion|bench|furniture|sofa)\b/,
-      /\bchair\s+cushions?\b/,
-    ],
-  },
-  {
-    value: 'outdoor/lawn-garden',
-    parent: 'Outdoor & Garden',
-    label: 'Lawn & Garden',
-    match: [
-      /\bgarden\s+hoses?\b/,
-      /\bhose\s+(?:reel|nozzle|regulator|splitter|cart)\b/,
-      /\bsprinklers?\b/,
-      /\bdrip\s+irrigation\b/,
-      /\birrigation\b/,
-      /\blandscape\s+(?:edging|fabric|pebble|rock|staple|border)\b/,
-      /\bedging\b/,
-      /\bweed\s+(?:killer|barrier|control)\b/,
-      /\bherbicides?\b/,
-      /\bpesticides?\b/,
-      /\binsecticides?\b/,
-      /\bfertilizers?\b/,
-      /\bplant\s+food\b/,
-      /\bpotting\s+soil\b/,
-      /\bmulch\b/,
-      /\bgrass\s+seed\b/,
-      /\bplanters?\b/,
-      /\bflower\s+pots?\b/,
-      /\bceramic\s+pots?\b/,
-      /\bplant\s+(?:stand|saucer|caddy|hanger|pot)\b/,
-      /\braised\s+garden\s+bed\b/,
-      /\bgarden\s+beds?\b/,
-      /\bgreenhouses?\b/,
-      /\btrellis(?:es)?\b/,
-      /\bgarden\s+(?:fence|stake|decor|decoration|arch|kneeler|cart|tool)\b/,
-      /\bwheelbarrows?\b/,
-      /\bcomposters?\b/,
-      /\bbird\s+(?:feeder|bath|house)\b/,
-      /\bwind\s+chimes?\b/,
-      /\bflagpoles?\b/,
-      /\bgarden\s+flags?\b/,
-      /\bshovels?\b/,
-      /\brakes?\b/,
-      /\bhoes?\b/,
-      /\bpruners?\b/,
-      /\bloppers?\b/,
-      /\bpost\s+digger\b/,
-      /\btree\s+guard\b/,
-      /\bfrost\s+cloth\b/,
-    ],
-  },
-
-  // --- Building & Hardware ---
-  {
-    value: 'building/fasteners',
-    parent: 'Building & Hardware',
-    label: 'Fasteners & Anchors',
-    match: [
-      /\bscrews?\b/,
-      /\bnails?\b/,
-      /\bframing\s+nails?\b/,
-      /\bfinish\s+nails?\b/,
-      /\broofing\s+nails?\b/,
-      /\bbrad\s+nails?\b/,
-      /\bconcrete\s+anchors?\b/,
-      /\bwall\s+anchors?\b/,
-      /\bwedge\s+anchors?\b/,
-      /\bsleeve\s+anchors?\b/,
-      /\btoggle\s+bolts?\b/,
-      /\banchor\s+bolts?\b/,
-      /\bdeck\s+fasteners?\b/,
-      /\bfasteners?\b/,
-      /\bflooring\s+staples?\b/,
-      /\bstaples?\b/,
-      /\bbolts?\b/,
-      /\bhex\s+nuts?\b/,
-      /\block\s+nuts?\b/,
-      /\brivets?\b/,
-      /\bthreaded\s+rods?\b/,
-      /\bjoist\s+hangers?\b/,
-      /\bhurricane\s+ties?\b/,
-      /\bpost\s+(?:bases?|caps?|connectors?)\b/,
-      /\btie\s+plates?\b/,
-      /\bangle\s+brackets?\b/,
-      /\bcorner\s+braces?\b/,
-      /\bmending\s+plates?\b/,
-    ],
-  },
-  {
-    value: 'building/cabinet-hardware',
-    parent: 'Building & Hardware',
-    label: 'Cabinet Hardware',
-    match: [
-      /\bcabinet\s+(?:knobs?|pulls?|hinges?|latches?|handles?)\b/,
-      /\bdrawer\s+(?:pulls?|slides?|knobs?|handles?)\b/,
-      /\bshelf\s+brackets?\b/,
-      /\bcloset\s+rod\s+support\b/,
-      /\bcasters?\b/,
-      /\bturnbuckles?\b/,
-      /\bratchet\s+straps?\b/,
-      /\btie\s+downs?\b/,
-    ],
-  },
-  {
-    value: 'building/doors-hardware',
-    parent: 'Building & Hardware',
-    label: 'Doors & Locks',
-    match: itemType => {
-      if (['electronic lock'].includes(itemType)) {
-        return true;
-      }
-
-      return matchesAny(
-        [
-          /\bdoor\s+(?:knobs?|handles?|levers?|hinges?|closers?|stops?|sweeps?|bottoms?|locks?|viewers?|knockers?|hardware|slabs?|kits?|tracks?)\b/,
-          /^doors?$/,
-          /\bdeadbolts?\b/,
-          /\bsmart\s+locks?\b/,
-          /\bkeypad\s+locks?\b/,
-          /\bpadlocks?\b/,
-          /\blocksets?\b/,
-          /^locks?$/,
-          /\bgate\s+(?:latch(?:es)?|hinges?|kits?|hardware)\b/,
-          /\bbarn\s+doors?\b/,
-          /\bpocket\s+doors?\b/,
-          /\bscreen\s+doors?\b/,
-          /\bstorm\s+doors?\b/,
-          /\bbifold\s+doors?\b/,
-          /\bmailbox(?:es)?\b/,
-          /\bhouse\s+numbers?\b/,
-          /\baddress\s+plaques?\b/,
-          /\bhasps?\b/,
-          /\bkey\s+box\b/,
-          /\block\s+box\b/,
-        ],
-        itemType,
-      );
-    },
-  },
-  {
-    value: 'building/flooring-tile',
-    parent: 'Building & Hardware',
-    label: 'Flooring & Tile',
-    match: [
-      /\bflooring\b/,
-      /\bvinyl\s+plank\b/,
-      /\blaminate\b/,
-      /\bhardwood\b/,
-      /\b(?:porcelain|ceramic|mosaic|wall|floor|carpet|subway|drop\s+ceiling|backsplash|peel-and-stick)\s+tiles?\b/,
-      /\bbacksplash\b/,
-      /\btiles?\b/,
-      /\bstair\s+(?:treads?|nosing|risers?)\b/,
-      /\bbaseboards?\b/,
-      /\bmoldings?\b/,
-      /\bmouldings?\b/,
-      /\bquarter\s+round\b/,
-      /\btransition\s+strips?\b/,
-      /\bthresholds?\b/,
-      /\bunderlayment\b/,
-      /\bgrout\b/,
-      /\bmortar\b/,
-      /\bthinset\b/,
-      /\btile\s+(?:spacer|leveling)\b/,
-      /^trim$/,
-    ],
-  },
-  {
-    value: 'building/cabinets',
-    parent: 'Building & Hardware',
-    label: 'Cabinets',
-    match: /\b(?:wall|base|kitchen|pantry|garage|utility)\s+cabinets?\b/,
-  },
-  {
-    value: 'building/cabinets-decking',
-    parent: 'Building & Hardware',
-    label: 'Fencing & Decking',
-    match: [
-      /\bline\s+posts?\b/,
-      /\bdeck\s+posts?\b/,
-      /\bfence\s+(?:posts?|panels?)\b/,
-      /\bdeck\s+railings?\b/,
-      /\brailing\s+posts?\b/,
-      /\bbalusters?\b/,
-      /\bhandrails?\b/,
-      /\bnewels?\b/,
-      /\bdeck\s+(?:boards?|tiles?)\b/,
-      /\blattice\b/,
-      /\bsiding\b/,
-      /\bshingles?\b/,
-      /\broofing\b/,
-      /\bflashing\b/,
-      /\bgutters?\b/,
-      /\bdownspouts?\b/,
-      /\bshutters?\b/,
-      /\b[w]indow\s+screens?\b/,
-      /^[w]indows?$/,
-      /\bskylights?\b/,
-      /\bcolumn\s+wrap\b/,
-      /\bpost\s+sleeves?\b/,
-    ],
-  },
-  {
-    value: 'building/paint-walls-prep',
-    parent: 'Building & Hardware',
-    label: 'Paint & Materials',
-    match: [
-      /\bpaint\b(?!.*(?:by\s+number|palette))/,
-      /\bprimers?\b/,
-      /\bwood\s+stain\b/,
-      /\bvarnish\b/,
-      /\bpolyurethane\b/,
-      /\bwallpaper\b/,
-      /\bcaulk\b/,
-      /\bsealants?\b/,
-      /\bsilicone\b/,
-      /\badhesives?\b/,
-      /\bwood\s+glue\b/,
-      /\bliquid\s+glue\b/,
-      /\bepoxy\b/,
-      /\bdrop\s+cloths?\b/,
-      /\bpainter.?s\s+tape\b/,
-      /\bmasking\s+tape\b/,
-      /\bduct\s+tape\b/,
-      /\bfoil\s+tape\b/,
-      /\bacoustic\s+panels?\b/,
-      /\bwall\s+panels?\b/,
-      /\bdecorative\s+panels?\b/,
-      /\bpeel-and-stick\s+panels?\b/,
-      /\bslat\s+wall\b/,
-      /\binsulation\b/,
-      /\baccess\s+panels?\b/,
-      /\bweather\s*stripping\b/,
-      /\b[w]indow\s+film\b/,
-      /\bcontractor\s+bags?\b/,
-      /\btarps?\b/,
-      /\bdrywall\b/,
-      /\bspackle\b/,
-      /\bjoint\s+compound\b/,
-      /\bpatching\b/,
-      /\bpaint\s+(?:rollers?|trays?|brush(?:es)?)\b/,
-      /\bmesh\s+screen\b/,
-      /\bhardware\s+cloth\b/,
-      /\bsheet\s+metal\b/,
-      /\bplexiglass\b/,
-      /\bacrylic\s+sheet\b/,
-      /\bplywood\b/,
-      /\blumber\b/,
-      /\bfoam\s+board\b/,
-      /\bvapor\s+barrier\b/,
-      /\bhouse\s+wrap\b/,
-    ],
-  },
-
-  // --- Appliances ---
-  {
-    value: 'appliances/vacuums-floorcare',
-    parent: 'Appliances',
-    label: 'Vacuums',
-    match: [
-      /\b(?:stick|handheld|robot|upright|canister|cordless)\s+vacuums?\b/,
-      /\bvacuums?\b/,
-      /\bvacuum\s+filters?\b/,
-      /\bsteam\s+cleaners?\b/,
-      /\bsteam\s+mops?\b/,
-      /\bcarpet\s+cleaners?\b/,
-      /\bspot\s+cleaners?\b/,
-      /\bfloor\s+scrubbers?\b/,
-    ],
-  },
-  {
-    value: 'appliances/laundry',
-    parent: 'Appliances',
-    label: 'Laundry',
-    match: [
-      /\blaundry\s+pedestals?\b/,
-      /\bwashing\s+machines?\b/,
-      /\bclothes\s+(?:washers?|dryers?)\b/,
-      /\bportable\s+(?:washers?|dryers?)\b/,
-      /\bwasher\s+dryer\b/,
-      /\bspin\s+dryer\b/,
-      /\b(?:handheld|garment|clothes)\s+steamers?\b/,
-      /\bsteamers?\b/,
-      /\bsteam\s+iron\b/,
-      /\bclothes\s+iron\b/,
-      /\bironing\s+boards?\b/,
-    ],
-  },
-  {
-    value: 'appliances/kitchen',
-    parent: 'Appliances',
-    label: 'Kitchen',
-    match: [
-      /\bmicrowaves?\b/,
-      /\brange\s+hoods?\b/,
-      /\bcooktops?\b/,
-      /\binduction\b/,
-      /\bovens?\b/,
-      /\btoasters?\b/,
-      /\bair\s+fryers?\b/,
-      /\bcoffee\s+makers?\b/,
-      /\bespresso\b/,
-      /\bk-cup\b/,
-      /\bmilk\s+frothers?\b/,
-      /\bice\s+makers?\b/,
-      /\brefrigerators?\b/,
-      /\bmini\s+fridges?\b/,
-      /\bfreezers?\b/,
-      /\bwine\s+coolers?\b/,
-      /\bbeverage\s+coolers?\b/,
-      /\bdishwashers?\b/,
-      /\bblenders?\b/,
-      /\bfood\s+processors?\b/,
-      /\bstand\s+mixers?\b/,
-      /\bhand\s+mixers?\b/,
-      /\bjuicers?\b/,
-      /\bslow\s+cookers?\b/,
-      /\bcrock\s+pots?\b/,
-      /\bpressure\s+cookers?\b/,
-      /\brice\s+cookers?\b/,
-      /\binstant\s+pots?\b/,
-      /\bhot\s+plates?\b/,
-      /\belectric\s+kettles?\b/,
-      /\btea\s+kettles?\b/,
-      /\bwaffle\s+makers?\b/,
-      /\byogurt\s+makers?\b/,
-      /\bgriddles?\b/,
-      /\bpanini\b/,
-      /\bdeep\s+fryers?\b/,
-      /\bdehydrators?\b/,
-      /\bbread\s+makers?\b/,
-      /\bmeat\s+(?:slicers?|grinders?)\b/,
-      /\bvacuum\s+sealers?\b/,
-      /\bheat\s+sealers?\b/,
-      /\bsous\s+vide\b/,
-      /\bpopcorn\s+(?:makers?|poppers?)\b/,
-      /\bice\s+cream\s+makers?\b/,
-      /\bwater\s+dispensers?\b/,
-      /\bkegerators?\b/,
-      /\bwarming\s+trays?\b/,
-      /\belectric\s+skillets?\b/,
-      /\bstove\s+covers?\b/,
-    ],
-  },
-
-  // --- Electronics ---
-  {
-    value: 'electronics/audio',
-    parent: 'Electronics',
-    label: 'Audio',
-    match: [
-      /\bearbuds?\b/,
-      /\bheadphones?\b/,
-      /\bheadsets?\b/,
-      /\bbluetooth\s+speakers?\b/,
-      /\bsmart\s+speakers?\b/,
-      /\bspeakers?\b/,
-      /\bsoundbars?\b/,
-      /\bsubwoofers?\b/,
-      /\bmicrophones?\b/,
-      /\bturntables?\b/,
-      /\brecord\s+players?\b/,
-      /\bstereo\s+receivers?\b/,
-      /\bamplifiers?\b/,
-      /\baudio\s+interfaces?\b/,
-      /\bkaraoke\b/,
-      /\bwalkie\s+talkies?\b/,
-      /\bradios?\b/,
-      /\bboombox(?:es)?\b/,
-      /\bcd\s+players?\b/,
-      /\bmp3\b/,
-      /\bhearing\s+amplifiers?\b/,
-    ],
-  },
-  {
-    value: 'electronics/phones-wearables',
-    parent: 'Electronics',
-    label: 'Phones & Wearables',
-    match: [
-      /\bphone\s+cases?\b/,
-      /\bphones?\b/,
-      /\bsmartphones?\b/,
-      /\biphones?\b/,
-      /\bcell\s+phones?\b/,
-      /\btablet\s+(?:cases?|stands?)\b/,
-      /\btablets?\b/,
-      /\bipads?\b/,
-      /\be-readers?\b/,
-      /\bkindles?\b/,
-      /\bscreen\s+protectors?\b/,
-      /\bsmart\s*watch(?:es)?\b/,
-      /\bfitness\s+trackers?\b/,
-      /\bsmart\s+rings?\b/,
-      /\bsmart\s+glasses\b/,
-      /\bwatch\s+bands?\b/,
-      /\bphone\s+(?:mounts?|stands?)\b/,
-      /\bstylus(?:es)?\b/,
-      /\bapple\s+pencil\b/,
-      /\bselfie\s+sticks?\b/,
-    ],
-  },
-  {
-    value: 'electronics/computers',
-    parent: 'Electronics',
-    label: 'Computers',
-    match: [
-      /\blaptops?\b/,
-      /\bchromebooks?\b/,
-      /\bmacbooks?\b/,
-      /\bdesktop\s+pcs?\b/,
-      /\bmini\s+pcs?\b/,
-      /\bcomputers?\b/,
-      /\b(?:computer|gaming|portable)\s+monitors?\b/,
-      /^monitors?$/,
-      /\bkeyboards?\b/,
-      /\b(?:computer|wireless|gaming)\s+mouse\b/,
-      /\bkeyboard\s+and\s+mouse\b/,
-      /\btrackpads?\b/,
-      /\bwebcams?\b/,
-      /\bwi-?fi\b/,
-      /\brouters?\b/,
-      /\bmodems?\b/,
-      /\bmesh\s+systems?\b/,
-      /\bnetwork\s+switch(?:es)?\b/,
-      /\bethernet\b/,
-      /\busb\s+hubs?\b/,
-      /\bdocking\s+stations?\b/,
-      /\bkvms?\b/,
-      /\bssds?\b/,
-      /\bhard\s+drives?\b/,
-      /\bflash\s+drives?\b/,
-      /\bsd\s+cards?\b/,
-      /\bmemory\s+cards?\b/,
-      /\bprinters?\b/,
-      /\bscanners?\b/,
-      /\btoners?\b/,
-      /\bink\s+cartridges?\b/,
-      /\blaptop\s+(?:stands?|batteries|battery|chargers?)\b/,
-      /\bmonitor\s+(?:arms?|stands?)\b/,
-      /\bmouse\s+pads?\b/,
-      /\bcooling\s+pads?\b/,
-      /\bgraphics\s+cards?\b/,
-      /\bmotherboards?\b/,
-      /\bcpus?\b/,
-      /\bpc\s+cases?\b/,
-      /\bserver\s+racks?\b/,
-    ],
-  },
-  {
-    value: 'electronics/smart-home-security',
-    parent: 'Electronics',
-    label: 'Smart Home',
-    match: [
-      /\bsecurity\s+cameras?\b/,
-      /\btrail\s+cameras?\b/,
-      /\bip\s+cameras?\b/,
-      /\bnvr\b/,
-      /\bdvr\b/,
-      /\bvideo\s+doorbells?\b/,
-      /\bsmart\s+doorbells?\b/,
-      /\bsmart\s+plugs?\b/,
-      /\bsmart\s+hubs?\b/,
-      /\bsmart\s+home\b/,
-      /\balarm\s+systems?\b/,
-      /\bmotion\s+sensors?\b/,
-      /\bdoor\s+sensors?\b/,
-      /\btracker\s+tags?\b/,
-      /\bairtags?\b/,
-      /\bgps\s+trackers?\b/,
-      /\bintercoms?\b/,
-      /\bmetal\s+detectors?\b/,
-    ],
-  },
-  {
-    value: 'electronics/tv-video-cameras',
-    parent: 'Electronics',
-    label: 'TV & Cameras',
-    match: [
-      /\btv\s+(?:wall\s+)?mounts?\b/,
-      /\btelevisions?\b/,
-      /\bsmart\s+tvs?\b/,
-      /\btv\s+antennas?\b/,
-      /\bprojectors?\b/,
-      /\bprojection\s+screens?\b/,
-      /\bprojector\s+(?:screens?|lamps?)\b/,
-      /\baction\s+cameras?\b/,
-      /\bbody\s+cameras?\b/,
-      /\bdigital\s+cameras?\b/,
-      /\bcamera\s+cases?\b/,
-      /\bcameras?\b/,
-      /\bcamcorders?\b/,
-      /\btripods?\b/,
-      /\bgimbals?\b/,
-      /\bdrones?\b/,
-      /\bstreaming\s+(?:devices?|sticks?|box(?:es)?)\b/,
-      /\bdigital\s+photo\s+frames?\b/,
-      /\bhdmi\b/,
-      /\bremote\s+controls?\b/,
-      /\bcapture\s+cards?\b/,
-      /\bgreen\s+screens?\b/,
-      /\bstudio\s+lights?\b/,
-      /\bsoftbox(?:es)?\b/,
-      /\bgame\s+controllers?\b/,
-      /^controllers?$/,
-    ],
-  },
-  {
-    value: 'electronics/power-cables',
-    parent: 'Electronics',
-    label: 'Cables & Power',
-    match: [
-      /\bpower\s+banks?\b/,
-      /\bportable\s+power\s+stations?\b/,
-      /\bsolar\s+panels?\b/,
-      /\bwireless\s+chargers?\b/,
-      /\bwall\s+chargers?\b/,
-      /\busb\s+chargers?\b/,
-      /\bcharging\s+(?:stations?|cables?|pads?|docks?)\b/,
-      /\bpower\s+adapters?\b/,
-      /\bac\s+adapters?\b/,
-      /\busb\s+cables?\b/,
-      /\blightning\s+cables?\b/,
-      /\bpower\s+cords?\b/,
-      /\bups\b/,
-      /\bbattery\s+backups?\b/,
-      /\bbatteries\b/,
-      /\bbattery\b/,
-      /\balkaline\b/,
-      /\blithium\s+battery\b/,
-      /\bcoin\s+battery\b/,
-      /\badapters?\b/,
-    ],
-  },
-
-  // --- Sports & Toys (before Home so vibration plates & camping chairs land here) ---
-  {
-    value: 'sports-toys/fitness',
-    parent: 'Sports & Toys',
-    label: 'Fitness',
-    match: [
-      /\bvibration\s+plates?\b/,
-      /\btreadmills?\b/,
-      /\bwalking\s+pads?\b/,
-      /\bexercise\s+bikes?\b/,
-      /\bstationary\s+bikes?\b/,
-      /\bellipticals?\b/,
-      /\browing\s+machines?\b/,
-      /\bsteppers?\b/,
-      /\bdumbbells?\b/,
-      /\bkettlebells?\b/,
-      /\bbarbells?\b/,
-      /\bweight\s+(?:plates?|bench(?:es)?|racks?|sets?)\b/,
-      /\bweighted\s+vests?\b/,
-      /\b(?:yoga|exercise|interlocking|gym)\s+mats?\b/,
-      /\bresistance\s+bands?\b/,
-      /\bpull-up\s+bars?\b/,
-      /\bpush-up\b/,
-      /\bab\s+rollers?\b/,
-      /\bjump\s+ropes?\b/,
-      /\bfoam\s+rollers?\b/,
-      /\bmedicine\s+balls?\b/,
-      /\bpilates\b/,
-      /\bboxing\b/,
-      /\bpunching\s+bags?\b/,
-      /\binversion\s+tables?\b/,
-      /\bsquat\s+racks?\b/,
-      /\bbench\s+press\b/,
-    ],
-  },
-  {
-    value: 'sports-toys/camping-rec',
-    parent: 'Sports & Toys',
-    label: 'Camping & Fishing',
-    match: [
-      /\bcamping\s+(?:chairs?|tables?|cots?|stoves?|lanterns?|mats?|pads?|gear|tents?)\b/,
-      /\bpop-up\s+tents?\b/,
-      /\bbeach\s+tents?\b/,
-      /\btents?\b/,
-      /\bsleeping\s+(?:bags?|pads?)\b/,
-      /\bfishing\s+(?:rods?|reels?|tackle|nets?|kits?|lines?|lures?)\b/,
-      /\bkayaks?\b/,
-      /\bpaddleboards?\b/,
-      /\bpaddles?\b/,
-      /\boars?\b/,
-      /\blife\s+(?:jackets?|vests?)\b/,
-      /\bdry\s+bags?\b/,
-      /\bbinoculars?\b/,
-      /\btelescopes?\b/,
-      /\bmonoculars?\b/,
-      /\bspotting\s+scopes?\b/,
-      /\bcompass(?:es)?\b/,
-      /\bstadium\s+seats?\b/,
-      /\bbleacher\s+seats?\b/,
-      /\btrekking\s+poles?\b/,
-      /\bhiking\b/,
-      /\bheadlamps?\b/,
-      /\bflashlights?\b/,
-      /\btactical\b/,
-      /\bhunting\b/,
-      /\btree\s+stands?\b/,
-      /\bbeach\s+(?:chairs?|umbrellas?)\b/,
-      /\bfolding\s+wagons?\b/,
-      /\butility\s+wagons?\b/,
-    ],
-  },
-  {
-    value: 'sports-toys/sports-bikes',
-    parent: 'Sports & Toys',
-    label: 'Sports & Bikes',
-    match: [
-      /\bbasketballs?\b/,
-      /\bfootballs?\b/,
-      /\bsoccer\b/,
-      /\bbaseballs?\b/,
-      /\bbaseball\s+gloves?\b/,
-      /\bsoftballs?\b/,
-      /\bvolleyballs?\b/,
-      /\btennis\b/,
-      /\bpickleball\b/,
-      /\bbadminton\b/,
-      /\bgolf\b(?!\s+cart)/,
-      /\bhockey\b(?!\s+table)/,
-      /\blacrosse\b/,
-      /\barchery\b/,
-      /\bbow\s+and\s+arrow\b/,
-      /\bdartboards?\b/,
-      /\bcornhole\b/,
-      /\bdisc\s+golf\b/,
-      /\bbowling\b/,
-      /\bbicycles?\b/,
-      /\bbikes?\b/,
-      /\be-bikes?\b/,
-      /\bscooters?\b/,
-      /\bskateboards?\b/,
-      /\blongboards?\b/,
-      /\broller\s+skates?\b/,
-      /\binline\s+skates?\b/,
-      /\bhelmets?\b/,
-      /\bshin\s+guards?\b/,
-      /\bbatting\b/,
-      /\bgoal\s+nets?\b/,
-      /\brebounders?\b/,
-      /\bball\s+pumps?\b/,
-      /\bswim\s+goggles?\b/,
-      /\bsnorkels?\b/,
-      /\bwetsuits?\b/,
-      /\bsurfboards?\b/,
-      /\bsleds?\b/,
-      /\bsnowboards?\b/,
-      /\bskis?\b/,
-    ],
-  },
-  {
-    value: 'sports-toys/toys-games-music',
-    parent: 'Sports & Toys',
-    label: 'Toys & Games',
-    match: [
-      /\b(?:water|foam)\s+blasters?\b/,
-      /\bnerf\b/,
-      /\bblasters?\b/,
-      /\bride-on\b/,
-      /\btoys?\b/,
-      /\bboard\s+games?\b/,
-      /\bcard\s+games?\b/,
-      /\bpuzzles?\b/,
-      /\bstuffed\s+animals?\b/,
-      /\bplush\b/,
-      /\baction\s+figures?\b/,
-      /\bdolls?\b/,
-      /\bdollhouses?\b/,
-      /\bplaysets?\b/,
-      /\bbuilding\s+blocks?\b/,
-      /\blego\b/,
-      /\bmagnetic\s+tiles?\b/,
-      /\barcade\s+games?\b/,
-      /\bair\s+hockey\b/,
-      /\bfoosball\b/,
-      /\bpool\s+tables?\b/,
-      /\bping\s+pong\b/,
-      /\btable\s+tennis\b/,
-      /\bbounce\s+houses?\b/,
-      /\bball\s+pits?\b/,
-      /\btrampolines?\b/,
-      /\bswing\s+sets?\b/,
-      /\brc\s+cars?\b/,
-      /\bremote\s+control\s+(?:cars?|trucks?|boats?|helicopters?|planes?)\b/,
-      /\btrain\s+sets?\b/,
-      /\bslot\s+cars?\b/,
-      /\bplay\s+kitchens?\b/,
-      /\bcoloring\b/,
-      /\bcraft\s+kits?\b/,
-      /\bslime\b/,
-      /\bplay-doh\b/,
-      /\bbingo\b/,
-      /\bchess\b/,
-      /\bpoker\b/,
-      /\bmahjong\b/,
-      /\bdigital\s+pianos?\b/,
-      /\bkeyboard\s+pianos?\b/,
-      /\bguitars?\b/,
-      /\bukuleles?\b/,
-      /\bdrum\s+sets?\b/,
-      /\bviolins?\b/,
-      /\btrumpets?\b/,
-      /\bharmonicas?\b/,
-      /\bmusic\s+stands?\b/,
-      /\bmetronomes?\b/,
-      /\bkites?\b/,
-      /\bbubble\s+machines?\b/,
-      /\bfidget\b/,
-      /\bcollectibles?\b/,
-      /\btrading\s+cards?\b/,
-    ],
-  },
-
-  // --- Home ---
-  {
-    value: 'home/rugs-mats',
-    parent: 'Home',
-    label: 'Rugs & Mats',
-    match: [
-      /\barea\s+rugs?\b/,
-      /\brunner\s+rugs?\b/,
-      /\brugs?\b/,
-      /\brug\s+pads?\b/,
-      /\bdoor\s*mats?\b/,
-      /\bfloor\s+mats?\b/,
-      /\bbath\s*mats?\b/,
-      /\bkitchen\s+mats?\b/,
-      /\banti-fatigue\s+mats?\b/,
-      /\bchair\s+mats?\b/,
-      /\bstring\s+mats?\b/,
-      /\bwelcome\s+mats?\b/,
-      /\bentryway\s+mats?\b/,
-      /^mats?$/,
-    ],
-  },
-  {
-    value: 'home/curtains-blinds',
-    parent: 'Home',
-    label: 'Curtains & Blinds',
-    match: [
-      /\bcurtain\s+rods?\b/,
-      /\bcurtains?\b/,
-      /\bdrapes?\b/,
-      /\bvalances?\b/,
-      /\b[w]indow\s+(?:blinds?|shades?)\b/,
-      /\bblinds?\b/,
-      /\broller\s+shades?\b/,
-      /\broman\s+shades?\b/,
-      /\bvenetian\s+blinds?\b/,
-    ],
-  },
-  {
-    value: 'home/towels-linens',
-    parent: 'Home',
-    label: 'Towels & Linens',
-    match: [
-      /\bbath\s+towels?\b/,
-      /\bhand\s+towels?\b/,
-      /\bwashcloths?\b/,
-      /\btowel\s+sets?\b/,
-      /\bkitchen\s+towels?\b/,
-      /\bdish\s+towels?\b/,
-      /\btablecloths?\b/,
-      /\btable\s+runners?\b/,
-      /\bplacemats?\b/,
-      /\bnapkins?\b/,
-      /\b(?:couch|sofa|chair)\s+(?:covers?|cushions?)\b/,
-      /\bslipcovers?\b/,
-    ],
-  },
-  {
-    value: 'home/bedding-linens',
-    parent: 'Home',
-    label: 'Bedding',
-    match: [
-      /\bsheet\s+sets?\b/,
-      /\bfitted\s+sheets?\b/,
-      /\bflat\s+sheets?\b/,
-      /\bbed\s+sheets?\b/,
-      /\bpillowcases?\b/,
-      /\bpillows?\b/,
-      /\bcomforters?\b/,
-      /\bquilts?\b/,
-      /\bduvets?\b/,
-      /\bbedspreads?\b/,
-      /\bblankets?\b/,
-      /\bthrows?\b/,
-      /\bmattress\s+(?:toppers?|protectors?|pads?|covers?)\b/,
-      /\bair\s+mattress(?:es)?\b/,
-      /\bmattress(?:es)?\b/,
-      /\bbox\s+springs?\b/,
-      /\bbed\s+skirts?\b/,
-    ],
-  },
-  {
-    value: 'home/kitchen-dining',
-    parent: 'Home',
-    label: 'Kitchen & Dining',
-    match: [
-      /\bcookware\b/,
-      /\bfrying\s+pans?\b/,
-      /\bskillets?\b/,
-      /\bsaucepans?\b/,
-      /\bstockpots?\b/,
-      /\bdutch\s+ovens?\b/,
-      /\bwoks?\b/,
-      /\broasting\s+pans?\b/,
-      /\bbakeware\b/,
-      /\bbaking\s+(?:sheets?|pans?|dish(?:es)?|mats?)\b/,
-      /\bcake\s+pans?\b/,
-      /\bmuffin\s+pans?\b/,
-      /\bcasseroles?\b/,
-      /\bwater\s+bath\s+canner\b/,
-      /\bfood\s+storage\b/,
-      /\bmeal\s+prep\b/,
-      /\blunch\s+box(?:es)?\b/,
-      /\bbento\b/,
-      /\bchafing\s+dish(?:es)?\b/,
-      /\bknife\s+(?:sets?|strips?)\b/,
-      /\bchef\s+knives?\b/,
-      /\bsteak\s+knives?\b/,
-      /\bkitchen\s+knives?\b/,
-      /\bcutting\s+boards?\b/,
-      /\butensils?\b/,
-      /\bspatulas?\b/,
-      /\bladles?\b/,
-      /\bwhisks?\b/,
-      /\btongs\b/,
-      /\bcolanders?\b/,
-      /\bstrainers?\b/,
-      /\bmixing\s+bowls?\b/,
-      /\bmeasuring\s+(?:cups?|spoons?)\b/,
-      /\bdinner\s+plates?\b/,
-      /\bcharger\s+plates?\b/,
-      /\bplates?\b(?!.*(?:wall|license|weight|vibration|hot|tie|mending))/,
-      /\bdinnerware\b/,
-      /\bbowls?\b/,
-      /\bmugs?\b/,
-      /\bcups?\b/,
-      /\bdrinking\s+glasses?\b/,
-      /\bwine\s+glasses?\b/,
-      /\bchampagne\s+flutes?\b/,
-      /\btumblers?\b/,
-      /\bwater\s+bottles?\b/,
-      /\bshaker\s+bottles?\b/,
-      /\bthermos(?:es)?\b/,
-      /\bflasks?\b/,
-      /\bpitchers?\b/,
-      /\bcarafes?\b/,
-      /\bdrink\s+dispensers?\b/,
-      /\bmason\s+jars?\b/,
-      /\bteapots?\b/,
-      /\bfrench\s+press\b/,
-      /\bdish\s+racks?\b/,
-      /\bdrying\s+mats?\b/,
-      /\bspice\s+racks?\b/,
-      /\bsilverware\b/,
-      /\bflatware\b/,
-      /\bcutlery\b/,
-      /\bserving\s+(?:trays?|platters?|bowls?)\b/,
-      /\blazy\s+susan\b/,
-      /\bcanisters?\b/,
-      /\bbread\s+box(?:es)?\b/,
-      /\bwine\s+racks?\b/,
-      /\bbottle\s+(?:openers?|pourers?)\b/,
-      /\bjar\s+openers?\b/,
-      /\bcorkscrews?\b/,
-      /\bcan\s+openers?\b/,
-      /\bcan\s+sleeves?\b/,
-      /\bpeelers?\b/,
-      /\bgraters?\b/,
-      /\bmandolines?\b/,
-      /\bgarlic\s+press\b/,
-      /\bkitchen\s+scales?\b/,
-      /\bice\s+cube\s+trays?\b/,
-      /\bice\s+cream\s+cone\s+holders?\b/,
-      /\bstraws?\b/,
-      /\bcoasters?\b/,
-      /\btrivets?\b/,
-      /\boven\s+mitts?\b/,
-      /\bpot\s+holders?\b/,
-      /\baprons?\b/,
-      /\bmini\s+pots?\b/,
-    ],
-  },
-  {
-    value: 'home/storage-organization',
-    parent: 'Home',
-    label: 'Storage',
-    match: [
-      /\bstorage\s+(?:bins?|containers?|box(?:es)?|baskets?|racks?|totes?|bags?|chests?|bench(?:es)?|cubes?|drawers?|carts?|shelves?|organizers?|trunks?)\b/,
-      /\bshelving\s+units?\b/,
-      /\bwire\s+shelves?\b/,
-      /\bfloating\s+shelves?\b/,
-      /\bwall\s+shelves?\b/,
-      /\bcorner\s+shelves?\b/,
-      /\bshelves?\b/,
-      /\bshelf\b/,
-      /\bshoe\s+(?:racks?|organizers?|cabinets?|box(?:es)?|storage)\b/,
-      /\bcloset\s+organizers?\b/,
-      /\bcabinet\s+organizers?\b/,
-      /\bdrawer\s+organizers?\b/,
-      /\bdesk\s+organizers?\b/,
-      /\bpantry\s+organizers?\b/,
-      /\bmakeup\s+organizers?\b/,
-      /\bjewelry\s+(?:box(?:es)?|organizers?)\b/,
-      /\btrash\s+cans?\b/,
-      /\bgarbage\s+cans?\b/,
-      /\bwaste\s+baskets?\b/,
-      /\brecycling\s+bins?\b/,
-      /\blaundry\s+(?:baskets?|hampers?|sorters?|bags?)\b/,
-      /\bdrying\s+racks?\b/,
-      /\bclothes\s+racks?\b/,
-      /\bgarment\s+racks?\b/,
-      /\butility\s+carts?\b/,
-      /\brolling\s+carts?\b/,
-      /\bkey\s+racks?\b/,
-      /\bhangers?\b/,
-      /\bhooks?\b/,
-      /\bpegboards?\b/,
-      /\bgun\s+safes?\b/,
-      /\bsafes?\b/,
-      /\bcash\s+box(?:es)?\b/,
-      /\bfile\s+box(?:es)?\b/,
-      /\bcrates?\b/,
-      /\bbaskets?\b/,
-      /\bbins?\b/,
-      /\borganizers?\b/,
-    ],
-  },
-  {
-    value: 'home/furniture',
-    parent: 'Home',
-    label: 'Furniture',
-    match: [
-      /\bbed\s+frames?\b/,
-      /\bfolding\s+beds?\b/,
-      /\bheadboards?\b/,
-      /\bfootboards?\b/,
-      /\bbunk\s+beds?\b/,
-      /\bdaybeds?\b/,
-      /\bfutons?\b/,
-      /\bsofas?\b/,
-      /\bcouch(?:es)?\b/,
-      /\bsectionals?\b/,
-      /\bloveseats?\b/,
-      /\brecliners?\b/,
-      /\barmchairs?\b/,
-      /\baccent\s+chairs?\b/,
-      /\bdining\s+chairs?\b/,
-      /\boffice\s+chairs?\b/,
-      /\bgaming\s+chairs?\b/,
-      /\bfolding\s+chairs?\b/,
-      /\brocking\s+chairs?\b/,
-      /\bbar\s*stools?\b/,
-      /\bcounter\s+stools?\b/,
-      /\bstools?\b/,
-      /\bdesks?\b/,
-      /\b(?:coffee|end|side|console|dining|folding|accent|vanity)\s+tables?\b/,
-      /\bbookshelves?\b/,
-      /\bbookcases?\b/,
-      /\bdressers?\b/,
-      /\bchest\s+of\s+drawers\b/,
-      /\bnightstands?\b/,
-      /\bwardrobes?\b/,
-      /\barmoires?\b/,
-      /\bottomans?\b/,
-      /\btv\s+stands?\b/,
-      /\bentertainment\s+centers?\b/,
-      /\bsideboards?\b/,
-      /\bbuffets?\b/,
-      /\bcredenzas?\b/,
-      /\bhutches?\b/,
-      /\bcoat\s+racks?\b/,
-      /\bhall\s+trees?\b/,
-      /\broom\s+dividers?\b/,
-      /\bbean\s+bags?\b/,
-      /\bchairs?\b/,
-    ],
-  },
-  {
-    value: 'home/decor',
-    parent: 'Home',
-    label: 'Decor',
-    match: [
-      /\bwall\s+art\b/,
-      /\bcanvas\s+art\b/,
-      /\bframed\s+art\b/,
-      /\bposters?\b/,
-      /\btapestries\b/,
-      /\bpicture\s+frames?\b/,
-      /\bphoto\s+frames?\b/,
-      /\b(?:wall|floor|full-length)\s+mirrors?\b/,
-      /\bmirrors?\b/,
-      /\bdecorative\s+vases?\b/,
-      /\bvases?\b/,
-      /\b(?:wall|desk|alarm)\s+clocks?\b/,
-      /\bclocks?\b/,
-      /\b(?:artificial|faux)\s+(?:plants?|flowers?|trees?|greenery|succulents?)\b/,
-      /\bcandles?\b/,
-      /\bcandle\s+holders?\b/,
-      /\bfigurines?\b/,
-      /\bsculptures?\b/,
-      /\bstatues?\b/,
-      /\bcenterpieces?\b/,
-      /\bdecorative\s+(?:bowls?|trays?|pillows?|box(?:es)?|accents?|signs?|globes?)\b/,
-      /\bwall\s+(?:decor|hangings?|decals?)\b/,
-      /\bbookends?\b/,
-      /\bsnow\s+globes?\b/,
-      /\bmusic\s+box(?:es)?\b/,
-      /\btissue\s+box\s+cover\b/,
-      /\bdoorstops?\b/,
-    ],
-  },
-  {
-    value: 'home/cleaning-household',
-    parent: 'Home',
-    label: 'Cleaning',
-    match: [
-      /\bcleaners?\b/,
-      /\bdetergents?\b/,
-      /\blaundry\s+products?\b/,
-      /\bbleach\b/,
-      /\bdisinfectants?\b/,
-      /\bsanitizing\s+spray\b/,
-      /\bstain\s+removers?\b/,
-      /\bfabric\s+softeners?\b/,
-      /\bdryer\s+sheets?\b/,
-      /\bair\s+fresheners?\b/,
-      /\bodor\s+eliminators?\b/,
-      /\bmops?\b/,
-      /\bmop\s+buckets?\b/,
-      /\bbrooms?\b/,
-      /\bdust\s*pans?\b/,
-      /\bsqueegees?\b/,
-      /\bsponges?\b/,
-      /\bscrub\s+brush(?:es)?\b/,
-      /\btoilet\s+brush(?:es)?\b/,
-      /\bdusters?\b/,
-      /\bmicrofiber\s+cloths?\b/,
-      /\bcleaning\s+(?:cloths?|kits?|brush(?:es)?|pads?|wipes?)\b/,
-      /\bwet\s+wipes?\b/,
-      /\btrash\s+bags?\b/,
-      /\bgarbage\s+bags?\b/,
-      /\bpaper\s+towels?\b/,
-      /\blint\s+rollers?\b/,
-      /\bbuckets?\b/,
-      /\bpest\s+control\b/,
-      /\binsect\s+traps?\b/,
-      /\bmouse\s+traps?\b/,
-      /\bbug\s+zappers?\b/,
-      /\bfly\s+swatters?\b/,
-      /\brepellents?\b/,
-      /\bstep\s+cans?\b/,
-      /\bclotheslines?\b/,
-      /\bclothespins?\b/,
-      /\blint\s+traps?\b/,
-    ],
-  },
-
-  // --- Apparel & Bags ---
-  {
-    value: 'apparel/clothing-accessories',
-    parent: 'Apparel & Bags',
-    label: 'Apparel & Bags',
-    match: [
-      /\bpolos?\b/,
-      /\bt-shirts?\b/,
-      /\btees?\b/,
-      /\bshirts?\b/,
-      /\bblouses?\b/,
-      /\bsweaters?\b/,
-      /\bcardigans?\b/,
-      /\bhoodies?\b/,
-      /\bsweatshirts?\b/,
-      /\bjackets?\b/,
-      /\bcoats?\b/,
-      /\bvests?\b/,
-      /\bdress(?:es)?\b/,
-      /\bskirts?\b/,
-      /\bpants?\b/,
-      /\bjeans?\b/,
-      /\bshorts?\b/,
-      /\bleggings?\b/,
-      /\bjoggers?\b/,
-      /\btrousers?\b/,
-      /\bsuits?\b/,
-      /\bblazers?\b/,
-      /\bbodysuits?\b/,
-      /\brompers?\b/,
-      /\bjumpsuits?\b/,
-      /\bbikinis?\b/,
-      /\bswimsuits?\b/,
-      /\bswimwear\b/,
-      /\blingerie\b/,
-      /\bshapewear\b/,
-      /\bunderwear\b/,
-      /\bboxers?\b/,
-      /\bbriefs\b/,
-      /\bbras?\b/,
-      /\bsocks?\b/,
-      /\bpajamas?\b/,
-      /\brobes?\b/,
-      /\blounge\s+sets?\b/,
-      /\bboots?\b/,
-      /\bshoes?\b/,
-      /\bsneakers?\b/,
-      /\bsandals?\b/,
-      /\bslippers?\b/,
-      /\bloafers?\b/,
-      /\bheels?\b/,
-      /\bhats?\b/,
-      /\bbeanies?\b/,
-      /\bscarves\b/,
-      /\bscarf\b/,
-      /\bgloves?\b/,
-      /\bbelts?\b/,
-      /\bsunglasses\b/,
-      /\beyeglasses\b/,
-      /\bwatch(?:es)?\b/,
-      /\bjewelry\b/,
-      /\bnecklaces?\b/,
-      /\bbracelets?\b/,
-      /\bearrings?\b/,
-      /\brings?\b/,
-      /\bbackpacks?\b/,
-      /\bduff(?:el|le)\s+bags?\b/,
-      /\btote\s+bags?\b/,
-      /\bhandbags?\b/,
-      /\bpurses?\b/,
-      /\bwallets?\b/,
-      /\bbriefcases?\b/,
-      /\blaptop\s+bags?\b/,
-      /\bmessenger\s+bags?\b/,
-      /\bluggage\b/,
-      /\bsuitcases?\b/,
-      /\bcarry-ons?\b/,
-      /\bpacking\s+cubes?\b/,
-      /\bfanny\s+packs?\b/,
-      /\bumbrellas?\b/,
-      /\bponchos?\b/,
-      /\braincoats?\b/,
-    ],
-  },
-
-  // --- Office & Misc ---
-  {
-    value: 'office/office-shipping',
-    parent: 'Office & Misc',
-    label: 'Office & Shipping',
-    match: [
-      /\bshipping\s+box(?:es)?\b/,
-      /\bcardboard\s+box(?:es)?\b/,
-      /\bcake\s+box(?:es)?\b/,
-      /\bmailers?\b/,
-      /\bbubble\s+wrap\b/,
-      /\bpacking\s+tape\b/,
-      /\bstretch\s+wrap\b/,
-      /\bshipping\s+labels?\b/,
-      /\blabel\s+(?:makers?|printers?)\b/,
-      /\bpostal\s+scales?\b/,
-      /\bwhiteboards?\b/,
-      /\bbulletin\s+boards?\b/,
-      /\bcork\s+boards?\b/,
-      /\bchalkboards?\b/,
-      /\beasels?\b/,
-      /\bbooks?\b/,
-      /\bworkbooks?\b/,
-      /\bplanners?\b/,
-      /\bnotebooks?\b/,
-      /\bjournals?\b/,
-      /\bcalendars?\b/,
-      /\bbinders?\b/,
-      /\bfolders?\b/,
-      /\bclipboards?\b/,
-      /\bstaplers?\b/,
-      /\bshredders?\b/,
-      /\blaminators?\b/,
-      /\bcalculators?\b/,
-      /\bpens?\b/,
-      /\bpencils?\b/,
-      /\bmarkers?\b/,
-      /\bhighlighters?\b/,
-      /\bscissors\b/,
-      /\btape\s+dispensers?\b/,
-      /\benvelopes?\b/,
-      /\bsticky\s+notes?\b/,
-      /\bstickers?\b/,
-      /\bnewsprint\b/,
-      /\bkraft\s+.*bags?\b/,
-      /\bcircle\s+punch\b/,
-      /\bhole\s+punch\b/,
-      /\bdisplay\s+(?:cases?|stands?)\b/,
-      /\bgrid\s+wall\b/,
-      /\bslatwall\b/,
-      /\bmannequins?\b/,
-      /\bstanchions?\b/,
-      /\bbackdrops?\b/,
-      /\bsign\s+holders?\b/,
-      /\bbrochure\s+holders?\b/,
-      /\bcash\s+registers?\b/,
-      /\bbarcode\s+scanners?\b/,
-      /\breceipt\s+printers?\b/,
-      /\btime\s+clocks?\b/,
-      /\bbadge\s+holders?\b/,
-      /\blanyards?\b/,
-      /\bparty\s+suppl\b/,
-      /\bballoons?\b/,
-      /\bgift\s+bags?\b/,
-      /\bwrapping\s+paper\b/,
-      /\bribbons?\b/,
-      /\bart\s+suppl\b/,
-      /\bsewing\b/,
-      /\byarn\b/,
-      /\bcrafts?\b/,
-    ],
-  },
-  {
-    value: 'office/misc-lots',
-    parent: 'Office & Misc',
-    label: 'Bulk & Misc Lots',
-    match: [
-      /\b(?:miscellaneous|misc|assorted|bathroom|hardware|mixed|electronic|school\s+accessory)\s+lots?\b/,
-      /\blot\s+box(?:es)?\b/,
-      /\bmystery\s+box(?:es)?\b/,
-    ],
-  },
+/** A group's own category and all its subcategories, nested ones included. */
+export const groupFacets = (g: CategoryGroup): Facet<string>[] => [
+  g.facet,
+  ...g.subs.flatMap(groupFacets),
 ];
 
-const BY_VALUE = new Map(CATEGORIES.map(c => [c.value, c]));
+export const categoryCollapseId = (value: string) => `cat:${value}`;
 
-const CUSTOM_PARENTS = new Set(CATEGORIES.map(c => c.parent));
+// ---------------------------------------------------------------------------
+// Category editor logic
+// ---------------------------------------------------------------------------
 
-const PARENT_SUB_COUNTS = new Map<string, number>();
-for (const c of CATEGORIES) {
-  PARENT_SUB_COUNTS.set(c.parent, (PARENT_SUB_COUNTS.get(c.parent) ?? 0) + 1);
+/** A category being edited; `from` is its saved name (null if new), so renames can follow it. */
+export interface CategoryDraft {
+  key: number;
+  from: string | null;
+  name: string;
+  types: string[];
 }
 
-/**
- * Where unmapped site-category fallbacks nest in the two-level tree so they never appear as
- * duplicate top-level rows alongside a custom parent.
- */
-const SITE_FALLBACK_PARENT: Record<string, string> = {
-  automotive: 'Automotive',
-  Building_Hardware: 'Building & Hardware',
-  'electronics-appliances': 'Electronics',
-  'General-Merchandise': 'Office & Misc',
-  'health-beauty': 'Health & Beauty',
-  home: 'Home',
-  'lighting-electrical': 'Lighting & Electrical',
-  outdoor: 'Outdoor & Garden',
-  'plumbing-bath': 'Plumbing & Bath',
-  tools: 'Tools',
-  Toys_Sports: 'Sports & Toys',
-} satisfies Record<SiteCategory, string>;
+/** The category a draft saves as. */
+export const clean = (d: Pick<CategoryDraft, 'name' | 'types'>): CustomCategory => ({
+  name: d.name.trim(),
+  types: d.types,
+});
 
-/**
- * Single-subcategory parents whose matching site category can absorb unmapped lots directly instead
- * of creating a redundant "Other" child.
- */
-const SINGLE_SUB_FALLBACK: Record<string, CategoryDef> = {
-  Apparel: BY_VALUE.get('apparel/clothing-accessories')!,
-  'baby-kids': BY_VALUE.get('baby-kids/gear')!,
-  Pets: BY_VALUE.get('pets/supplies')!,
-};
-
-/** Whether a category value belongs to a fixed custom category (not a site fallback). */
-export const isCustomCategory = (value: string): boolean => BY_VALUE.has(value);
-
-function matchesRule(match: CategoryDef['match'], type: string, site: SiteCategory): boolean {
-  if (typeof match === 'function') {
-    return match(type, site);
+/** What's wrong with a category editor row, if anything. */
+export function categoryDraftError(d: CategoryDraft, drafts: CategoryDraft[]): string | null {
+  const name = d.name.trim();
+  if (!name) {
+    return 'Name is required';
   }
-  if (match instanceof RegExp) {
-    return match.test(type);
+  if (drafts.some(o => o !== d && o.name.trim().toLowerCase() === name.toLowerCase())) {
+    return 'Another category has this name';
   }
-  return matchesAny(match, type);
+  if (!d.types.length && !drafts.some(o => o !== d && o.name.trim().startsWith(`${name} - `))) {
+    return 'Add item types';
+  }
+  return null;
 }
 
-/** Classify a lot into its fixed custom category, falling back to the site's category. */
-export function categorizeLot(lot: Pick<Lot, 'category' | 'itemType'>): {
-  value: string;
-  label: string;
-} {
-  const type = lot.itemType?.trim().toLowerCase();
-  const site = lot.category.value;
-  assert(isSiteCategory(site), `Unexpected site category: ${site}`);
-  if (type) {
-    for (const def of CATEGORIES) {
-      if (matchesRule(def.match, type, site)) {
-        return { value: def.value, label: def.label };
+/** Which category draft takes each open lot. */
+export function assignLotsToDrafts(drafts: CategoryDraft[], lots: Lot[]): Map<number, Lot[]> {
+  const cats = drafts.map(clean);
+  const compiled = compileCategories(cats);
+  const taken = new Map<number, Lot[]>(drafts.map(d => [d.key, []]));
+  for (const lot of lots) {
+    const owner = categoryIndex(lot, compiled);
+    if (owner >= 0) {
+      taken.get(drafts[owner]!.key)!.push(lot);
+    }
+  }
+  return taken;
+}
+
+/** Count open lots per item type. */
+export function countItemTypes(lots: Lot[]): Map<string, number> {
+  const by = new Map<string, number>();
+  for (const l of lots) {
+    if (l.itemType) {
+      by.set(l.itemType, (by.get(l.itemType) ?? 0) + 1);
+    }
+  }
+  return by;
+}
+
+/** Build the rename/delete map from initial categories and final drafts. */
+export function buildCategoryRenames(
+  initial: CustomCategory[],
+  drafts: CategoryDraft[],
+): Map<string, string | null> {
+  const renames = new Map<string, string | null>(initial.map(c => [c.name, null]));
+  for (const d of drafts) {
+    if (d.from != null) {
+      renames.set(d.from, d.name.trim());
+    }
+  }
+  return renames;
+}
+
+export const normalizeType = (type: string) => type.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Parse comma-separated item types, skipping duplicates already in `existing`. */
+export function parseAddedTypes(raw: string, existing: string[]): string[] {
+  const seen = existing.map(normalizeType).toSet();
+  const fresh = raw
+    .split(',')
+    .map(normalizeType)
+    .filter(t => t && !seen.has(t));
+  return fresh.length ? [...existing, ...fresh].toUnique() : existing;
+}
+
+// ---------------------------------------------------------------------------
+// Type-to-category dialog logic
+// ---------------------------------------------------------------------------
+
+/** Similar types offered as checkboxes. */
+const SIMILAR_LIMIT = 12;
+
+/** "drill bit set" -> "Drill Bit Sets" */
+export function categoryName(type: string): string {
+  const words = type.split(' ');
+  const last = words.pop()!;
+  let many = `${last}s`;
+  if (/(ss|x|z|ch|sh)$/.test(last)) {
+    many = `${last}es`;
+  } else if (last.endsWith('s')) {
+    many = last;
+  } else if (/[^aeiou]y$/.test(last)) {
+    many = `${last.slice(0, -1)}ies`;
+  }
+  return [...words, many].map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+export function categoryError(
+  mode: 'new' | 'add',
+  existing: CustomCategory | undefined,
+  name: string,
+  cats: CustomCategory[],
+): string | null {
+  if (mode === 'add') {
+    return existing ? null : 'Pick a category';
+  }
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return 'Name is required';
+  }
+  if (cats.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+    return 'There’s already a category with this name – use “Add to existing”';
+  }
+  return null;
+}
+
+/** Words of a type worth comparing ("of", "and" and the like don't count). */
+const typeWords = (t: string) =>
+  t.split(/[\s/-]+/).filter(w => w.length > 2 && !['and', 'for', 'with'].includes(w));
+
+/** Whether saving takes any of `types` from `c`. */
+const loses = (c: CustomCategory, types: string[]) => c.types.some(t => types.includes(t));
+
+/** `c` without `types`, retaining empty parents of child categories. */
+function without(c: CustomCategory, types: string[], names: string[] = []): CustomCategory[] {
+  const rest = c.types.filter(t => !types.includes(t));
+  return rest.length || names.some(name => name.startsWith(`${c.name} - `))
+    ? [{ ...c, types: rest }]
+    : [];
+}
+
+/** Categories nested under the lot's site category first, then A–Z. */
+export function sortCategoryChoices(cats: CustomCategory[], siteLabel: string): CustomCategory[] {
+  const near = (c: CustomCategory) => c.name.startsWith(`${siteLabel} - `);
+  return cats.toSorted((a, b) => +near(b) - +near(a) || collator.compare(a.name, b.name));
+}
+
+export function defaultCategoryName(
+  type: string,
+  currentCategoryName: string | undefined,
+  siteLabel: string,
+): string {
+  const parent = currentCategoryName ?? siteLabel;
+  return parent ? `${parent} - ${categoryName(type)}` : categoryName(type);
+}
+
+/** Other item types sharing a word with `type`, those sharing its head word first. */
+export function findSimilarTypes(lots: Lot[], type: string) {
+  const words = typeWords(type);
+  const head = words.at(-1);
+  const counts = Map.groupBy(
+    lots.filter(
+      l => l.itemType && l.itemType !== type && typeWords(l.itemType).some(w => words.includes(w)),
+    ),
+    l => l.itemType!,
+  );
+  return counts
+    .entries()
+    .map(([t, ls]) => ({ t, count: ls.length, head: typeWords(t).at(-1) === head }))
+    .toArray()
+    .toSorted((a, b) => +b.head - +a.head || b.count - a.count || a.t.localeCompare(b.t))
+    .slice(0, SIMILAR_LIMIT);
+}
+
+/** Compute the resulting custom categories and matched lots for TypeCategory. */
+export function planTypeCategory({
+  cats,
+  mode,
+  existing,
+  name,
+  type,
+  extra,
+  lots,
+}: {
+  cats: CustomCategory[];
+  mode: 'new' | 'add';
+  existing: CustomCategory | undefined;
+  name: string;
+  type: string;
+  extra: string[];
+  lots: Lot[];
+}) {
+  const types = [type, ...extra];
+  const losing = cats.filter(c => c !== existing && loses(c, types));
+  const names = [
+    ...cats
+      .filter(c => !losing.includes(c) || c.types.some(t => !types.includes(t)))
+      .map(c => c.name),
+    ...(mode === 'new' ? [name.trim()] : []),
+  ];
+  const next = cats.flatMap(c => {
+    if (c === existing) {
+      return [{ ...c, types: [...c.types, ...types].toUnique() }];
+    }
+    return losing.includes(c) ? without(c, types, names) : [c];
+  });
+  if (mode === 'new') {
+    next.push({ name: name.trim(), types });
+  }
+  let target = -1;
+  if (existing) {
+    target = next.findIndex(c => c.name === existing.name);
+  } else if (mode === 'new') {
+    target = next.length - 1;
+  }
+  const compiled = compileCategories(next);
+  const taken = target < 0 ? [] : lots.filter(l => categoryIndex(l, compiled) === target);
+  return { next, target, taken, losing, types };
+}
+
+// ---------------------------------------------------------------------------
+// Propagating category renames/deletes across saved settings
+// ---------------------------------------------------------------------------
+
+export interface CategorySettingsSnapshot {
+  customCategories: CustomCategory[];
+  lastCategory: string | null;
+  view: unknown;
+  savedSearches: SavedSearch[];
+}
+
+export interface CategorySettingsUpdates {
+  lastCategory?: string | null;
+  view?: ViewState;
+  savedSearches?: SavedSearch[];
+}
+
+/** Compute setting updates needed when custom categories are renamed or removed. */
+export function computeCategoryUpdates(
+  categories: CustomCategory[],
+  renames: ReadonlyMap<string, string | null>,
+  snapshot: CategorySettingsSnapshot,
+): CategorySettingsUpdates {
+  const names = categories.map(c => c.name).toSet();
+  const changes = new Map<string, string | null>(
+    snapshot.customCategories.filter(c => !names.has(c.name)).map(c => [c.name, null] as const),
+  );
+  for (const [from, to] of renames) {
+    if (from !== to) {
+      changes.set(from, to);
+    }
+  }
+  if (!changes.size) {
+    return {};
+  }
+
+  const updates: CategorySettingsUpdates = {};
+  if (snapshot.lastCategory != null && changes.has(snapshot.lastCategory)) {
+    updates.lastCategory = changes.get(snapshot.lastCategory) ?? null;
+  }
+
+  const byValue = new Map(
+    changes
+      .entries()
+      .map(([from, to]) => [
+        customCategoryValue(from),
+        to == null ? null : customCategoryValue(to),
+      ]),
+  );
+  const fix = (cats: string[]) =>
+    cats.flatMap(v => {
+      const next = byValue.get(v);
+      if (next === undefined) {
+        return [v];
       }
-    }
-  }
-  const single = SINGLE_SUB_FALLBACK[site];
-  if (single) {
-    return { value: single.value, label: single.label };
-  }
-  return lot.category;
-}
+      return next === null ? [] : [next];
+    });
 
-/** A top-level row in the sidebar's category tree. */
-export interface CategoryGroup {
-  /** Collapse/React key (parent name for groups, facet value for standalone fallbacks). */
-  id: string;
-  label: string;
-  /** Total lot count across this group (sum of subs, or the standalone facet's count). */
-  count: number;
-  /** Subcategory facets; empty for standalone fallback site categories. */
-  subs: Facet<string>[];
-  /** Standalone facet when subs is empty. */
-  facet: Facet<string> | null;
-}
-
-/** All leaf category values covered by a group. */
-export function groupValues(g: CategoryGroup): string[] {
-  if (g.subs.length) {
-    return g.subs.map(s => s.value);
-  }
-  return g.facet ? [g.facet.value] : [];
-}
-
-export const categoryCollapseId = (id: string) => `cat:${id}`;
-
-/**
- * Group flat category facets into a two-level tree: custom categories nested under their parent,
- * with unmapped site-category fallbacks nested as "Other" under their matching parent so no parent
- * name is duplicated at the top level.
- */
-export function groupCategories(facets: Facet<string>[]): CategoryGroup[] {
-  const byParent = new Map<string, Facet<string>[]>();
-  const fallbackByParent = new Map<string, Facet<string>[]>();
-  const standalone: CategoryGroup[] = [];
-
-  for (const f of facets) {
-    const def = BY_VALUE.get(f.value);
-    if (def) {
-      let list = byParent.get(def.parent);
-      if (!list) {
-        list = [];
-        byParent.set(def.parent, list);
-      }
-      list.push(f);
-      continue;
-    }
-
-    const fallbackParent =
-      SITE_FALLBACK_PARENT[f.value] ?? (CUSTOM_PARENTS.has(f.label) ? f.label : undefined);
-    if (fallbackParent) {
-      let list = fallbackByParent.get(fallbackParent);
-      if (!list) {
-        list = [];
-        fallbackByParent.set(fallbackParent, list);
-      }
-      list.push({ ...f, label: 'Other' });
-    } else {
-      standalone.push({
-        id: f.value,
-        label: f.label,
-        count: f.count,
-        subs: [],
-        facet: f,
-      });
-    }
+  if (snapshot.view != null) {
+    const view = normalizeView(snapshot.view);
+    updates.view = { ...view, categories: fix(view.categories) };
   }
 
-  const allParents = new Set([...byParent.keys(), ...fallbackByParent.keys()]);
-  const groups: CategoryGroup[] = [];
-  for (const parent of allParents) {
-    const customSubs = (byParent.get(parent) ?? []).toSorted((a, b) =>
-      collator.compare(a.label, b.label),
-    );
-    const otherSubs = fallbackByParent.get(parent) ?? [];
-    const subs = [...customSubs, ...otherSubs];
+  updates.savedSearches = snapshot.savedSearches.map(s => ({
+    ...s,
+    view: { ...s.view, categories: fix(normalizeView(s.view).categories) },
+  }));
 
-    if (subs.length === 1 && otherSubs.length === 0 && PARENT_SUB_COUNTS.get(parent) === 1) {
-      // Single-subcategory parents (Pets, Baby & Kids, Apparel & Bags, Seasonal & Holiday)
-      // work cleanly as standalone top-level items without redundant nesting.
-      const only = subs[0]!;
-      groups.push({
-        id: only.value,
-        label: parent,
-        count: only.count,
-        subs: [],
-        facet: only,
-      });
-    } else {
-      groups.push({
-        id: parent,
-        label: parent,
-        count: subs.reduce((sum, s) => sum + s.count, 0),
-        subs,
-        facet: null,
-      });
-    }
-  }
-
-  return [...groups, ...standalone].toSorted((a, b) => collator.compare(a.label, b.label));
+  return updates;
 }

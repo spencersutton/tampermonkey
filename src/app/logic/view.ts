@@ -11,7 +11,7 @@ import { HOUR } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../../shared/filters';
-import { type HiddenLot } from '../../shared/keys';
+import { type CustomCategory, type HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import { itemIdentity, type ItemDetails } from '../../shared/names';
 import {
@@ -21,10 +21,10 @@ import {
   prepareDoc,
   type PreparedDoc,
 } from '../../shared/search';
-import { collator } from '../../shared/sortKey';
+import { byCode, collator } from '../../shared/sortKey';
 import type { Lot } from '../types';
 import { hasBidOn } from './bid';
-import { categorizeLot, groupCategories, groupValues } from './categories';
+import { groupCategories, groupFacets, type CategoryGroup } from './categories';
 import { memoize, memoizeWeak, memoLast } from './util';
 import '../../shared/arrayToSet';
 
@@ -230,6 +230,7 @@ export interface Exclusions {
   removeFiltered: boolean;
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
+  customCategories: CustomCategory[];
 }
 
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
@@ -262,6 +263,57 @@ function matchedType(lot: Lot, filterTypes?: string[]): string | null {
   return typeFilterSet(filterTypes).has(key) ? lot.itemType : null;
 }
 
+/** Prefix that keeps custom category values apart from the site's. */
+const CUSTOM_PREFIX = 'custom:';
+
+/** Filter value of a custom category. */
+export const customCategoryValue = (name: string) => CUSTOM_PREFIX + name;
+
+/** Whether a category value is one of my custom categories. */
+export const isCustomCategory = (value: string) => value.startsWith(CUSTOM_PREFIX);
+
+export interface CompiledCategories {
+  byType: Map<string, number>; // item type -> original index of the alphabetically first matching category
+}
+
+/** Compare category names in the same order used for display and matching. */
+export function compareCategoryNames(a: string, b: string): number {
+  const left = a.trim();
+  const right = b.trim();
+  return collator.compare(left, right) || byCode(left, right);
+}
+
+/** Custom categories ready for categoryIndex(). */
+export function compileCategories(cats: CustomCategory[]): CompiledCategories {
+  const byType = new Map<string, number>();
+  const ordered = cats
+    .map((category, index) => ({ category, index }))
+    .toSorted((a, b) => compareCategoryNames(a.category.name, b.category.name));
+  for (const { category: c, index: i } of ordered) {
+    for (const t of c.types) {
+      byType.getOrInsert(t, i);
+    }
+  }
+  return { byType };
+}
+
+/**
+ * Index of the lot's custom category, or -1 for none. The alphabetically first category listing the
+ * lot's item type wins.
+ */
+export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number {
+  const t = lot.itemType;
+  return t != null ? (byType.get(t) ?? -1) : -1;
+}
+
+const compiledCategories = memoLast(compileCategories);
+
+/** The lot's category: its custom category (see categoryIndex) if any, else the site's. */
+export function categoryOf(lot: Lot, cats: CustomCategory[]): Lot['category'] {
+  const c = cats[categoryIndex(lot, compiledCategories(cats))];
+  return c ? { value: customCategoryValue(c.name), label: c.name } : lot.category;
+}
+
 /**
  * Build the grid row for a lot: pickup/transfer cost, total, % of retail, filter match and hidden
  * state.
@@ -271,7 +323,7 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   return {
     lot,
-    category: categorizeLot(lot),
+    category: categoryOf(lot, ex.customCategories),
     transferFee,
     pickupOnly: elsewhere && !lot.is_transferable,
     total: totalCost(lot.current_price, transferFee),
@@ -841,9 +893,24 @@ function tallyBrands(brands: (string | null)[]): Facet<string>[] {
  * Categories (custom ones included), conditions, locations, item types, brands and price ranges
  * among open lots, with counts, for the filter lists.
  */
-export function computeFacets(lots: Iterable<Lot>, now: number, details?: ItemDetails): Facets {
+export function computeFacets(
+  lots: Iterable<Lot>,
+  now: number,
+  customCategories: CustomCategory[] = [],
+  details?: ItemDetails,
+): Facets {
   const open = Array.from(lots).filter(l => endsAtMs(l) > now);
-  const categories = tally(open.map(categorizeLot));
+  const categories = tally(open.map(l => categoryOf(l, customCategories)));
+  // Keep custom parents visible when all their open lots moved into descendants.
+  for (const c of customCategories) {
+    const value = customCategoryValue(c.name);
+    if (
+      !categories.some(f => f.value === value) &&
+      categories.some(f => isCustomCategory(f.value) && f.label.startsWith(`${c.name} - `))
+    ) {
+      categories.push({ value, label: c.name, count: 0 });
+    }
+  }
   return {
     categories: categories.toSorted((a, b) => a.label.localeCompare(b.label)),
     siteCategories: tally(open.map(l => l.category)),
@@ -984,19 +1051,24 @@ export function sameFilters(a: ViewState, b: Omit<ViewState, 'newSince'>): boole
 
 /** Default name for a new saved search, built from its filters. */
 export function suggestName(v: ViewState, facets: Facets): string {
+  const allCats = [...facets.categories, ...facets.siteCategories];
+  const catLabel = (value: string) => allCats.find(f => f.value === value)?.label ?? value;
   const pending = v.categories.toSet();
   const catLabels: string[] = [];
-  for (const g of groupCategories(facets.categories)) {
-    const vals = groupValues(g);
+  const collectGroup = (g: CategoryGroup) => {
+    const vals = groupFacets(g).map(f => f.value);
     if (vals.length > 0 && vals.every(x => pending.has(x))) {
       for (const x of vals) {
         pending.delete(x);
       }
-      catLabels.push(g.label);
+      catLabels.push(catLabel(g.facet.value));
+      return;
     }
-  }
+    g.subs.forEach(collectGroup);
+  };
+  groupCategories(facets).forEach(collectGroup);
   for (const c of pending) {
-    catLabels.push(facets.categories.find(f => f.value === c)?.label ?? c);
+    catLabels.push(catLabel(c));
   }
   const parts = [
     v.search.trim(),

@@ -98,6 +98,7 @@ export type Modal =
   | { kind: 'bid'; req: BidRequest }
   | { kind: 'categories' }
   | { kind: 'shortcuts' }
+  | { kind: 'typeCategory'; lot: Lot } // making the lot's item type a category
   | { kind: 'itemType'; lot: Lot };
 /** The popup over everything else, including the lot popup. */
 export const modal = signal<Modal | null>(null);
@@ -106,8 +107,14 @@ export const modalActions = {
   startBid: (req: BidRequest) => {
     modal.value = { kind: 'bid', req };
   },
+  addType: (lot: Lot) => {
+    modal.value = { kind: 'typeCategory', lot };
+  },
   editType: (lot: Lot) => {
     modal.value = { kind: 'itemType', lot };
+  },
+  editCategories: () => {
+    modal.value = { kind: 'categories' };
   },
   showShortcuts: () => {
     modal.value = { kind: 'shortcuts' };
@@ -187,6 +194,7 @@ export const exclusionRules = computed(() => ({
   removeFiltered: getSetting(KEYS.removeFiltered),
   hidden: getSetting(KEYS.hidden),
   showHidden: getSetting(KEYS.showHidden),
+  customCategories: getSetting(KEYS.customCategories),
 }));
 
 // Catalog rows, facets and pagination
@@ -214,7 +222,12 @@ export const gridView = computed(() => {
 });
 /** Every filter option among open lots, with catalog-wide counts; these don't follow live prices. */
 export const filterFacets = computed(() =>
-  computeFacets(lots.value.values(), clock(30_000), searchDetails.value),
+  computeFacets(
+    lots.value.values(),
+    clock(30_000),
+    getSetting(KEYS.customCategories),
+    searchDetails.value,
+  ),
 );
 /** The sidebar's filter options, counted among the current results (each ignoring its own filter). */
 export const sidebarFacets = computed(() =>

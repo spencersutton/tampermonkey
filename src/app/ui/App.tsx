@@ -4,6 +4,7 @@ import { useRef } from 'preact/hooks';
 
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
+import { endsAtMs } from '../../shared/lot';
 import { ago, countdown, plural } from '../logic/util';
 import {
   activeFilterCount,
@@ -25,6 +26,7 @@ import { nextPullAt, pullCatalog } from '../server/source';
 import type { Lot } from '../types';
 import { LoginLink } from './Auth';
 import { BidConfirm } from './BidConfirm';
+import { CategoryEditor } from './CategoryEditor';
 import { ClosedLots } from './ClosedLots';
 import { Dialog } from './Dialog';
 import { closeLot } from './history';
@@ -60,6 +62,7 @@ import {
   PAGE_SIZE,
 } from './state';
 import { Toasts } from './Toasts';
+import { TypeCategory } from './TypeCategory';
 import { observeEnd } from './viewport';
 
 /** The whole /tlx page: sidebar, toolbar, infinitely scrolling lot grid, and the lot / bid popups. */
@@ -296,8 +299,15 @@ function AppDialogs() {
   const curModal = modal.value;
   const result = gridView.value;
   const pickup = pickupName.value;
+  const now30 = clock(30_000);
   const openLotObj = curOpenId != null ? getLot(curOpenId) : undefined;
   const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
+
+  const openLots = () =>
+    lots.value
+      .values()
+      .filter(l => endsAtMs(l) > now30)
+      .toArray();
 
   return (
     <>
@@ -314,6 +324,16 @@ function AppDialogs() {
           req={curModal.req}
           row={rowOf(bidLot)}
           pickup={pickup}
+          onClose={() => modalActions.close(curModal)}
+        />
+      )}
+      {curModal?.kind === 'categories' && (
+        <CategoryEditor lots={openLots()} onClose={() => modalActions.close(curModal)} />
+      )}
+      {curModal?.kind === 'typeCategory' && (
+        <TypeCategory
+          lot={curModal.lot}
+          lots={openLots()}
           onClose={() => modalActions.close(curModal)}
         />
       )}

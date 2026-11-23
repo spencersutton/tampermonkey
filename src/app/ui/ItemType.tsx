@@ -42,6 +42,15 @@ export function ItemTypeActions({ lot }: { lot: Lot }) {
           >
             <Icon name="visibilityOff" size={14} />
           </button>
+          <button
+            type="button"
+            class="icon-btn item-type-edit"
+            title="Make a category of this item type"
+            aria-label="Make a category of this item type"
+            onClick={() => modalActions.addType(lot)}
+          >
+            <Icon name="add" size={14} />
+          </button>
         </>
       )}
       <button

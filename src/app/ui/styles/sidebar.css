@@ -441,6 +441,11 @@
   font-size: 13px;
 }
 
+.cat-edit-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 .facet-find {
   width: 100%;
   height: 32px;

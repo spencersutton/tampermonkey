@@ -194,7 +194,7 @@ test('type and brand filters combine with categories and survive URLs and saved 
     lot('Drill B', { brand: 'Ryobi', itemType: 'drill driver' }),
     lot('Saw', { brand: 'DeWalt', itemType: 'miter saw' }),
   ];
-  const nav = navFromUrl('?type=drill+driver&brand=dewalt&category=tools%2Fpower-tools');
+  const nav = navFromUrl('?type=drill+driver&brand=dewalt&category=tools');
   assert.deepEqual(nav.view.types, ['drill driver']);
   assert.deepEqual(nav.view.brands, ['dewalt']);
   assert.deepEqual(titles(run(items, nav.view)), ['Drill A']);
