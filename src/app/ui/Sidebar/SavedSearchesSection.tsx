@@ -35,6 +35,10 @@ export function SavedSearchesSection({
   const edit = useInlineEdit();
   const naming = edit.editing === 'new';
   const saveNew: SaveFn = name => onSave(name);
+  let saveTitle = 'Set some filters first, or this search is already saved';
+  if (canSave) {
+    saveTitle = 'Save the current filters';
+  }
 
   return (
     <section class="panel">
@@ -46,11 +50,7 @@ export function SavedSearchesSection({
             class="btn-text"
             disabled={!canSave}
             onClick={() => edit.start('new', suggestedName)}
-            title={
-              canSave
-                ? 'Save the current filters'
-                : 'Set some filters first, or this search is already saved'
-            }
+            title={saveTitle}
           >
             Save current
           </button>
@@ -82,6 +82,27 @@ export function SavedSearchesSection({
       <ul class="filter-list">
         {searches.map(s => {
           const st = stats.get(s.id) ?? { total: 0, fresh: 0 };
+          let label = (
+            <button
+              type="button"
+              class="saved-name"
+              title="Click to open · double-click to rename"
+              onClick={() => onOpen(s, false)}
+              onDblClick={() => edit.start(s.id, s.name)}
+            >
+              {s.name}
+            </button>
+          );
+          if (edit.editing === s.id) {
+            label = (
+              <input
+                class="rename"
+                type="text"
+                aria-label="Rename saved search"
+                {...edit.boxProps(s.id, name => onRename(s.id, name))}
+              />
+            );
+          }
           return (
             <li class={`filter-row saved-row ${s.id === activeId ? 'active' : ''}`}>
               <button
@@ -93,24 +114,7 @@ export function SavedSearchesSection({
               >
                 <Icon name="cancel" size={16} />
               </button>
-              {edit.editing === s.id ? (
-                <input
-                  class="rename"
-                  type="text"
-                  aria-label="Rename saved search"
-                  {...edit.boxProps(s.id, name => onRename(s.id, name))}
-                />
-              ) : (
-                <button
-                  type="button"
-                  class="saved-name"
-                  title="Click to open · double-click to rename"
-                  onClick={() => onOpen(s, false)}
-                  onDblClick={() => edit.start(s.id, s.name)}
-                >
-                  {s.name}
-                </button>
-              )}
+              {label}
               <button
                 type="button"
                 class="btn-text"

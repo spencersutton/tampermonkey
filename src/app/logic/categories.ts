@@ -75,15 +75,13 @@ export function groupCategories({ categories, siteCategories }: Facets): Categor
   const top: CategoryGroup[] = [];
   for (const f of categories) {
     const group = groups.get(f.value)!;
-    const parent =
+    if (
       isCustomCategory(f.value) &&
       f.parent &&
       groups.has(f.parent) &&
       !isAncestorOrSelf(f.parent, f.value, parentOf)
-        ? f.parent
-        : undefined;
-    if (parent) {
-      groups.get(parent)!.subs.push(group);
+    ) {
+      groups.get(f.parent)!.subs.push(group);
     } else {
       top.push(group);
     }

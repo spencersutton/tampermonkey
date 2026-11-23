@@ -258,11 +258,10 @@ export async function setWatchlisted(
     throw new Error(LOGGED_OUT);
   }
   const data: RawBidResponse = await res.json().catch(() => ({}));
-  const message =
-    data.code === 'lot_already_bid' && data.error
-      ? data.error
-      : 'Couldn’t update your watchlist. Please try again.';
-  throw new Error(message);
+  if (data.code === 'lot_already_bid' && data.error) {
+    throw new Error(data.error);
+  }
+  throw new Error('Couldn’t update your watchlist. Please try again.');
 }
 
 // ---------------------------------------------------------------------------

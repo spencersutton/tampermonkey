@@ -42,6 +42,10 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
     }
   };
 
+  let bidHint = 'Bid at the next increment';
+  if (isMax) {
+    bidHint = 'Max bid – the site bids for you, only as much as needed, up to this amount';
+  }
   return (
     <Dialog
       onClose={() => !pending && onClose()}
@@ -55,11 +59,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
           <p class="confirm-lot">{lot.title}</p>
           <div class="confirm-amount">
             <span class="big">{dollars(amount)}</span>
-            <span class="muted small">
-              {isMax
-                ? 'Max bid – the site bids for you, only as much as needed, up to this amount'
-                : 'Bid at the next increment'}
-            </span>
+            <span class="muted small">{bidHint}</span>
           </div>
           <dl class="confirm-facts">
             <dt>{isMax ? 'Total if you win at your max' : 'Total if you win at this bid'}</dt>

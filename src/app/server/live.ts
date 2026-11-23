@@ -85,11 +85,13 @@ function onUserPublication(d: {
   if (!lot) {
     return;
   }
-  const fallback =
-    d.type === 'outbid' || d.type === 'winning'
-      ? { is_leading: d.type === 'winning', your_max_bid: lot.your_standing?.your_max_bid ?? null }
-      : null;
-  const standing = d.relationship ?? fallback;
+  let standing = d.relationship ?? null;
+  if (!standing && (d.type === 'outbid' || d.type === 'winning')) {
+    standing = {
+      is_leading: d.type === 'winning',
+      your_max_bid: lot.your_standing?.your_max_bid ?? null,
+    };
+  }
   if (standing) {
     updateLot(lotId, { your_standing: standing, has_bid: true }, { force: true });
   }

@@ -32,18 +32,17 @@ export function mergeCatalogLots(
   for (const fresh of reply.lots) {
     const mine = cur.get(fresh.id);
     // Keep newer live prices, but take server-owned metadata from the poll.
-    next.set(
-      fresh.id,
-      mine && mine.version > fresh.version
-        ? {
-            ...mine,
-            firstSeenAt: fresh.firstSeenAt,
-            itemType: fresh.itemType,
-            pastCloses: fresh.pastCloses,
-            groupId: fresh.groupId,
-          }
-        : fresh,
-    );
+    if (mine && mine.version > fresh.version) {
+      next.set(fresh.id, {
+        ...mine,
+        firstSeenAt: fresh.firstSeenAt,
+        itemType: fresh.itemType,
+        pastCloses: fresh.pastCloses,
+        groupId: fresh.groupId,
+      });
+    } else {
+      next.set(fresh.id, fresh);
+    }
   }
   for (const edit of typeEdits) {
     for (const id of edit.lotIds) {
@@ -92,9 +91,14 @@ export function pastPrice(
   const sold = lot.pastCloses?.recent.filter(c => c.sold) ?? [];
   const same = sold.filter(c => c.condition === lot.condition.display_name);
   const use = same.length ? same : sold;
-  return use.length
-    ? { median: median(use.map(c => c.price)), count: use.length, sameCondition: same.length > 0 }
-    : null;
+  if (!use.length) {
+    return null;
+  }
+  return {
+    median: median(use.map(c => c.price)),
+    count: use.length,
+    sameCondition: same.length > 0,
+  };
 }
 
 const STRIPPED_DESC_LINE = /^\s*(?:quantity|brand|model)\s*:.*$/i;
@@ -151,9 +155,10 @@ export function firstVisitSince(lots: Iterable<Lot>, now: number): number {
 /** Next view state after excluding an item type from the grid. */
 export function hideItemTypeView(view: ViewState, type: string): ViewState {
   const key = type.toLowerCase();
-  const excludedTypes = view.excludedTypes.includes(key)
-    ? view.excludedTypes
-    : [...view.excludedTypes, key];
+  let excludedTypes = view.excludedTypes;
+  if (!excludedTypes.includes(key)) {
+    excludedTypes = [...excludedTypes, key];
+  }
   const types = view.types.filter(t => t !== key);
   return { ...view, types, excludedTypes };
 }
@@ -174,12 +179,13 @@ export function toggleHiddenLot(
   now = Date.now(),
 ): Record<string, HiddenLot> {
   const { [lot.id]: wasHidden, ...rest } = hidden;
-  return wasHidden
-    ? rest
-    : {
-        ...rest,
-        [lot.id]: { title: lot.title, href: lotHref(lot.auction_period, lot.id), ts: now },
-      };
+  if (wasHidden) {
+    return rest;
+  }
+  return {
+    ...rest,
+    [lot.id]: { title: lot.title, href: lotHref(lot.auction_period, lot.id), ts: now },
+  };
 }
 
 /** Add a search to the recent-searches list, deduplicated case-insensitively and capped. */

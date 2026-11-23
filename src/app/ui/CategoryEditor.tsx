@@ -167,9 +167,8 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
         </div>
 
         <div class="cat-body">
-          {drafts.length === 0 ? (
-            <p class="muted">No custom categories yet.</p>
-          ) : (
+          {drafts.length === 0 && <p class="muted">No custom categories yet.</p>}
+          {drafts.length > 0 && (
             <ol class="cat-list">
               {rows.map(row => {
                 if (row.kind === 'site') {
@@ -196,6 +195,10 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                 const val = draftValue(d);
                 const blocked = descendantValues(val, drafts);
                 const hasChildren = drafts.some(o => o.parent === val);
+                let deleteTitle = 'Delete category';
+                if (hasChildren) {
+                  deleteTitle = 'Delete category (subcategories will move up a level)';
+                }
                 const unknownSiteParent =
                   d.parent != null && !isCustomCategory(d.parent) && !siteLabels.has(d.parent);
                 return (
@@ -290,11 +293,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       type="button"
                       class="icon-btn cat-delete"
                       aria-label={`Delete ${label}`}
-                      title={
-                        hasChildren
-                          ? 'Delete category (subcategories will move up a level)'
-                          : 'Delete category'
-                      }
+                      title={deleteTitle}
                       onClick={() => remove(d)}
                     >
                       <Icon name="delete" size={18} />

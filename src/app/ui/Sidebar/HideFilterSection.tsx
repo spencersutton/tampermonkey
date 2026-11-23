@@ -47,6 +47,37 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
     return;
   };
 
+  let patternTitle = 'Invalid regex – ignored. Click to edit';
+  if (ok) {
+    patternTitle = `/\\b(?:${pattern})\\b/i – click to edit`;
+  }
+  let body = (
+    <button
+      type="button"
+      class="filter-pattern"
+      title={patternTitle}
+      onClick={() => edit.start('pattern', pattern)}
+    >
+      <PatternText pattern={pattern} />
+    </button>
+  );
+  if (editing) {
+    body = (
+      <div class="filter-edit">
+        <textarea
+          class={edit.error ? 'has-error' : ''}
+          aria-label="Edit filter regex"
+          spellcheck={false}
+          rows={Math.min(6, Math.max(1, Math.ceil(edit.text.length / 26)))}
+          {...edit.boxProps('pattern', save)}
+        />
+        <span class={edit.error ? 'error small' : 'muted small'}>
+          {edit.error ?? 'Enter to save · Esc to cancel'}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <li class={`filter-row ${ok ? '' : 'filter-error'}`}>
       <button
@@ -58,33 +89,7 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
       >
         <Icon name="cancel" size={16} />
       </button>
-      {editing ? (
-        <div class="filter-edit">
-          <textarea
-            class={edit.error ? 'has-error' : ''}
-            aria-label="Edit filter regex"
-            spellcheck={false}
-            rows={Math.min(6, Math.max(1, Math.ceil(edit.text.length / 26)))}
-            {...edit.boxProps('pattern', save)}
-          />
-          <span class={edit.error ? 'error small' : 'muted small'}>
-            {edit.error ?? 'Enter to save · Esc to cancel'}
-          </span>
-        </div>
-      ) : (
-        <button
-          type="button"
-          class="filter-pattern"
-          title={
-            ok
-              ? `/\\b(?:${pattern})\\b/i – click to edit`
-              : 'Invalid regex – ignored. Click to edit'
-          }
-          onClick={() => edit.start('pattern', pattern)}
-        >
-          <PatternText pattern={pattern} />
-        </button>
-      )}
+      {body}
       {ok && !editing && <span class="count">{format.num(count)}</span>}
     </li>
   );

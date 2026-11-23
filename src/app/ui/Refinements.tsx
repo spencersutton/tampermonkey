@@ -178,13 +178,13 @@ export function Refinements() {
                 key={group.key}
                 group={group}
                 selected={selected}
-                onToggle={v =>
-                  setView({
-                    attrs: selected.includes(v)
-                      ? view.attrs.filter(x => x !== v)
-                      : [...view.attrs, v],
-                  })
-                }
+                onToggle={v => {
+                  let attrs = [...view.attrs, v];
+                  if (selected.includes(v)) {
+                    attrs = view.attrs.filter(x => x !== v);
+                  }
+                  setView({ attrs });
+                }}
                 onClear={() => setView({ attrs: rest })}
               />
             );

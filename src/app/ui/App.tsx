@@ -127,11 +127,12 @@ function AppSidebar({
     suggestedName: suggestName(view, facets),
     onSave: (name: string) => {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      updateSaved(l =>
-        l.some(x => sameFilters(view, x.view))
-          ? l
-          : [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }],
-      );
+      updateSaved(l => {
+        if (l.some(x => sameFilters(view, x.view))) {
+          return l;
+        }
+        return [...l, { id, name, view: savedFilters(view), lastViewedAt: Date.now() }];
+      });
     },
     onOpen: (s: SavedSearch, newOnly: boolean) => {
       batch(() => {
@@ -417,9 +418,10 @@ function StatusBar() {
   if (!loaded.value) {
     text = 'Loading catalog…';
   } else if (pull) {
-    text = pull.total
-      ? `Refreshing catalog… ${format.num(pull.done)} of ${format.num(pull.total)}`
-      : 'Refreshing catalog…';
+    text = 'Refreshing catalog…';
+    if (pull.total) {
+      text = `Refreshing catalog… ${format.num(pull.done)} of ${format.num(pull.total)}`;
+    }
   } else if (lastFetch) {
     text = `${format.num(lots.value.size)} lots · refreshed ${ago(lastFetch, now)}`;
   }
@@ -430,6 +432,10 @@ function StatusBar() {
     refreshLabel = 'Refreshing';
   } else if (due) {
     refreshLabel = 'Refresh';
+  }
+  let refreshTitle = 'Full refreshes are rate-limited; change the interval in Settings';
+  if (due) {
+    refreshTitle = 'Pull the full catalog now';
   }
   return (
     <div class="statusbar">
@@ -442,11 +448,7 @@ function StatusBar() {
         class="btn-text"
         disabled={!loaded.value || pull != null || !due}
         onClick={() => void pullCatalog()}
-        title={
-          due
-            ? 'Pull the full catalog now'
-            : 'Full refreshes are rate-limited; change the interval in Settings'
-        }
+        title={refreshTitle}
       >
         <Icon name="refresh" size={16} /> {refreshLabel}
       </button>

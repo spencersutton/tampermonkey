@@ -67,11 +67,14 @@ function WatchStar({ lot }: { lot: Lot }) {
     return null;
   }
   if (!canWatch(lot)) {
-    return lot.is_watchlisted ? (
+    if (!lot.is_watchlisted) {
+      return null;
+    }
+    return (
       <span class="pill pill-watch" title="On your watchlist">
         <Icon name="star" size={13} />
       </span>
-    ) : null;
+    );
   }
   const label = lot.is_watchlisted ? 'Remove from watchlist' : 'Add to watchlist';
   return (
@@ -124,15 +127,29 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   const conditions = siteConditions();
   // Preact stores ref cleanup on the callback, so each card needs its own.
   const observe = useCallback((element: HTMLElement | null) => observeLot(element), []);
+  let media = <span class="noimg">No image</span>;
+  if (img) {
+    media = <img src={`${CDN}/${img.image_card}`} alt="" loading="lazy" decoding="async" />;
+  }
+  let retail = <span class="muted">No retail estimate</span>;
+  if (lot.estimated_retail_price) {
+    retail = (
+      <span>
+        Retail {dollars(lot.estimated_retail_price)}
+        {row.retailPct != null && (
+          <span class="card-retail-pct" title="Current bid as a share of retail">
+            {' '}
+            ({Math.round(row.retailPct * 100)}%)
+          </span>
+        )}
+      </span>
+    );
+  }
   return (
     <article class={`card ${dim ? 'dim' : ''}`} data-lot={lot.id} ref={observe}>
       <div class="card-media">
         <a href={href} onClick={open} tabIndex={-1} aria-hidden="true">
-          {img ? (
-            <img src={`${CDN}/${img.image_card}`} alt="" loading="lazy" decoding="async" />
-          ) : (
-            <span class="noimg">No image</span>
-          )}
+          {media}
         </a>
         <button
           type="button"
@@ -195,19 +212,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           <div class="card-sub">
             <TimeLeft endsAt={endsAtMs(lot)} />
             <span>{plural(lot.bid_count, 'bid')}</span>
-            {lot.estimated_retail_price ? (
-              <span>
-                Retail {dollars(lot.estimated_retail_price)}
-                {row.retailPct != null && (
-                  <span class="card-retail-pct" title="Current bid as a share of retail">
-                    {' '}
-                    ({Math.round(row.retailPct * 100)}%)
-                  </span>
-                )}
-              </span>
-            ) : (
-              <span class="muted">No retail estimate</span>
-            )}
+            {retail}
           </div>
           {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
           {row.cheaper && <CheaperNote lead={row} cheaper={row.cheaper} />}
@@ -271,15 +276,14 @@ function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void
   const title = `${plural(n, 'earlier matching lot')} closed:\n${recent.map(pastCloseText).join('\n')}${more}`;
   return (
     <button type="button" class="card-past" title={title} onClick={onOpen}>
-      {p ? (
+      {p && (
         <>
           Sold before for <b>{dollars(p.median)}</b>
           {p.count > 1 && ` (median of ${p.count})`}
           {!p.sameCondition && ' in another condition'}
         </>
-      ) : (
-        `No sale the last ${recent.length === 1 ? 'time' : `${recent.length} times`}`
       )}
+      {!p && `No sale the last ${recent.length === 1 ? 'time' : `${recent.length} times`}`}
     </button>
   );
 }

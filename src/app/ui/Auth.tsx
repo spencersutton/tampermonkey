@@ -165,21 +165,21 @@ export function AccountSettings() {
     await fn().catch(() => {});
     setBusy(false);
   };
+  let statusText = 'Not logged in to Triangle Liquidators';
+  let authAction = <LoginLink class="btn-text">Log in</LoginLink>;
+  if (site?.loggedIn) {
+    statusText = `Logged in as ${site.email ?? site.name ?? 'you'}`;
+    authAction = (
+      <button type="button" class="btn-text" disabled={busy} onClick={act(logoutSite)}>
+        Log out
+      </button>
+    );
+  }
   return (
     <div class="account">
-      <span class="muted small">
-        {site?.loggedIn
-          ? `Logged in as ${site.email ?? site.name ?? 'you'}`
-          : 'Not logged in to Triangle Liquidators'}
-      </span>
+      <span class="muted small">{statusText}</span>
       <div class="row-gap">
-        {site?.loggedIn ? (
-          <button type="button" class="btn-text" disabled={busy} onClick={act(logoutSite)}>
-            Log out
-          </button>
-        ) : (
-          <LoginLink class="btn-text">Log in</LoginLink>
-        )}
+        {authAction}
         {state?.app.password && (
           <button
             type="button"

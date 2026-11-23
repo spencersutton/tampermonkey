@@ -332,9 +332,10 @@ export function createApp(deps: Deps) {
       return error(404, 'Not found');
     }
     const method = c.req.method;
-    const body = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
-      ? await c.req.raw.arrayBuffer()
-      : null;
+    let body: ArrayBuffer | null = null;
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      body = await c.req.raw.arrayBuffer();
+    }
     const send = async (token: string | null) => {
       const headers = new Headers();
       for (const h of PROXY_HEADERS) {

@@ -106,11 +106,12 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
         })}
       </div>
 
-      {!authed ? (
+      {!authed && (
         <p class="notice">
           <LoginLink>Log in</LoginLink> to see the lots you won and lost.
         </p>
-      ) : (
+      )}
+      {authed && (
         <>
           <div class="closed-tools">
             <input
@@ -122,9 +123,9 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
             />
             {data && !data.error && (
               <span class="muted small">
-                {data.done
-                  ? plural(lots.length, 'lot')
-                  : `Loading… ${format.num(data.lots.length)} of ${format.num(data.count)}`}
+                {data.done && plural(lots.length, 'lot')}
+                {!data.done &&
+                  `Loading… ${format.num(data.lots.length)} of ${format.num(data.count)}`}
                 {section === 'won' && lots.length > 0 && (
                   <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax, plus the transfer fee for lots not at your pickup location">
                     {' '}
@@ -187,15 +188,23 @@ function ClosedRow(props: {
   const [showRelisted, setShowRelisted] = useState(false);
   const href = lotHref(c.auction_period, c.lot_id);
   const click = openHandler(onOpen);
+  let hero = <span class="noimg" />;
+  if (c.hero_image) {
+    hero = <img src={`${CDN}/${c.hero_image}`} alt="" loading="lazy" />;
+  }
+  let priceNote = <span class="muted small">sold for</span>;
+  if (won) {
+    priceNote = (
+      <span class="muted small" title={costBreakdown(c.final_price, fee)}>
+        ≈ {money(totalCost(c.final_price, fee))}
+      </span>
+    );
+  }
   return (
     <li class={`closed-row ${opening ? 'opening' : ''}`}>
       <div class="closed-main">
         <a class="closed-img" href={href} onClick={click} tabIndex={-1} aria-hidden="true">
-          {c.hero_image ? (
-            <img src={`${CDN}/${c.hero_image}`} alt="" loading="lazy" />
-          ) : (
-            <span class="noimg" />
-          )}
+          {hero}
         </a>
         <div class="closed-what">
           <a class="closed-title" href={href} onClick={click}>
@@ -223,13 +232,7 @@ function ClosedRow(props: {
         </div>
         <div class="closed-price">
           <span class="price">{dollars(c.final_price)}</span>
-          {won ? (
-            <span class="muted small" title={costBreakdown(c.final_price, fee)}>
-              ≈ {money(totalCost(c.final_price, fee))}
-            </span>
-          ) : (
-            <span class="muted small">sold for</span>
-          )}
+          {priceNote}
         </div>
       </div>
       {showRelisted && relisted && (

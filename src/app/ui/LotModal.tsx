@@ -119,6 +119,10 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
       step(1);
     }
   };
+  let mainImage = <span class="noimg">No image</span>;
+  if (img) {
+    mainImage = <img src={`${CDN}/${img.image_large}`} alt="" />;
+  }
   return (
     <div class="modal" tabIndex={-1} ref={focusContent} onKeyDown={onKeyDown}>
       <button type="button" class="icon-btn modal-close" aria-label="Close" onClick={onClose}>
@@ -127,11 +131,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
       <div class="modal-grid">
         <div class="gallery">
           <div class="gallery-main">
-            {img ? (
-              <img src={`${CDN}/${img.image_large}`} alt="" />
-            ) : (
-              <span class="noimg">No image</span>
-            )}
+            {mainImage}
             {images.length > 1 && (
               <>
                 <button
@@ -366,6 +366,10 @@ function Similar({
         {open.map(l => {
           const img = l.images[0];
           const inCatalog = getLot(l.id) != null;
+          let thumb = <span class="noimg" />;
+          if (img) {
+            thumb = <img src={`${CDN}/${img.image_thumb}`} alt="" loading="lazy" />;
+          }
           return (
             <li>
               <a
@@ -375,13 +379,7 @@ function Similar({
                 title={l.title}
                 onClick={inCatalog ? openHandler(() => onOpen(getLot(l.id)!)) : undefined}
               >
-                <span class="similar-img">
-                  {img ? (
-                    <img src={`${CDN}/${img.image_thumb}`} alt="" loading="lazy" />
-                  ) : (
-                    <span class="noimg" />
-                  )}
-                </span>
+                <span class="similar-img">{thumb}</span>
                 <span class="similar-title">{l.title}</span>
                 <span class="similar-meta">
                   <span class="price">{dollars(l.current_price)}</span>
@@ -446,44 +444,44 @@ function PastCloses({ lot }: { lot: Lot }) {
           {!closes && !error && <p class="muted small">Loading…</p>}
           {closes && (
             <ol class="past">
-              {closes.map(c => (
-                <li>
-                  <span
-                    class="price"
-                    title={
-                      c.final
-                        ? undefined
-                        : 'The last price seen before it closed; the site no longer has the lot'
-                    }
-                  >
-                    {c.sold ? dollars(c.price) : 'No sale'}
-                    {!c.final && '*'}
-                  </span>
-                  <span class="past-what muted small">
-                    {c.title !== lot.title && (
-                      <a
-                        class="dupe-title"
-                        href={lotHref(c.auctionPeriod, c.id)}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        {c.title}
-                      </a>
-                    )}
-                    {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} ·{' '}
-                    {plural(c.bidCount, 'bid')}
-                  </span>
-                  <a
-                    class="muted small"
-                    href={lotHref(c.auctionPeriod, c.id)}
-                    target="_blank"
-                    rel="noopener"
-                    title="Open on Triangle Liquidators"
-                  >
-                    {format.shortDate(c.endsAt)}
-                  </a>
-                </li>
-              ))}
+              {closes.map(c => {
+                let priceTitle: string | undefined;
+                if (!c.final) {
+                  priceTitle =
+                    'The last price seen before it closed; the site no longer has the lot';
+                }
+                return (
+                  <li>
+                    <span class="price" title={priceTitle}>
+                      {c.sold ? dollars(c.price) : 'No sale'}
+                      {!c.final && '*'}
+                    </span>
+                    <span class="past-what muted small">
+                      {c.title !== lot.title && (
+                        <a
+                          class="dupe-title"
+                          href={lotHref(c.auctionPeriod, c.id)}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          {c.title}
+                        </a>
+                      )}
+                      {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} ·{' '}
+                      {plural(c.bidCount, 'bid')}
+                    </span>
+                    <a
+                      class="muted small"
+                      href={lotHref(c.auctionPeriod, c.id)}
+                      target="_blank"
+                      rel="noopener"
+                      title="Open on Triangle Liquidators"
+                    >
+                      {format.shortDate(c.endsAt)}
+                    </a>
+                  </li>
+                );
+              })}
             </ol>
           )}
         </>
@@ -502,17 +500,20 @@ function BidPanel({ row }: { row: Row }) {
 
   const blocker = bidBlocker(row, authed, now);
   if (blocker) {
-    return (
-      <div class="bid-panel">
-        {!authed ? (
+    if (!authed) {
+      return (
+        <div class="bid-panel">
           <span class="muted">
             <LoginLink>Log in</LoginLink> to bid here.
           </span>
-        ) : (
-          <span class="btn" aria-disabled="true">
-            {blocker}
-          </span>
-        )}
+        </div>
+      );
+    }
+    return (
+      <div class="bid-panel">
+        <span class="btn" aria-disabled="true">
+          {blocker}
+        </span>
       </div>
     );
   }
@@ -522,6 +523,15 @@ function BidPanel({ row }: { row: Row }) {
   const quick = quickBidAmount(lot);
   const n = parseNum(value);
   const error = maxBidError(value, n, min);
+
+  let hint = 'A max bid bids for you automatically, only as much as needed to keep you winning.';
+  if (pending) {
+    hint = 'Placing bid…';
+  } else if (error) {
+    hint = error;
+  } else if (leading) {
+    hint = `You’re winning. Raise your max to ${dollars(min)} or more.`;
+  }
 
   const submit = (e: Event) => {
     e.preventDefault();
@@ -565,14 +575,7 @@ function BidPanel({ row }: { row: Row }) {
           </button>
         )}
       </div>
-      <div class={`small ${error ? 'error' : 'muted'}`}>
-        {pending
-          ? 'Placing bid…'
-          : error ||
-            (leading
-              ? `You’re winning. Raise your max to ${dollars(min)} or more.`
-              : 'A max bid bids for you automatically, only as much as needed to keep you winning.')}
-      </div>
+      <div class={`small ${error ? 'error' : 'muted'}`}>{hint}</div>
     </form>
   );
 }

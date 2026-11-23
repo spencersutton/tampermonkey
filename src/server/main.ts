@@ -137,6 +137,11 @@ function main() {
     tls: Boolean(args['tls-cert']),
     staticDir: STATIC_DIR,
   });
+  let tlsOpt: { tls?: { cert: ReturnType<typeof Bun.file>; key: ReturnType<typeof Bun.file> } } =
+    {};
+  if (args['tls-cert'] && args['tls-key']) {
+    tlsOpt = { tls: { cert: Bun.file(args['tls-cert']), key: Bun.file(args['tls-key']) } };
+  }
   const server = Bun.serve<RelayData>({
     hostname: args.host,
     port: Number(args.port),
@@ -147,9 +152,7 @@ function main() {
       return res;
     },
     websocket: relayHandler,
-    ...(args['tls-cert'] && args['tls-key']
-      ? { tls: { cert: Bun.file(args['tls-cert']), key: Bun.file(args['tls-key']) } }
-      : {}),
+    ...tlsOpt,
   });
   log.info(`serving the app on ${server.url.href}`);
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

@@ -181,7 +181,7 @@ function ExcludedTypeList(props: {
               onInput={e => setQuery(e.currentTarget.value)}
             />
           )}
-          {shown.length > 0 ? (
+          {shown.length > 0 && (
             <ul class="filter-list excluded-types-list">
               {shown.map(t => (
                 <li key={t} class="filter-row">
@@ -198,7 +198,8 @@ function ExcludedTypeList(props: {
                 </li>
               ))}
             </ul>
-          ) : (
+          )}
+          {shown.length === 0 && (
             <p class="muted small">No hidden item types match “{query.trim()}”.</p>
           )}
         </>

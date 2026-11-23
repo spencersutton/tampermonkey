@@ -19,10 +19,10 @@ export function openHandler(open: () => void) {
  * surviving card where the clicked card was.
  */
 export function keepScrollAnchor(from: Nullable<EventTarget>, update: () => void) {
-  const clicked =
-    typeof Element !== 'undefined' && from instanceof Element
-      ? from.closest('article[data-lot]')
-      : null;
+  let clicked: Element | null = null;
+  if (typeof Element !== 'undefined' && from instanceof Element) {
+    clicked = from.closest('article[data-lot]');
+  }
   const cards = clicked ? [...document.querySelectorAll('article[data-lot]')] : [];
   const at = clicked ? cards.indexOf(clicked) : -1;
   const anchorTop = clicked?.getBoundingClientRect().top;

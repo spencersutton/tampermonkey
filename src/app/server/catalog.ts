@@ -162,9 +162,12 @@ export const invalidateDetail = (id: number) => void details.delete(id);
 export function cachedDetail(id: number): LotDetail | undefined {
   const hit = details.get(id);
   const current = lots.peek().get(id);
-  return hit?.data &&
+  if (
+    hit?.data &&
     Date.now() - hit.at < DETAIL_TTL &&
     (!current || hit.data.version >= current.version)
-    ? hit.data
-    : undefined;
+  ) {
+    return hit.data;
+  }
+  return undefined;
 }

@@ -64,9 +64,10 @@ export function TypeCategory({
   const filteredChoices = choices.filter(c =>
     labelOf(c).toLowerCase().includes(categorySearch.trim().toLowerCase()),
   );
-  const selected = cats.some(c => customCategoryValue(c) === selectedCategory)
-    ? selectedCategory
-    : preferredValue;
+  let selected = preferredValue;
+  if (cats.some(c => customCategoryValue(c) === selectedCategory)) {
+    selected = selectedCategory;
+  }
   const pick = filteredChoices.some(c => customCategoryValue(c) === selected) ? selected : '';
   const [parent, setParent] = useState<string | null>(() =>
     defaultCategoryParent(current, site.value),
@@ -152,7 +153,7 @@ export function TypeCategory({
               Add to existing
             </button>
           </div>
-          {mode === 'add' ? (
+          {mode === 'add' && (
             <>
               <label class="field">
                 <span>Search categories</span>
@@ -193,7 +194,8 @@ export function TypeCategory({
                 </p>
               )}
             </>
-          ) : (
+          )}
+          {mode === 'new' && (
             <>
               <label class="field">
                 <span>Parent</span>

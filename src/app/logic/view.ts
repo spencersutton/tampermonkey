@@ -366,18 +366,22 @@ export function categoryOf(
 export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const elsewhere = lot.location.name !== pickup;
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
+  let retailPct: number | null = null;
+  if (lot.estimated_retail_price) {
+    retailPct = Math.round((lot.current_price / lot.estimated_retail_price) * 100) / 100;
+  }
+  let matched: string | null = null;
+  if (ex.filterOn) {
+    matched = lotMatcher(ex.words)(lot)[0] ?? matchedType(lot, ex.filterTypes);
+  }
   return {
     lot,
     category: categoryOf(lot, ex.customCategories),
     transferFee,
     pickupOnly: elsewhere && !lot.is_transferable,
     total: totalCost(lot.current_price, transferFee),
-    retailPct: lot.estimated_retail_price
-      ? Math.round((lot.current_price / lot.estimated_retail_price) * 100) / 100
-      : null,
-    matched: ex.filterOn
-      ? (lotMatcher(ex.words)(lot)[0] ?? matchedType(lot, ex.filterTypes))
-      : null,
+    retailPct,
+    matched,
     hidden: Boolean(ex.hidden[lot.id]),
     others: [],
     cheaper: null,

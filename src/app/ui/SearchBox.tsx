@@ -42,9 +42,10 @@ export function SearchBox() {
   const badRegex =
     view.searchRegex && draft.trim() !== '' && !searchRegexOf({ ...view, search: draft });
   const showList = open && !view.searchRegex;
-  const options = showList
-    ? searchOptionsFor(draft, getSetting(KEYS.recentSearches), suggestions.value)
-    : [];
+  let options: SearchOption[] = [];
+  if (showList) {
+    options = searchOptionsFor(draft, getSetting(KEYS.recentSearches), suggestions.value);
+  }
   // A lone "Search for …" row adds nothing.
   const listed = options.length > 1 || options[0]?.kind === 'recent' ? options : [];
 
@@ -126,6 +127,10 @@ export function SearchBox() {
   } else if (view.searchRegex) {
     searchTitle = 'Case-insensitive regex across title, lot number, brand, model and item type';
   }
+  let placeholder = `Search ${format.num(gridView.value.open)} lots`;
+  if (view.searchRegex) {
+    placeholder = `Regex search ${format.num(gridView.value.open)} lots`;
+  }
   const optionId = (i: number) => `search-option-${i}`;
   let lastKind: SearchOption['kind'] | null = null;
   const expanded = showList && listed.length > 0;
@@ -141,11 +146,7 @@ export function SearchBox() {
         aria-controls="search-options"
         aria-autocomplete="list"
         aria-activedescendant={active >= 0 && listed[active] ? optionId(active) : undefined}
-        placeholder={
-          view.searchRegex
-            ? `Regex search ${format.num(gridView.value.open)} lots`
-            : `Search ${format.num(gridView.value.open)} lots`
-        }
+        placeholder={placeholder}
         aria-label="Search lots"
         aria-invalid={badRegex}
         title={searchTitle}
@@ -239,13 +240,13 @@ function OptionBody({ option: o }: { option: SearchOption }) {
       );
     case 'lot': {
       const img = o.lot.images[0];
+      let thumb = <span class="noimg" />;
+      if (img) {
+        thumb = <img src={`${CDN}/${img.image_thumb}`} alt="" loading="lazy" />;
+      }
       return (
         <>
-          {img ? (
-            <img src={`${CDN}/${img.image_thumb}`} alt="" loading="lazy" />
-          ) : (
-            <span class="noimg" />
-          )}
+          {thumb}
           <span class="search-option-label">{o.lot.title}</span>
           <span class="search-option-price">{dollars(o.lot.current_price)}</span>
         </>
