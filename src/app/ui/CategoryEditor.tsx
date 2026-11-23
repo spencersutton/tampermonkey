@@ -26,8 +26,6 @@ import '../../shared/arrayToSet';
 
 type Draft = CategoryDraft;
 
-const PREVIEW_LIMIT = 50;
-
 let nextKey = 0;
 const toDraft = (c: CustomCategory): Draft => ({
   key: nextKey++,
@@ -109,7 +107,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
   };
 
   const sel = drafts.find(d => d.key === selected);
-  const selLots = sel ? taken.get(sel.key)! : [];
   const selectedTypes = new Set(sel?.types.map(normalizeType));
 
   return (
@@ -204,31 +201,6 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             <Icon name="add" size={18} /> Add category
           </button>
         </div>
-
-        {sel && (
-          <section class="cat-preview" aria-labelledby="cat-preview-title">
-            <h3 id="cat-preview-title">
-              {sel.name.trim() || 'New category'} · {plural(selLots.length, 'open lot')}
-            </h3>
-            {selLots.length ? (
-              <ul>
-                {selLots.slice(0, PREVIEW_LIMIT).map(l => (
-                  <li key={l.id}>
-                    <span>{l.title}</span>
-                    <span class="muted small">{l.category.label}</span>
-                  </li>
-                ))}
-                {selLots.length > PREVIEW_LIMIT && (
-                  <li class="muted small">
-                    …and {format.num(selLots.length - PREVIEW_LIMIT)} more
-                  </li>
-                )}
-              </ul>
-            ) : (
-              <p class="muted small">No open lots match.</p>
-            )}
-          </section>
-        )}
 
         {/* Only the selected row needs suggestions; duplicating them for every row is expensive. */}
         {sel && (

@@ -235,7 +235,9 @@ function CategoryTreeNode(props: {
         aria-current={active ? 'true' : undefined}
         onClick={() => onChange(active ? [] : values)}
       >
-        <span class="cat-label">{group.facet.label}</span>
+        <span class="cat-label" title={group.facet.label}>
+          {group.facet.label}
+        </span>
         <span class="count">{format.num(count)}</span>
       </button>
     );
