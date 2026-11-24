@@ -12,7 +12,6 @@ import {
   rememberSearchList,
   toggleHiddenLot,
 } from '../logic/catalog';
-import { siteCategoriesFromLots } from '../logic/categories';
 import type { ClosedSection } from '../logic/history';
 import { suggest } from '../logic/suggest';
 import {
