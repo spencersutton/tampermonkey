@@ -46,13 +46,15 @@ export function ago(ts: number, now: number) {
 
 /** Remaining time as "m:ss", or "Ns" under a minute. */
 export function countdown(ms: number) {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
+  const left = Temporal.Duration.from({ milliseconds: Math.max(0, ms) }).round({
+    largestUnit: 'minute',
+    smallestUnit: 'second',
+    roundingMode: 'ceil',
+  });
+  if (left.minutes === 0) {
+    return `${left.seconds}s`;
   }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = String(totalSeconds % 60).padStart(2, '0');
-  return `${minutes}:${seconds}`;
+  return `${left.minutes}:${String(left.seconds).padStart(2, '0')}`;
 }
 
 /** A count with its noun, e.g. "1 bid", "1,200 bids". */
