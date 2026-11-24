@@ -203,45 +203,6 @@ test('LotAttrs renders every extracted attribute on the lot detail view and filt
   assert.deepEqual(selected, ['psi:3200 psi']);
 });
 
-test('LotCard always renders LotAttrs for its lot and filters on click', async () => {
-  const { LotCard, LotAttrs } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
-  const { storedView } = await vite.ssrLoadModule('/src/app/ui/state.ts');
-  const nodes = node => {
-    if (node == null || typeof node !== 'object') return [];
-    if (Array.isArray(node)) return node.flatMap(nodes);
-    return [node, ...nodes(node.props?.children)];
-  };
-  const renderCard = row => {
-    const vnode = h(LotCard.type, { row });
-    vnode.__c = new Component(vnode.props);
-    vnode.__c.__h = [];
-    options.__r(vnode);
-    const tree = vnode.type(vnode.props);
-    options.diffed(vnode);
-    options.unmount?.(vnode);
-    return tree;
-  };
-
-  lots.value = new Map([[1, lot(1, 'Milwaukee M18 3200 PSI 50 ft Black Pressure Washer Hose')]]);
-  const [row] = gridView.value.rows;
-  assert.ok(row);
-
-  const tree = renderCard(row);
-  const attrsNode = nodes(tree).find(n => n.type === LotAttrs);
-  assert.ok(attrsNode);
-  assert.equal(attrsNode.props.title, row.lot.title);
-
-  // Attributes are still rendered when the card is dimmed/hidden/filtered.
-  const dimmedTree = renderCard({ ...row, hidden: true, matched: 'hose' });
-  const dimmedAttrs = nodes(dimmedTree).find(n => n.type === LotAttrs);
-  assert.ok(dimmedAttrs);
-  assert.equal(dimmedAttrs.props.title, row.lot.title);
-
-  // Clicking an attribute adds it to the view's attribute filters.
-  attrsNode.props.onSelect('psi:3200 psi');
-  assert.deepEqual(storedView.value.attrs, ['psi:3200 psi']);
-});
-
 test('cleanDescription strips Quantity, Brand, and Model lines and trims blank lines', async () => {
   const { cleanDescription } = await vite.ssrLoadModule('/src/app/logic/catalog.ts');
   assert.equal(

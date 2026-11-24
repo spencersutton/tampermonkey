@@ -1,7 +1,6 @@
 import { memo } from 'preact/compat';
 import { useCallback } from 'preact/hooks';
 
-import { attrKey, extractAttrs } from '../../shared/attrs';
 import { CDN } from '../../shared/constants';
 import { costBreakdown, dollars, money } from '../../shared/cost';
 import * as format from '../../shared/format';
@@ -23,7 +22,7 @@ import { openHandler } from './dom';
 import { Highlight } from './Highlight';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { modalActions, openLot, setView, storedView, toggleHide } from './state';
+import { modalActions, openLot, setView, toggleHide } from './state';
 import { observeLot } from './viewport';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
@@ -200,7 +199,6 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           </span>
           <ItemTypeActions lot={lot} />
         </div>
-        <LotAttrs title={lot.title} onSelect={selectAttr} />
         <div class="card-summary">
           <div class="card-price">
             <span class="price" title="Current bid">
@@ -223,46 +221,6 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
     </article>
   );
 });
-
-function selectAttr(key: string) {
-  const cur = storedView.value.attrs;
-  setView({ attrs: cur.includes(key) ? cur : [...cur, key] });
-}
-
-/** All attributes extracted from the lot title, regardless of whether a dropdown facet exists. */
-export function LotAttrs({ title, onSelect }: { title: string; onSelect: (key: string) => void }) {
-  const entries = Object.entries(extractAttrs(title));
-  if (!entries.length) {
-    return null;
-  }
-  return (
-    <dl class="lot-attrs" aria-label="Attributes">
-      {entries.map(([name, values]) => (
-        <div key={name}>
-          <dt>{name}</dt>
-          <dd>
-            {values.map((val, i) => {
-              const key = attrKey(name, val);
-              return (
-                <>
-                  {i > 0 && ', '}
-                  <button
-                    type="button"
-                    class="lot-attr-val"
-                    title={`Filter by ${name}: ${val}`}
-                    onClick={() => onSelect(key)}
-                  >
-                    {val}
-                  </button>
-                </>
-              );
-            })}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 /**
  * "+N" badge for listings of the same item folded into this card; opens the cheapest's popup, which
