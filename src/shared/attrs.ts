@@ -154,21 +154,18 @@ const BED_ITEM = /\b(?:box spring|bunk|bed|mattress|comforter|sheets?|pad)\b/i;
 const RULES: Rule[] = [
   // Surface/hardware finishes. Specific compounds ("Black & Gold", "Matte ...")
   // precede generic metals; "Gold" excludes art/rug/brand false positives.
-  ...group('Finish', [
-    [/\bblack (?:and|&) gold\b/i, 'Black & Gold'],
-    [/\bmatte (black|white|gr[ae]y)\b/i, m => `Matte ${titleCase(m[1]!.replace(/grey/i, 'gray'))}`],
+  ...group('Finish Family', [
+    [/gold.*(lights?|chandelier|sconces?)/i, 'Gold'],
+    [/, Gold$/i, 'Gold'],
     [
-      new RegExp(
-        `\\b${FINISH_MOD} brass\\b|\\bbrass\\b.*(?:door handle|pendant|knob|pull|faucet)`,
-        'i',
-      ),
-      'Brass',
+      /\b(?:satin|polished|brushed|antique|vintage|warm|french|beige|modern|oil[ -]rubbed|cocoa|champagne|venetian|matte|aged|rustic|rubbed|blackened) (brass|chrome|nickel|white|gold|silver|bronze)\b/i,
+      m => titleCase(m[1]!),
     ],
-    [new RegExp(`\\b${FINISH_MOD} (silver|stainless steel)\\b`, 'i'), m => titleCase(m[1]!)],
-    [/\b(nickel|chrome|bronze)\b/gi, m => titleCase(m[1]!)],
+  ]),
+  ...group('Finish', [
     [
-      /^(?!.*\b(?:rugs?|canvas|wall art|greenguard|dura-gold|duraflame)\b).*\bgold(?:en)?\b/i,
-      'Gold',
+      /\b((?:satin|polished|brushed|antique|vintage|warm|french|beige|modern|oil[ -]rubbed|cocoa|champagne|venetian|matte|aged|rustic|rubbed|blackened) (brass|chrome|nickel|white|gold|silver|bronze))\b/i,
+      m => titleCase(m[1]!),
     ],
   ]),
 
@@ -183,7 +180,7 @@ const RULES: Rule[] = [
   // Primary construction materials (global where multiple materials can co-occur).
   ...group('Material', [
     [
-      /\b(stainless steel|aluminum|carbon fiber|rubber|brass|latex|copper)\b/gi,
+      /\b(?<!(?:antique|brushed|aged|satin) )(stainless steel|aluminum|carbon fiber|rubber|brass|latex|copper)(?! finish)\b/gi,
       m => titleCase(m[1]!),
     ],
     [/\b(?:pvc|vinyl)\b/i, 'PVC / Vinyl'],
