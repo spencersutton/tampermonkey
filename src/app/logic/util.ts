@@ -1,4 +1,4 @@
-import { DAY, HOUR, MINUTE } from '../../shared/constants';
+import { DAY, HOUR } from '../../shared/constants';
 import * as format from '../../shared/format';
 
 const duration = new Intl.DurationFormat([], { style: 'narrow' });
@@ -33,17 +33,17 @@ const relative = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
  * "yesterday".
  */
 export function ago(ts: number, now: number) {
-  const ms = now - ts;
-  if (ms < MINUTE) {
-    return relative.format(0, 'second');
+  const elapsed = Temporal.Duration.from({ milliseconds: now - ts }).round({ largestUnit: 'day' });
+  if (elapsed.days > 0) {
+    return relative.format(-elapsed.days, 'day');
   }
-  if (ms < HOUR) {
-    return relative.format(-Math.floor(ms / MINUTE), 'minute');
+  if (elapsed.hours > 0) {
+    return relative.format(-elapsed.hours, 'hour');
   }
-  if (ms < DAY) {
-    return relative.format(-Math.floor(ms / HOUR), 'hour');
+  if (elapsed.minutes > 0) {
+    return relative.format(-elapsed.minutes, 'minute');
   }
-  return relative.format(-Math.floor(ms / DAY), 'day');
+  return relative.format(0, 'second');
 }
 
 /** Remaining time as "m:ss", or "Ns" under a minute. */
