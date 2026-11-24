@@ -182,7 +182,10 @@ const RULES: Rule[] = [
 
   // Primary construction materials (global where multiple materials can co-occur).
   ...group('Material', [
-    [/\b(stainless steel|aluminum|carbon fiber|rubber|brass|latex)\b/gi, m => titleCase(m[1]!)],
+    [
+      /\b(stainless steel|aluminum|carbon fiber|rubber|brass|latex|copper)\b/gi,
+      m => titleCase(m[1]!),
+    ],
     [/\b(?:pvc|vinyl)\b/i, 'PVC / Vinyl'],
   ]),
 
