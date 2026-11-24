@@ -1,9 +1,9 @@
 // Constants shared by the app and the server.
 
 // Durations in milliseconds.
-export const MINUTE = 60_000;
-export const HOUR = 60 * MINUTE;
-export const DAY = 24 * HOUR;
+export const MINUTE = Temporal.Duration.from({ minutes: 1 }).total('milliseconds');
+export const HOUR = Temporal.Duration.from({ hours: 1 }).total('milliseconds');
+export const DAY = Temporal.Duration.from({ days: 1 }).total('milliseconds');
 
 // Where the real auction site and its image CDN live.
 export const SITE = 'https://triangleliquidators.com';
