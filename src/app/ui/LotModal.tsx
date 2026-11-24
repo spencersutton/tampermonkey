@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
 
-import { attrKey, extractAttrs } from '../../shared/attrs';
 import { CDN } from '../../shared/constants';
 import { costBreakdown, dollars, money } from '../../shared/cost';
 import * as format from '../../shared/format';
@@ -24,9 +23,11 @@ import { openHandler } from './dom';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { ListingRow } from './ListingRow';
-import { LocationText, StandingBadge, TimeLeft, WatchButton } from './LotCard';
+import { LocationText, LotAttrs, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { modalActions, openLot, setView, storedView, toggleHide } from './state';
 import '../../shared/arrayToSet';
+
+export { LotAttrs };
 
 interface Props {
   row: Row;
@@ -270,41 +271,6 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
         </div>
       </div>
     </div>
-  );
-}
-
-/** All attributes extracted from the lot title, regardless of whether a dropdown facet exists. */
-export function LotAttrs({ title, onSelect }: { title: string; onSelect: (key: string) => void }) {
-  const entries = Object.entries(extractAttrs(title));
-  if (!entries.length) {
-    return null;
-  }
-  return (
-    <dl class="lot-attrs" aria-label="Attributes">
-      {entries.map(([name, values]) => (
-        <div key={name}>
-          <dt>{name}</dt>
-          <dd>
-            {values.map((val, i) => {
-              const key = attrKey(name, val);
-              return (
-                <>
-                  {i > 0 && ', '}
-                  <button
-                    type="button"
-                    class="lot-attr-val"
-                    title={`Filter by ${name}: ${val}`}
-                    onClick={() => onSelect(key)}
-                  >
-                    {val}
-                  </button>
-                </>
-              );
-            })}
-          </dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 
