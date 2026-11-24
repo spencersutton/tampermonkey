@@ -182,7 +182,7 @@ const RULES: Rule[] = [
 
   // Primary construction materials (global where multiple materials can co-occur).
   ...group('Material', [
-    [/\b(stainless steel|aluminum|carbon fiber|rubber)\b/gi, m => titleCase(m[1]!)],
+    [/\b(stainless steel|aluminum|carbon fiber|rubber|brass|latex)\b/gi, m => titleCase(m[1]!)],
     [/\b(?:pvc|vinyl)\b/i, 'PVC / Vinyl'],
   ]),
 
@@ -242,6 +242,7 @@ const RULES: Rule[] = [
   unit('PSI', /\b([\d,]+(?:\.\d+)?)\s*PSI\b/i, 'PSI'),
   unit('Volume', /\b(\d+(?:\.\d+)?)\s*-?Cu\.?[ -]ft\.?\b/i, 'cu ft'),
   unit('GPM', /\b(\d+(?:\.\d+)?)\s*GPM\b/i, 'GPM'),
+  unit('Gauge', /\b(\d+)[ -]Ga(?:uge)?\b/i, 'Gauge'),
   unit('Capacity (Ah)', /\b(\d+(?:\.\d+)?)\s*Ah\b/i, 'Ah'),
   // Negative lookbehind avoids matching partial decimals (e.g. ".5-amp" inside "1.5-amp").
   unit('Amps', /(?<![\d.])(\d+(?:\.\d+)?)[ -]amps?\b/i, 'A'),
