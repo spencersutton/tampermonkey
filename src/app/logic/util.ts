@@ -1,4 +1,3 @@
-import { DAY, HOUR } from '../../shared/constants';
 import * as format from '../../shared/format';
 
 const duration = new Intl.DurationFormat([], { style: 'narrow' });
@@ -8,22 +7,21 @@ const duration = new Intl.DurationFormat([], { style: 'narrow' });
  * last hour.
  */
 export function timeLabel(endsAt: number, now: number) {
-  const ms = endsAt - now;
-  if (ms <= 0) {
+  const left = Temporal.Duration.from({ milliseconds: endsAt - now }).round({ largestUnit: 'day' });
+  if (left.sign <= 0) {
     return { text: 'Closed', soon: true };
   }
   let smallestUnit: Temporal.TimeUnit = 'second';
-  if (ms >= DAY) {
+  if (left.days > 0) {
     smallestUnit = 'hour';
-  } else if (ms >= HOUR) {
+  } else if (left.hours > 0) {
     smallestUnit = 'minute';
   }
-  const left = Temporal.Duration.from({ milliseconds: ms }).round({
-    largestUnit: 'day',
-    smallestUnit,
-    roundingMode: 'trunc',
-  });
-  return { text: duration.format(left), soon: ms <= HOUR };
+  const rounded = left.round({ smallestUnit, roundingMode: 'trunc' });
+  return {
+    text: duration.format(rounded),
+    soon: Temporal.Duration.compare(left, { hours: 1 }) <= 0,
+  };
 }
 
 const relative = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
