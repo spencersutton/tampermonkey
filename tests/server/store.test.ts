@@ -1,11 +1,13 @@
 // The store (src/server/store.ts), ported from the Python server's
 // test_brands.py, test_metadata.py, test_itemtypes.py and test_tags.py.
+import { Database } from 'bun:sqlite';
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { type Lot, Store } from '../../src/server/store';
+import { KEYS } from '../../src/shared/keys';
 import { rawDetail, rawLot } from '../raw-lot.mjs';
 
 const dir = mkdtempSync(join(tmpdir(), 'tlx-store-'));
@@ -222,6 +224,59 @@ describe('settings and sessions', () => {
     expect(store.settings(99)).toEqual({ rev: 2, values: { a: 1, b: { x: [1] } } });
     expect(store.setting('a')).toBe(1);
     expect(store.setting('missing')).toBeUndefined();
+  });
+
+  test('filterTypes is stored in its own filter_types table with revision tracking', () => {
+    const store = new Store(':memory:');
+    expect(store.setting(KEYS.filterTypes)).toBeUndefined();
+    expect(store.settings()).toEqual({ rev: 0, values: {} });
+    expect(store.filterTypes()).toEqual([]);
+
+    expect(store.putSetting(KEYS.filterTypes, [' Saw ', 'drill', 'DRILL', ''])).toBe(1);
+    expect(store.filterTypes()).toEqual(['drill', 'saw']);
+    expect(store.setting(KEYS.filterTypes)).toEqual(['drill', 'saw']);
+    expect(store.settings(0)).toEqual({ rev: 1, values: { filterTypes: ['drill', 'saw'] } });
+    expect(store.settings(1)).toEqual({ rev: 1, values: {} });
+    expect(store.settings(99)).toEqual({ rev: 1, values: { filterTypes: ['drill', 'saw'] } });
+    // Must live in filter_types, not in the settings blob table.
+    expect(store.db.query('SELECT 1 FROM settings WHERE key = ?').get(KEYS.filterTypes)).toBeNull();
+    expect(
+      store.db.query<{ type: string }, []>('SELECT type FROM filter_types ORDER BY type').all(),
+    ).toEqual([{ type: 'drill' }, { type: 'saw' }]);
+
+    expect(store.putSetting(KEYS.filterTypes, [])).toBe(2);
+    expect(store.setting(KEYS.filterTypes)).toEqual([]);
+    expect(store.settings(1)).toEqual({ rev: 2, values: { filterTypes: [] } });
+  });
+
+  test('existing settings.filterTypes rows migrate into filter_types on open', () => {
+    const path = dbPath();
+    const raw = new Database(path, { create: true });
+    raw.run('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    raw.run(
+      'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL)',
+    );
+    raw.run("INSERT INTO meta (key, value) VALUES ('settingsRev', '10')");
+    raw
+      .query('INSERT INTO settings (key, value, rev) VALUES (?, ?, ?)')
+      .run(KEYS.filterTypes, JSON.stringify(['phone case', 'Drill', 'drill']), 8);
+    raw.close();
+
+    const store = new Store(path);
+    expect(store.filterTypes()).toEqual(['drill', 'phone case']);
+    expect(store.setting(KEYS.filterTypes)).toEqual(['drill', 'phone case']);
+    expect(store.settings(7)).toEqual({
+      rev: 10,
+      values: { filterTypes: ['drill', 'phone case'] },
+    });
+    expect(store.settings(8)).toEqual({ rev: 10, values: {} });
+    expect(store.db.query('SELECT 1 FROM settings WHERE key = ?').get(KEYS.filterTypes)).toBeNull();
+    store.close();
+
+    // Reopening is idempotent and keeps migrated rows.
+    const reopened = new Store(path);
+    expect(reopened.filterTypes()).toEqual(['drill', 'phone case']);
+    reopened.close();
   });
 
   test('catalog meta merges patches and survives odd saved values', () => {

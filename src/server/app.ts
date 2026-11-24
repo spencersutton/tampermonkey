@@ -38,6 +38,7 @@ import { getCookie } from 'hono/cookie';
 
 import { SITE } from '../shared/constants';
 import { cleanType, MAX_TYPE_LENGTH } from '../shared/itemtype';
+import { KEYS } from '../shared/keys';
 import type { RawLotDetail } from '../shared/lot';
 import type { Catalog } from './catalog';
 import { HISTORY_LIMIT, type History } from './history';
@@ -276,7 +277,14 @@ export function createApp(deps: Deps) {
     if (!('value' in body)) {
       throw new BadRequest('Expected {"value": ...}');
     }
-    return json({ rev: store.putSetting(key, body['value']) });
+    const value = body['value'];
+    if (
+      key === KEYS.filterTypes &&
+      (!Array.isArray(value) || !value.every(v => typeof v === 'string'))
+    ) {
+      throw new BadRequest('Expected an array of strings for filterTypes');
+    }
+    return json({ rev: store.putSetting(key, value) });
   });
   app.get('/api/history', c => {
     const id = integer(c.req.query('id'));

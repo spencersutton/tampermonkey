@@ -26,6 +26,7 @@ import { dirname } from 'node:path';
 import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
+import { KEYS } from '../shared/keys';
 import { endsAtMs, type LotImage, type LotMetadata, type Standing } from '../shared/lot';
 import { isRecord } from './json';
 import '../shared/arrayToSet';
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS lot_past_closes (
 CREATE INDEX IF NOT EXISTS lot_past_closes_closed ON lot_past_closes (closed_id);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS filter_types (type TEXT PRIMARY KEY) WITHOUT ROWID;
 CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS item_types (
   brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
@@ -281,6 +283,7 @@ export class Store {
     this.db.run('PRAGMA journal_mode=WAL');
     this.db.run('PRAGMA busy_timeout=5000');
     this.db.run(SCHEMA);
+    this.migrateFilterTypes();
     if (file) {
       chmodSync(path, 0o600); // holds the site login cookies
     }
@@ -911,23 +914,88 @@ export class Store {
   }
 
   // -- settings ------------------------------------------------------------------------------------
+  private filterTypesRev(): number | null {
+    const v = this.getMeta('filterTypesRev');
+    return typeof v === 'number' ? Math.trunc(v) : null;
+  }
+
+  /** All globally filtered item types, sorted. */
+  filterTypes(): string[] {
+    return this.all<{ type: string }>('SELECT type FROM filter_types ORDER BY type').map(
+      r => r.type,
+    );
+  }
+
+  private writeFilterTypes(types: Iterable<string>): void {
+    this.run('DELETE FROM filter_types');
+    const ins = this.db.query('INSERT OR IGNORE INTO filter_types (type) VALUES (?)');
+    for (const raw of types) {
+      const t = raw.trim().toLowerCase();
+      if (t) {
+        ins.run(t);
+      }
+    }
+  }
+
+  private migrateFilterTypes(): void {
+    const row = this.get<{ value: string; rev: number }>(
+      'SELECT value, rev FROM settings WHERE key = ?',
+      KEYS.filterTypes,
+    );
+    if (!row) {
+      return;
+    }
+    const parsed: unknown = JSON.parse(row.value);
+    const types = Array.isArray(parsed)
+      ? parsed.filter((v): v is string => typeof v === 'string')
+      : [];
+    this.tx(() => {
+      this.writeFilterTypes(types);
+      this.setMeta('filterTypesRev', row.rev);
+      this.run('DELETE FROM settings WHERE key = ?', KEYS.filterTypes);
+    });
+  }
+
   /** The settings revision and every setting changed after `since`. */
   settings(since = 0): { rev: number; values: Record<string, unknown> } {
     const rev = this.int('settingsRev');
+    const from = since > rev ? 0 : since;
     const rows = this.all<{ key: string; value: string }>(
       'SELECT key, value FROM settings WHERE rev > ?',
-      since > rev ? 0 : since,
+      from,
     );
-    return { rev, values: Object.fromEntries(rows.map(r => [r.key, JSON.parse(r.value)])) };
+    const values: Record<string, unknown> = Object.fromEntries(
+      rows.map(r => [r.key, JSON.parse(r.value)]),
+    );
+    const ftRev = this.filterTypesRev();
+    if (ftRev !== null && ftRev > from) {
+      values[KEYS.filterTypes] = this.filterTypes();
+    }
+    return { rev, values };
   }
 
   setting(key: string): unknown {
+    if (key === KEYS.filterTypes) {
+      return this.filterTypesRev() === null ? undefined : this.filterTypes();
+    }
     const row = this.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', key);
     return row ? JSON.parse(row.value) : undefined;
   }
 
   /** Save a setting (last write wins) and return the new settings revision. */
   putSetting(key: string, value: unknown): number {
+    if (key === KEYS.filterTypes) {
+      const types = Array.isArray(value)
+        ? value.filter((v): v is string => typeof v === 'string')
+        : [];
+      return this.tx(() => {
+        const rev = this.int('settingsRev') + 1;
+        this.writeFilterTypes(types);
+        this.setMeta('filterTypesRev', rev);
+        this.setMeta('settingsRev', rev);
+        return rev;
+      });
+    }
     return this.tx(() => {
       const rev = this.int('settingsRev') + 1;
       this.run(

@@ -53,6 +53,20 @@ describe('/api/settings', () => {
     expect((await send('PUT', '/api/settings/bad-key', { value: 1 })).status).toBe(400);
     expect((await send('PUT', '/api/settings/x', { other: 1 })).status).toBe(400);
   });
+
+  test('filterTypes validates an array of strings and persists to filter_types', async () => {
+    const { request, send, store } = await setup();
+    expect(
+      await (await send('PUT', '/api/settings/filterTypes', { value: ['saw', 'drill'] })).json(),
+    ).toEqual({ rev: 1 });
+    expect(await (await request('/api/settings')).json()).toEqual({
+      rev: 1,
+      values: { filterTypes: ['drill', 'saw'] },
+    });
+    expect(store.filterTypes()).toEqual(['drill', 'saw']);
+    expect((await send('PUT', '/api/settings/filterTypes', { value: 'drill' })).status).toBe(400);
+    expect((await send('PUT', '/api/settings/filterTypes', { value: [1] })).status).toBe(400);
+  });
 });
 
 describe('/api/lot-metadata', () => {
