@@ -129,6 +129,58 @@ describe('lot metadata', () => {
       images: [],
     });
   });
+
+  test('leading Quantity: N is stripped from description and stored in lot_details.quantity', async () => {
+    const store = await db.openStore();
+    await store.saveLotDetail({
+      ...raw,
+      id: 10,
+      description: 'Quantity: 6,\n\nImpact driver kit.',
+    });
+    await store.saveLotDetail({
+      ...raw,
+      id: 11,
+      description: 'Quantity: 24,\r\n\r\nBox of bolts.',
+    });
+    await store.saveLotDetail({
+      ...raw,
+      id: 12,
+      description: 'Quantity: 3',
+    });
+    await store.saveLotDetail({
+      ...raw,
+      id: 13,
+      description: 'No quantity prefix here.',
+    });
+
+    expect(await store.lotMetadata(10, 'test')).toMatchObject({
+      description: 'Impact driver kit.',
+      quantity: 6,
+    });
+    expect(await store.lotMetadata(11, 'test')).toMatchObject({
+      description: 'Box of bolts.',
+      quantity: 24,
+    });
+    expect(await store.lotMetadata(12, 'test')).toMatchObject({
+      description: '',
+      quantity: 3,
+    });
+    const noQty = await store.lotMetadata(13, 'test');
+    expect(noQty?.description).toBe('No quantity prefix here.');
+    expect(noQty).not.toHaveProperty('quantity');
+
+    const rows = [
+      ...(await store.sql.unsafe(
+        'SELECT lot_id, quantity, description FROM lot_details WHERE lot_id IN (10, 11, 12, 13) ORDER BY lot_id',
+      )),
+    ];
+    expect(rows).toEqual([
+      { lot_id: '10', quantity: 6, description: 'Impact driver kit.' },
+      { lot_id: '11', quantity: 24, description: 'Box of bolts.' },
+      { lot_id: '12', quantity: 3, description: '' },
+      { lot_id: '13', quantity: null, description: 'No quantity prefix here.' },
+    ]);
+  });
 });
 
 const item = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({

@@ -22,7 +22,13 @@ import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { KEYS } from '../shared/keys';
-import { endsAtMs, type LotImage, type LotMetadata, type Standing } from '../shared/lot';
+import {
+  endsAtMs,
+  extractQuantity,
+  type LotImage,
+  type LotMetadata,
+  type Standing,
+} from '../shared/lot';
 import { isRecord } from './json';
 import '../shared/arrayToSet';
 
@@ -68,8 +74,9 @@ const SCHEMA_STATEMENTS = [
   'CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at)',
   `CREATE TABLE IF NOT EXISTS lot_details (
     lot_id BIGINT PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price DOUBLE PRECISION, description TEXT,
-    brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, bid_history TEXT NOT NULL, fetched_at BIGINT NOT NULL, images TEXT
+    quantity INTEGER, brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, bid_history TEXT NOT NULL, fetched_at BIGINT NOT NULL, images TEXT
   )`,
+  'ALTER TABLE lot_details ADD COLUMN IF NOT EXISTS quantity INTEGER',
 ];
 
 // lots: ends_at is the site's ISO 8601 text; is_leading and your_max_bid are
@@ -985,22 +992,24 @@ export class Store {
       );
       const brand = (d.brand ?? '').trim() || null;
       const model = (d.model ?? '').trim() || null;
+      const { description, quantity } = extractQuantity(d.description);
       const changed = !previous || previous.brand !== brand || previous.model !== model;
       await this.run(
-        `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
-          lot_fee, bid_history, fetched_at, images) VALUES ${valuePlaceholders(1, 12)}
+        `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, quantity, brand, model,
+          lot_fee, bid_history, fetched_at, images) VALUES ${valuePlaceholders(1, 13)}
          ON CONFLICT (lot_id) DO UPDATE SET
           auction_period = EXCLUDED.auction_period, title = EXCLUDED.title, status = EXCLUDED.status,
-          current_price = EXCLUDED.current_price, description = EXCLUDED.description, brand = EXCLUDED.brand,
-          model = EXCLUDED.model, lot_fee = EXCLUDED.lot_fee, bid_history = EXCLUDED.bid_history,
-          fetched_at = EXCLUDED.fetched_at, images = EXCLUDED.images`,
+          current_price = EXCLUDED.current_price, description = EXCLUDED.description, quantity = EXCLUDED.quantity,
+          brand = EXCLUDED.brand, model = EXCLUDED.model, lot_fee = EXCLUDED.lot_fee,
+          bid_history = EXCLUDED.bid_history, fetched_at = EXCLUDED.fetched_at, images = EXCLUDED.images`,
         [
           d.id,
           d.auction_period ?? null,
           d.title || '',
           d.status ?? null,
           d.current_price ?? null,
-          d.description ?? null,
+          description,
+          quantity,
           brand,
           model,
           d.lot_fee ?? null,
@@ -1026,12 +1035,13 @@ export class Store {
   async lotMetadata(id: number, auctionPeriod: string): Promise<LotMetadata | null> {
     const row = await this.get<{
       description: string | null;
+      quantity: number | null;
       brand: string | null;
       model: string | null;
       lot_fee: number | null;
       images: string | null;
     }>(
-      `SELECT description, brand, model, lot_fee, images FROM lot_details
+      `SELECT description, quantity, brand, model, lot_fee, images FROM lot_details
        WHERE lot_id = $1 AND auction_period = $2`,
       [id, auctionPeriod],
     );
@@ -1044,6 +1054,9 @@ export class Store {
       model: row.model,
       lot_fee: row.lot_fee,
     };
+    if (row.quantity !== null) {
+      metadata.quantity = row.quantity;
+    }
     if (row.images !== null) {
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- saved by saveLotDetail
       metadata.images = (JSON.parse(row.images) as SavedImage[]).map(im => ({

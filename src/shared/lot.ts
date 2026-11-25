@@ -50,10 +50,31 @@ export interface RawLotDetail extends RawLot {
 /** Reusable item metadata, kept separately from prices, bids and account state. */
 export interface LotMetadata {
   description: string;
+  quantity?: number | null | undefined;
   brand: string | null;
   model: string | null;
   lot_fee: number | null;
   images?: LotImage[] | undefined; // older server cache entries may not have saved images
+}
+
+const LEADING_QUANTITY = /^\s*Quantity:\s*(\d+),?\s*/i;
+
+/** Strip a leading `Quantity: <n>,` from a lot description and return the parsed quantity. */
+export function extractQuantity(description: string | null | undefined): {
+  description: string | null;
+  quantity: number | null;
+} {
+  if (description == null) {
+    return { description: null, quantity: null };
+  }
+  const m = LEADING_QUANTITY.exec(description);
+  if (!m) {
+    return { description, quantity: null };
+  }
+  return {
+    description: description.slice(m[0].length),
+    quantity: Number.parseInt(m[1]!, 10),
+  };
 }
 
 /** When a lot ends, as epoch ms (NaN if it has no valid time). */

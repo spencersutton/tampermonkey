@@ -184,7 +184,8 @@ describe('/backend proxy', () => {
     expect(await res.json()).toEqual(raw);
     expect(await store.lotMetadata(raw.id, raw.auction_period)).toMatchObject({
       brand: raw.brand,
-      description: raw.description,
+      quantity: 1,
+      description: raw.description.replace(/^Quantity:\s*1,\s*/, ''),
     });
   });
 
