@@ -1,5 +1,6 @@
 import * as format from '../../shared/format';
-import { endsAtMs, type Lot } from '../../shared/lot';
+import { endsAtMs } from '../../shared/lot';
+import type { Lot } from '../types';
 
 export interface BidOutcome {
   isLeading: boolean;

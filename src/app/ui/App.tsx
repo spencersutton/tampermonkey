@@ -4,7 +4,7 @@ import { useRef } from 'preact/hooks';
 
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
-import { endsAtMs, Lot } from '../../shared/lot';
+import { endsAtMs } from '../../shared/lot';
 import { ago, countdown, plural } from '../logic/util';
 import {
   activeFilterCount,
@@ -23,6 +23,7 @@ import { liveState, type LiveState } from '../server/live';
 import { clock } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { nextPullAt, pullCatalog } from '../server/source';
+import type { Lot } from '../types';
 import { LoginLink } from './Auth';
 import { BidConfirm } from './BidConfirm';
 import { CategoryEditor } from './CategoryEditor';

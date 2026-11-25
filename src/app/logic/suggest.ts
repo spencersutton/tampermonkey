@@ -2,9 +2,10 @@
 // match what's being typed, plus the best-matching lots, like a shop's search
 // dropdown.
 import type { HiddenLot } from '../../shared/keys';
-import { endsAtMs, Lot } from '../../shared/lot';
+import { endsAtMs } from '../../shared/lot';
 import type { ItemDetails } from '../../shared/names';
 import { matchQuality, stem } from '../../shared/search';
+import type { Lot } from '../types';
 import { makeSearch, type Facet, type Facets } from './view';
 
 export type SearchOption =

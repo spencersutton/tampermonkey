@@ -5,7 +5,6 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import * as format from '../../shared/format';
 import { KEYS, type CustomCategory } from '../../shared/keys';
-import { Lot } from '../../shared/lot';
 import {
   assignLotsToDrafts,
   buildCategoryRenames,
@@ -32,9 +31,10 @@ import {
 } from '../logic/view';
 import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
+import type { Lot } from '../types';
 import { Dialog } from './Dialog';
-import '../../shared/arrayToSet';
 import { Icon } from './icons';
+import '../../shared/arrayToSet';
 
 type Draft = CategoryDraft;
 

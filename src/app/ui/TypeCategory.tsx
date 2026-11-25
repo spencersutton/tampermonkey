@@ -18,7 +18,7 @@ import { categoryIndex, categoryPath, compileCategories, customCategoryValue } f
 import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
 import { toast } from '../server/toast';
-import { Lot } from '../types';
+import type { Lot } from '../types';
 import { Dialog } from './Dialog';
 
 export function TypeCategory({

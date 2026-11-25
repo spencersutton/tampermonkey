@@ -5,7 +5,6 @@ import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
 import { DAY, MINUTE } from '../../shared/constants';
 import { KEYS, siteUrl } from '../../shared/keys';
-import { Lot } from '../../shared/lot';
 import {
   addFilterType,
   firstVisitSince,
@@ -32,8 +31,9 @@ import { getLot, lotBrands, lotModels, lots, rev } from '../server/catalog';
 import { clock } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { settingsReady } from '../server/source';
-import '../../shared/arrayToSet';
+import type { Lot } from '../types';
 import { keepScrollAnchor } from './dom';
+import '../../shared/arrayToSet';
 
 // Navigation and lot actions
 
