@@ -1,10 +1,6 @@
 // Thin HTTP client for both the tlx server's /api endpoints and the proxied
 // site JSON API under /backend (which adds the server's login token).
-import {
-  type LotMetadata,
-  type RawLot,
-  type RawLotDetail as SiteLotDetail,
-} from '../../shared/lot';
+import type { LotMetadata, RawLotDetail } from '../../shared/lot';
 import type { ClosedSection } from '../logic/history';
 import type { ClosedLot, LotDetail, PastCloseDetail } from '../types';
 import { authedFetch, isAuthenticated, refreshSession } from './auth';
@@ -139,11 +135,6 @@ export async function fetchLotMetadata(
 // ---------------------------------------------------------------------------
 // Proxied site endpoints (/backend/*)
 // ---------------------------------------------------------------------------
-
-/** @see LotDetail; the site's detail adds its "Similar Auctions". */
-interface RawLotDetail extends SiteLotDetail {
-  similar: RawLot[];
-}
 
 interface RawBidResponse {
   code?: string | null;

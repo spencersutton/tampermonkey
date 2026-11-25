@@ -22,7 +22,13 @@ import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { KEYS } from '../shared/keys';
-import { endsAtMs, type LotImage, type LotMetadata, parseLotDescription } from '../shared/lot';
+import {
+  endsAtMs,
+  type LotImage,
+  type LotMetadata,
+  parseLotDescription,
+  type PastClose,
+} from '../shared/lot';
 import { isRecord } from './json';
 
 export const DEFAULT_DB_URL = 'postgres://localhost:5432/tlx';
@@ -153,18 +159,13 @@ function valuePlaceholders(rows: number, cols: number): string {
   return groups.join(', ');
 }
 
-/** A closed lot as attached to an open lot's `pastCloses`. */
-export interface PastClose {
-  id: number;
+/**
+ * A closed lot in full (`closedLots`, GET /api/history): a PastClose whose price and endsAt columns
+ * are nullable.
+ */
+export interface ClosedLot extends Omit<PastClose, 'price' | 'endsAt'> {
   price: number | null;
   endsAt: number | null;
-  condition: string | null;
-  sold: boolean;
-  final: boolean;
-}
-
-/** A closed lot in full (`closedLots`, GET /api/history). */
-export interface ClosedLot extends PastClose {
   title: string;
   auctionPeriod: string | null;
   bidCount: number | null;

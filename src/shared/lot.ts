@@ -68,6 +68,7 @@ export interface RawLotDetail extends RawLot {
   model: string | null;
   lot_fee: number;
   bid_history: { bidder_label: string; amount: number; is_you: boolean }[];
+  similar: RawLot[]; // the site's "Similar Auctions"
 }
 
 /** Reusable item metadata, kept separately from prices, bids and account state. */

@@ -2,7 +2,7 @@
 // patch with the fields they care about.
 
 /** @typedef {import('../src/shared/lot').RawLot} RawLot */
-/** @typedef {import('../src/shared/lot').RawLotDetail & { similar: RawLot[] }} RawLotDetail */
+/** @typedef {import('../src/shared/lot').RawLotDetail} RawLotDetail */
 
 /**
  * A lot as the catalog lists it.
