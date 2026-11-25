@@ -234,7 +234,7 @@ export interface Exclusions {
 }
 
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
-const lotAttrs = memoizeWeak((lot: Lot): Attrs => extractAttrs(lot.title));
+const lotAttrs = memoizeWeak(extractAttrs);
 
 /**
  * The filter words whose regex matches a lot's title (in filter order), cached by title until the
