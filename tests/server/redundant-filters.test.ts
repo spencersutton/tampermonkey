@@ -2,9 +2,14 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   analyzeFilters,
+  analyzeTypeFilters,
   formatReport,
+  formatTypeReport,
   loadFromDb,
+  loadTypesFromDb,
   pruneRedundantFilters,
+  pruneRedundantTypeFilters,
+  saveFilterTypesToDb,
   saveToDb,
 } from '../../scripts/redundant-filters';
 import { buildRegexes, filterMatches } from '../../src/shared/filters';
@@ -154,5 +159,129 @@ describe('pruneRedundantFilters', () => {
     expect(kept).toEqual(['cable', 'red', 'blue']);
     expect(matchedTitles(kept, titles)).toEqual(matchedTitles(patterns, titles));
     expect(analyzeFilters(kept, titles).redundant).toEqual([]);
+  });
+});
+
+describe('analyzeTypeFilters', () => {
+  test('detects single-regex subsumption, combination coverage, and partial overlap', () => {
+    const lots = [
+      { title: 'Anker USB-C Cable 6ft', itemType: 'usb cable' },
+      { title: 'HDMI Cable 10ft', itemType: 'hdmi cable' },
+      { title: 'Red Phone Case', itemType: 'phone accessory' },
+      { title: 'Blue Phone Charger', itemType: 'phone accessory' },
+      { title: 'DeWalt Cordless Drill', itemType: 'drill' },
+      { title: 'Makita Hammer Driver', itemType: 'drill' },
+      { title: 'Ceramic Coffee Mug', itemType: 'mug' },
+      { title: 'Untyped Mystery Box' },
+    ];
+    const filterTypes = ['USB Cable', 'phone accessory', 'drill', 'mug', 'zero match'];
+    const patterns = ['cable', 'red', 'blue', 'drill', '[invalid'];
+
+    const result = analyzeTypeFilters(filterTypes, patterns, lots);
+
+    expect(result.totalLots).toBe(8);
+    expect(result.typedLots).toBe(7);
+    expect(result.totalTypeFilters).toBe(5);
+    expect(result.totalRegexFilters).toBe(4);
+    expect(result.invalidFilters).toEqual(['[invalid']);
+    expect(result.coveredLots).toBe(4);
+
+    // `phone accessory` (2) is covered by combination of `red` + `blue`; `USB Cable` (1) is
+    // subsumed by `cable` (which matches 2 open lots total). `zero match` and `mug` are omitted.
+    expect(result.redundant).toEqual([
+      {
+        type: 'phone accessory',
+        total: 2,
+        subsumedBy: [],
+        overlaps: [
+          { pattern: 'blue', shared: 1 },
+          { pattern: 'red', shared: 1 },
+        ],
+      },
+      {
+        type: 'USB Cable',
+        total: 1,
+        subsumedBy: [{ pattern: 'cable', total: 2 }],
+        overlaps: [{ pattern: 'cable', shared: 1 }],
+      },
+    ]);
+
+    // `drill` has 1 covered lot and 1 unique lot ("Makita Hammer Driver").
+    expect(result.overlapping).toEqual([
+      {
+        type: 'drill',
+        total: 2,
+        unique: 1,
+        covered: 1,
+        overlaps: [{ pattern: 'drill', shared: 1 }],
+      },
+    ]);
+
+    const report = formatTypeReport(result, 10);
+    expect(report).toContain(
+      'phone accessory (2 matches) — covered by combination of blue (1), red (1)',
+    );
+    expect(report).toContain('USB Cable (1 match) — covered by cable (2)');
+    expect(report).toContain('drill (2 total, 1 unique, 1 covered by regex) — drill (1)');
+    expect(report).toContain('[USB Cable] "Anker USB-C Cable 6ft"');
+  });
+
+  test('groups identical covered titles within the same item type', () => {
+    const lots = [
+      { title: 'USB Cable', itemType: 'usb cable' },
+      { title: 'USB Cable', itemType: 'usb cable' },
+    ];
+    const result = analyzeTypeFilters(['usb cable'], ['usb', 'cable'], lots);
+
+    expect(result.coveredTitles).toEqual([
+      { title: 'USB Cable', itemType: 'usb cable', lots: 2, filters: ['cable', 'usb'] },
+    ]);
+  });
+});
+
+describe('pruneRedundantTypeFilters', () => {
+  test('removes only item type filters fully covered by regex filters and keeps 0-match types', () => {
+    const lots = [
+      { title: 'Anker USB-C Cable', itemType: 'usb cable' },
+      { title: 'DeWalt Cordless Drill', itemType: 'drill' },
+      { title: 'Makita Hammer Driver', itemType: 'drill' },
+      { title: 'Ceramic Mug', itemType: 'mug' },
+    ];
+    const filterTypes = ['usb cable', 'drill', 'mug', 'pressure washer'];
+    const patterns = ['cable', 'drill'];
+
+    const { kept, removed } = pruneRedundantTypeFilters(filterTypes, patterns, lots);
+    expect(removed).toEqual(['usb cable']);
+    expect(kept).toEqual(['drill', 'mug', 'pressure washer']);
+  });
+});
+
+describe('loadTypesFromDb and saveFilterTypesToDb', () => {
+  test('loads filterWords, filterTypes, and open lots with resolved item types', async () => {
+    const schema = db.nextSchema();
+    const store = await db.openStore(schema);
+    await store.putSetting(KEYS.words, ['cable']);
+    await store.putSetting(KEYS.filterTypes, ['usb cable', 'drill']);
+    const lot1 = rawLot({ id: 1, title: 'Anker USB-C Cable' });
+    const lot2 = rawLot({ id: 2, title: 'DeWalt Tool Kit' });
+    await store.replaceAll([lot1, lot2]);
+    await store.saveLotDetail({ id: 2, brand: 'DeWalt', model: 'DCD771' });
+    await store.saveLotTypes([
+      [lot1, 'usb cable'],
+      [{ ...lot2, brand: 'DeWalt', model: 'DCD771' }, 'drill'],
+    ]);
+
+    const loaded = await loadTypesFromDb(db.url, { schema });
+    expect(loaded.patterns).toEqual(['cable']);
+    expect(loaded.filterTypes).toEqual(['drill', 'usb cable']);
+    expect(loaded.lots.toSorted((a, b) => a.title.localeCompare(b.title))).toEqual([
+      { title: 'Anker USB-C Cable', itemType: 'usb cable' },
+      { title: 'DeWalt Tool Kit', itemType: 'drill' },
+    ]);
+
+    const revBefore = await store.putSetting(KEYS.filterTypes, ['drill', 'usb cable']);
+    const revAfter = await saveFilterTypesToDb(db.url, ['drill'], { schema });
+    expect(revAfter).toBeGreaterThan(revBefore);
+    expect((await loadTypesFromDb(db.url, { schema })).filterTypes).toEqual(['drill']);
   });
 });

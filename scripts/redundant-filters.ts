@@ -1,11 +1,13 @@
-// Reports regex title filters that are redundant or overlap on current open lots.
+// Reports regex title filters that are redundant or overlap on current open lots,
+// or item type filters that are redundant due to regex filters.
 //
 //   npm run check-filters
+//   npm run check-filters -- --types
 //   npm run check-filters -- --all
 //   npm run check-filters -- --db postgres://localhost:5432/tlx --json
 import { parseArgs } from 'node:util';
 
-import { DEFAULT_DB_URL, Store, type StoreOptions } from '../src/server/store';
+import { DEFAULT_DB_URL, type Item, Store, type StoreOptions } from '../src/server/store';
 import { buildRegexes, filterMatches } from '../src/shared/filters';
 import { KEYS } from '../src/shared/keys';
 
@@ -15,12 +17,15 @@ const DEFAULT_EXAMPLES = 20;
 
 const HELP = `Usage: npm run check-filters -- [options]
 
-Find regex filters in PostgreSQL that are redundant or overlap on open lot titles.
+Find regex filters in PostgreSQL that are redundant or overlap on open lot titles,
+or check for item type filters that are redundant due to regex filters.
 
   --db URL        PostgreSQL connection URL (or TLX_DB / DATABASE_URL; default ${DEFAULT_DB_URL})
+  --types         Check item type filters that are redundant due to regex filters
   --examples N    Max multi-matched titles to print (default ${DEFAULT_EXAMPLES}; 0 to hide)
   --all           Print every multi-matched title
-  --remove        Remove fully redundant and 0-match filters from the database (preserving coverage)
+  --remove        Remove redundant filters from the database (preserving coverage;
+                  also removes 0-match regex filters when --types is not set)
   --json          Output results as JSON
   -h, --help      Show this help
 `;
@@ -298,6 +303,222 @@ export function pruneRedundantFilters(patterns: string[], titles: string[]): Pru
   return { kept, removed };
 }
 
+export interface TypeCheckLot {
+  title: string;
+  itemType?: string | undefined;
+}
+
+export interface TypeRegexOverlap {
+  pattern: string;
+  shared: number;
+}
+
+export interface RedundantTypeFilter {
+  type: string;
+  total: number;
+  /** Single regex filters that match every open lot of this item type. */
+  subsumedBy: { pattern: string; total: number }[];
+  /** All regex filters sharing at least one open lot with this item type filter. */
+  overlaps: TypeRegexOverlap[];
+}
+
+export interface PartiallyCoveredTypeFilter {
+  type: string;
+  total: number;
+  unique: number;
+  covered: number;
+  overlaps: TypeRegexOverlap[];
+}
+
+export interface TypeCoveredTitle {
+  title: string;
+  itemType: string;
+  lots: number;
+  filters: string[];
+}
+
+export interface TypeFilterAnalysis {
+  totalLots: number;
+  typedLots: number;
+  totalTypeFilters: number;
+  totalRegexFilters: number;
+  invalidFilters: string[];
+  coveredLots: number;
+  redundant: RedundantTypeFilter[];
+  overlapping: PartiallyCoveredTypeFilter[];
+  coveredTitles: TypeCoveredTitle[];
+}
+
+/**
+ * Analyze globally filtered item types against open lots and regex title filters to find item type
+ * filters that are fully or partially covered by regex filters.
+ */
+export function analyzeTypeFilters(
+  filterTypes: string[],
+  patterns: string[],
+  lots: TypeCheckLot[],
+): TypeFilterAnalysis {
+  const uniquePatterns: string[] = [];
+  const seenPatterns = new Set<string>();
+  for (const raw of patterns) {
+    if (raw.trim() && !seenPatterns.has(raw)) {
+      seenPatterns.add(raw);
+      uniquePatterns.push(raw);
+    }
+  }
+
+  const compiled = buildRegexes(uniquePatterns);
+  const invalidFilters = compiled.filter(f => f.re === null).map(f => f.word);
+  const valid = compiled.filter(f => f.re !== null);
+
+  const typeByKey = new Map<string, string>();
+  for (const raw of filterTypes) {
+    const key = raw.trim().toLowerCase();
+    if (key && !typeByKey.has(key)) {
+      typeByKey.set(key, raw.trim());
+    }
+  }
+
+  const regexTotal = new Map<string, number>(valid.map(f => [f.word, 0]));
+  const typeTotal = new Map<string, number>();
+  const typeUnique = new Map<string, number>();
+  const pairShared = new Map<string, Map<string, number>>();
+  for (const key of typeByKey.keys()) {
+    typeTotal.set(key, 0);
+    typeUnique.set(key, 0);
+    pairShared.set(key, new Map());
+  }
+
+  const titleHits = new Map<
+    string,
+    { title: string; itemType: string; lots: number; filters: string[] }
+  >();
+  let typedLots = 0;
+  let coveredLots = 0;
+
+  for (const lot of lots) {
+    const title = lot.title;
+    const typeKey = lot.itemType?.trim().toLowerCase() ?? '';
+    if (typeKey) {
+      typedLots += 1;
+    }
+
+    const hits: string[] = [];
+    for (const f of valid) {
+      if (filterMatches(f, title)) {
+        hits.push(f.word);
+        regexTotal.set(f.word, (regexTotal.get(f.word) ?? 0) + 1);
+      }
+    }
+
+    const displayType = typeByKey.get(typeKey);
+    if (!displayType) {
+      continue;
+    }
+
+    typeTotal.set(typeKey, (typeTotal.get(typeKey) ?? 0) + 1);
+    if (hits.length === 0) {
+      typeUnique.set(typeKey, (typeUnique.get(typeKey) ?? 0) + 1);
+      continue;
+    }
+
+    coveredLots += 1;
+    const counts = pairShared.get(typeKey);
+    if (counts) {
+      for (const word of hits) {
+        counts.set(word, (counts.get(word) ?? 0) + 1);
+      }
+    }
+
+    const hitKey = `${typeKey}\u0000${title}`;
+    const existing = titleHits.get(hitKey);
+    if (existing) {
+      existing.lots += 1;
+    } else {
+      titleHits.set(hitKey, { title, itemType: displayType, lots: 1, filters: hits.toSorted() });
+    }
+  }
+
+  const redundant: RedundantTypeFilter[] = [];
+  const overlapping: PartiallyCoveredTypeFilter[] = [];
+
+  for (const [key, displayType] of typeByKey) {
+    const total = typeTotal.get(key) ?? 0;
+    const unique = typeUnique.get(key) ?? 0;
+    const covered = total - unique;
+    if (covered === 0) {
+      continue;
+    }
+
+    const counts = pairShared.get(key) ?? new Map<string, number>();
+    const overlaps: TypeRegexOverlap[] = [];
+    const subsumedBy: { pattern: string; total: number }[] = [];
+
+    for (const [pattern, shared] of counts) {
+      overlaps.push({ pattern, shared });
+      if (shared === total) {
+        subsumedBy.push({ pattern, total: regexTotal.get(pattern) ?? shared });
+      }
+    }
+
+    overlaps.sort((a, b) => b.shared - a.shared || a.pattern.localeCompare(b.pattern));
+    subsumedBy.sort((a, b) => b.total - a.total || a.pattern.localeCompare(b.pattern));
+
+    if (unique === 0) {
+      redundant.push({ type: displayType, total, subsumedBy, overlaps });
+    } else {
+      overlapping.push({ type: displayType, total, unique, covered, overlaps });
+    }
+  }
+
+  redundant.sort((a, b) => b.total - a.total || a.type.localeCompare(b.type));
+  overlapping.sort((a, b) => b.covered - a.covered || a.type.localeCompare(b.type));
+
+  const coveredTitles: TypeCoveredTitle[] = [...titleHits.values()].toSorted(
+    (a, b) =>
+      b.filters.length - a.filters.length ||
+      b.lots - a.lots ||
+      a.itemType.localeCompare(b.itemType) ||
+      a.title.localeCompare(b.title),
+  );
+
+  return {
+    totalLots: lots.length,
+    typedLots,
+    totalTypeFilters: typeByKey.size,
+    totalRegexFilters: valid.length,
+    invalidFilters,
+    coveredLots,
+    redundant,
+    overlapping,
+    coveredTitles,
+  };
+}
+
+/**
+ * Remove item type filters whose open lots are all already matched by regex filters. Item type
+ * filters with 0 open lots are kept untouched.
+ */
+export function pruneRedundantTypeFilters(
+  filterTypes: string[],
+  patterns: string[],
+  lots: TypeCheckLot[],
+): PruneResult {
+  const analysis = analyzeTypeFilters(filterTypes, patterns, lots);
+  const removedKeys = new Set(analysis.redundant.map(r => r.type.trim().toLowerCase()));
+  const kept: string[] = [];
+  const removed: string[] = [];
+  for (const t of filterTypes) {
+    if (removedKeys.has(t.trim().toLowerCase())) {
+      removed.push(t);
+    } else {
+      kept.push(t);
+    }
+  }
+  removed.sort((a, b) => a.localeCompare(b));
+  return { kept, removed };
+}
+
 /** Persist updated filterWords via Store (bumping settingsRev). */
 export async function saveToDb(
   dbUrl: string,
@@ -307,6 +528,20 @@ export async function saveToDb(
   const store = await Store.open(dbUrl, options);
   try {
     return await store.putSetting(KEYS.words, patterns);
+  } finally {
+    await store.close();
+  }
+}
+
+/** Persist updated filterTypes via Store (bumping settingsRev). */
+export async function saveFilterTypesToDb(
+  dbUrl: string,
+  filterTypes: string[],
+  options?: StoreOptions,
+): Promise<number> {
+  const store = await Store.open(dbUrl, options);
+  try {
+    return await store.putSetting(KEYS.filterTypes, filterTypes);
   } finally {
     await store.close();
   }
@@ -333,6 +568,45 @@ export async function loadFromDb(
       }
     }
     return { patterns, titles };
+  } finally {
+    await store.close();
+  }
+}
+
+/** Read filterWords, filterTypes, and open lots with resolved item types from PostgreSQL. */
+export async function loadTypesFromDb(
+  dbUrl: string,
+  options?: StoreOptions,
+): Promise<{ patterns: string[]; filterTypes: string[]; lots: TypeCheckLot[] }> {
+  const store = await Store.open(dbUrl, options);
+  try {
+    const raw = await store.setting(KEYS.words);
+    const patterns = Array.isArray(raw)
+      ? raw.filter((v): v is string => typeof v === 'string')
+      : [];
+    const filterTypes = await store.filterTypes();
+    const rows: unknown = await store.sql.unsafe('SELECT id, title FROM lots');
+    const items: Item[] = [];
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        if (
+          row &&
+          typeof row === 'object' &&
+          'id' in row &&
+          'title' in row &&
+          typeof row.title === 'string' &&
+          (typeof row.id === 'number' || typeof row.id === 'string')
+        ) {
+          items.push({ id: Number(row.id), title: row.title });
+        }
+      }
+    }
+    await store.annotateItems(items);
+    const lots: TypeCheckLot[] = items.map(item => ({
+      title: item.title,
+      itemType: item.itemType,
+    }));
+    return { patterns, filterTypes, lots };
   } finally {
     await store.close();
   }
@@ -401,10 +675,76 @@ export function formatReport(analysis: FilterAnalysis, maxExamples: number): str
   return lines.join('\n');
 }
 
+/** Format the item-type redundancy analysis as a concise human-readable report. */
+export function formatTypeReport(analysis: TypeFilterAnalysis, maxExamples: number): string {
+  const lines: string[] = [];
+  lines.push(
+    `Checked ${plural(analysis.totalTypeFilters, 'item type filter')} against ` +
+      `${plural(analysis.totalLots, 'open lot')} (${analysis.typedLots} typed) using ` +
+      `${plural(analysis.totalRegexFilters, 'regex filter')} ` +
+      `(${plural(analysis.coveredLots, 'filtered-type lot')} also matched by regex).`,
+  );
+  if (analysis.invalidFilters.length > 0) {
+    lines.push(
+      `Invalid regex (${analysis.invalidFilters.length}): ${analysis.invalidFilters.join(', ')}`,
+    );
+  }
+
+  lines.push('');
+  if (analysis.redundant.length === 0) {
+    lines.push('Redundant item type filters (all open lots matched by regex): none');
+  } else {
+    lines.push(
+      `Redundant item type filters (all open lots matched by regex): ${analysis.redundant.length}`,
+    );
+    for (const r of analysis.redundant) {
+      let reason: string;
+      if (r.subsumedBy.length > 0) {
+        const covered = r.subsumedBy.map(s => `${s.pattern} (${s.total})`);
+        reason = `covered by ${covered.join(', ')}`;
+      } else {
+        const parts = r.overlaps.map(o => `${o.pattern} (${o.shared})`);
+        reason = `covered by combination of ${parts.join(', ')}`;
+      }
+      lines.push(`  ${r.type} (${plural(r.total, 'match', 'matches')}) — ${reason}`);
+    }
+  }
+
+  lines.push('');
+  if (analysis.overlapping.length === 0) {
+    lines.push('Partially covered item type filters: none');
+  } else {
+    lines.push(`Partially covered item type filters: ${analysis.overlapping.length}`);
+    for (const o of analysis.overlapping) {
+      const peers = o.overlaps.map(p => `${p.pattern} (${p.shared})`).join(', ');
+      lines.push(
+        `  ${o.type} (${o.total} total, ${o.unique} unique, ${o.covered} covered by regex) — ${peers}`,
+      );
+    }
+  }
+
+  if (maxExamples > 0 && analysis.coveredTitles.length > 0) {
+    const shown = analysis.coveredTitles.slice(0, maxExamples);
+    const totalTitles = analysis.coveredTitles.length;
+    lines.push('');
+    lines.push(
+      `Filtered-type titles also matched by regex (showing ${shown.length} of ${totalTitles}):`,
+    );
+    for (const item of shown) {
+      const countTag = item.lots > 1 ? ` (${plural(item.lots, 'lot')})` : '';
+      lines.push(`  [${item.itemType}] "${item.title}"${countTag}`);
+      lines.push(`    -> ${item.filters.join(' | ')}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 async function main() {
   const { values: args } = parseArgs({
     options: {
       db: { type: 'string', default: DEFAULT_DB },
+      types: { type: 'boolean', default: false },
       examples: { type: 'string', default: String(DEFAULT_EXAMPLES) },
       all: { type: 'boolean', default: false },
       remove: { type: 'boolean', default: false },
@@ -422,6 +762,37 @@ async function main() {
   if (!Number.isInteger(parsedExamples) || parsedExamples < 0) {
     console.error(`check-filters: --examples must be a non-negative integer, got ${args.examples}`);
     process.exit(2);
+  }
+
+  if (args.types) {
+    const { patterns, filterTypes, lots } = await loadTypesFromDb(args.db);
+
+    if (args.remove) {
+      const { kept, removed } = pruneRedundantTypeFilters(filterTypes, patterns, lots);
+      const rev = removed.length > 0 ? await saveFilterTypesToDb(args.db, kept) : null;
+      if (args.json) {
+        console.log(JSON.stringify({ removed, keptCount: kept.length, rev }, null, 2));
+      } else if (removed.length === 0) {
+        console.log('No redundant item type filters to remove.');
+      } else {
+        console.log(
+          `Removed ${plural(removed.length, 'redundant item type filter')} (${kept.length} remaining, settings rev ${rev}):`,
+        );
+        for (const t of removed) {
+          console.log(`  - ${t}`);
+        }
+      }
+      return;
+    }
+
+    const analysis = analyzeTypeFilters(filterTypes, patterns, lots);
+    if (args.json) {
+      console.log(JSON.stringify(analysis, null, 2));
+    } else {
+      const maxExamples = args.all ? analysis.coveredTitles.length : parsedExamples;
+      console.log(formatTypeReport(analysis, maxExamples));
+    }
+    return;
   }
 
   const { patterns, titles } = await loadFromDb(args.db);
