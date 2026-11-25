@@ -100,9 +100,12 @@ export function pastPrice(
   };
 }
 
-const STRIPPED_DESC_LINE = /^\s*(?:quantity|brand|model)\s*:.*$/i;
+const STRIPPED_DESC_LINE = /^\s*(?:quantity|lot number|brand|model)\s*:.*$/i;
 
-/** Remove boilerplate Quantity/Brand/Model lines from a lot description and tidy blank lines. */
+/**
+ * Remove boilerplate Quantity/Lot Number/Brand/Model lines from a lot description and tidy blank
+ * lines.
+ */
 export function cleanDescription(description: string): string {
   return description
     .split(/\r?\n/)

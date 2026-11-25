@@ -24,9 +24,9 @@ import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { KEYS } from '../shared/keys';
 import {
   endsAtMs,
-  extractQuantity,
   type LotImage,
   type LotMetadata,
+  parseLotDescription,
   type Standing,
 } from '../shared/lot';
 import { isRecord } from './json';
@@ -992,7 +992,7 @@ export class Store {
       );
       const brand = (d.brand ?? '').trim() || null;
       const model = (d.model ?? '').trim() || null;
-      const { description, quantity } = extractQuantity(d.description);
+      const { description, quantity } = parseLotDescription(d.description);
       const changed = !previous || previous.brand !== brand || previous.model !== model;
       await this.run(
         `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, quantity, brand, model,

@@ -58,23 +58,29 @@ export interface LotMetadata {
 }
 
 const LEADING_QUANTITY = /^\s*Quantity:\s*(\d+),?\s*/i;
+const TRAILING_LOT_META = /(?:^|\s+)Lot Number:[^\r\n]*(?:\r?\nBrand:[^\r\n]*)?\s*$/i;
+const TRAILING_BRAND = /(?:^|\s+)Brand:[^\r\n]*\s*$/i;
 
-/** Strip a leading `Quantity: <n>,` from a lot description and return the parsed quantity. */
-export function extractQuantity(description: string | null | undefined): {
+/**
+ * Strip the site's boilerplate `Quantity: <n>,` prefix and trailing `Lot Number:` / `Brand:` lines
+ * from a lot description, returning the cleaned description and parsed quantity.
+ */
+export function parseLotDescription(description: string | null | undefined): {
   description: string | null;
   quantity: number | null;
 } {
   if (description == null) {
     return { description: null, quantity: null };
   }
-  const m = LEADING_QUANTITY.exec(description);
-  if (!m) {
-    return { description, quantity: null };
+  let text = description;
+  let quantity: number | null = null;
+  const m = LEADING_QUANTITY.exec(text);
+  if (m) {
+    quantity = Number.parseInt(m[1]!, 10);
+    text = text.slice(m[0].length);
   }
-  return {
-    description: description.slice(m[0].length),
-    quantity: Number.parseInt(m[1]!, 10),
-  };
+  text = text.replace(TRAILING_LOT_META, '').replace(TRAILING_BRAND, '');
+  return { description: text, quantity };
 }
 
 /** When a lot ends, as epoch ms (NaN if it has no valid time). */

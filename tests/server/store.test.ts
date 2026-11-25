@@ -130,27 +130,27 @@ describe('lot metadata', () => {
     });
   });
 
-  test('leading Quantity: N is stripped from description and stored in lot_details.quantity', async () => {
+  test('leading Quantity and trailing Lot Number/Brand are stripped from description', async () => {
     const store = await db.openStore();
     await store.saveLotDetail({
       ...raw,
       id: 10,
-      description: 'Quantity: 6,\n\nImpact driver kit.',
+      description: 'Quantity: 6,\n\nImpact driver kit.\n\nLot Number: 21810009,\nBrand: Lasko,',
     });
     await store.saveLotDetail({
       ...raw,
       id: 11,
-      description: 'Quantity: 24,\r\n\r\nBox of bolts.',
+      description: 'Quantity: 24,\r\n\r\nBox of bolts.\r\n\r\nLot Number: 21810010,',
     });
     await store.saveLotDetail({
       ...raw,
       id: 12,
-      description: 'Quantity: 3',
+      description: 'Quantity: 3,\n\nLot Number: 21811735,',
     });
     await store.saveLotDetail({
       ...raw,
       id: 13,
-      description: 'No quantity prefix here.',
+      description: 'No boilerplate here.',
     });
 
     expect(await store.lotMetadata(10, 'test')).toMatchObject({
@@ -166,7 +166,7 @@ describe('lot metadata', () => {
       quantity: 3,
     });
     const noQty = await store.lotMetadata(13, 'test');
-    expect(noQty?.description).toBe('No quantity prefix here.');
+    expect(noQty?.description).toBe('No boilerplate here.');
     expect(noQty).not.toHaveProperty('quantity');
 
     const rows = [
@@ -178,7 +178,7 @@ describe('lot metadata', () => {
       { lot_id: '10', quantity: 6, description: 'Impact driver kit.' },
       { lot_id: '11', quantity: 24, description: 'Box of bolts.' },
       { lot_id: '12', quantity: 3, description: '' },
-      { lot_id: '13', quantity: null, description: 'No quantity prefix here.' },
+      { lot_id: '13', quantity: null, description: 'No boilerplate here.' },
     ]);
   });
 });
