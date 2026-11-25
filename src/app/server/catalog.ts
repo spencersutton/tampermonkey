@@ -6,8 +6,8 @@
 import { batch, signal } from '@preact/signals';
 
 import { MINUTE } from '../../shared/constants';
-import type { LotMetadata } from '../../shared/lot';
-import type { Lot, LotDetail } from '../types';
+import type { Lot, LotMetadata } from '../../shared/lot';
+import { LotDetail } from '../types';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 

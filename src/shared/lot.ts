@@ -86,3 +86,24 @@ export function parseLotDescription(description: string | null | undefined): {
 /** When a lot ends, as epoch ms (NaN if it has no valid time). */
 export const endsAtMs = (lot: { ends_at?: Nullable<string> }): number =>
   lot.ends_at ? Date.parse(lot.ends_at) : Number.NaN;
+
+/** An earlier lot that closed, as the server records them (src/server/history.ts). */
+export interface PastClose {
+  id: number;
+  price: number;
+  endsAt: number; // epoch ms
+  condition: string | null; // label, e.g. "Like New"
+  sold: boolean; // had a winning bid
+  final: boolean; // the site's final price; else the last price seen before it closed
+}
+
+// A lot as the tlx server sends it: the site's fields (snake_case, see RawLot in
+// shared/lot.ts) plus the server's own (camelCase).
+export interface Lot extends RawLot {
+  brand?: Nullable<string>; // server-cached detail; absent until fetched, null when no brand is provided
+  model?: Nullable<string>; // same cache semantics as brand
+  firstSeenAt?: number | undefined; // epoch ms when a full pull first saw this lot (0 = already there on the first pull)
+  itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
+  pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none
+  groupId?: number | undefined; // set by the server on lots that list the same item as another open lot (any condition when brand and model match, else the same one): the smallest id among them
+}

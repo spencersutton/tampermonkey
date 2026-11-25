@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'preact/hooks';
 
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
+import { Lot } from '../../shared/lot';
 import { itemTypeError, itemTypeSuggestions } from '../logic/catalog';
 import { errorMessage } from '../logic/util';
 import { lots } from '../server/catalog';
 import { setItemType } from '../server/source';
 import { toast } from '../server/toast';
-import type { Lot } from '../types';
 import { Dialog } from './Dialog';
 import { hasModifierKey } from './dom';
 import { Icon } from './icons';

@@ -8,6 +8,7 @@ import { CDN } from '../../shared/constants';
 import { costBreakdown, totalCost } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
+import { Lot } from '../../shared/lot';
 import {
   closedLotKey,
   closedTotals,
@@ -24,7 +25,7 @@ import { getLot, loadDetail, lots as catalogLots, rev } from '../server/catalog'
 import { getCachedClosed, loadClosedSection, type ClosedCache } from '../server/closed';
 import { clock } from '../server/reactive';
 import { toast } from '../server/toast';
-import type { ClosedLot, Lot } from '../types';
+import { ClosedLot } from '../types';
 import { LoginLink } from './Auth';
 import { openHandler } from './dom';
 import { Icon } from './icons';
