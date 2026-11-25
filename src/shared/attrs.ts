@@ -154,6 +154,8 @@ const RULES: Rule[] = [
       /\b(?:satin|polished|brushed|antique|vintage|warm|french|beige|modern|oil[ -]rubbed|cocoa|champagne|venetian|matte|aged|rustic|rubbed|blackened) (brass|chrome|nickel|white|gold|silver|bronze)\b/i,
       m => titleCase(m[1]!),
     ],
+    [/\bPop-Up Drain and Mounting Ring in Chrome\b/, 'Chrome'],
+    [/\bBath Hardware Set.*, (Chrome|Matte Black)\b/, m => titleCase(m[1]!)],
   ]),
   ...group('Finish', [
     [
