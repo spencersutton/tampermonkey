@@ -36,7 +36,11 @@ writeFileSync(join(staticDir, 'index.html'), '<!doctype html><title>TL Catalog</
 writeFileSync(join(staticDir, 'tags.html'), '<!doctype html><title>Tags</title>');
 writeFileSync(
   join(staticDir, 'assets', 'app-1234.js'),
-  `console.log(${JSON.stringify('x'.repeat(5000))});`,
+  `console.log(${JSON.stringify('x'.repeat(5000))});\n//# sourceMappingURL=app-1234.js.map\n`,
+);
+writeFileSync(
+  join(staticDir, 'assets', 'app-1234.js.map'),
+  JSON.stringify({ version: 3, file: 'app-1234.js', sources: ['src/web.tsx'], mappings: '' }),
 );
 writeFileSync(join(staticRoot, 'secret.txt'), 'not for the web');
 

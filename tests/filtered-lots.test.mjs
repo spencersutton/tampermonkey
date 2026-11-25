@@ -173,11 +173,11 @@ test('LotAttrs renders every extracted attribute on the lot detail view and filt
     if (Array.isArray(node)) return node.flatMap(nodes);
     return [node, ...nodes(node.props?.children)];
   };
-  assert.equal(LotAttrs({ title: 'Plain item with no specs', onSelect() {} }), null);
+  assert.equal(LotAttrs({ lot: lot(1, 'Plain item with no specs'), onSelect() {} }), null);
 
   const selected = [];
   const tree = LotAttrs({
-    title: 'Milwaukee M18 3200 PSI 50 ft Black & Red Pressure Washer Hose',
+    lot: lot(2, 'Milwaukee M18 3200 PSI 50 ft Black & Red Pressure Washer Hose'),
     onSelect: key => selected.push(key),
   });
   assert.ok(tree);

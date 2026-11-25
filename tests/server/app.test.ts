@@ -271,6 +271,11 @@ describe('static files', () => {
     const asset = await request('/assets/app-1234.js', { headers: { 'Accept-Encoding': 'gzip' } });
     expect(asset.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable');
     expect(asset.headers.get('Content-Encoding')).toBe('gzip');
+    const map = await request('/assets/app-1234.js.map');
+    expect(map.status).toBe(200);
+    expect(map.headers.get('Content-Type')).toStartWith('application/json');
+    expect(map.headers.get('Cache-Control')).toBe('public, max-age=31536000, immutable');
+    expect(await map.json()).toMatchObject({ version: 3, file: 'app-1234.js' });
     for (const path of ['/../secret.txt', '/%2e%2e/secret.txt', '/assets', '/nope.js']) {
       expect((await request(path)).status).toBe(404);
     }

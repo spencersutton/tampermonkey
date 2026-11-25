@@ -234,7 +234,7 @@ const RULES: Rule[] = [
   unit('Hose length', /\b(\d+)\s*-?\s*ft\b/i, 'ft', /\bhose\b(?! reel)/i),
   unit('Hose diameter', /(\d+\/\d+)\s*(?:in\.?|")/i, 'in', /\bhose\b/i),
   unit('Watts', /\b(\d+(?:\.\d+)?)[\s-]*W(?:atts?)?\b/i, 'Watts'),
-  unit('CFM', /\b\d+\s*CFM\b/i, 'CFM'),
+  unit('CFM', /\b(\d[\d,]*)\s*CFM\b/i, 'CFM'),
   unit('PSI', /\b([\d,]+)\s*PSI\b/i, 'PSI'),
   unit('Volume', /\b(\d+(?:\.\d+)?)\s*-?Cu\.?[ -]ft\.?\b/i, 'cu ft'),
   unit('GPM', /\b(\d+(?:\.\d+)?)\s*GPM\b/i, 'GPM'),

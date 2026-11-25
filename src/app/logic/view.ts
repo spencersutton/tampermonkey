@@ -1,12 +1,6 @@
 import { dequal } from 'dequal';
 
-import {
-  attrKey,
-  compareAttrValues,
-  extractAttrs,
-  parseAttrKey,
-  type Attrs,
-} from '../../shared/attrs';
+import { attrKey, compareAttrValues, extractAttrs, parseAttrKey } from '../../shared/attrs';
 import { HOUR } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
