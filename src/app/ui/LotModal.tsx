@@ -7,7 +7,7 @@ import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs, type LotMetadata } from '../../shared/lot';
 import { bidBlocker, isLeading, maxBidError, minMaxBid, quickBidAmount } from '../logic/bid';
-import { openSimilarLots, pastPrice } from '../logic/catalog';
+import { cleanDescription, openSimilarLots, pastPrice } from '../logic/catalog';
 import { errorMessage, parseNum, plural } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
@@ -114,7 +114,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
   const brand = metadata?.brand ?? lotBrands.value.get(lot.id) ?? lot.brand ?? null;
   const model = metadata?.model ?? lotModels.value.get(lot.id) ?? lot.model ?? null;
   const images = metadata?.images ?? lot.images;
-  const description = metadata?.description ?? '';
+  const description = metadata?.description ? cleanDescription(metadata.description) : '';
   const auction = detail && detail.version >= lot.version ? detail : null;
   const img = images[Math.min(imgIdx, images.length - 1)];
   /** Move through the images by `delta`, wrapping around. */
