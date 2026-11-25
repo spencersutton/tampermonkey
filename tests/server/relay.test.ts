@@ -9,8 +9,8 @@ import { History } from '../../src/server/history';
 import { relayHandler, type RelayData } from '../../src/server/relay';
 import { SiteSession } from '../../src/server/session';
 import { BunWebSocket, SiteApi } from '../../src/server/site';
-import { Store } from '../../src/server/store';
 import { SITE } from '../../src/shared/constants';
+import { testDb } from './pg';
 
 interface Frame {
   dir: 'sent' | 'received';
@@ -55,7 +55,8 @@ const upstream = Bun.serve({
   },
 });
 
-const app = createApp(deps(`ws://127.0.0.1:${upstream.port}`));
+const db = testDb();
+const app = createApp(await deps(`ws://127.0.0.1:${upstream.port}`));
 const front = Bun.serve<RelayData>({
   port: 0,
   fetch: (req, srv) => app.fetch(req, srv),
@@ -66,10 +67,10 @@ afterAll(() => {
   void upstream.stop(true);
 });
 
-function deps(wsUrl: string) {
-  const store = new Store(':memory:');
+async function deps(wsUrl: string) {
+  const store = await db.openStore();
   const site = new SiteApi();
-  const session = new SiteSession(store);
+  const session = await SiteSession.create(store);
   const history = new History(store, site);
   return {
     store,
@@ -135,7 +136,7 @@ test('cross-origin upgrades are refused before connecting upstream', async () =>
 });
 
 test('an unreachable upstream is a 502', async () => {
-  const dead = createApp(deps('ws://127.0.0.1:1'));
+  const dead = createApp(await deps('ws://127.0.0.1:1'));
   const server = Bun.serve<RelayData>({
     port: 0,
     fetch: (req, srv) => dead.fetch(req, srv),

@@ -32,7 +32,7 @@ export class Details {
   }
 
   /** Queue newly seen lots that don't have a saved detail yet and wake the fetcher immediately. */
-  enqueue(lots: Iterable<Pick<Lot, 'id' | 'auction_period'>>): void {
+  async enqueue(lots: Iterable<Pick<Lot, 'id' | 'auction_period'>>): Promise<void> {
     let added = false;
     for (const lot of lots) {
       const period = lot.auction_period;
@@ -40,7 +40,7 @@ export class Details {
         !period ||
         this.missing.has(lot.id) ||
         this.queued.has(lot.id) ||
-        this.store.hasLotDetail(lot.id)
+        (await this.store.hasLotDetail(lot.id))
       ) {
         continue;
       }
@@ -79,7 +79,7 @@ export class Details {
 
   /** Fetch and save the detail of every newly seen or open lot that doesn't have one yet. */
   async fetchMissing(): Promise<number> {
-    const allPending = this.store.pendingDetails();
+    const allPending = await this.store.pendingDetails();
     const pendingIds = new Set(allPending.map(row => row.id));
     for (const id of this.missing) {
       if (!pendingIds.has(id) && !this.queued.has(id)) {
@@ -100,7 +100,7 @@ export class Details {
         if (!row) {
           break;
         }
-        if (this.missing.has(row.id) || this.store.hasLotDetail(row.id)) {
+        if (this.missing.has(row.id) || (await this.store.hasLotDetail(row.id))) {
           continue;
         }
         let raw: Record<string, unknown>;
@@ -117,7 +117,7 @@ export class Details {
         }
         if (isRecord(raw) && typeof raw['id'] === 'number') {
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lot detail (see tests/fixtures/site)
-          this.store.saveLotDetail(raw as unknown as RawLotDetail);
+          await this.store.saveLotDetail(raw as unknown as RawLotDetail);
           done += 1;
         }
         await this.sleep(DETAIL_PAUSE_MS);

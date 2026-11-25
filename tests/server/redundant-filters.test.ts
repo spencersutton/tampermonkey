@@ -1,7 +1,4 @@
-import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, expect, test } from 'bun:test';
 
 import {
   analyzeFilters,
@@ -10,13 +7,12 @@ import {
   pruneRedundantFilters,
   saveToDb,
 } from '../../scripts/redundant-filters';
-import { Store } from '../../src/server/store';
 import { buildRegexes, filterMatches } from '../../src/shared/filters';
 import { KEYS } from '../../src/shared/keys';
 import { rawLot } from '../raw-lot.mjs';
+import { testDb } from './pg';
 
-const dir = mkdtempSync(join(tmpdir(), 'tlx-redundant-filters-'));
-afterAll(() => rmSync(dir, { recursive: true }));
+const db = testDb();
 
 describe('analyzeFilters', () => {
   test('detects single-filter subsumption and exact equivalence', () => {
@@ -87,32 +83,30 @@ describe('analyzeFilters', () => {
 });
 
 describe('loadFromDb', () => {
-  test('reads filterWords and open lot titles only', () => {
-    const dbPath = join(dir, 'test.db');
-    const store = new Store(dbPath);
-    store.putSetting(KEYS.words, ['phone', 'case']);
-    store.replaceAll([
+  test('reads filterWords and open lot titles only', async () => {
+    const schema = db.nextSchema();
+    const store = await db.openStore(schema);
+    await store.putSetting(KEYS.words, ['phone', 'case']);
+    await store.replaceAll([
       rawLot({ id: 1, title: 'Phone Case' }),
       rawLot({ id: 2, title: 'Laptop Stand' }),
     ]);
     // Replace with only lot 2 so lot 1 moves into closed_lots.
-    store.replaceAll([rawLot({ id: 2, title: 'Laptop Stand' })]);
-    store.close();
+    await store.replaceAll([rawLot({ id: 2, title: 'Laptop Stand' })]);
 
-    const loaded = loadFromDb(dbPath);
+    const loaded = await loadFromDb(db.url, { schema });
     expect(loaded.patterns).toEqual(['phone', 'case']);
     expect(loaded.titles).toEqual(['Laptop Stand']);
   });
 
-  test('saveToDb updates filterWords and bumps settings revision', () => {
-    const dbPath = join(dir, 'save.db');
-    const store = new Store(dbPath);
-    const rev1 = store.putSetting(KEYS.words, ['cable', 'usb-c cable']);
-    store.close();
+  test('saveToDb updates filterWords and bumps settings revision', async () => {
+    const schema = db.nextSchema();
+    const store = await db.openStore(schema);
+    const rev1 = await store.putSetting(KEYS.words, ['cable', 'usb-c cable']);
 
-    const rev2 = saveToDb(dbPath, ['cable']);
+    const rev2 = await saveToDb(db.url, ['cable'], { schema });
     expect(rev2).toBeGreaterThan(rev1);
-    expect(loadFromDb(dbPath).patterns).toEqual(['cable']);
+    expect((await loadFromDb(db.url, { schema })).patterns).toEqual(['cable']);
   });
 });
 

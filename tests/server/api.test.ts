@@ -4,6 +4,9 @@ import { describe, expect, test } from 'bun:test';
 
 import type { Lot } from '../../src/server/store';
 import { setup } from './harness';
+import { testDb } from './pg';
+
+testDb();
 
 const lot = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({
   id,
@@ -16,13 +19,13 @@ const lot = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({
 describe('/api/catalog', () => {
   test('a full reply, then only what changed, with the id list for deltas', async () => {
     const { request, store } = await setup();
-    store.replaceAll([lot(1), lot(2, 'Saw')]);
+    await store.replaceAll([lot(1), lot(2, 'Saw')]);
     const first = await (await request('/api/catalog')).json();
     expect(first).toMatchObject({ seq: 1, full: true, ids: null, progress: null, error: null });
     expect(first.lots.map((l: Lot) => l.id)).toEqual([1, 2]);
     expect(first.meta).toEqual({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false });
     expect(first.nextPullAt).toBe(0);
-    store.replaceAll([lot(1, 'Drill', { current_price: 5 })]);
+    await store.replaceAll([lot(1, 'Drill', { current_price: 5 })]);
     const delta = await (await request('/api/catalog?since=1')).json();
     expect(delta).toMatchObject({ seq: 2, full: false, ids: [1] });
     expect(delta.lots.map((l: Lot) => [l.id, l.current_price])).toEqual([[1, 5]]);
@@ -33,7 +36,7 @@ describe('/api/catalog', () => {
   test('the Refresh button starts a pull only when one is allowed', async () => {
     const { post, store } = await setup();
     expect((await (await post('/api/pull')).json()).result).toBe('started');
-    store.writeMeta({ pullStartedAt: Date.now() });
+    await store.writeMeta({ pullStartedAt: Date.now() });
     const body = await (await post('/api/pull')).json();
     expect(body.result).toBe('not-due');
     expect(body.nextPullAt).toBe(body.meta.pullStartedAt + 5 * 60_000);
@@ -63,7 +66,7 @@ describe('/api/settings', () => {
       rev: 1,
       values: { filterTypes: ['drill', 'saw'] },
     });
-    expect(store.filterTypes()).toEqual(['drill', 'saw']);
+    expect(await store.filterTypes()).toEqual(['drill', 'saw']);
     expect((await send('PUT', '/api/settings/filterTypes', { value: 'drill' })).status).toBe(400);
     expect((await send('PUT', '/api/settings/filterTypes', { value: [1] })).status).toBe(400);
   });
@@ -72,7 +75,7 @@ describe('/api/settings', () => {
 describe('/api/lot-metadata', () => {
   test('saved item details only, never from the site, and only for the right period', async () => {
     const { request, store, siteCalls } = await setup();
-    store.saveLotDetail({
+    await store.saveLotDetail({
       id: 1,
       auction_period: 'test',
       description: 'Saved',
@@ -99,7 +102,7 @@ describe('/api/lot-metadata', () => {
   test('it obeys the app guards', async () => {
     const { request, store } = await setup({ password: 'fixture-password' });
     expect((await request('/api/lot-metadata?id=1&auctionPeriod=test')).status).toBe(401);
-    store.addSession('fixture-session');
+    await store.addSession('fixture-session');
     const res = await request('/api/lot-metadata?id=1&auctionPeriod=test', {
       headers: { Cookie: 'tlx_session=fixture-session' },
     });
@@ -123,35 +126,34 @@ describe('/api/item-type', () => {
 
   test('saves the tidied type and replies with the changed lots and catalog sequence', async () => {
     const s = await setup();
-    s.store.replaceAll([lot(1), lot(2)]);
-    const before = s.store.seq();
+    await s.store.replaceAll([lot(1), lot(2)]);
+    const before = await s.store.seq();
     expect(await put(s, { lotId: 1, itemType: '  "Drill   Driver."  ' })).toEqual([
       200,
       { lotIds: [1, 2], itemType: 'drill driver', seq: before + 1 },
     ]);
     expect(
       new Set(
-        s.store
-          .allLots()
+        (await s.store.allLots())
           .values()
           .toArray()
           .map(l => l.itemType),
       ),
     ).toEqual(new Set(['drill driver']));
-    s.store.saveLotTypes([[{ title: 'Drill', category: { value: 'tools' } }, 'battery']]);
-    expect(s.store.lot(1)?.itemType).toBe('drill driver');
+    await s.store.saveLotTypes([[{ title: 'Drill', category: { value: 'tools' } }, 'battery']]);
+    expect((await s.store.lot(1))?.itemType).toBe('drill driver');
   });
 
   test('corrections follow the same identity, not the same title of another model', async () => {
     const s = await setup();
-    s.store.replaceAll([lot(1), lot(2, 'Different title'), lot(3)]);
-    s.store.saveLotDetail({ id: 1, brand: 'Acme', model: 'D-100' });
-    s.store.saveLotDetail({ id: 2, brand: 'Acme', model: 'D-100' });
-    s.store.saveLotDetail({ id: 3, brand: 'Acme', model: 'D-200' });
+    await s.store.replaceAll([lot(1), lot(2, 'Different title'), lot(3)]);
+    await s.store.saveLotDetail({ id: 1, brand: 'Acme', model: 'D-100' });
+    await s.store.saveLotDetail({ id: 2, brand: 'Acme', model: 'D-100' });
+    await s.store.saveLotDetail({ id: 3, brand: 'Acme', model: 'D-200' });
     const [status, body] = await put(s, { lotId: 1, itemType: 'driver' });
     expect(status).toBe(200);
     expect(body.lotIds).toEqual([1, 2]);
-    expect(s.store.lot(3)).not.toHaveProperty('itemType');
+    expect(await s.store.lot(3)).not.toHaveProperty('itemType');
   });
 
   test('a missing lot is a 404', async () => {
@@ -164,8 +166,8 @@ describe('/api/item-type', () => {
 
   test('bad ids, types and JSON shapes are refused without changes', async () => {
     const s = await setup();
-    s.store.replaceAll([lot(1), lot(2)]);
-    const before = s.store.seq();
+    await s.store.replaceAll([lot(1), lot(2)]);
+    const before = await s.store.seq();
     for (const body of [
       [],
       null,
@@ -187,17 +189,17 @@ describe('/api/item-type', () => {
       expect([JSON.stringify(body), status]).toEqual([JSON.stringify(body), 400]);
       expect(data.error).toBeTruthy();
     }
-    expect(s.store.seq()).toBe(before);
+    expect(await s.store.seq()).toBe(before);
   });
 
   test('the CSRF header and app password guard corrections', async () => {
     const s = await setup({ password: 'test-only-password' });
-    s.store.replaceAll([lot(1)]);
+    await s.store.replaceAll([lot(1)]);
     const res = await s.request('/api/item-type', { method: 'PUT', body: '{}' });
     expect(res.status).toBe(403);
     expect((await put(s, { lotId: 1, itemType: 'drill driver' }))[0]).toBe(401);
-    expect(s.store.lot(1)?.itemType).toBeUndefined();
-    s.store.addSession('test-session');
+    expect((await s.store.lot(1))?.itemType).toBeUndefined();
+    await s.store.addSession('test-session');
     expect(
       (
         await put(s, { lotId: 1, itemType: 'drill driver' }, { Cookie: 'tlx_session=test-session' })
@@ -209,12 +211,12 @@ describe('/api/item-type', () => {
 describe('/api/history', () => {
   test('closed lots matching an open lot, most recent first', async () => {
     const { request, store } = await setup();
-    store.replaceAll([
+    await store.replaceAll([
       lot(1, 'Cordless drill', { ends_at: new Date(100).toISOString() }),
       lot(2, 'Cordless drill', { ends_at: new Date(200).toISOString() }),
       lot(3, 'Saw'),
     ]);
-    store.replaceAll([lot(3, 'Saw'), lot(4, 'Cordless drill')]);
+    await store.replaceAll([lot(3, 'Saw'), lot(4, 'Cordless drill')]);
     const body = await (await request('/api/history?id=4')).json();
     expect(body.closes.map((c: { id: number }) => c.id)).toEqual([2, 1]);
     expect(body.closes[0]).toMatchObject({

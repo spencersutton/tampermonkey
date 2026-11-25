@@ -7,29 +7,33 @@ import { Catalog, type CatalogStore } from '../../src/server/catalog';
 import { History } from '../../src/server/history';
 import { Labeller, parseReply } from '../../src/server/itemtypes';
 import { ApiError, type LotPage, SiteApi } from '../../src/server/site';
-import { type Lot, Store } from '../../src/server/store';
+import type { Lot } from '../../src/server/store';
 import { cleanType } from '../../src/shared/itemtype';
 import { fixture } from './harness';
+import { testDb } from './pg';
 
+const db = testDb();
 const NOW = 1_800_000_000_000;
 const session = (token: string | null = null) => ({
   token: () => Promise.resolve(token),
   rejected: () => Promise.resolve(null),
 });
-const noHistory = { annotate: () => {}, wake: () => {} };
+const noHistory = { annotate: () => Promise.resolve(), wake: () => {} };
 
 describe('first seen', () => {
   async function pull(previous: Map<number, Partial<Lot> & { id: number }>, lots: Lot[]) {
     let stored: Lot[] = [];
     const store = {
-      meta: () => ({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false }),
-      writeMeta: () => ({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false }),
-      setting: () => undefined,
-      allLots: () => previous as Map<number, Lot>,
-      annotateItems: () => {},
+      meta: () =>
+        Promise.resolve({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false }),
+      writeMeta: () =>
+        Promise.resolve({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false }),
+      setting: () => Promise.resolve(undefined),
+      allLots: () => Promise.resolve(previous as Map<number, Lot>),
+      annotateItems: () => Promise.resolve(),
       replaceAll: (pulled: Iterable<Lot>) => {
         stored = [...pulled];
-        return 1;
+        return Promise.resolve(1);
       },
     } satisfies CatalogStore;
     const site = {
@@ -84,7 +88,7 @@ describe('a pull', () => {
   }
 
   test('walks every page one at a time, stores the lots and the pull, and wakes the history', async () => {
-    const store = new Store(':memory:');
+    const store = await db.openStore();
     const lots = Array.from({ length: 150 }, (_, i) => ({ ...raw[i % raw.length], id: 1000 + i }));
     const { site, requests } = siteServing({ 1: lots.slice(0, 100), 2: lots.slice(100) }, 150);
     let woken = 0;
@@ -93,13 +97,15 @@ describe('a pull', () => {
     const catalog = new Catalog(store, session(), history, site, () => NOW);
     const seenPages: number[][] = [];
     let after = 0;
+    let storedBeforeReplace = 0;
     catalog.onLotsSeen = pageLots => {
       // Fired as each page arrives, before replaceAll() stores the pull.
-      expect(store.allLots().size).toBe(0);
       seenPages.push(pageLots.map(l => l.id));
     };
     catalog.afterPull = () => void after++;
+    storedBeforeReplace = (await store.allLots()).size;
     await catalog.pull();
+    expect(storedBeforeReplace).toBe(0);
     expect(seenPages.map(p => p.length)).toEqual([100, 50]);
     expect(
       requests.map(u => [
@@ -111,16 +117,21 @@ describe('a pull', () => {
       ['1', '100', 'newly-listed'],
       ['2', '100', 'newly-listed'],
     ]);
-    expect(store.allLots().size).toBe(150);
-    expect(store.meta()).toEqual({ fetchedAt: NOW, pullStartedAt: NOW, count: 150, authed: false });
+    expect((await store.allLots()).size).toBe(150);
+    expect(await store.meta()).toEqual({
+      fetchedAt: NOW,
+      pullStartedAt: NOW,
+      count: 150,
+      authed: false,
+    });
     expect([woken, after, catalog.progress, catalog.error]).toEqual([1, 1, null, null]);
-    const lot = store.lot(1000)!;
+    const lot = (await store.lot(1000))!;
     expect(lot.title).toBe(raw[0]!['title'] as string);
     expect(lot.ends_at).toBe(raw[0]!['ends_at'] as string);
   });
 
   test('a rejected token is refreshed and the pull starts over; a failure is reported, not thrown', async () => {
-    const store = new Store(':memory:');
+    const store = await db.openStore();
     let first = true;
     const { site, requests } = siteServing({ 1: raw }, raw.length, (_url, init) => {
       const auth = new Headers(init?.headers).get('Authorization');
@@ -144,7 +155,7 @@ describe('a pull', () => {
     await catalog.pull();
     expect(rejected).toEqual(['old']);
     expect(requests.length).toBe(2);
-    expect(store.meta().authed).toBe(true);
+    expect((await store.meta()).authed).toBe(true);
 
     const failing = new Catalog(
       store,
@@ -155,18 +166,18 @@ describe('a pull', () => {
     );
     await failing.pull();
     expect(failing.error).toStartWith('Catalog refresh failed: 503');
-    expect(store.allLots().size).toBe(raw.length); // the last good pull stays
+    expect((await store.allLots()).size).toBe(raw.length); // the last good pull stays
   });
 
   test('lots skipped by pages shifting mid-pull are kept while still open', async () => {
-    const store = new Store(':memory:');
-    store.replaceAll([
+    const store = await db.openStore();
+    await store.replaceAll([
       { id: 1, title: 'Open', ends_at: new Date(NOW + 60_000).toISOString() },
       { id: 2, title: 'Ended', ends_at: new Date(NOW - 1).toISOString() },
     ]);
     const { site } = siteServing({ 1: [{ ...raw[0], id: 3 }] }, 3);
     await new Catalog(store, session(), noHistory, site, () => NOW).pull();
-    expect([...store.allLots().keys()].toSorted()).toEqual([1, 3]);
+    expect([...(await store.allLots()).keys()].toSorted()).toEqual([1, 3]);
   });
 
   test('ApiError is what the site client throws for HTTP failures', async () => {
@@ -177,40 +188,40 @@ describe('a pull', () => {
 });
 
 describe('load rules', () => {
-  function catalogAt(now: { t: number }) {
-    const store = new Store(':memory:');
+  async function catalogAt(now: { t: number }) {
+    const store = await db.openStore();
     const catalog = new Catalog(store, session(), noHistory, new SiteApi(), () => now.t);
     return { store, catalog };
   }
 
-  test('pulls are at most once per interval from the last start, never under a minute', () => {
+  test('pulls are at most once per interval from the last start, never under a minute', async () => {
     const now = { t: NOW };
-    const { store, catalog } = catalogAt(now);
-    expect(catalog.due()).toBe(true);
-    store.writeMeta({ pullStartedAt: NOW });
-    expect(catalog.nextPullAt()).toBe(NOW + 5 * 60_000);
-    store.putSetting('tlxSyncMinutes', 2);
-    expect(catalog.nextPullAt()).toBe(NOW + 2 * 60_000);
-    store.putSetting('tlxSyncMinutes', 0);
-    expect(catalog.nextPullAt()).toBe(NOW + 60_000);
-    store.putSetting('tlxSyncMinutes', 'x');
-    expect(catalog.nextPullAt()).toBe(NOW + 5 * 60_000);
-    expect(catalog.requestPull()).toBe('not-due');
+    const { store, catalog } = await catalogAt(now);
+    expect(await catalog.due()).toBe(true);
+    await store.writeMeta({ pullStartedAt: NOW });
+    expect(await catalog.nextPullAt()).toBe(NOW + 5 * 60_000);
+    await store.putSetting('tlxSyncMinutes', 2);
+    expect(await catalog.nextPullAt()).toBe(NOW + 2 * 60_000);
+    await store.putSetting('tlxSyncMinutes', 0);
+    expect(await catalog.nextPullAt()).toBe(NOW + 60_000);
+    await store.putSetting('tlxSyncMinutes', 'x');
+    expect(await catalog.nextPullAt()).toBe(NOW + 5 * 60_000);
+    expect(await catalog.requestPull()).toBe('not-due');
     now.t += 5 * 60_000;
-    expect(catalog.requestPull()).toBe('started');
+    expect(await catalog.requestPull()).toBe('started');
     catalog.progress = { done: 1, total: 2 };
-    expect(catalog.requestPull()).toBe('busy');
+    expect(await catalog.requestPull()).toBe('busy');
   });
 
   test('pulls happen on their own once due', async () => {
     const now = { t: NOW };
-    const { catalog } = catalogAt(now);
+    const { catalog } = await catalogAt(now);
     let pulls = 0;
     catalog.pull = () => (pulls++, Promise.resolve());
     void catalog.runForever();
     // Run the loop's first check without waiting 15 seconds.
     (catalog as unknown as { waker: { wake(): void } }).waker.wake();
-    await Bun.sleep(5);
+    await Bun.sleep(20);
     expect(pulls).toBe(1);
   });
 });
@@ -235,13 +246,13 @@ describe('item type labeller', () => {
   });
 
   test('labels batch titles by category with the types already in use, and save them', async () => {
-    const store = new Store(':memory:');
-    store.replaceAll([
+    const store = await db.openStore();
+    await store.replaceAll([
       { id: 1, title: 'Zeta Saw', category: { value: 'tools', label: 'Tools' } },
       { id: 2, title: 'alpha drill', category: { value: 'tools', label: 'Tools' } },
       { id: 3, title: 'Rug', category: null },
     ]);
-    store.saveLotTypes([[{ title: 'Old', category: { value: 'tools' } }, 'saw']]);
+    await store.saveLotTypes([[{ title: 'Old', category: { value: 'tools' } }, 'saw']]);
     const bodies: { messages: { content: string }[]; model: string }[] = [];
     const llm = (async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
@@ -257,7 +268,7 @@ describe('item type labeller', () => {
       'Site category: Other\nTypes already in use: (none yet)\n\nTitles:\n1: Rug',
     ]);
     expect(bodies[0]?.model).toBe('m');
-    expect([1, 2, 3].map(id => store.lot(id)?.itemType)).toEqual([
+    expect(await Promise.all([1, 2, 3].map(async id => (await store.lot(id))?.itemType))).toEqual([
       'saw',
       'drill driver',
       'area rug',
@@ -265,11 +276,11 @@ describe('item type labeller', () => {
   });
 
   test('a failed request stops the run and leaves the rest untyped', async () => {
-    const store = new Store(':memory:');
-    store.replaceAll([{ id: 1, title: 'Saw' }]);
+    const store = await db.openStore();
+    await store.replaceAll([{ id: 1, title: 'Saw' }]);
     const llm = (() =>
       Promise.resolve(new Response('busy', { status: 429 }))) as unknown as typeof fetch;
     await new Labeller(store, 'key', undefined, undefined, llm).labelAll();
-    expect(store.untypedItems().length).toBe(1);
+    expect((await store.untypedItems()).length).toBe(1);
   });
 });

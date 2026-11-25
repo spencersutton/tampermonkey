@@ -93,7 +93,7 @@ export class Labeller {
     const byCategory = new Map<string | null, Lot[]>();
     const labels = new Map<string | null, string>();
     const seen = new Set<string>();
-    for (const lot of this.store.untypedItems()) {
+    for (const lot of await this.store.untypedItems()) {
       const identity = brandModelKey(lot);
       const key = identity ? `identity\n${identity}` : `title\n${lot.title}`;
       if (seen.has(key)) {
@@ -118,9 +118,9 @@ export class Labeller {
           const types = await this.ask(
             labels.get(value) ?? 'Other',
             batch.map(lot => lot.title),
-            this.store.commonTypes(value, VOCAB),
+            await this.store.commonTypes(value, VOCAB),
           );
-          this.store.saveLotTypes(
+          await this.store.saveLotTypes(
             types.entries().map(([i, t]): [Lot, string] => [batch[i - 1]!, t]),
           );
           done += types.size;

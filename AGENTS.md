@@ -48,6 +48,18 @@ committing.
   `id` and optional `parent` (a site category `value` or `"custom:<id>"`), with
   filter values `"custom:<id>"` via `customCategoryValue()` — not dash-separated
   name prefixes.
+- The server uses PostgreSQL via Bun's built-in `SQL` (`src/server/store.ts`,
+  default `postgres://localhost:5432/tlx`, override via `--db`, `TLX_DB`, or
+  `DATABASE_URL`). Local Postgres is Homebrew `postgresql@18` (keg-only at
+  `/opt/homebrew/opt/postgresql@18/bin`, managed with `brew services`).
+- Server tests (`bun test ./tests/server/`) require a running Postgres with a
+  `tlx_test` database (override via `TLX_TEST_DB`). Each test uses `testDb()`
+  from `tests/server/pg.ts` for an isolated schema (`Store.open(url, { schema })`)
+  that is dropped in `afterAll`.
+- `Bun.SQL` Postgres gotchas: `BIGINT` columns are returned as JS strings (cast
+  with `Number(...)`), unquoted `SELECT` aliases are lowercased (double-quote
+  camelCase aliases), and every query inside `sql.begin(async tx => ...)` must
+  use `tx` rather than `this.sql` to avoid deadlocks when `max: 1`.
 
 Copilot memory can't be saved for this repository. When you learn something
 durable about it (a convention, a tool, or a correction from the user), record

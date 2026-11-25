@@ -10,8 +10,8 @@ import { Catalog } from '../../src/server/catalog';
 import { History } from '../../src/server/history';
 import { SiteSession } from '../../src/server/session';
 import { SiteApi } from '../../src/server/site';
-import { Store } from '../../src/server/store';
 import { FakeSite } from './fake-site';
+import { openTestStore } from './pg';
 
 export interface Captured {
   request: { path: string };
@@ -55,7 +55,7 @@ export interface Options {
 }
 
 export async function setup(options: Options = {}) {
-  const store = new Store(':memory:');
+  const store = await openTestStore();
   const fake = new FakeSite();
   const siteCalls: SiteCall[] = [];
   const siteFetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -80,17 +80,17 @@ export async function setup(options: Options = {}) {
     });
   }) as typeof fetch;
   if (options.loggedIn) {
-    await new SiteSession(store, fake.fetch).login('user@example.test', 'right');
+    await (await SiteSession.create(store, fake.fetch)).login('user@example.test', 'right');
   }
   // As after a restart: the login is in the database, and no refresh has run yet.
-  const session = new SiteSession(store, fake.fetch);
+  const session = await SiteSession.create(store, fake.fetch);
   const site = new SiteApi(siteFetch);
   const history = new History(store, site, () => Promise.resolve());
   const catalog = new Catalog(store, session, history, site);
   const pulls: string[] = [];
   const requestPull = catalog.requestPull.bind(catalog);
-  catalog.requestPull = () => {
-    const result = requestPull();
+  catalog.requestPull = async () => {
+    const result = await requestPull();
     pulls.push(result);
     return result;
   };

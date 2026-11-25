@@ -58,26 +58,27 @@ export class Catalog {
 
   // -- schedule -------------------------------------------------------------------
   /** Minimum time between full pulls, from the synced setting. */
-  intervalMs(): number {
-    const m = this.store.setting(KEYS.syncMinutes);
+  async intervalMs(): Promise<number> {
+    const m = await this.store.setting(KEYS.syncMinutes);
     return Math.max(MIN_SYNC_MINUTES, typeof m === 'number' ? m : DEFAULT_SYNC_MINUTES) * MINUTE;
   }
 
   /** Epoch ms when the next full pull is allowed. */
-  nextPullAt(meta: CatalogMeta = this.store.meta()): number {
-    return meta.pullStartedAt === null ? 0 : meta.pullStartedAt + this.intervalMs();
+  async nextPullAt(meta?: CatalogMeta): Promise<number> {
+    const m = meta ?? (await this.store.meta());
+    return m.pullStartedAt === null ? 0 : m.pullStartedAt + (await this.intervalMs());
   }
 
-  due(): boolean {
-    return this.now() >= this.nextPullAt();
+  async due(): Promise<boolean> {
+    return this.now() >= (await this.nextPullAt());
   }
 
   /** The Refresh button: start a pull now if one is allowed. */
-  requestPull(): PullRequest {
+  async requestPull(): Promise<PullRequest> {
     if (this.progress) {
       return 'busy';
     }
-    if (!this.due()) {
+    if (!(await this.due())) {
       return 'not-due';
     }
     this.waker.wake();
@@ -87,7 +88,7 @@ export class Catalog {
   async runForever(): Promise<never> {
     for (;;) {
       await this.waker.wait(CHECK_EVERY_MS);
-      if (this.due()) {
+      if (await this.due()) {
         try {
           await this.pull();
         } catch (e) {
@@ -101,8 +102,8 @@ export class Catalog {
   /** Fetch every catalog page, merge with what we have, and store the result. */
   async pull(): Promise<void> {
     const started = this.now();
-    this.store.writeMeta({ pullStartedAt: started });
-    const prev = this.store.allLots();
+    await this.store.writeMeta({ pullStartedAt: started });
+    const prev = await this.store.allLots();
     const firstLoad = !prev.size;
     let token = await this.session.token();
     this.error = null;
@@ -175,9 +176,9 @@ export class Catalog {
         }
       }
 
-      this.store.annotateItems(pulled.values());
-      this.history.annotate(pulled.values());
-      const seq = this.store.replaceAll(pulled.values(), {
+      await this.store.annotateItems(pulled.values());
+      await this.history.annotate(pulled.values());
+      const seq = await this.store.replaceAll(pulled.values(), {
         fetchedAt: this.now(),
         count,
         authed: token !== null,

@@ -1,17 +1,15 @@
-// SQLite storage (a port of the Python server's store.py, on the same schema,
-// so an existing database carries over): the catalog, catalog meta, synced
+// PostgreSQL storage (via Bun.SQL): the catalog, catalog meta, synced
 // settings, the site login cookies, sessions of this app's own password login,
-// item types and tags, every lot that has left the catalog with its final
-// price, and the last detail fetched for each lot (description, brand/model,
-// bid history), kept after the lot closes.
+// item types, every lot that has left the catalog with its final price, and
+// the last detail fetched for each lot (description, brand/model, bid
+// history), kept after the lot closes.
 //
 // A lot is a row of `lots` with its site category, condition and location in
 // lookup tables, its images in `lot_images`, its item type joined from
 // `item_types` (by brand/model when known, or by title when identity is
-// missing), its tags from every `tag_rules` pattern its title matches, and
-// its most recent past closes in `lot_past_closes`, pointing at `closed_lots`.
-// The store hands lots out, and takes them in, as one object each, in the shape
-// the app gets them (ServerLot in src/app/server/api.ts).
+// missing), and its most recent past closes in `lot_past_closes`, pointing at
+// `closed_lots`. The store hands lots out, and takes them in, as one object
+// each, in the shape the app gets them (ServerLot in src/app/server/api.ts).
 //
 // Every full pull that changes anything gets a new sequence number, and each
 // lot row records the sequence of its last change, so a client that has seen
@@ -19,10 +17,7 @@
 // drop lots that are gone). Changes are found by comparing lots as a whole, so
 // a lot read back must equal the one stored: optional fields are left out, not
 // set to undefined.
-import { Database, type SQLQueryBindings } from 'bun:sqlite';
-import { chmodSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-
+import { SQL } from 'bun';
 import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
@@ -31,61 +26,132 @@ import { endsAtMs, type LotImage, type LotMetadata, type Standing } from '../sha
 import { isRecord } from './json';
 import '../shared/arrayToSet';
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS categories (value TEXT PRIMARY KEY, label TEXT);
-CREATE TABLE IF NOT EXISTS conditions (value INTEGER PRIMARY KEY, label TEXT);
-CREATE TABLE IF NOT EXISTS locations (id INTEGER PRIMARY KEY, name TEXT);
-CREATE TABLE IF NOT EXISTS lots (
-  id INTEGER PRIMARY KEY, seq INTEGER NOT NULL, auction_period TEXT, title TEXT NOT NULL, lot_number TEXT NOT NULL,
-  category TEXT REFERENCES categories, condition INTEGER REFERENCES conditions, location INTEGER REFERENCES locations,
-  is_transferable INTEGER NOT NULL, transfer_fee NUMERIC, current_price NUMERIC, estimated_retail_price NUMERIC,
-  ends_at INTEGER, status TEXT, version INTEGER, bid_count INTEGER, next_min_increment NUMERIC,
-  is_leading INTEGER, your_max_bid NUMERIC, is_watchlisted INTEGER NOT NULL, has_bid INTEGER NOT NULL,
-  first_seen_at INTEGER, past_close_count INTEGER NOT NULL DEFAULT 0, group_id INTEGER
-);
-CREATE INDEX IF NOT EXISTS lots_seq ON lots (seq);
-CREATE INDEX IF NOT EXISTS lots_title ON lots (title);
-CREATE TABLE IF NOT EXISTS lot_images (
-  lot_id INTEGER NOT NULL REFERENCES lots, position INTEGER NOT NULL, thumb TEXT, card TEXT, large TEXT, PRIMARY KEY (lot_id, position)
-) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS lot_past_closes (
-  lot_id INTEGER NOT NULL REFERENCES lots, rank INTEGER NOT NULL, closed_id INTEGER NOT NULL, PRIMARY KEY (lot_id, rank)
-) WITHOUT ROWID;
-CREATE INDEX IF NOT EXISTS lot_past_closes_closed ON lot_past_closes (closed_id);
-CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS filter_types (type TEXT PRIMARY KEY) WITHOUT ROWID;
-CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created REAL NOT NULL);
-CREATE TABLE IF NOT EXISTS item_types (
-  brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
-  type TEXT NOT NULL, category TEXT, at REAL NOT NULL, manual INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (brand, model, title)
-);
-CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category);
-CREATE TABLE IF NOT EXISTS closed_lots (
-  id INTEGER PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at INTEGER, price REAL, bid_count INTEGER,
-  sold INTEGER NOT NULL, final INTEGER NOT NULL, condition TEXT, location TEXT, category TEXT, retail REAL
-);
-CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at);
-CREATE TABLE IF NOT EXISTS lot_details (
-  lot_id INTEGER PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price NUMERIC, description TEXT,
-  brand TEXT, model TEXT, lot_fee NUMERIC, bid_history TEXT NOT NULL, fetched_at INTEGER NOT NULL, images TEXT
-);
-`;
+export const DEFAULT_DB_URL = 'postgres://localhost:5432/tlx';
 
-// lots: ends_at is the site's ISO 8601 text (epoch ms in rows from older servers);
-// is_leading and your_max_bid are null without a standing; past_close_count
-// counts every matching closed lot, lot_past_closes holds the most recent few;
-// group_id is the smallest id of the open lots listing the same item (null when
-// no other does; see groupLots in src/shared/identity.ts).
+const SCHEMA_STATEMENTS = [
+  'CREATE TABLE IF NOT EXISTS categories (value TEXT PRIMARY KEY, label TEXT)',
+  'CREATE TABLE IF NOT EXISTS conditions (value INTEGER PRIMARY KEY, label TEXT)',
+  'CREATE TABLE IF NOT EXISTS locations (id INTEGER PRIMARY KEY, name TEXT)',
+  `CREATE TABLE IF NOT EXISTS lots (
+    id BIGINT PRIMARY KEY, seq BIGINT NOT NULL, auction_period TEXT, title TEXT NOT NULL, lot_number TEXT NOT NULL,
+    category TEXT REFERENCES categories(value), condition INTEGER REFERENCES conditions(value), location INTEGER REFERENCES locations(id),
+    is_transferable BOOLEAN NOT NULL, transfer_fee DOUBLE PRECISION, current_price DOUBLE PRECISION, estimated_retail_price DOUBLE PRECISION,
+    ends_at TEXT, status TEXT, version INTEGER, bid_count INTEGER, next_min_increment DOUBLE PRECISION,
+    is_leading BOOLEAN, your_max_bid DOUBLE PRECISION, is_watchlisted BOOLEAN NOT NULL, has_bid BOOLEAN NOT NULL,
+    first_seen_at BIGINT, past_close_count INTEGER NOT NULL DEFAULT 0, group_id BIGINT
+  )`,
+  'CREATE INDEX IF NOT EXISTS lots_seq ON lots (seq)',
+  'CREATE INDEX IF NOT EXISTS lots_title ON lots (title)',
+  `CREATE TABLE IF NOT EXISTS lot_images (
+    lot_id BIGINT NOT NULL REFERENCES lots(id), position INTEGER NOT NULL, thumb TEXT, card TEXT, large TEXT,
+    PRIMARY KEY (lot_id, position)
+  )`,
+  `CREATE TABLE IF NOT EXISTS lot_past_closes (
+    lot_id BIGINT NOT NULL REFERENCES lots(id), rank INTEGER NOT NULL, closed_id BIGINT NOT NULL,
+    PRIMARY KEY (lot_id, rank)
+  )`,
+  'CREATE INDEX IF NOT EXISTS lot_past_closes_closed ON lot_past_closes (closed_id)',
+  'CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS filter_types (type TEXT PRIMARY KEY)',
+  'CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created DOUBLE PRECISION NOT NULL)',
+  `CREATE TABLE IF NOT EXISTS item_types (
+    brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
+    type TEXT NOT NULL, category TEXT, at DOUBLE PRECISION NOT NULL, manual BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (brand, model, title)
+  )`,
+  'CREATE INDEX IF NOT EXISTS item_types_category ON item_types (category)',
+  `CREATE TABLE IF NOT EXISTS closed_lots (
+    id BIGINT PRIMARY KEY, title TEXT NOT NULL, auction_period TEXT, ends_at BIGINT, price DOUBLE PRECISION, bid_count INTEGER,
+    sold BOOLEAN NOT NULL, final INTEGER NOT NULL, condition TEXT, location TEXT, category TEXT, retail DOUBLE PRECISION
+  )`,
+  'CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at)',
+  `CREATE TABLE IF NOT EXISTS lot_details (
+    lot_id BIGINT PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price DOUBLE PRECISION, description TEXT,
+    brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, bid_history TEXT NOT NULL, fetched_at BIGINT NOT NULL, images TEXT
+  )`,
+];
+
+// lots: ends_at is the site's ISO 8601 text; is_leading and your_max_bid are
+// null without a standing; past_close_count counts every matching closed lot,
+// lot_past_closes holds the most recent few; group_id is the smallest id of
+// the open lots listing the same item (null when no other does; see groupLots
+// in src/shared/identity.ts).
 const LOT_COLUMNS =
   'id, seq, auction_period, title, lot_number, category, condition, location, is_transferable, transfer_fee, current_price, ' +
   'estimated_retail_price, ends_at, status, version, bid_count, next_min_increment, is_leading, your_max_bid, is_watchlisted, ' +
   'has_bid, first_seen_at, past_close_count, group_id';
+const LOT_UPDATE_SET = [
+  'seq',
+  'auction_period',
+  'title',
+  'lot_number',
+  'category',
+  'condition',
+  'location',
+  'is_transferable',
+  'transfer_fee',
+  'current_price',
+  'estimated_retail_price',
+  'ends_at',
+  'status',
+  'version',
+  'bid_count',
+  'next_min_increment',
+  'is_leading',
+  'your_max_bid',
+  'is_watchlisted',
+  'has_bid',
+  'first_seen_at',
+  'past_close_count',
+  'group_id',
+]
+  .map(col => `${col} = EXCLUDED.${col}`)
+  .join(', ');
+
 // closed_lots.final: the price is the site's final one (1), the last one a pull saw
 // and the site no longer has the lot (-1), or the last one seen, to be asked for (0).
 const CLOSED_COLUMNS =
   'id, title, auction_period, ends_at, price, bid_count, sold, final, condition, location, category, retail';
+const CLOSED_UPDATE_SET = [
+  'title',
+  'auction_period',
+  'ends_at',
+  'price',
+  'bid_count',
+  'sold',
+  'final',
+  'condition',
+  'location',
+  'category',
+  'retail',
+]
+  .map(col => `${col} = EXCLUDED.${col}`)
+  .join(', ');
+
+const SCHEMA_IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const BATCH_SIZE = 500;
+
+type Queryable = Pick<SQL, 'unsafe'>;
+type Param = string | number | boolean | null | number[] | string[];
+
+/** Bun.SQL returns BIGINT values as strings; convert back to JS number. */
+const toInt = (v: string | number): number => Number(v);
+const toOptInt = (v: string | number | null): number | null => (v === null ? null : Number(v));
+
+/** Build multi-row VALUES placeholders: `($1, $2), ($3, $4)` for `rows` rows of `cols` columns. */
+function valuePlaceholders(rows: number, cols: number): string {
+  const groups: string[] = [];
+  let n = 1;
+  for (let r = 0; r < rows; r++) {
+    const ph: string[] = [];
+    for (let c = 0; c < cols; c++) {
+      ph.push(`$${n++}`);
+    }
+    groups.push(`(${ph.join(', ')})`);
+  }
+  return groups.join(', ');
+}
 
 /** A closed lot as attached to an open lot's `pastCloses`. */
 export interface PastClose {
@@ -200,7 +266,7 @@ function catalogMeta(v: unknown): CatalogMeta {
 }
 
 /** A lot as a lots row (LOT_COLUMNS order). */
-function lotRow(lot: Lot, seq: number): SQLQueryBindings[] {
+function lotRow(lot: Lot, seq: number): Param[] {
   const s = lot.your_standing;
   return [
     lot.id,
@@ -211,7 +277,7 @@ function lotRow(lot: Lot, seq: number): SQLQueryBindings[] {
     lot.category?.value ?? null,
     lot.condition?.value ?? null,
     lot.location?.id ?? null,
-    lot.is_transferable ? 1 : 0,
+    Boolean(lot.is_transferable),
     lot.transfer_fee ?? null,
     lot.current_price ?? null,
     lot.estimated_retail_price ?? null,
@@ -220,10 +286,10 @@ function lotRow(lot: Lot, seq: number): SQLQueryBindings[] {
     lot.version ?? null,
     lot.bid_count ?? null,
     lot.next_min_increment ?? null,
-    s ? Number(s.is_leading) : null,
+    s ? s.is_leading : null,
     s ? s.your_max_bid : null,
-    lot.is_watchlisted ? 1 : 0,
-    lot.has_bid ? 1 : 0,
+    Boolean(lot.is_watchlisted),
+    Boolean(lot.has_bid),
     lot.firstSeenAt ?? null,
     lot.pastCloses?.n ?? 0,
     lot.groupId ?? null,
@@ -234,7 +300,7 @@ function lotRow(lot: Lot, seq: number): SQLQueryBindings[] {
  * A lot as a closed_lots row (CLOSED_COLUMNS order). Until the final price is known, a lot with
  * bids counts as sold.
  */
-function closedRow(lot: Lot, final: number): SQLQueryBindings[] {
+function closedRow(lot: Lot, final: number): Param[] {
   const sold = final === 1 ? lot.status === 'sold' : (lot.bid_count ?? 0) > 0;
   return [
     lot.id,
@@ -243,7 +309,7 @@ function closedRow(lot: Lot, final: number): SQLQueryBindings[] {
     endsAtColumn(lot),
     lot.current_price ?? null,
     lot.bid_count ?? null,
-    sold ? 1 : 0,
+    sold,
     final,
     lot.condition?.display_name ?? null,
     lot.location?.name ?? null,
@@ -266,26 +332,42 @@ const savedImage = (im: LotImage): SavedImage => ({
   large: im.image_large,
 });
 
-const placeholders = (n: number) => Array.from({ length: n }, () => '?').join(', ');
+export interface StoreOptions {
+  /** Isolate tables in a dedicated Postgres schema (used by tests). */
+  schema?: string;
+}
 
 export class Store {
-  readonly db: Database;
+  readonly sql: SQL;
   // Indexes rebuilt only after their tables change (this process makes every change).
   private typeIndexCache: ItemTypeIndex | null = null;
   private lastStamp = 0;
 
-  constructor(path: string) {
-    const file = path !== ':memory:';
-    if (file) {
-      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  private constructor(sql: SQL) {
+    this.sql = sql;
+  }
+
+  /** Connect to PostgreSQL, ensure the schema exists, and run one-time migrations. */
+  static async open(url = DEFAULT_DB_URL, options: StoreOptions = {}): Promise<Store> {
+    const schema = options.schema;
+    if (schema !== undefined && !SCHEMA_IDENT.test(schema)) {
+      throw new Error(`Invalid Postgres schema name: ${schema}`);
     }
-    this.db = new Database(path, { create: true, strict: true });
-    this.db.run('PRAGMA journal_mode=WAL');
-    this.db.run('PRAGMA busy_timeout=5000');
-    this.db.run(SCHEMA);
-    this.migrateFilterTypes();
-    if (file) {
-      chmodSync(path, 0o600); // holds the site login cookies
+    const sql = schema ? new SQL({ url, max: 1 }) : new SQL(url);
+    const store = new Store(sql);
+    try {
+      if (schema) {
+        await sql.unsafe(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
+        await sql.unsafe(`SET search_path TO "${schema}"`);
+      }
+      for (const stmt of SCHEMA_STATEMENTS) {
+        await sql.unsafe(stmt);
+      }
+      await store.migrateFilterTypes();
+      return store;
+    } catch (e) {
+      await sql.close();
+      throw e;
     }
   }
 
@@ -298,65 +380,81 @@ export class Store {
     return this.lastStamp;
   }
 
-  close(): void {
-    this.db.close();
+  async close(): Promise<void> {
+    await this.sql.close();
   }
 
-  private tx<T>(fn: () => T): T {
-    return this.db.transaction(fn)();
+  private async tx<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> {
+    return this.sql.begin(tx => fn(tx));
   }
 
-  private all<R>(sql: string, ...params: SQLQueryBindings[]): R[] {
-    return this.db.query<R, SQLQueryBindings[]>(sql).all(...params);
+  private async all<R>(sql: string, params: Param[] = [], q: Queryable = this.sql): Promise<R[]> {
+    const rows: unknown = await q.unsafe(sql, params);
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- caller supplies the expected row shape
+    return rows as R[];
   }
 
   // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- the row type the caller expects
-  private get<R>(sql: string, ...params: SQLQueryBindings[]): R | null {
-    return this.db.query<R, SQLQueryBindings[]>(sql).get(...params);
+  private async get<R>(
+    sql: string,
+    params: Param[] = [],
+    q: Queryable = this.sql,
+  ): Promise<R | null> {
+    const rows = await this.all<R>(sql, params, q);
+    return rows[0] ?? null;
   }
 
-  private run(sql: string, ...params: SQLQueryBindings[]): number {
-    return this.db.query(sql).run(...params).changes;
+  private async run(sql: string, params: Param[] = [], q: Queryable = this.sql): Promise<number> {
+    const res = await q.unsafe(sql, params);
+    return res.count;
   }
 
   // -- meta -------------------------------------------------------------------
-  getMeta(key: string): unknown {
-    const row = this.get<{ value: string }>('SELECT value FROM meta WHERE key = ?', key);
+  async getMeta(key: string, q: Queryable = this.sql): Promise<unknown> {
+    const row = await this.get<{ value: string }>(
+      'SELECT value FROM meta WHERE key = $1',
+      [key],
+      q,
+    );
     return row ? JSON.parse(row.value) : null;
   }
 
-  setMeta(key: string, value: unknown): void {
-    this.run(
-      'INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)',
-      key,
-      JSON.stringify(value ?? null),
+  async setMeta(key: string, value: unknown, q: Queryable = this.sql): Promise<void> {
+    await this.run(
+      'INSERT INTO meta (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value',
+      [key, JSON.stringify(value ?? null)],
+      q,
     );
   }
 
-  private int(key: string): number {
-    const v = this.getMeta(key);
+  private async int(key: string, q: Queryable = this.sql): Promise<number> {
+    const v = await this.getMeta(key, q);
     return typeof v === 'number' ? Math.trunc(v) : 0;
   }
 
-  meta(): CatalogMeta {
-    return catalogMeta(this.getMeta('catalog'));
+  async meta(q: Queryable = this.sql): Promise<CatalogMeta> {
+    return catalogMeta(await this.getMeta('catalog', q));
   }
 
-  writeMeta(patch: Partial<CatalogMeta>): CatalogMeta {
-    const meta = { ...this.meta(), ...patch };
-    this.setMeta('catalog', meta);
+  async writeMeta(patch: Partial<CatalogMeta>): Promise<CatalogMeta> {
+    const meta = { ...(await this.meta()), ...patch };
+    await this.setMeta('catalog', meta);
     return meta;
   }
 
-  seq(): number {
+  async seq(): Promise<number> {
     return this.int('seq');
   }
 
   // -- reading lots -------------------------------------------------------------
   /** The lots matching `where` (on lots as l), assembled from their rows. */
-  private load(where = '', ...params: SQLQueryBindings[]): Map<number, Lot> {
+  private async load(
+    where = '',
+    params: Param[] = [],
+    q: Queryable = this.sql,
+  ): Promise<Map<number, Lot>> {
     interface Row {
-      id: number;
+      id: string | number;
       period: string | null;
       title: string;
       number: string;
@@ -366,7 +464,7 @@ export class Store {
       condLabel: string | null;
       loc: number | null;
       locName: string | null;
-      transferable: number;
+      transferable: boolean;
       fee: number | null;
       price: number | null;
       retail: number | null;
@@ -375,36 +473,38 @@ export class Store {
       version: number | null;
       bids: number | null;
       increment: number | null;
-      leading: number | null;
+      leading: boolean | null;
       maxBid: number | null;
-      watched: number;
-      hasBid: number;
-      firstSeen: number | null;
+      watched: boolean;
+      hasBid: boolean;
+      firstSeen: string | number | null;
       n: number;
-      groupId: number | null;
+      groupId: string | number | null;
     }
     const lots = new Map<number, Lot>();
-    const rows = this.all<Row>(
-      `SELECT l.id, l.auction_period AS period, l.title, l.lot_number AS number, l.category AS cat, c.label AS catLabel,
-        l.condition AS cond, k.label AS condLabel, l.location AS loc, p.name AS locName, l.is_transferable AS transferable,
+    const rows = await this.all<Row>(
+      `SELECT l.id, l.auction_period AS period, l.title, l.lot_number AS number, l.category AS cat, c.label AS "catLabel",
+        l.condition AS cond, k.label AS "condLabel", l.location AS loc, p.name AS "locName", l.is_transferable AS transferable,
         l.transfer_fee AS fee, l.current_price AS price, l.estimated_retail_price AS retail, l.ends_at AS ends, l.status,
-        l.version, l.bid_count AS bids, l.next_min_increment AS increment, l.is_leading AS leading, l.your_max_bid AS maxBid,
-        l.is_watchlisted AS watched, l.has_bid AS hasBid, l.first_seen_at AS firstSeen, l.past_close_count AS n,
-        l.group_id AS groupId
+        l.version, l.bid_count AS bids, l.next_min_increment AS increment, l.is_leading AS leading, l.your_max_bid AS "maxBid",
+        l.is_watchlisted AS watched, l.has_bid AS "hasBid", l.first_seen_at AS "firstSeen", l.past_close_count AS n,
+        l.group_id AS "groupId"
       FROM lots l LEFT JOIN categories c ON c.value = l.category LEFT JOIN conditions k ON k.value = l.condition
         LEFT JOIN locations p ON p.id = l.location ${where}`,
-      ...params,
+      params,
+      q,
     );
     for (const r of rows) {
+      const id = toInt(r.id);
       const lot: Lot = {
-        id: r.id,
+        id,
         auction_period: r.period,
         title: r.title,
         lot_number: r.number,
         category: r.cat === null ? null : { value: r.cat, label: r.catLabel },
         condition: r.cond === null ? null : { value: r.cond, display_name: r.condLabel },
         location: r.loc === null ? null : { id: r.loc, name: r.locName },
-        is_transferable: Boolean(r.transferable),
+        is_transferable: r.transferable,
         transfer_fee: r.fee,
         current_price: r.price,
         estimated_retail_price: r.retail,
@@ -414,84 +514,84 @@ export class Store {
         bid_count: r.bids,
         next_min_increment: r.increment,
         your_standing:
-          r.leading === null ? null : { is_leading: Boolean(r.leading), your_max_bid: r.maxBid },
-        is_watchlisted: Boolean(r.watched),
-        has_bid: Boolean(r.hasBid),
+          r.leading === null ? null : { is_leading: r.leading, your_max_bid: r.maxBid },
+        is_watchlisted: r.watched,
+        has_bid: r.hasBid,
         images: [],
       };
       if (r.firstSeen !== null) {
-        lot.firstSeenAt = r.firstSeen;
+        lot.firstSeenAt = toInt(r.firstSeen);
       }
       if (r.n) {
         lot.pastCloses = { n: r.n, recent: [] };
       }
       if (r.groupId !== null) {
-        lot.groupId = r.groupId;
+        lot.groupId = toInt(r.groupId);
       }
-      lots.set(r.id, lot);
+      lots.set(id, lot);
     }
     if (!lots.size) {
       return lots;
     }
-    const ids = `(SELECT l.id FROM lots l ${where})`;
-    for (const { id, ...im } of this.all<LotImage & { id: number }>(
+    const lotIds = [...lots.keys()];
+    for (const { id, ...im } of await this.all<LotImage & { id: string | number }>(
       `SELECT lot_id AS id, position, thumb AS image_thumb, card AS image_card, large AS image_large
-        FROM lot_images WHERE lot_id IN ${ids} ORDER BY lot_id, position`,
-      ...params,
+        FROM lot_images WHERE lot_id = ANY($1::bigint[]) ORDER BY lot_id, position`,
+      [lotIds],
+      q,
     )) {
-      lots.get(id)?.images?.push(im);
+      lots.get(toInt(id))?.images?.push(im);
     }
-    for (const c of this.all<{
-      lotId: number;
-      id: number;
+    for (const c of await this.all<{
+      lotId: string | number;
+      id: string | number;
       price: number | null;
-      endsAt: number | null;
+      endsAt: string | number | null;
       condition: string | null;
-      sold: number;
+      sold: boolean;
       final: number;
     }>(
-      `SELECT r.lot_id AS lotId, c.id, c.price, c.ends_at AS endsAt, c.condition, c.sold, c.final FROM lot_past_closes r
-        JOIN closed_lots c ON c.id = r.closed_id WHERE r.lot_id IN ${ids} ORDER BY r.lot_id, r.rank`,
-      ...params,
+      `SELECT r.lot_id AS "lotId", c.id, c.price, c.ends_at AS "endsAt", c.condition, c.sold, c.final FROM lot_past_closes r
+        JOIN closed_lots c ON c.id = r.closed_id WHERE r.lot_id = ANY($1::bigint[]) ORDER BY r.lot_id, r.rank`,
+      [lotIds],
+      q,
     )) {
-      lots.get(c.lotId)?.pastCloses?.recent.push({
-        id: c.id,
+      lots.get(toInt(c.lotId))?.pastCloses?.recent.push({
+        id: toInt(c.id),
         price: c.price,
-        endsAt: c.endsAt,
+        endsAt: toOptInt(c.endsAt),
         condition: c.condition,
-        sold: Boolean(c.sold),
+        sold: c.sold,
         final: c.final === 1,
       });
     }
-    this.annotateItems(lots.values());
+    await this.annotateItems(lots.values(), q);
     return lots;
   }
 
   /** Every stored lot (used by a pull to merge with what it fetched). */
-  allLots(): Map<number, Lot> {
+  async allLots(): Promise<Map<number, Lot>> {
     return this.load();
   }
 
-  lot(id: number): Lot | null {
-    return this.load('WHERE l.id = ?', id).get(id) ?? null;
+  async lot(id: number): Promise<Lot | null> {
+    return (await this.load('WHERE l.id = $1', [id])).get(id) ?? null;
   }
 
   // -- item identity, types and tags ----------------------------------------------
-  private typeIndex(): ItemTypeIndex {
-    this.typeIndexCache ??= new ItemTypeIndex(
-      this.all<{
+  private async typeIndex(q: Queryable = this.sql): Promise<ItemTypeIndex> {
+    if (!this.typeIndexCache) {
+      const rows = await this.all<{
         title: string;
         type: string;
         category: string | null;
         at: number;
-        manual: number;
+        manual: boolean;
         brand: string;
         model: string;
-      }>('SELECT title, type, category, at, manual, brand, model FROM item_types').map(r => ({
-        ...r,
-        manual: Boolean(r.manual),
-      })),
-    );
+      }>('SELECT title, type, category, at, manual, brand, model FROM item_types', [], q);
+      this.typeIndexCache = new ItemTypeIndex(rows);
+    }
     return this.typeIndexCache;
   }
 
@@ -500,24 +600,46 @@ export class Store {
   }
 
   /** Attach saved brand/model details (by `idField`), including to the site's closed-lot pages. */
-  annotateIdentities<T extends object>(lots: Iterable<T>, idField: keyof T & string): void {
-    const stmt = this.db.query<{ brand: string | null; model: string | null }, [number]>(
-      'SELECT brand, model FROM lot_details WHERE lot_id = ?',
-    );
-    for (const lot of lots) {
+  async annotateIdentities<T extends object>(
+    lots: Iterable<T>,
+    idField: keyof T & string,
+    q: Queryable = this.sql,
+  ): Promise<void> {
+    const list = [...lots];
+    const ids: number[] = [];
+    for (const lot of list) {
       const id: unknown = lot[idField];
-      const identity = typeof id === 'number' ? stmt.get(id) : null;
+      if (typeof id === 'number') {
+        ids.push(id);
+      }
+    }
+    if (!ids.length) {
+      return;
+    }
+    const rows = await this.all<{
+      lotId: string | number;
+      brand: string | null;
+      model: string | null;
+    }>(
+      'SELECT lot_id AS "lotId", brand, model FROM lot_details WHERE lot_id = ANY($1::bigint[])',
+      [ids],
+      q,
+    );
+    const byId = new Map(rows.map(r => [toInt(r.lotId), { brand: r.brand, model: r.model }]));
+    for (const lot of list) {
+      const id: unknown = lot[idField];
+      const identity = typeof id === 'number' ? byId.get(id) : undefined;
       if (identity) {
-        Object.assign(lot, { brand: identity.brand, model: identity.model });
+        Object.assign(lot, identity);
       }
     }
   }
 
   /** Attach cached identities and item types (before comparing a catalog pull, or reading lots). */
-  annotateItems(lots: Iterable<Item>): void {
+  async annotateItems(lots: Iterable<Item>, q: Queryable = this.sql): Promise<void> {
     const list = [...lots];
-    this.annotateIdentities(list, 'id');
-    const index = this.typeIndex();
+    await this.annotateIdentities(list, 'id', q);
+    const index = await this.typeIndex(q);
     for (const lot of list) {
       const record = index.match(lot);
       if (record) {
@@ -528,35 +650,45 @@ export class Store {
     }
   }
 
-  private titles(): Item[] {
-    const items = this.all<{ id: number; title: string }>('SELECT id, title FROM lots');
-    this.annotateItems(items);
+  private async titles(q: Queryable = this.sql): Promise<Item[]> {
+    const items = (
+      await this.all<{ id: string | number; title: string }>('SELECT id, title FROM lots', [], q)
+    ).map(r => ({ id: toInt(r.id), title: r.title }));
+    await this.annotateItems(items, q);
     return items;
   }
 
-  private typeAssignments(): Map<number, string | null> {
-    return new Map(this.titles().map(lot => [lot.id!, lot.itemType ?? null]));
+  private async typeAssignments(q: Queryable = this.sql): Promise<Map<number, string | null>> {
+    return new Map((await this.titles(q)).map(lot => [lot.id!, lot.itemType ?? null]));
   }
 
   /** Give lots whose assignment changed a new sequence; returns their new values, by lot id. */
-  private touchChanges<V>(previous: Map<number, V>, current: Map<number, V>): Map<number, V> {
+  private async touchChanges<V>(
+    previous: Map<number, V>,
+    current: Map<number, V>,
+    q: Queryable,
+  ): Promise<Map<number, V>> {
     const changed = new Map(
       current.entries().filter(([i, v]) => !dequal(previous.get(i) ?? null, v)),
     );
     if (changed.size) {
-      const seq = this.int('seq') + 1;
-      const stmt = this.db.query('UPDATE lots SET seq = ? WHERE id = ?');
-      for (const i of changed.keys()) {
-        stmt.run(seq, i);
-      }
-      this.setMeta('seq', seq);
+      const seq = (await this.int('seq', q)) + 1;
+      await this.run(
+        'UPDATE lots SET seq = $1 WHERE id = ANY($2::bigint[])',
+        [seq, [...changed.keys()]],
+        q,
+      );
+      await this.setMeta('seq', seq, q);
     }
     return changed;
   }
 
   // -- writing lots ----------------------------------------------------------------
   /** Store these lots under this sequence, replacing their old rows (in the caller's transaction). */
-  private writeLots(lots: Lot[], seq: number): void {
+  private async writeLots(lots: Lot[], seq: number, q: Queryable): Promise<void> {
+    if (!lots.length) {
+      return;
+    }
     type Pick = (l: Lot) => [string | number, string | null] | null;
     const lookups: [string, string, string, Pick][] = [
       [
@@ -579,80 +711,105 @@ export class Store {
       ],
     ];
     for (const [table, key, label, pick] of lookups) {
-      const stmt = this.db.query(
-        `INSERT INTO ${table} (${key}, ${label}) VALUES (?, ?) ON CONFLICT (${key}) DO UPDATE SET ${label} = excluded.${label}`,
-      );
-      const seen = new Set<string>();
+      const pairs = new Map<string | number, string | null>();
       for (const lot of lots) {
         const pair = pick(lot);
-        if (pair && !seen.has(JSON.stringify(pair))) {
-          seen.add(JSON.stringify(pair));
-          stmt.run(...pair);
+        if (pair) {
+          pairs.set(pair[0], pair[1]);
         }
       }
-    }
-    const delImages = this.db.query('DELETE FROM lot_images WHERE lot_id = ?');
-    const delCloses = this.db.query('DELETE FROM lot_past_closes WHERE lot_id = ?');
-    const insLot = this.db.query(
-      `INSERT OR REPLACE INTO lots (${LOT_COLUMNS}) VALUES (${placeholders(24)})`,
-    );
-    const insImage = this.db.query(
-      'INSERT INTO lot_images (lot_id, position, thumb, card, large) VALUES (?, ?, ?, ?, ?)',
-    );
-    const insClose = this.db.query(
-      'INSERT INTO lot_past_closes (lot_id, rank, closed_id) VALUES (?, ?, ?)',
-    );
-    for (const lot of lots) {
-      delImages.run(lot.id);
-      delCloses.run(lot.id);
-      insLot.run(...lotRow(lot, seq));
-      for (const im of lot.images ?? []) {
-        insImage.run(lot.id, im.position, im.image_thumb, im.image_card, im.image_large);
+      const entries = [...pairs.entries()];
+      if (entries.length) {
+        const params: Param[] = entries.flat();
+        await this.run(
+          `INSERT INTO ${table} (${key}, ${label}) VALUES ${valuePlaceholders(entries.length, 2)} ON CONFLICT (${key}) DO UPDATE SET ${label} = EXCLUDED.${label}`,
+          params,
+          q,
+        );
       }
-      (lot.pastCloses?.recent ?? []).forEach((c, n) => insClose.run(lot.id, n, c.id));
+    }
+
+    const lotIds = lots.map(l => l.id);
+    await this.run('DELETE FROM lot_images WHERE lot_id = ANY($1::bigint[])', [lotIds], q);
+    await this.run('DELETE FROM lot_past_closes WHERE lot_id = ANY($1::bigint[])', [lotIds], q);
+
+    for (let i = 0; i < lots.length; i += BATCH_SIZE) {
+      const chunk = lots.slice(i, i + BATCH_SIZE);
+      const params: Param[] = chunk.flatMap(lot => lotRow(lot, seq));
+      await this.run(
+        `INSERT INTO lots (${LOT_COLUMNS}) VALUES ${valuePlaceholders(chunk.length, 24)} ON CONFLICT (id) DO UPDATE SET ${LOT_UPDATE_SET}`,
+        params,
+        q,
+      );
+    }
+
+    const imageRows: Param[][] = [];
+    const closeRows: Param[][] = [];
+    for (const lot of lots) {
+      for (const im of lot.images ?? []) {
+        imageRows.push([lot.id, im.position, im.image_thumb, im.image_card, im.image_large]);
+      }
+      (lot.pastCloses?.recent ?? []).forEach((c, n) => closeRows.push([lot.id, n, c.id]));
+    }
+    for (let i = 0; i < imageRows.length; i += BATCH_SIZE) {
+      const chunk = imageRows.slice(i, i + BATCH_SIZE);
+      await this.run(
+        `INSERT INTO lot_images (lot_id, position, thumb, card, large) VALUES ${valuePlaceholders(chunk.length, 5)}`,
+        chunk.flat(),
+        q,
+      );
+    }
+    for (let i = 0; i < closeRows.length; i += BATCH_SIZE) {
+      const chunk = closeRows.slice(i, i + BATCH_SIZE);
+      await this.run(
+        `INSERT INTO lot_past_closes (lot_id, rank, closed_id) VALUES ${valuePlaceholders(chunk.length, 3)}`,
+        chunk.flat(),
+        q,
+      );
     }
   }
 
-  private deleteLots(ids: Iterable<number>): void {
-    for (const id of ids) {
-      this.run('DELETE FROM lot_images WHERE lot_id = ?', id);
-      this.run('DELETE FROM lot_past_closes WHERE lot_id = ?', id);
-      this.run('DELETE FROM lots WHERE id = ?', id);
+  private async deleteLots(ids: number[], q: Queryable): Promise<void> {
+    if (!ids.length) {
+      return;
     }
+    await this.run('DELETE FROM lot_images WHERE lot_id = ANY($1::bigint[])', [ids], q);
+    await this.run('DELETE FROM lot_past_closes WHERE lot_id = ANY($1::bigint[])', [ids], q);
+    await this.run('DELETE FROM lots WHERE id = ANY($1::bigint[])', [ids], q);
   }
 
   /**
    * Give the lots listing any of these closed lots among their past closes a new sequence (what
    * they show changed).
    */
-  private touchCloses(closedIds: Iterable<number>): void {
-    const seq = this.int('seq') + 1;
-    let changes = 0;
-    for (const id of closedIds) {
-      changes += this.run(
-        'UPDATE lots SET seq = ? WHERE id IN (SELECT lot_id FROM lot_past_closes WHERE closed_id = ?)',
-        seq,
-        id,
-      );
+  private async touchCloses(closedIds: number[], q: Queryable): Promise<void> {
+    if (!closedIds.length) {
+      return;
     }
+    const seq = (await this.int('seq', q)) + 1;
+    const changes = await this.run(
+      'UPDATE lots SET seq = $1 WHERE id IN (SELECT lot_id FROM lot_past_closes WHERE closed_id = ANY($2::bigint[]))',
+      [seq, closedIds],
+      q,
+    );
     if (changes) {
-      this.setMeta('seq', seq);
+      await this.setMeta('seq', seq, q);
     }
   }
 
-  private bumpClosedRev(): void {
-    this.setMeta('closedRev', this.int('closedRev') + 1);
+  private async bumpClosedRev(q: Queryable): Promise<void> {
+    await this.setMeta('closedRev', (await this.int('closedRev', q)) + 1, q);
   }
 
   /**
    * Store a full pull: changed lots get the next sequence, missing ones move to closed_lots.
    * Returns the sequence.
    */
-  replaceAll(lots: Iterable<Lot>, meta: Partial<CatalogMeta> = {}): number {
-    const old = this.load();
-    let seq = this.int('seq');
+  async replaceAll(lots: Iterable<Lot>, meta: Partial<CatalogMeta> = {}): Promise<number> {
+    const old = await this.load();
+    let seq = await this.int('seq');
     const fresh = new Map([...lots].map(lot => [lot.id, lot]));
-    this.annotateItems(fresh.values());
+    await this.annotateItems(fresh.values());
     const changed = fresh
       .values()
       .filter(lot => !dequal(old.get(lot.id), lot))
@@ -665,39 +822,42 @@ export class Store {
       .keys()
       .filter(i => !old.has(i))
       .toArray(); // usually new, but may have been taken for closed
-    this.tx(() => {
+    return this.tx(async tx => {
       if (changed.length || gone.length) {
         seq += 1;
-        this.writeLots(changed, seq);
-        this.deleteLots(gone);
-        this.setMeta('seq', seq);
+        await this.writeLots(changed, seq, tx);
+        await this.deleteLots(gone, tx);
+        await this.setMeta('seq', seq, tx);
       }
       if (gone.length || back.length) {
-        for (const i of back) {
-          this.run('DELETE FROM closed_lots WHERE id = ?', i);
+        if (back.length) {
+          await this.run('DELETE FROM closed_lots WHERE id = ANY($1::bigint[])', [back], tx);
+          await this.touchCloses(back, tx);
         }
-        this.touchCloses(back);
-        const ins = this.db.query(
-          `INSERT OR REPLACE INTO closed_lots (${CLOSED_COLUMNS}) VALUES (${placeholders(12)})`,
-        );
-        for (const i of gone) {
-          ins.run(...closedRow(old.get(i)!, 0));
+        for (let i = 0; i < gone.length; i += BATCH_SIZE) {
+          const chunk = gone.slice(i, i + BATCH_SIZE);
+          const params = chunk.flatMap(id => closedRow(old.get(id)!, 0));
+          await this.run(
+            `INSERT INTO closed_lots (${CLOSED_COLUMNS}) VALUES ${valuePlaceholders(chunk.length, 12)} ON CONFLICT (id) DO UPDATE SET ${CLOSED_UPDATE_SET}`,
+            params,
+            tx,
+          );
         }
-        this.bumpClosedRev();
+        await this.bumpClosedRev(tx);
       }
-      this.setMeta('catalog', { ...this.meta(), ...meta });
+      await this.setMeta('catalog', { ...(await this.meta(tx)), ...meta }, tx);
+      return this.int('seq', tx);
     });
-    return this.int('seq');
   }
 
   /** Lots changed after sequence `since` (all of them for 0) and the current id list. */
-  changes(since: number): CatalogChanges {
-    const seq = this.int('seq');
+  async changes(since: number): Promise<CatalogChanges> {
+    const seq = await this.int('seq');
     const from = since > seq ? 0 : since; // the client saw a newer (since reset) database: send everything
     return {
       seq,
-      lots: this.load('WHERE l.seq > ?', from).values().toArray(),
-      ids: this.all<{ id: number }>('SELECT id FROM lots').map(r => r.id),
+      lots: (await this.load('WHERE l.seq > $1', [from])).values().toArray(),
+      ids: (await this.all<{ id: string | number }>('SELECT id FROM lots')).map(r => toInt(r.id)),
     };
   }
 
@@ -705,16 +865,16 @@ export class Store {
    * Let fn change every stored lot in place (it sees them all at once), giving the changed ones a
    * new sequence. Returns how many changed.
    */
-  updateLots(fn: (lots: Lot[]) => void): number {
-    const seq = this.int('seq') + 1;
-    const old = this.load();
+  async updateLots(fn: (lots: Lot[]) => void): Promise<number> {
+    const seq = (await this.int('seq')) + 1;
+    const old = await this.load();
     const lots = structuredClone(old.values().toArray());
     fn(lots);
     const changed = lots.filter(lot => !dequal(lot, old.get(lot.id)));
     if (changed.length) {
-      this.tx(() => {
-        this.writeLots(changed, seq);
-        this.setMeta('seq', seq);
+      await this.tx(async tx => {
+        await this.writeLots(changed, seq, tx);
+        await this.setMeta('seq', seq, tx);
       });
     }
     return changed.length;
@@ -722,113 +882,149 @@ export class Store {
 
   // -- closed lots ---------------------------------------------------------------------
   /** Goes up whenever closed_lots changes. */
-  closedRev(): number {
+  async closedRev(): Promise<number> {
     return this.int('closedRev');
   }
 
   /** Every closed lot, with the brand and model saved for it. */
-  closedLots(): ClosedLot[] {
-    return this.all<Omit<ClosedLot, 'sold' | 'final'> & { sold: number; final: number }>(
-      `SELECT c.id, c.title, c.auction_period AS auctionPeriod, c.ends_at AS endsAt, c.price, c.bid_count AS bidCount,
-        c.sold, c.final, c.condition, c.location, c.category, c.retail, d.brand, d.model
-      FROM closed_lots c LEFT JOIN lot_details d ON d.lot_id = c.id`,
-    ).map(r => ({ ...r, sold: Boolean(r.sold), final: r.final === 1 }));
+  async closedLots(): Promise<ClosedLot[]> {
+    return (
+      await this.all<{
+        id: string | number;
+        title: string;
+        auctionPeriod: string | null;
+        endsAt: string | number | null;
+        price: number | null;
+        bidCount: number | null;
+        sold: boolean;
+        final: number;
+        condition: string | null;
+        location: string | null;
+        category: string | null;
+        retail: number | null;
+        brand: string | null;
+        model: string | null;
+      }>(
+        `SELECT c.id, c.title, c.auction_period AS "auctionPeriod", c.ends_at AS "endsAt", c.price, c.bid_count AS "bidCount",
+          c.sold, c.final, c.condition, c.location, c.category, c.retail, d.brand, d.model
+        FROM closed_lots c LEFT JOIN lot_details d ON d.lot_id = c.id`,
+      )
+    ).map(r => ({
+      ...r,
+      id: toInt(r.id),
+      endsAt: toOptInt(r.endsAt),
+      final: r.final === 1,
+    }));
   }
 
   /**
    * Closed lots (ended before `now`, epoch ms) whose final price hasn't been asked for yet, oldest
    * first.
    */
-  pendingCloses(nowMs: number): { id: number; auctionPeriod: string | null }[] {
-    return this.all(
-      'SELECT id, auction_period AS auctionPeriod FROM closed_lots WHERE final = 0 AND ends_at <= ? ORDER BY ends_at',
-      nowMs,
-    );
+  async pendingCloses(nowMs: number): Promise<{ id: number; auctionPeriod: string | null }[]> {
+    return (
+      await this.all<{ id: string | number; auctionPeriod: string | null }>(
+        'SELECT id, auction_period AS "auctionPeriod" FROM closed_lots WHERE final = 0 AND ends_at <= $1 ORDER BY ends_at',
+        [nowMs],
+      )
+    ).map(r => ({ id: toInt(r.id), auctionPeriod: r.auctionPeriod }));
   }
 
   /** Record a closed lot's final state from the site, or with null, that the site no longer has it. */
-  finishClose(id: number, lot: Lot | null): void {
-    this.tx(() => {
+  async finishClose(id: number, lot: Lot | null): Promise<void> {
+    await this.tx(async tx => {
       if (lot) {
-        this.run(
-          `INSERT OR REPLACE INTO closed_lots (${CLOSED_COLUMNS}) VALUES (${placeholders(12)})`,
-          ...closedRow(lot, 1),
+        await this.run(
+          `INSERT INTO closed_lots (${CLOSED_COLUMNS}) VALUES ${valuePlaceholders(1, 12)} ON CONFLICT (id) DO UPDATE SET ${CLOSED_UPDATE_SET}`,
+          closedRow(lot, 1),
+          tx,
         );
-        this.touchCloses([id]);
+        await this.touchCloses([id], tx);
       } else {
-        this.run('UPDATE closed_lots SET final = -1 WHERE id = ?', id);
+        await this.run('UPDATE closed_lots SET final = -1 WHERE id = $1', [id], tx);
       }
-      this.bumpClosedRev();
+      await this.bumpClosedRev(tx);
     });
   }
 
   /** Forget a lot taken for closed that is still open. */
-  dropClose(id: number): void {
-    this.tx(() => {
-      this.run('DELETE FROM closed_lots WHERE id = ?', id);
-      this.touchCloses([id]);
-      this.bumpClosedRev();
+  async dropClose(id: number): Promise<void> {
+    await this.tx(async tx => {
+      await this.run('DELETE FROM closed_lots WHERE id = $1', [id], tx);
+      await this.touchCloses([id], tx);
+      await this.bumpClosedRev(tx);
     });
   }
 
   // -- lot details ------------------------------------------------------------------------
   /** Open lots whose detail hasn't been fetched yet, ending soonest first. */
-  pendingDetails(): { id: number; auctionPeriod: string }[] {
-    return this.all(
-      `SELECT l.id, l.auction_period AS auctionPeriod
-       FROM lots l
-       LEFT JOIN lot_details d ON d.lot_id = l.id
-       WHERE d.lot_id IS NULL AND l.auction_period IS NOT NULL AND l.auction_period != ''
-       ORDER BY l.ends_at, l.id`,
-    );
+  async pendingDetails(): Promise<{ id: number; auctionPeriod: string }[]> {
+    return (
+      await this.all<{ id: string | number; auctionPeriod: string }>(
+        `SELECT l.id, l.auction_period AS "auctionPeriod"
+         FROM lots l
+         LEFT JOIN lot_details d ON d.lot_id = l.id
+         WHERE d.lot_id IS NULL AND l.auction_period IS NOT NULL AND l.auction_period != ''
+         ORDER BY l.ends_at, l.id`,
+      )
+    ).map(r => ({ id: toInt(r.id), auctionPeriod: r.auctionPeriod }));
   }
 
   /** Whether a lot's detail is already saved. */
-  hasLotDetail(id: number): boolean {
-    return this.get('SELECT 1 FROM lot_details WHERE lot_id = ?', id) !== null;
+  async hasLotDetail(id: number): Promise<boolean> {
+    return (await this.get('SELECT 1 FROM lot_details WHERE lot_id = $1', [id])) !== null;
   }
 
   /** Keep a lot's detail (RawLotDetail in src/shared/lot.ts), replacing the one fetched before. */
-  saveLotDetail(d: Detail): void {
-    this.tx(() => {
-      const previous = this.get<{ brand: string | null; model: string | null }>(
-        'SELECT brand, model FROM lot_details WHERE lot_id = ?',
-        d.id,
+  async saveLotDetail(d: Detail): Promise<void> {
+    await this.tx(async tx => {
+      const previous = await this.get<{ brand: string | null; model: string | null }>(
+        'SELECT brand, model FROM lot_details WHERE lot_id = $1',
+        [d.id],
+        tx,
       );
       const brand = (d.brand ?? '').trim() || null;
       const model = (d.model ?? '').trim() || null;
       const changed = !previous || previous.brand !== brand || previous.model !== model;
-      this.run(
-        `INSERT OR REPLACE INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
-          lot_fee, bid_history, fetched_at, images) VALUES (${placeholders(12)})`,
-        d.id,
-        d.auction_period ?? null,
-        d.title || '',
-        d.status ?? null,
-        d.current_price ?? null,
-        d.description ?? null,
-        brand,
-        model,
-        d.lot_fee ?? null,
-        JSON.stringify(d.bid_history ?? []),
-        Date.now(),
-        d.images ? JSON.stringify(d.images.map(savedImage)) : null,
+      await this.run(
+        `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, brand, model,
+          lot_fee, bid_history, fetched_at, images) VALUES ${valuePlaceholders(1, 12)}
+         ON CONFLICT (lot_id) DO UPDATE SET
+          auction_period = EXCLUDED.auction_period, title = EXCLUDED.title, status = EXCLUDED.status,
+          current_price = EXCLUDED.current_price, description = EXCLUDED.description, brand = EXCLUDED.brand,
+          model = EXCLUDED.model, lot_fee = EXCLUDED.lot_fee, bid_history = EXCLUDED.bid_history,
+          fetched_at = EXCLUDED.fetched_at, images = EXCLUDED.images`,
+        [
+          d.id,
+          d.auction_period ?? null,
+          d.title || '',
+          d.status ?? null,
+          d.current_price ?? null,
+          d.description ?? null,
+          brand,
+          model,
+          d.lot_fee ?? null,
+          JSON.stringify(d.bid_history ?? []),
+          Date.now(),
+          d.images ? JSON.stringify(d.images.map(savedImage)) : null,
+        ],
+        tx,
       );
       if (changed) {
-        if (this.get('SELECT 1 FROM closed_lots WHERE id = ?', d.id)) {
-          this.bumpClosedRev();
+        if (await this.get('SELECT 1 FROM closed_lots WHERE id = $1', [d.id], tx)) {
+          await this.bumpClosedRev(tx);
         }
-        const seq = this.int('seq') + 1;
-        if (this.run('UPDATE lots SET seq = ? WHERE id = ?', seq, d.id)) {
-          this.setMeta('seq', seq);
+        const seq = (await this.int('seq', tx)) + 1;
+        if (await this.run('UPDATE lots SET seq = $1 WHERE id = $2', [seq, d.id], tx)) {
+          await this.setMeta('seq', seq, tx);
         }
       }
     });
   }
 
   /** Saved item details only; never serve archived auction or account state as current. */
-  lotMetadata(id: number, auctionPeriod: string): LotMetadata | null {
-    const row = this.get<{
+  async lotMetadata(id: number, auctionPeriod: string): Promise<LotMetadata | null> {
+    const row = await this.get<{
       description: string | null;
       brand: string | null;
       model: string | null;
@@ -836,9 +1032,8 @@ export class Store {
       images: string | null;
     }>(
       `SELECT description, brand, model, lot_fee, images FROM lot_details
-       WHERE lot_id = ? AND auction_period = ?`,
-      id,
-      auctionPeriod,
+       WHERE lot_id = $1 AND auction_period = $2`,
+      [id, auctionPeriod],
     );
     if (!row) {
       return null;
@@ -863,19 +1058,20 @@ export class Store {
 
   // -- item types ----------------------------------------------------------------------------
   /** Stored lots without an item type. */
-  untypedItems(): Lot[] {
-    return this.load()
+  async untypedItems(): Promise<Lot[]> {
+    return (await this.load())
       .values()
       .filter(lot => !lot.itemType)
       .toArray();
   }
 
   /** The item types given most often to titles in a site category. */
-  commonTypes(category: string | null, limit: number): string[] {
-    return this.all<{ type: string }>(
-      'SELECT type FROM item_types WHERE category IS ? GROUP BY type ORDER BY count(*) DESC, type LIMIT ?',
-      category,
-      limit,
+  async commonTypes(category: string | null, limit: number): Promise<string[]> {
+    return (
+      await this.all<{ type: string }>(
+        'SELECT type FROM item_types WHERE category IS NOT DISTINCT FROM $1 GROUP BY type ORDER BY count(*) DESC, type LIMIT $2',
+        [category, limit],
+      )
     ).map(r => r.type);
   }
 
@@ -883,13 +1079,13 @@ export class Store {
    * Persist identity-aware labels and touch only changed effective assignments; returns the new
    * types of the lots whose type changed, by lot id. Automatic labels never replace manual ones.
    */
-  saveLotTypes(
+  async saveLotTypes(
     labels: Iterable<[Item, string]>,
     { manual = false } = {},
-  ): Map<number, string | null> {
-    return this.tx(() => {
-      const previous = this.typeAssignments();
-      const index = this.typeIndex();
+  ): Promise<Map<number, string | null>> {
+    return this.tx(async tx => {
+      const previous = await this.typeAssignments(tx);
+      const index = await this.typeIndex(tx);
       for (const [lot, label] of labels) {
         const record = index.match(lot);
         if (!manual && record?.manual) {
@@ -897,50 +1093,49 @@ export class Store {
         }
         const identity = brandModelKey(lot);
         const [brand, model] = identity ? identity.split('\n') : ['', ''];
-        this.run(
-          'INSERT OR REPLACE INTO item_types (brand, model, title, type, category, at, manual) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          brand!,
-          model!,
-          lot.title,
-          label,
-          lot.category?.value ?? null,
-          this.stamp(),
-          manual ? 1 : 0,
+        await this.run(
+          `INSERT INTO item_types (brand, model, title, type, category, at, manual)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (brand, model, title) DO UPDATE SET
+            type = EXCLUDED.type, category = EXCLUDED.category, at = EXCLUDED.at, manual = EXCLUDED.manual`,
+          [brand!, model!, lot.title, label, lot.category?.value ?? null, this.stamp(), manual],
+          tx,
         );
       }
       this.changedTypes();
-      return this.touchChanges(previous, this.typeAssignments());
+      return this.touchChanges(previous, await this.typeAssignments(tx), tx);
     });
   }
 
   // -- settings ------------------------------------------------------------------------------------
-  private filterTypesRev(): number | null {
-    const v = this.getMeta('filterTypesRev');
+  private async filterTypesRev(q: Queryable = this.sql): Promise<number | null> {
+    const v = await this.getMeta('filterTypesRev', q);
     return typeof v === 'number' ? Math.trunc(v) : null;
   }
 
   /** All globally filtered item types, sorted. */
-  filterTypes(): string[] {
-    return this.all<{ type: string }>('SELECT type FROM filter_types ORDER BY type').map(
-      r => r.type,
-    );
+  async filterTypes(q: Queryable = this.sql): Promise<string[]> {
+    return (
+      await this.all<{ type: string }>('SELECT type FROM filter_types ORDER BY type', [], q)
+    ).map(r => r.type);
   }
 
-  private writeFilterTypes(types: Iterable<string>): void {
-    this.run('DELETE FROM filter_types');
-    const ins = this.db.query('INSERT OR IGNORE INTO filter_types (type) VALUES (?)');
-    for (const raw of types) {
-      const t = raw.trim().toLowerCase();
-      if (t) {
-        ins.run(t);
-      }
+  private async writeFilterTypes(types: Iterable<string>, q: Queryable): Promise<void> {
+    await this.run('DELETE FROM filter_types', [], q);
+    const cleaned = [...new Set([...types].map(raw => raw.trim().toLowerCase()).filter(Boolean))];
+    if (cleaned.length) {
+      await this.run(
+        `INSERT INTO filter_types (type) VALUES ${valuePlaceholders(cleaned.length, 1)} ON CONFLICT DO NOTHING`,
+        cleaned,
+        q,
+      );
     }
   }
 
-  private migrateFilterTypes(): void {
-    const row = this.get<{ value: string; rev: number }>(
-      'SELECT value, rev FROM settings WHERE key = ?',
-      KEYS.filterTypes,
+  private async migrateFilterTypes(): Promise<void> {
+    const row = await this.get<{ value: string; rev: number }>(
+      'SELECT value, rev FROM settings WHERE key = $1',
+      [KEYS.filterTypes],
     );
     if (!row) {
       return;
@@ -949,77 +1144,82 @@ export class Store {
     const types = Array.isArray(parsed)
       ? parsed.filter((v): v is string => typeof v === 'string')
       : [];
-    this.tx(() => {
-      this.writeFilterTypes(types);
-      this.setMeta('filterTypesRev', row.rev);
-      this.run('DELETE FROM settings WHERE key = ?', KEYS.filterTypes);
+    await this.tx(async tx => {
+      await this.writeFilterTypes(types, tx);
+      await this.setMeta('filterTypesRev', row.rev, tx);
+      await this.run('DELETE FROM settings WHERE key = $1', [KEYS.filterTypes], tx);
     });
   }
 
   /** The settings revision and every setting changed after `since`. */
-  settings(since = 0): { rev: number; values: Record<string, unknown> } {
-    const rev = this.int('settingsRev');
+  async settings(since = 0): Promise<{ rev: number; values: Record<string, unknown> }> {
+    const rev = await this.int('settingsRev');
     const from = since > rev ? 0 : since;
-    const rows = this.all<{ key: string; value: string }>(
-      'SELECT key, value FROM settings WHERE rev > ?',
-      from,
+    const rows = await this.all<{ key: string; value: string }>(
+      'SELECT key, value FROM settings WHERE rev > $1',
+      [from],
     );
     const values: Record<string, unknown> = Object.fromEntries(
       rows.map(r => [r.key, JSON.parse(r.value)]),
     );
-    const ftRev = this.filterTypesRev();
+    const ftRev = await this.filterTypesRev();
     if (ftRev !== null && ftRev > from) {
-      values[KEYS.filterTypes] = this.filterTypes();
+      values[KEYS.filterTypes] = await this.filterTypes();
     }
     return { rev, values };
   }
 
-  setting(key: string): unknown {
+  async setting(key: string): Promise<unknown> {
     if (key === KEYS.filterTypes) {
-      return this.filterTypesRev() === null ? undefined : this.filterTypes();
+      return (await this.filterTypesRev()) === null ? undefined : this.filterTypes();
     }
-    const row = this.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', key);
+    const row = await this.get<{ value: string }>('SELECT value FROM settings WHERE key = $1', [
+      key,
+    ]);
     return row ? JSON.parse(row.value) : undefined;
   }
 
   /** Save a setting (last write wins) and return the new settings revision. */
-  putSetting(key: string, value: unknown): number {
+  async putSetting(key: string, value: unknown): Promise<number> {
     if (key === KEYS.filterTypes) {
       const types = Array.isArray(value)
         ? value.filter((v): v is string => typeof v === 'string')
         : [];
-      return this.tx(() => {
-        const rev = this.int('settingsRev') + 1;
-        this.writeFilterTypes(types);
-        this.setMeta('filterTypesRev', rev);
-        this.setMeta('settingsRev', rev);
+      return this.tx(async tx => {
+        const rev = (await this.int('settingsRev', tx)) + 1;
+        await this.writeFilterTypes(types, tx);
+        await this.setMeta('filterTypesRev', rev, tx);
+        await this.setMeta('settingsRev', rev, tx);
         return rev;
       });
     }
-    return this.tx(() => {
-      const rev = this.int('settingsRev') + 1;
-      this.run(
-        'INSERT OR REPLACE INTO settings (key, value, rev) VALUES (?, ?, ?)',
-        key,
-        JSON.stringify(value),
-        rev,
+    return this.tx(async tx => {
+      const rev = (await this.int('settingsRev', tx)) + 1;
+      await this.run(
+        `INSERT INTO settings (key, value, rev) VALUES ($1, $2, $3)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, rev = EXCLUDED.rev`,
+        [key, JSON.stringify(value), rev],
+        tx,
       );
-      this.setMeta('settingsRev', rev);
+      await this.setMeta('settingsRev', rev, tx);
       return rev;
     });
   }
 
   // -- app sessions --------------------------------------------------------------------------------
-  addSession(id: string): void {
-    this.run('INSERT INTO app_sessions (id, created) VALUES (?, ?)', id, now());
+  async addSession(id: string): Promise<void> {
+    await this.run('INSERT INTO app_sessions (id, created) VALUES ($1, $2)', [id, now()]);
   }
 
-  hasSession(id: string, maxAgeSeconds: number): boolean {
-    const row = this.get<{ created: number }>('SELECT created FROM app_sessions WHERE id = ?', id);
+  async hasSession(id: string, maxAgeSeconds: number): Promise<boolean> {
+    const row = await this.get<{ created: number }>(
+      'SELECT created FROM app_sessions WHERE id = $1',
+      [id],
+    );
     return row !== null && now() - row.created < maxAgeSeconds;
   }
 
-  dropSession(id: string): void {
-    this.run('DELETE FROM app_sessions WHERE id = ?', id);
+  async dropSession(id: string): Promise<void> {
+    await this.run('DELETE FROM app_sessions WHERE id = $1', [id]);
   }
 }

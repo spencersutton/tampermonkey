@@ -4,9 +4,8 @@
 // session cookie, and every call to /api/auth/session re-issues a readable
 // `token` cookie, the bearer token its JSON API takes. The server signs in
 // itself (the password is used once and never stored), keeps the cookies in
-// SQLite (in the format the earlier Python server used, so its login carries
-// over), and refreshes the token shortly before it expires or after the API
-// rejects it.
+// PostgreSQL, and refreshes the token shortly before it expires or after the
+// API rejects it.
 import { SITE } from '../shared/constants';
 import { field, isRecord, prop } from './json';
 import { USER_AGENT } from './site';
@@ -109,12 +108,20 @@ export class SiteSession {
   private readonly store: Store;
   private readonly fetch: typeof fetch;
 
-  constructor(store: Store, fetchImpl: typeof fetch = fetch) {
+  private constructor(store: Store, fetchImpl: typeof fetch = fetch) {
     this.store = store;
     this.fetch = fetchImpl;
-    this.loadCookies(store.getMeta(COOKIES_KEY));
-    const user = store.getMeta(USER_KEY);
-    this.user = isRecord(user) ? { email: field(user, 'email'), name: field(user, 'name') } : null;
+    this.user = null;
+  }
+
+  static async create(store: Store, fetchImpl: typeof fetch = fetch): Promise<SiteSession> {
+    const session = new SiteSession(store, fetchImpl);
+    session.loadCookies(await store.getMeta(COOKIES_KEY));
+    const user = await store.getMeta(USER_KEY);
+    session.user = isRecord(user)
+      ? { email: field(user, 'email'), name: field(user, 'name') }
+      : null;
+    return session;
   }
 
   /** Run one session operation at a time, as the Python version's lock does. */
@@ -136,12 +143,12 @@ export class SiteSession {
     }
   }
 
-  private save() {
-    this.store.setMeta(
+  private async save() {
+    await this.store.setMeta(
       COOKIES_KEY,
       this.live().map(({ name, value, domain, path }) => ({ name, value, domain, path })),
     );
-    this.store.setMeta(USER_KEY, this.user);
+    await this.store.setMeta(USER_KEY, this.user);
   }
 
   private live(): Cookie[] {
@@ -284,7 +291,7 @@ export class SiteSession {
       const user = prop(s, 'user');
       this.user = { email: field(user, 'email'), name: field(user, 'name') };
     }
-    this.save();
+    await this.save();
     return this.loggedIn();
   }
 
@@ -332,14 +339,14 @@ export class SiteSession {
       }
       if (err || status >= 400) {
         this.clearCookies();
-        this.save();
+        await this.save();
         return LOGIN_ERRORS[err ?? ''] ?? `Login failed (${err ?? status}).`;
       }
       this.user = { email, name: null };
       if (!(await this.refreshNow(false)) || this.cookie('token') === null) {
         this.clearCookies();
         this.user = null;
-        this.save();
+        await this.save();
         return 'Logged in, but the site didn’t hand out an API token.';
       }
       console.info(`logged in to the site as ${email}`);
@@ -364,7 +371,7 @@ export class SiteSession {
       }
       this.clearCookies();
       this.user = null;
-      this.save();
+      await this.save();
     });
   }
 }

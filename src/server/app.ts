@@ -142,27 +142,30 @@ export function createApp(deps: Deps) {
   const app = new Hono<Env>();
 
   const sessionId = (c: Context) => getCookie(c, SESSION_COOKIE) ?? null;
-  const unlocked = (c: Context) => {
+  const unlocked = async (c: Context) => {
     if (!password) {
       return true;
     }
     const sid = sessionId(c);
-    return sid !== null && store.hasSession(sid, SESSION_MAX_AGE);
+    return sid !== null && (await store.hasSession(sid, SESSION_MAX_AGE));
   };
   const secure = (c: Context) => Boolean(deps.tls) || c.req.header('X-Forwarded-Proto') === 'https';
   const cookie = (c: Context, value: string, maxAge: number) =>
     `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Strict${secure(c) ? '; Secure' : ''}`;
-  const me = (c: Context, locked = !unlocked(c)) => ({
-    version: VERSION,
-    app: { locked, password: Boolean(password) },
-    site: locked ? null : session.status(),
-  });
-  const status = () => {
-    const meta = store.meta();
+  const me = async (c: Context, locked?: boolean) => {
+    const isLocked = locked ?? !(await unlocked(c));
+    return {
+      version: VERSION,
+      app: { locked: isLocked, password: Boolean(password) },
+      site: isLocked ? null : session.status(),
+    };
+  };
+  const status = async () => {
+    const meta = await store.meta();
     return {
       now: Date.now(),
       meta,
-      nextPullAt: catalog.nextPullAt(meta),
+      nextPullAt: await catalog.nextPullAt(meta),
       progress: catalog.progress && { ...catalog.progress },
       error: catalog.error,
     };
@@ -200,7 +203,7 @@ export function createApp(deps: Deps) {
       return error(403, 'Missing X-TLX-Client header');
     }
     const guarded = ['/api/', '/backend/', '/ws'].some(p => path.startsWith(p));
-    if (guarded && !PUBLIC_PATHS.has(path) && !unlocked(c)) {
+    if (guarded && !PUBLIC_PATHS.has(path) && !(await unlocked(c))) {
       return error(401, 'app_locked');
     }
     return next();
@@ -208,25 +211,25 @@ export function createApp(deps: Deps) {
 
   // -- this server's API ------------------------------------------------------
   app.get('/api/health', () => json({ ok: true, version: VERSION }));
-  app.get('/api/me', c => json(me(c)));
+  app.get('/api/me', async c => json(await me(c)));
   app.post('/api/app-login', async c => {
     const given = field(await readJson(c.req.raw), 'password') ?? '';
     if (!password || samePassword(given, password)) {
       const sid = randomBytes(32).toString('base64url');
-      store.addSession(sid);
-      const res = json(me(c, false));
+      await store.addSession(sid);
+      const res = json(await me(c, false));
       res.headers.set('Set-Cookie', cookie(c, sid, SESSION_MAX_AGE));
       return res;
     }
     await Bun.sleep(deps.wrongPasswordDelayMs ?? 1000);
     return error(401, 'Wrong password.');
   });
-  app.post('/api/app-logout', c => {
+  app.post('/api/app-logout', async c => {
     const sid = sessionId(c);
     if (sid) {
-      store.dropSession(sid);
+      await store.dropSession(sid);
     }
-    const res = json(me(c, Boolean(password)));
+    const res = json(await me(c, Boolean(password)));
     res.headers.set('Set-Cookie', cookie(c, '', 0));
     return res;
   });
@@ -237,37 +240,39 @@ export function createApp(deps: Deps) {
       field(d, 'password') ?? '',
     );
     if (!failed) {
-      catalog.requestPull(); // pick up your standings and watchlist when allowed
+      await catalog.requestPull(); // pick up your standings and watchlist when allowed
     }
-    return json({ error: failed, ...me(c) });
+    return json({ error: failed, ...(await me(c)) });
   });
   app.post('/api/site-logout', async c => {
     await session.logout();
-    return json(me(c));
+    return json(await me(c));
   });
 
-  app.get('/api/catalog', c => {
+  app.get('/api/catalog', async c => {
     const since = Math.max(0, Number.parseInt(c.req.query('since') ?? '0', 10) || 0);
-    const changes = store.changes(since);
+    const changes = await store.changes(since);
     const full = since === 0 || since > changes.seq;
     return json({
       seq: changes.seq,
       full,
       ids: full ? null : changes.ids,
-      ...status(),
+      ...(await status()),
       lots: changes.lots,
     });
   });
-  app.get('/api/lot-metadata', c => {
+  app.get('/api/lot-metadata', async c => {
     const id = integer(c.req.query('id'));
     const period = c.req.query('auctionPeriod') ?? '';
     if (id === null || id <= 0 || id > MAX_ID || !period) {
       throw new BadRequest('Expected a positive lot id and auctionPeriod');
     }
-    return json({ metadata: store.lotMetadata(id, period) });
+    return json({ metadata: await store.lotMetadata(id, period) });
   });
-  app.post('/api/pull', () => json({ result: catalog.requestPull(), ...status() }));
-  app.get('/api/settings', () => json(store.settings()));
+  app.post('/api/pull', async () =>
+    json({ result: await catalog.requestPull(), ...(await status()) }),
+  );
+  app.get('/api/settings', async () => json(await store.settings()));
   app.put('/api/settings/:key', async c => {
     const key = c.req.param('key');
     if (!SETTING_KEY.test(key)) {
@@ -284,15 +289,15 @@ export function createApp(deps: Deps) {
     ) {
       throw new BadRequest('Expected an array of strings for filterTypes');
     }
-    return json({ rev: store.putSetting(key, value) });
+    return json({ rev: await store.putSetting(key, value) });
   });
-  app.get('/api/history', c => {
+  app.get('/api/history', async c => {
     const id = integer(c.req.query('id'));
-    const lot = id === null ? null : store.lot(id);
+    const lot = id === null ? null : await store.lot(id);
     if (!lot) {
       throw new BadRequest(id === null ? 'Expected a lot id' : 'No such open lot');
     }
-    return json({ closes: history.closesFor(lot).slice(0, HISTORY_LIMIT) });
+    return json({ closes: (await history.closesFor(lot)).slice(0, HISTORY_LIMIT) });
   });
   app.put('/api/item-type', async c => {
     const body = await readJson(c.req.raw);
@@ -310,11 +315,11 @@ export function createApp(deps: Deps) {
     ) {
       throw new BadRequest(`Item type must be 1 to ${MAX_TYPE_LENGTH} characters`);
     }
-    const lot = store.lot(id);
+    const lot = await store.lot(id);
     if (!lot) {
       return error(404, 'No such catalog lot');
     }
-    const changed = store.saveLotTypes([[lot, itemType]], { manual: true });
+    const changed = await store.saveLotTypes([[lot, itemType]], { manual: true });
     const ids = [
       id,
       ...changed
@@ -328,7 +333,7 @@ export function createApp(deps: Deps) {
         .toArray()
         .sortBy(n => n),
       itemType,
-      seq: store.seq(),
+      seq: await store.seq(),
     });
   });
   app.all('/api/*', () => error(404, 'Not found'));
@@ -382,7 +387,7 @@ export function createApp(deps: Deps) {
     }
     let data: ArrayBuffer | string = await res.arrayBuffer();
     if (method === 'GET' && res.status === 200) {
-      data = keep(url.pathname, data);
+      data = await keep(url.pathname, data);
     }
     return new Response(method === 'HEAD' ? null : data, {
       status: res.status,
@@ -394,13 +399,13 @@ export function createApp(deps: Deps) {
    * Keep what the server wants from a site reply (lot details, closed lots' identities); returns
    * the reply to send on.
    */
-  function keep(path: string, data: ArrayBuffer): ArrayBuffer | string {
+  async function keep(path: string, data: ArrayBuffer): Promise<ArrayBuffer | string> {
     try {
       if (LOT_DETAIL_PATH.test(path)) {
         const raw: unknown = JSON.parse(new TextDecoder().decode(data));
         if (isRecord(raw) && typeof raw['id'] === 'number') {
           // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lot detail (see tests/fixtures/site)
-          store.saveLotDetail(raw as unknown as RawLotDetail);
+          await store.saveLotDetail(raw as unknown as RawLotDetail);
           history.wake();
         }
       } else if (CLOSED_PATH.test(path)) {
@@ -408,8 +413,8 @@ export function createApp(deps: Deps) {
         const results = prop(payload, 'results');
         if (Array.isArray(results)) {
           const closed = results.filter(isRecord);
-          store.annotateIdentities(closed, 'lot_id');
-          history.relisted(closed);
+          await store.annotateIdentities(closed, 'lot_id');
+          await history.relisted(closed);
           return JSON.stringify(payload);
         }
       }

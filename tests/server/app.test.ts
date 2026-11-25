@@ -6,6 +6,9 @@ import { rmSync } from 'node:fs';
 
 import { jwt } from './fake-site';
 import { fixture, setup, staticRoot } from './harness';
+import { testDb } from './pg';
+
+testDb();
 
 const LOTS = fixture('lots-newly-listed.json');
 const NOT_FOUND = fixture('lot-detail-not-found.json');
@@ -54,7 +57,7 @@ describe('guards', () => {
     );
     const cookie = setCookie.split(';')[0]!;
     expect((await request('/api/catalog', { headers: { Cookie: cookie } })).status).toBe(200);
-    expect(store.hasSession(cookie.split('=')[1]!, 60)).toBe(true);
+    expect(await store.hasSession(cookie.split('=')[1]!, 60)).toBe(true);
 
     const logout = await post('/api/app-logout', undefined, { Cookie: cookie });
     expect(logout.headers.get('Set-Cookie')).toContain('Max-Age=0');
@@ -179,7 +182,7 @@ describe('/backend proxy', () => {
     };
     const res = await request(DETAIL.request.path);
     expect(await res.json()).toEqual(raw);
-    expect(store.lotMetadata(raw.id, raw.auction_period)).toMatchObject({
+    expect(await store.lotMetadata(raw.id, raw.auction_period)).toMatchObject({
       brand: raw.brand,
       description: raw.description,
     });
@@ -196,11 +199,11 @@ describe('/backend proxy', () => {
             ])
           : Response.json({}, { status: 404 }),
     });
-    store.replaceAll([
+    await store.replaceAll([
       { id: 1, title: 'Cordless drill', ends_at: new Date(Date.now() + 60_000).toISOString() },
       { id: 2, title: 'Saw', ends_at: new Date(Date.now() + 60_000).toISOString() },
     ]);
-    store.saveLotDetail({ id: 90, brand: 'Acme', model: 'D-1' });
+    await store.saveLotDetail({ id: 90, brand: 'Acme', model: 'D-1' });
     const body = await (
       await request('/backend/v1/auctions/control-panel/closed/won/?page=1')
     ).json();
@@ -232,7 +235,7 @@ describe('requests', () => {
     });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'Request body too large' });
-    expect(store.settings().rev).toBe(0);
+    expect((await store.settings()).rev).toBe(0);
   });
 
   test('bad JSON is a 400, and unknown API paths a 404', async () => {

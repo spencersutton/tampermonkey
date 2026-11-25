@@ -2,30 +2,22 @@
 //
 //   npm run check-filters
 //   npm run check-filters -- --all
-//   npm run check-filters -- --db /path/to/tlx.db --json
-import { Database } from 'bun:sqlite';
-import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+//   npm run check-filters -- --db postgres://localhost:5432/tlx --json
 import { parseArgs } from 'node:util';
 
-import { Store } from '../src/server/store';
+import { DEFAULT_DB_URL, Store, type StoreOptions } from '../src/server/store';
 import { buildRegexes, filterMatches } from '../src/shared/filters';
 import { KEYS } from '../src/shared/keys';
 
 const env = (name: string) => process.env[name];
-const DEFAULT_DB = join(
-  env('XDG_DATA_HOME') ?? join(homedir(), '.local', 'share'),
-  'tlx-server',
-  'tlx.db',
-);
+const DEFAULT_DB = env('TLX_DB') ?? env('DATABASE_URL') ?? DEFAULT_DB_URL;
 const DEFAULT_EXAMPLES = 20;
 
 const HELP = `Usage: npm run check-filters -- [options]
 
-Find regex filters in tlx.db that are redundant or overlap on open lot titles.
+Find regex filters in PostgreSQL that are redundant or overlap on open lot titles.
 
-  --db FILE       SQLite file (default ${DEFAULT_DB})
+  --db URL        PostgreSQL connection URL (or TLX_DB / DATABASE_URL; default ${DEFAULT_DB_URL})
   --examples N    Max multi-matched titles to print (default ${DEFAULT_EXAMPLES}; 0 to hide)
   --all           Print every multi-matched title
   --remove        Remove fully redundant and 0-match filters from the database (preserving coverage)
@@ -306,37 +298,43 @@ export function pruneRedundantFilters(patterns: string[], titles: string[]): Pru
   return { kept, removed };
 }
 
-/** Persist updated filterWords to tlx.db via Store (bumping settingsRev). */
-export function saveToDb(dbPath: string, patterns: string[]): number {
-  const store = new Store(dbPath);
+/** Persist updated filterWords via Store (bumping settingsRev). */
+export async function saveToDb(
+  dbUrl: string,
+  patterns: string[],
+  options?: StoreOptions,
+): Promise<number> {
+  const store = await Store.open(dbUrl, options);
   try {
-    return store.putSetting(KEYS.words, patterns);
+    return await store.putSetting(KEYS.words, patterns);
   } finally {
-    store.close();
+    await store.close();
   }
 }
 
-/** Read filterWords and open lot titles from a tlx-server SQLite database. */
-export function loadFromDb(dbPath: string): { patterns: string[]; titles: string[] } {
-  const db = new Database(dbPath, { readonly: true });
+/** Read filterWords and open lot titles from PostgreSQL. */
+export async function loadFromDb(
+  dbUrl: string,
+  options?: StoreOptions,
+): Promise<{ patterns: string[]; titles: string[] }> {
+  const store = await Store.open(dbUrl, options);
   try {
-    const row = db
-      .query<{ value: string }, [string]>('SELECT value FROM settings WHERE key = ?')
-      .get(KEYS.words);
-    let patterns: string[] = [];
-    if (row) {
-      const parsed: unknown = JSON.parse(row.value);
-      if (Array.isArray(parsed)) {
-        patterns = parsed.filter((v): v is string => typeof v === 'string');
+    const raw = await store.setting(KEYS.words);
+    const patterns = Array.isArray(raw)
+      ? raw.filter((v): v is string => typeof v === 'string')
+      : [];
+    const rows: unknown = await store.sql.unsafe('SELECT title FROM lots');
+    const titles: string[] = [];
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        if (row && typeof row === 'object' && 'title' in row && typeof row.title === 'string') {
+          titles.push(row.title);
+        }
       }
     }
-    const titles = db
-      .query<{ title: string }, []>('SELECT title FROM lots')
-      .all()
-      .map(r => r.title);
     return { patterns, titles };
   } finally {
-    db.close();
+    await store.close();
   }
 }
 
@@ -403,7 +401,7 @@ export function formatReport(analysis: FilterAnalysis, maxExamples: number): str
   return lines.join('\n');
 }
 
-function main() {
+async function main() {
   const { values: args } = parseArgs({
     options: {
       db: { type: 'string', default: DEFAULT_DB },
@@ -420,22 +418,17 @@ function main() {
     process.exit(0);
   }
 
-  if (!existsSync(args.db)) {
-    console.error(`check-filters: database not found: ${args.db}`);
-    process.exit(2);
-  }
-
   const parsedExamples = Number(args.examples);
   if (!Number.isInteger(parsedExamples) || parsedExamples < 0) {
     console.error(`check-filters: --examples must be a non-negative integer, got ${args.examples}`);
     process.exit(2);
   }
 
-  const { patterns, titles } = loadFromDb(args.db);
+  const { patterns, titles } = await loadFromDb(args.db);
 
   if (args.remove) {
     const { kept, removed } = pruneRedundantFilters(patterns, titles);
-    const rev = removed.length > 0 ? saveToDb(args.db, kept) : null;
+    const rev = removed.length > 0 ? await saveToDb(args.db, kept) : null;
     if (args.json) {
       console.log(JSON.stringify({ removed, keptCount: kept.length, rev }, null, 2));
     } else if (removed.length === 0) {
@@ -462,5 +455,5 @@ function main() {
 }
 
 if (import.meta.main) {
-  main();
+  await main();
 }

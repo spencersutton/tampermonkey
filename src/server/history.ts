@@ -50,17 +50,20 @@ export class History {
 
   // -- matching ---------------------------------------------------------------
   /** Rebuilt when closed lots or their saved identities change. */
-  private index(): ItemIndex<ClosedLot> {
-    const version = this.store.closedRev();
+  private async index(): Promise<ItemIndex<ClosedLot>> {
+    const version = await this.store.closedRev();
     if (this.cache?.version !== version) {
-      this.cache = { version, index: new ItemIndex(this.store.closedLots(), DEFAULT_NAME_MATCH) };
+      this.cache = {
+        version,
+        index: new ItemIndex(await this.store.closedLots(), DEFAULT_NAME_MATCH),
+      };
     }
     return this.cache.index;
   }
 
   /** Closed lots matching this lot, most recent first. */
-  closesFor(lot: Lot): ClosedLot[] {
-    return this.index().matches(lot);
+  async closesFor(lot: Lot): Promise<ClosedLot[]> {
+    return (await this.index()).matches(lot);
   }
 
   private annotateOne(lot: Lot, index: ItemIndex<ClosedLot>) {
@@ -73,9 +76,9 @@ export class History {
   }
 
   /** Set (or drop) `pastCloses` on each lot, and `groupId` across them (pass the whole catalog). */
-  annotate(lots: Iterable<Lot>): void {
+  async annotate(lots: Iterable<Lot>): Promise<void> {
     const list = [...lots];
-    const index = this.index();
+    const index = await this.index();
     for (const lot of list) {
       this.annotateOne(lot, index);
     }
@@ -86,16 +89,13 @@ export class History {
    * Set `relisted` on each closed lot (as the site's Won/Lost pages list them): the open lots
    * matching it.
    */
-  relisted(closed: Record<string, unknown>[], idField = 'lot_id'): void {
-    const seq = this.store.seq();
+  async relisted(closed: Record<string, unknown>[], idField = 'lot_id'): Promise<void> {
+    const seq = await this.store.seq();
     if (this.open?.seq !== seq) {
       this.open = {
         seq,
         index: new ItemIndex(
-          this.store
-            .allLots()
-            .values()
-            .map(lot => ({ ...lot, endsAt: endsAtMs(lot) })),
+          (await this.store.allLots()).values().map(lot => ({ ...lot, endsAt: endsAtMs(lot) })),
           DEFAULT_NAME_MATCH,
         ),
       };
@@ -118,9 +118,9 @@ export class History {
   }
 
   /** Re-annotate the stored lots after closes or identities change. */
-  refresh(): void {
-    const index = this.index();
-    const n = this.store.updateLots(lots => {
+  async refresh(): Promise<void> {
+    const index = await this.index();
+    const n = await this.store.updateLots(lots => {
       for (const lot of lots) {
         this.annotateOne(lot, index);
       }
@@ -141,7 +141,7 @@ export class History {
       await this.waker.wait();
       try {
         await this.finalize();
-        this.refresh();
+        await this.refresh();
       } catch (e) {
         log.error('recording closed lots crashed', e); // keep the loop alive no matter what
       }
@@ -150,7 +150,7 @@ export class History {
 
   /** Ask the site for the final price of every closed lot that doesn't have one yet. */
   async finalize(): Promise<void> {
-    const pending = this.store.pendingCloses(Date.now());
+    const pending = await this.store.pendingCloses(Date.now());
     if (!pending.length) {
       return;
     }
@@ -162,7 +162,7 @@ export class History {
         raw = await this.site.get(`/v1/auctions/lots/${row.auctionPeriod}/${row.id}/`);
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) {
-          this.store.finishClose(row.id, null); // gone from the site: keep the last price seen
+          await this.store.finishClose(row.id, null); // gone from the site: keep the last price seen
           await this.sleep(DETAIL_PAUSE_MS);
           continue;
         }
@@ -174,11 +174,11 @@ export class History {
       }
       // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the site's lot detail (see tests/fixtures/site)
       const detail = raw as unknown as RawLotDetail;
-      this.store.saveLotDetail(detail);
+      await this.store.saveLotDetail(detail);
       if (detail.status === 'live' && endsAtMs(detail) > Date.now()) {
-        this.store.dropClose(row.id); // back in the catalog: the next pull has it
+        await this.store.dropClose(row.id); // back in the catalog: the next pull has it
       } else if (detail.status === 'sold' || detail.status === 'unsold') {
-        this.store.finishClose(row.id, detail);
+        await this.store.finishClose(row.id, detail);
         done += 1;
       }
       await this.sleep(DETAIL_PAUSE_MS);

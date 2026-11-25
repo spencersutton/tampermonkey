@@ -5,7 +5,6 @@
 //   TLX_PASSWORD='pick-one' npm run server -- --host 0.0.0.0   # also your phone
 //   npm run server -- --help
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -20,16 +19,12 @@ import { log, setVerbose } from './log';
 import { relayHandler, type RelayData } from './relay';
 import { SiteSession } from './session';
 import { SiteApi } from './site';
-import { Store } from './store';
+import { DEFAULT_DB_URL, Store } from './store';
 
 const env = (name: string) => process.env[name];
 const REPO = new URL('../../', import.meta.url).pathname;
 const STATIC_DIR = join(REPO, 'dist');
-const DEFAULT_DB = join(
-  env('XDG_DATA_HOME') ?? join(homedir(), '.local', 'share'),
-  'tlx-server',
-  'tlx.db',
-);
+const DEFAULT_DB = env('TLX_DB') ?? env('DATABASE_URL') ?? DEFAULT_DB_URL;
 const TOKEN_CHECK_MS = MINUTE; // refresh the token before it expires, for background pulls too
 
 const HELP = `Usage: npm run server -- [options]
@@ -39,7 +34,7 @@ pulls, synced settings and login to the site.
 
   --host HOST                 address to listen on (default 127.0.0.1; 0.0.0.0 for your phone)
   --port PORT                 (default 8765)
-  --db FILE                   SQLite file (default ${DEFAULT_DB})
+  --db URL                    PostgreSQL connection URL (or TLX_DB / DATABASE_URL; default ${DEFAULT_DB_URL})
   --password PASSWORD         password for the app (or set TLX_PASSWORD); required unless listening on loopback only
   --llm-key KEY               API key for naming each lot's item type (or set TLX_LLM_KEY); without one, lots get no item types
   --llm-url URL               OpenAI-compatible API base URL (or TLX_LLM_URL; default ${DEFAULT_URL})
@@ -58,7 +53,7 @@ function fail(message: string): never {
 const isLoopback = (host: string) =>
   LOCAL_HOSTS.includes(host) || /^127\.\d+\.\d+\.\d+$/.test(host) || host === '[::1]';
 
-function main() {
+async function main() {
   const { values: args } = parseArgs({
     options: {
       host: { type: 'string', default: '127.0.0.1' },
@@ -95,9 +90,9 @@ function main() {
     );
   }
 
-  const store = new Store(args.db);
+  const store = await Store.open(args.db);
   const site = new SiteApi();
-  const session = new SiteSession(store);
+  const session = await SiteSession.create(store);
   const history = new History(store, site);
   const details = new Details(store, site);
   const catalog = new Catalog(store, session, history, site);
@@ -117,7 +112,7 @@ function main() {
     );
     void labeller.runForever();
   }
-  catalog.onLotsSeen = lots => details.enqueue(lots);
+  catalog.onLotsSeen = lots => void details.enqueue(lots);
   catalog.afterPull = () => {
     details.wake();
     labeller?.wake();
@@ -159,10 +154,9 @@ function main() {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       void server.stop(true);
-      store.close();
-      process.exit(0);
+      void store.close().finally(() => process.exit(0));
     });
   }
 }
 
-main();
+await main();
