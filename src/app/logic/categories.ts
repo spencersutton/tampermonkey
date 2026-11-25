@@ -1,5 +1,4 @@
 import type { CustomCategory } from '../../shared/keys';
-import type { Lot } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
 import {
   categoryIndex,
@@ -14,7 +13,6 @@ import {
   type SavedSearch,
   type ViewState,
 } from './view';
-import '../../shared/arrayToSet';
 
 /** Generate a short unique id for a new custom category. */
 export function newCategoryId(): string {

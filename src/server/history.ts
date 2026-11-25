@@ -14,7 +14,7 @@
 // the same item get a shared `groupId`, which the app folds into one card, and
 // the site's Won/Lost pages get `relisted`: open lots matching each closed one.
 import { DEFAULT_NAME_MATCH, ItemIndex, setGroups } from '../shared/identity';
-import { endsAtMs, type Lot, type PastClose, type RawLotDetail } from '../shared/lot';
+import { endsAtMs, type PastClose, type RawLotDetail } from '../shared/lot';
 import { field, isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';

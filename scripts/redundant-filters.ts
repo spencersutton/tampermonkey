@@ -7,6 +7,7 @@
 //   npm run check-filters -- --db postgres://localhost:5432/tlx --json
 import { parseArgs } from 'node:util';
 
+import '../src/shared/arrayToSet';
 import { DEFAULT_DB_URL, type Item, Store, type StoreOptions } from '../src/server/store';
 import { buildRegexes, filterMatches } from '../src/shared/filters';
 import { KEYS } from '../src/shared/keys';

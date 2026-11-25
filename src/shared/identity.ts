@@ -12,7 +12,6 @@
 // in common, ignoring case, punctuation and word order, and no number that only
 // one title has.
 
-import './arrayToSet';
 import { byCode } from './sortKey';
 
 export const DEFAULT_NAME_MATCH = 90;

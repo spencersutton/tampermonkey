@@ -12,7 +12,7 @@ import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../../shared/filters';
 import { type CustomCategory, type HiddenLot } from '../../shared/keys';
-import { endsAtMs, type Lot } from '../../shared/lot';
+import { endsAtMs } from '../../shared/lot';
 import { itemIdentity, type ItemDetails } from '../../shared/names';
 import {
   buildVocabulary,
@@ -25,7 +25,6 @@ import { byCode, collator } from '../../shared/sortKey';
 import { hasBidOn } from './bid';
 import { groupCategories, groupFacets, type CategoryGroup } from './categories';
 import { memoize, memoizeWeak, memoLast } from './util';
-import '../../shared/arrayToSet';
 
 /** A lot with everything the grid needs computed once. */
 export interface Row {

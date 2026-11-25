@@ -1,0 +1,4 @@
+# Server tests import modules directly, without the entry point (src/server/main.ts) that installs
+# the Array/Set/Iterator helpers.
+[test]
+preload = ["./src/shared/arrayToSet.ts"]

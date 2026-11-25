@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import '../src/shared/arrayToSet';
 import { DEFAULT_DB_URL, Store } from '../src/server/store';
 
 const env = (name: string) => process.env[name];

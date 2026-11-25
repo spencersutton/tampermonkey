@@ -1,9 +1,8 @@
 import { TRANSFER_FEE } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
-import { endsAtMs, type Lot } from '../../shared/lot';
+import { endsAtMs } from '../../shared/lot';
 import type { ClosedLot } from '../types';
 import { makeRow, type Exclusions, type Row } from './view';
-import '../../shared/arrayToSet';
 
 export const closedLotKey = (c: ClosedLot) => `${c.auction_period}:${c.lot_id}`;
 

@@ -1,7 +1,6 @@
 import { costBreakdown } from '../../shared/cost';
-import { dollars, money } from '../../shared/format';
-import { endsAtMs, type Lot } from '../../shared/lot';
-import { plural } from '../logic/util';
+import { dollars, money, plural } from '../../shared/format';
+import { endsAtMs } from '../../shared/lot';
 import type { Row } from '../logic/view';
 import { LocationText, TimeLeft } from './LotCard';
 

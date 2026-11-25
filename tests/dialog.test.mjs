@@ -3,14 +3,10 @@ import { after, test } from 'node:test';
 
 import { signal } from '@preact/signals';
 import { h, render, options } from 'preact';
-import { createServer } from 'vite';
 
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+import { createTestServer } from './vite.mjs';
+
+const vite = await createTestServer();
 after(() => vite.close());
 const { Dialog } = await vite.ssrLoadModule('/src/app/ui/Dialog.tsx');
 

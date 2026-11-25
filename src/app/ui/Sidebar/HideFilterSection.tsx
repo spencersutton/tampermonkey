@@ -9,7 +9,6 @@ import { Icon } from '../icons';
 import { filteredOnly, filterFacets, openFiltered, openFilteredType, openHidden } from '../state';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
-import '../../../shared/arrayToSet';
 
 // Each "alternative|" is its own inline-block, so long alternations wrap
 // between alternatives (with "|" ending the line) rather than mid-word.

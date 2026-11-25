@@ -1,7 +1,6 @@
 import * as format from '../../shared/format';
 import { groupCategories, groupFacets, type CategoryGroup } from './categories';
 import { CATEGORY_PATH_SEP, ENDING, MINE, type Facets, type ViewState } from './view';
-import '../../shared/arrayToSet';
 
 export interface Chip {
   key: string;

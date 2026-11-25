@@ -1,18 +1,13 @@
 import assert from 'node:assert/strict';
 import { after, beforeEach, test } from 'node:test';
 
-import 'temporal-polyfill/global';
 import { Component, h, options } from 'preact';
-import { createServer } from 'vite';
+
+import { createTestServer } from './vite.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 globalThis.window = { scrollTo() {} };
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+const vite = await createTestServer();
 after(() => vite.close());
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');

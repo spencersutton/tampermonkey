@@ -4,7 +4,6 @@ import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 // Dialog behind the + button next to the item type on a lot card: make a custom category of
 // that type (plus any similar types picked), or add the types to an existing one.
-import type { Lot } from '../../shared/lot';
 import {
   categoryError,
   defaultCategoryName,
@@ -14,7 +13,6 @@ import {
   siteCategoriesFromLots,
   sortCategoryChoices,
 } from '../logic/categories';
-import { plural } from '../logic/util';
 import { categoryIndex, categoryPath, compileCategories, customCategoryValue } from '../logic/view';
 import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
@@ -98,7 +96,7 @@ export function TypeCategory({
     setSetting(KEYS.lastCategory, customCategoryValue(category));
     toast(
       'good',
-      `${existing ? 'Updated' : 'Created'} “${categoryPath(category, next, siteLabels)}” · ${plural(taken.length, 'open lot')}`,
+      `${existing ? 'Updated' : 'Created'} “${categoryPath(category, next, siteLabels)}” · ${format.plural(taken.length, 'open lot')}`,
     );
     onClose();
   };
@@ -254,7 +252,7 @@ export function TypeCategory({
           </fieldset>
           {losing.length > 0 && (
             <p class="muted small">
-              Moves {plural(types.length, 'type')} out of{' '}
+              Moves {format.plural(types.length, 'type')} out of{' '}
               {losing.map(c => `“${labelOf(c)}”`).join(', ')}.
             </p>
           )}

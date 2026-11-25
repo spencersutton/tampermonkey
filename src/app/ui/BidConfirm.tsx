@@ -6,7 +6,6 @@ import { costBreakdown, totalCost } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { endsAtMs } from '../../shared/lot';
 import { bidBlocker, minMaxBid, quickBidAmount } from '../logic/bid';
-import { plural } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
 import { bidPending, submitBid, type BidRequest } from '../server/bid';
@@ -69,7 +68,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
             </dd>
             <dt>Current bid</dt>
             <dd>
-              {format.dollars(lot.current_price)} · {plural(lot.bid_count, 'bid')}
+              {format.dollars(lot.current_price)} · {format.plural(lot.bid_count, 'bid')}
             </dd>
             <dt>Ends</dt>
             <dd>

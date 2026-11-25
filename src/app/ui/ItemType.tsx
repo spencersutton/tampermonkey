@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'preact/hooks';
 
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
-import type { Lot } from '../../shared/lot';
 import { itemTypeError, itemTypeSuggestions } from '../logic/catalog';
 import { errorMessage } from '../logic/util';
 import { lots } from '../server/catalog';

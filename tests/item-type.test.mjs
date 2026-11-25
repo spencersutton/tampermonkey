@@ -1,17 +1,11 @@
 import assert from 'node:assert/strict';
 import { after, afterEach, test } from 'node:test';
 
-import 'temporal-polyfill/global';
-import { createServer } from 'vite';
+import { createTestServer } from './vite.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const originalFetch = globalThis.fetch;
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+const vite = await createTestServer();
 after(() => vite.close());
 afterEach(() => {
   globalThis.fetch = originalFetch;

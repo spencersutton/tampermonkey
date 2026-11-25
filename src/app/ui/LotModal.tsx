@@ -5,10 +5,10 @@ import { CDN } from '../../shared/constants';
 import { costBreakdown } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
-import { endsAtMs, type Lot, type LotMetadata } from '../../shared/lot';
+import { endsAtMs, type LotMetadata } from '../../shared/lot';
 import { bidBlocker, isLeading, maxBidError, minMaxBid, quickBidAmount } from '../logic/bid';
 import { cleanDescription, openSimilarLots, pastPrice } from '../logic/catalog';
-import { errorMessage, parseNum, plural } from '../logic/util';
+import { errorMessage, parseNum } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
 import { bidPending } from '../server/bid';
@@ -34,7 +34,6 @@ import { ItemTypeActions } from './ItemType';
 import { ListingRow } from './ListingRow';
 import { LocationText, StandingBadge, TimeLeft, WatchButton } from './LotCard';
 import { modalActions, openLot, setView, storedView, toggleHide } from './state';
-import '../../shared/arrayToSet';
 
 interface Props {
   row: Row;
@@ -202,7 +201,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           <div class="modal-price">
             <div>
               <div class="price big">{format.dollars(lot.current_price)}</div>
-              <div class="muted small">Current bid · {plural(lot.bid_count, 'bid')}</div>
+              <div class="muted small">Current bid · {format.plural(lot.bid_count, 'bid')}</div>
             </div>
             <div>
               <div class="total big" title={costBreakdown(lot.current_price, row.transferFee)}>
@@ -478,7 +477,7 @@ function PastCloses({ lot }: { lot: Lot }) {
                         </a>
                       )}
                       {c.condition ?? 'Unknown'} · {c.location ?? 'Unknown'} ·{' '}
-                      {plural(c.bidCount, 'bid')}
+                      {format.plural(c.bidCount, 'bid')}
                     </span>
                     <a
                       class="muted small"

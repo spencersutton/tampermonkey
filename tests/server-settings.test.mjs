@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
-import 'temporal-polyfill/global';
 import { Component, h, options } from 'preact';
-import { createServer } from 'vite';
+
+import { createTestServer } from './vite.mjs';
 
 const servers = [];
 after(() => Promise.all(servers.map(server => server.close())));
@@ -97,12 +97,7 @@ async function setup(t, values = {}) {
     }
     throw new Error(`Unexpected request: ${path}`);
   });
-  const vite = await createServer({
-    configFile: false,
-    logLevel: 'silent',
-    server: { middlewareMode: true, watch: null },
-    appType: 'custom',
-  });
+  const vite = await createTestServer();
   servers.push(vite);
   const settings = await vite.ssrLoadModule('/src/app/server/settings.ts');
   const keys = await vite.ssrLoadModule('/src/shared/keys.ts');

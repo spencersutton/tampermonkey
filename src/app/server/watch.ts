@@ -1,5 +1,4 @@
 // Watchlist toggling, same request and rules as the site's star button.
-import type { Lot } from '../../shared/lot';
 import { hasBidOn } from '../logic/bid';
 import { errorMessage } from '../logic/util';
 import { setWatchlisted } from './api';

@@ -1,6 +1,5 @@
 import { parseQuery, stem } from '../../shared/search';
 import { memoLast } from './util';
-import '../../shared/arrayToSet';
 
 /** A regex matching the plain words and phrases of a search, or null when there are none. */
 export const termsRegex = memoLast((search: string): RegExp | null => {

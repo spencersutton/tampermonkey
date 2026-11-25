@@ -5,10 +5,10 @@ import { CDN } from '../../shared/constants';
 import { costBreakdown } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
-import { endsAtMs, type Lot } from '../../shared/lot';
+import { endsAtMs } from '../../shared/lot';
 import { bidBlocker, hasBidOn, isLeading, quickBidAmount } from '../logic/bid';
 import { pastCloseText, pastPrice } from '../logic/catalog';
-import { plural, timeLabel } from '../logic/util';
+import { timeLabel } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
 import { bidPending } from '../server/bid';
@@ -210,7 +210,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
           </div>
           <div class="card-sub">
             <TimeLeft endsAt={endsAtMs(lot)} />
-            <span>{plural(lot.bid_count, 'bid')}</span>
+            <span>{format.plural(lot.bid_count, 'bid')}</span>
             {retail}
           </div>
           {lot.pastCloses && <PastCloses lot={lot} onOpen={open} />}
@@ -236,7 +236,7 @@ function DupeCount({ row }: { row: Row }) {
     <button
       type="button"
       class="pill pill-dupes"
-      title={`${plural(row.others.length, 'more listing')} of this item:\n${list}`}
+      title={`${format.plural(row.others.length, 'more listing')} of this item:\n${list}`}
       onClick={() => openLot(row.lot)}
     >
       +{row.others.length} more
@@ -272,7 +272,7 @@ function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void
   const { n, recent } = lot.pastCloses!;
   const p = pastPrice(lot);
   const more = n > recent.length ? `\n…and ${n - recent.length} more` : '';
-  const title = `${plural(n, 'earlier matching lot')} closed:\n${recent.map(pastCloseText).join('\n')}${more}`;
+  const title = `${format.plural(n, 'earlier matching lot')} closed:\n${recent.map(pastCloseText).join('\n')}${more}`;
   return (
     <button type="button" class="card-past" title={title} onClick={onOpen}>
       {p && (

@@ -6,7 +6,6 @@ import { SQL } from 'bun';
 
 import type { Store } from '../../src/server/store';
 import { KEYS } from '../../src/shared/keys';
-import type { Lot } from '../../src/shared/lot';
 import { rawDetail, rawLot } from '../raw-lot.mjs';
 import { testDb } from './pg';
 

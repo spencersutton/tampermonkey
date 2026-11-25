@@ -5,7 +5,6 @@ import { KEYS, siteUrl } from '../../shared/keys';
 // App-wide UI state as signals, the values derived from it, and the actions
 // that change it. Components read and call these directly instead of passing
 // state and callbacks down.
-import type { Lot } from '../../shared/lot';
 import {
   addFilterType,
   firstVisitSince,
@@ -33,7 +32,6 @@ import { clock } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { settingsReady } from '../server/source';
 import { keepScrollAnchor } from './dom';
-import '../../shared/arrayToSet';
 
 // Navigation and lot actions
 

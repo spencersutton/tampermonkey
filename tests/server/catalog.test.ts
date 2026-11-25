@@ -8,7 +8,6 @@ import { cleanType } from '../../src/shared/itemtype';
 // Catalog pulls and their load rules (src/server/catalog.ts), with the
 // first-seen tests from the Python server's test_catalog.py, and the item type
 // labeller's parsing and requests (src/server/itemtypes.ts).
-import type { Lot } from '../../src/shared/lot';
 import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';
 import { testDb } from './pg';

@@ -1,5 +1,3 @@
-import * as format from '../../shared/format';
-
 const duration = new Intl.DurationFormat([], { style: 'narrow' });
 
 /**
@@ -56,9 +54,6 @@ export function countdown(ms: number) {
   }
   return `${left.minutes}:${String(left.seconds).padStart(2, '0')}`;
 }
-
-/** A count with its noun, e.g. "1 bid", "1,200 bids". */
-export const plural = (n: number, noun: string) => `${format.num(n)} ${noun}${n === 1 ? '' : 's'}`;
 
 /** Message from an Error, or the thrown value as text. */
 export const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));

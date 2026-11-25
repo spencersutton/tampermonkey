@@ -1,7 +1,6 @@
 // Thin HTTP client for both the tlx server's /api endpoints and the proxied
 // site JSON API under /backend (which adds the server's login token).
 import {
-  type Lot,
   type LotMetadata,
   type RawLot,
   type RawLotDetail as SiteLotDetail,

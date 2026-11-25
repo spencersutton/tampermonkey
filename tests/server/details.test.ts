@@ -3,7 +3,6 @@ import { describe, expect, test } from 'bun:test';
 import { DETAIL_PAUSE_MS, Details } from '../../src/server/details';
 import { SiteApi } from '../../src/server/site';
 // Background fetching of open lot details (src/server/details.ts).
-import type { Lot } from '../../src/shared/lot';
 import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';
 import { testDb } from './pg';

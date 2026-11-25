@@ -5,7 +5,6 @@ import * as format from '../../shared/format';
 import { KEYS, type CustomCategory } from '../../shared/keys';
 // Full-size editor for custom categories: add, rename, organize hierarchy,
 // edit item types, and see how many open lots each one takes.
-import type { Lot } from '../../shared/lot';
 import {
   assignLotsToDrafts,
   buildCategoryRenames,
@@ -22,7 +21,6 @@ import {
   siteCategoriesFromLots,
   type CategoryDraft,
 } from '../logic/categories';
-import { plural } from '../logic/util';
 import {
   categoryId,
   categoryPath,
@@ -34,7 +32,6 @@ import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
 import { Dialog } from './Dialog';
 import { Icon } from './icons';
-import '../../shared/arrayToSet';
 
 type Draft = CategoryDraft;
 
@@ -279,7 +276,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
                       category={label}
                       onChange={patch => update(d.key, patch)}
                     />
-                    <span class="cat-count">{plural(count, 'lot')}</span>
+                    <span class="cat-count">{format.plural(count, 'lot')}</span>
                     <button
                       type="button"
                       class="icon-btn cat-add-sub"
@@ -314,7 +311,7 @@ export function CategoryEditor({ lots, onClose }: { lots: Lot[]; onClose: () => 
             {typeSuggestions
               .filter(([type]) => !selectedTypes.has(normalizeType(type)))
               .map(([type, count]) => (
-                <option value={type}>{plural(count, 'open lot')}</option>
+                <option value={type}>{format.plural(count, 'open lot')}</option>
               ))}
           </datalist>
         )}
@@ -377,7 +374,9 @@ function TypeChips({
           return (
             <span
               class={`type-chip ${n ? '' : 'type-chip-none'}`}
-              title={n ? `${plural(n, 'open lot')} of this type` : 'No open lot has this type'}
+              title={
+                n ? `${format.plural(n, 'open lot')} of this type` : 'No open lot has this type'
+              }
             >
               {t} <span class="count">{n ? format.num(n) : 'none'}</span>
               <button

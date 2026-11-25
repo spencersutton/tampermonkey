@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
-import 'temporal-polyfill/global';
 import { Component, h, options } from 'preact';
-import { createServer } from 'vite';
+
+import { createTestServer } from './vite.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+const vite = await createTestServer();
 after(() => vite.close());
 const { categoryError, categoryName } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
 const { TypeCategory } = await vite.ssrLoadModule('/src/app/ui/TypeCategory.tsx');

@@ -8,7 +8,6 @@ import { lotHref } from '../../shared/keys';
 // Each lot opens in the usual popup; matching items listed again (found by
 // the tlx server, which matches them like duplicate listings) are offered
 // right under the lot, so a lost item can be bid on again.
-import type { Lot } from '../../shared/lot';
 import {
   closedLotKey,
   closedTotals,
@@ -17,7 +16,7 @@ import {
   filterClosedLots,
   relistedRowsFor,
 } from '../logic/closed';
-import { errorMessage, plural } from '../logic/util';
+import { errorMessage } from '../logic/util';
 import type { Row } from '../logic/view';
 import type { ClosedSection } from '../server/api';
 import { isAuthenticated } from '../server/auth';
@@ -124,7 +123,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
             />
             {data && !data.error && (
               <span class="muted small">
-                {data.done && plural(lots.length, 'lot')}
+                {data.done && format.plural(lots.length, 'lot')}
                 {!data.done &&
                   `Loading… ${format.num(data.lots.length)} of ${format.num(data.count)}`}
                 {section === 'won' && lots.length > 0 && (
@@ -225,7 +224,7 @@ function ClosedRow(props: {
                   aria-expanded={showRelisted}
                   onClick={() => setShowRelisted(!showRelisted)}
                 >
-                  {plural(relisted.length, 'listing')} open now
+                  {format.plural(relisted.length, 'listing')} open now
                 </button>
               </>
             )}

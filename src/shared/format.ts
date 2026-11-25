@@ -18,6 +18,8 @@ const shortDateFormat = new Intl.DateTimeFormat([], { month: 'short', day: 'nume
 
 /** A number with locale grouping, e.g. "1,200". */
 export const num = (n: number) => numberFormat.format(n);
+/** A count with its noun, e.g. "1 bid", "1,200 bids". */
+export const plural = (n: number, noun: string) => `${num(n)} ${noun}${n === 1 ? '' : 's'}`;
 /** Full local date and time. */
 export const dateTime = (ts: number) => dateTimeFormat.format(ts);
 /** US dollars with cents, e.g. "$1,234.50". */

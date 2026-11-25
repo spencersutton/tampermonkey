@@ -22,15 +22,8 @@ import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { KEYS } from '../shared/keys';
-import {
-  endsAtMs,
-  type Lot,
-  type LotImage,
-  type LotMetadata,
-  parseLotDescription,
-} from '../shared/lot';
+import { endsAtMs, type LotImage, type LotMetadata, parseLotDescription } from '../shared/lot';
 import { isRecord } from './json';
-import '../shared/arrayToSet';
 
 export const DEFAULT_DB_URL = 'postgres://localhost:5432/tlx';
 

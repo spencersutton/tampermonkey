@@ -1,4 +1,4 @@
-import type { Lot, PastClose, RawLotDetail } from '../shared/lot';
+import type { PastClose, RawLotDetail } from '../shared/lot';
 
 /** A past close in full, as GET /api/history lists them. */
 export interface PastCloseDetail extends PastClose {

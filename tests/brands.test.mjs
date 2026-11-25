@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
-import 'temporal-polyfill/global';
 import { Component, h, options, render } from 'preact';
-import { createServer } from 'vite';
+
+import { createTestServer } from './vite.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+const vite = await createTestServer();
 after(() => vite.close());
 const { lotBrands, lotModels, lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/ui/state.ts');
@@ -165,12 +160,7 @@ test('mounted cards retain independent viewport observers without fetching detai
 });
 
 test('brands and known missing brands survive a fresh app module load without detail requests', async t => {
-  const fresh = await createServer({
-    configFile: false,
-    logLevel: 'silent',
-    server: { middlewareMode: true, watch: null },
-    appType: 'custom',
-  });
+  const fresh = await createTestServer();
   t.after(() => fresh.close());
   const catalog = await fresh.ssrLoadModule('/src/app/server/catalog.ts');
   const brandsUi = await fresh.ssrLoadModule('/src/app/ui/Brands.tsx');

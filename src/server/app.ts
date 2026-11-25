@@ -48,7 +48,6 @@ import { connectUpstream, relayData, type RelayData } from './relay';
 import type { SiteSession } from './session';
 import { VERSION, WS_URL } from './site';
 import type { Store } from './store';
-import '../shared/arrayToSet';
 
 const MAX_BODY = 4 * 1024 * 1024;
 const SESSION_COOKIE = 'tlx_session';

@@ -4,8 +4,8 @@ import { useRef } from 'preact/hooks';
 
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
-import { endsAtMs, type Lot } from '../../shared/lot';
-import { ago, countdown, plural } from '../logic/util';
+import { endsAtMs } from '../../shared/lot';
+import { ago, countdown } from '../logic/util';
 import {
   activeFilterCount,
   firstSeenAfter,
@@ -245,7 +245,7 @@ function CatalogResults({ gridTop }: { gridTop: { current: HTMLDivElement | null
       <Refinements />
       <div class="results-line" ref={gridTop}>
         <span>
-          {result.rows.length > 0 && plural(result.rows.length, 'lot')}
+          {result.rows.length > 0 && format.plural(result.rows.length, 'lot')}
           {result.rows.length === 0 &&
             loaded.value &&
             !progress.value &&

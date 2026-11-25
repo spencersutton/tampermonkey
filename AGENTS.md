@@ -23,9 +23,10 @@ committing.
 - Validation commands: `npm run lint` (`oxlint`), `npm run typecheck` (checks
   both root and `src/server/tsconfig.json`), `npm test` (web + server), and
   `npm run build`.
-- Run focused web tests quickly with `node --test tests/<file>.test.mjs` (tests
-  load TS/TSX modules via Vite `ssrLoadModule`); server tests use
-  `bun test ./tests/server/`.
+- Run focused web tests quickly with `node --test tests/<file>.test.mjs`; server
+  tests use `bun test ./tests/server/`. Web tests get their Vite server from
+  `createTestServer()` in `tests/vite.mjs` (installs Temporal and the
+  `arrayToSet` helpers, then load modules with `ssrLoadModule`).
 - Watch for strict `oxlint` rules: prefer `Array#toReversed()` over
   `Array#reverse()`, avoid nested ternaries, avoid `[...arr]` in `for...of`
   (use `.slice()` if iterating a snapshot while mutating), and avoid mutating a
@@ -45,6 +46,11 @@ committing.
   server; don't add null fallbacks for its fields. Keep it a plain interface
   (lots travel as JSON and are compared with `dequal`), copying with spreads.
   Server tests build complete lots with `rawLot()` from `tests/raw-lot.mjs`.
+- The `src/shared/arrayToSet.ts` prototype helpers are installed only by entry
+  points (`src/web.tsx`, `src/server/main.ts`, scripts), `tests/vite.mjs` and
+  the Bun test preload in `bunfig.toml`; don't import it from other modules.
+- `Lot` is an ambient global type (aliased in `global.d.ts`), so don't import
+  it; `plural` lives in `src/shared/format.ts` (`format.plural`).
 - Global (no-import) TypeScript types live in `src/shared/global.d.ts`
   (included by both root `tsconfig.json` and `src/server/tsconfig.json`). Keep
   it as an ambient script file without `export {}` (which triggers oxlint

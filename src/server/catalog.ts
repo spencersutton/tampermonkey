@@ -16,7 +16,7 @@
 // final prices of the lots that just left the catalog).
 import { DEFAULT_SYNC_MINUTES, MIN_SYNC_MINUTES, MINUTE } from '../shared/constants';
 import { KEYS } from '../shared/keys';
-import { endsAtMs, type Lot } from '../shared/lot';
+import { endsAtMs } from '../shared/lot';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';

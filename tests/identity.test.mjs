@@ -1,16 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
-import 'temporal-polyfill/global';
-import { createServer } from 'vite';
+import { createTestServer } from './vite.mjs';
 
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+const vite = await createTestServer();
 after(() => vite.close());
 const { computeView, DEFAULT_VIEW, normalizeView, savedFilters } =
   await vite.ssrLoadModule('/src/app/logic/view.ts');

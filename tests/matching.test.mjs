@@ -3,14 +3,9 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 
-import { createServer } from 'vite';
+import { createTestServer } from './vite.mjs';
 
-const vite = await createServer({
-  configFile: false,
-  logLevel: 'silent',
-  server: { middlewareMode: true, watch: null },
-  appType: 'custom',
-});
+const vite = await createTestServer();
 after(() => vite.close());
 const { brandModelKey, groupLots, ItemIndex, ItemTypeIndex, itemsMatch, setGroups } =
   await vite.ssrLoadModule('/src/shared/identity.ts');

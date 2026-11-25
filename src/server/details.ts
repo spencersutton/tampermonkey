@@ -3,7 +3,7 @@
 // one, one request at a time with a short pause between), so brands, models,
 // descriptions and images are ready right away even when no tab is open.
 import { MINUTE } from '../shared/constants';
-import type { RawLotDetail, Lot } from '../shared/lot';
+import type { RawLotDetail } from '../shared/lot';
 import { isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';

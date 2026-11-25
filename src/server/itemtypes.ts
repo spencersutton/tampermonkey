@@ -13,13 +13,11 @@ import { MINUTE } from '../shared/constants';
 // sort and categorize by title as before.
 import { brandModelKey } from '../shared/identity';
 import { cleanType } from '../shared/itemtype';
-import type { Lot } from '../shared/lot';
 import { byCode } from '../shared/sortKey';
 import { prop } from './json';
 import { log, Waker } from './log';
 import { USER_AGENT } from './site';
 import type { Store } from './store';
-import '../shared/arrayToSet';
 
 export const DEFAULT_URL = 'https://nano-gpt.com/api/v1';
 export const DEFAULT_MODEL = 'mistralai/ministral-14b-instruct-2512';
