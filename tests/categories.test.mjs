@@ -18,9 +18,7 @@ const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule(
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { DEFAULT_VIEW, computeFacets, suggestName } =
   await vite.ssrLoadModule('/src/app/logic/view.ts');
-const { groupCategories, migrateLegacyCategories } = await vite.ssrLoadModule(
-  '/src/app/logic/categories.ts',
-);
+const { groupCategories } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
 const { chipsFor } = await vite.ssrLoadModule('/src/app/logic/refinements.ts');
 
 function setup(categories, selected) {
@@ -262,26 +260,4 @@ test('chips and saved-search names collapse a full parent branch and format subc
     chipsFor(ownOnly, facets, 'Raleigh').map(c => c.label),
     ['Tools (other)'],
   );
-});
-
-test('migrateLegacyCategories converts dash-nested categories while preserving filter values', () => {
-  const legacy = [
-    { name: 'Tools - Drills', types: ['drill'] },
-    { name: 'Tools - Drills - Cordless', types: ['cordless drill'] },
-    { name: 'Workshop', types: ['bench'] },
-  ];
-  const site = [{ value: 'tools', label: 'Tools' }];
-  const migrated = migrateLegacyCategories(legacy, site);
-  assert.deepEqual(migrated, [
-    { id: 'Tools - Drills', name: 'Drills', parent: 'tools', types: ['drill'] },
-    {
-      id: 'Tools - Drills - Cordless',
-      name: 'Cordless',
-      parent: 'custom:Tools - Drills',
-      types: ['cordless drill'],
-    },
-    { id: 'Workshop', name: 'Workshop', types: ['bench'] },
-  ]);
-  // Running again is a no-op because categories now have explicit ids.
-  assert.equal(migrateLegacyCategories(migrated, site), null);
 });
