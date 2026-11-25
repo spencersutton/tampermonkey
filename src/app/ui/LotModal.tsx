@@ -192,7 +192,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           </div>
           {getLot(lot.id) && <ItemTypeActions lot={lot} />}
           <LotAttrs
-            lot={lot}
+            title={lot.title}
             onSelect={key => {
               const cur = storedView.value.attrs;
               setView({ attrs: cur.includes(key) ? cur : [...cur, key] });
@@ -288,8 +288,8 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
 }
 
 /** All attributes extracted from the lot title, regardless of whether a dropdown facet exists. */
-export function LotAttrs({ lot, onSelect }: { lot: Lot; onSelect: (key: string) => void }) {
-  const entries = Object.entries(extractAttrs(lot));
+export function LotAttrs({ title, onSelect }: { title: string; onSelect: (key: string) => void }) {
+  const entries = Object.entries(extractAttrs(title));
   if (!entries.length) {
     return null;
   }

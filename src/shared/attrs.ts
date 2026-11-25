@@ -234,8 +234,7 @@ const RULES: Rule[] = [
   unit('Hose length', /\b(\d+)\s*-?\s*ft\b/i, 'ft', /\bhose\b(?! reel)/i),
   unit('Hose diameter', /(\d+\/\d+)\s*(?:in\.?|")/i, 'in', /\bhose\b/i),
   unit('Watts', /\b(\d+(?:\.\d+)?)[\s-]*W(?:atts?)?\b/i, 'Watts'),
-  unit('CFM', /\b\d+\s*CFM\b/i, 'CFM'),
-  unit('PSI', /\b([\d,]+)\s*PSI\b/i, 'PSI'),
+  unit('PSI', /\b([\d,]+(?:\.\d+)?)\s*PSI\b/i, 'PSI'),
   unit('Volume', /\b(\d+(?:\.\d+)?)\s*-?Cu\.?[ -]ft\.?\b/i, 'cu ft'),
   unit('GPM', /\b(\d+(?:\.\d+)?)\s*GPM\b/i, 'GPM'),
   unit('Gauge', /\b(\d+)[ -]Ga(?:uge)?\b/i, 'Gauge'),
@@ -339,18 +338,18 @@ function extractSize(title: string): string | null {
  * `Engine (cc)` is present, and attaches a normalized `Size` attribute if {@link extractSize}
  * matches.
  */
-export function extractAttrs(lot: Lot): Attrs {
+export function extractAttrs(title: string): Attrs {
   const out: Attrs = {};
   for (const [name, re, value, when] of RULES) {
-    if (when && !when.test(lot.title)) {
+    if (when && !when.test(title)) {
       continue;
     }
     if (re.global) {
-      for (const m of lot.title.matchAll(re)) {
+      for (const m of title.matchAll(re)) {
         add(out, name, typeof value === 'function' ? value(m) : value);
       }
     } else {
-      const m = re.exec(lot.title);
+      const m = re.exec(title);
       if (m) {
         add(out, name, typeof value === 'function' ? value(m) : value);
       }
@@ -363,7 +362,7 @@ export function extractAttrs(lot: Lot): Attrs {
   if (out['Engine (cc)']) {
     add(out, 'Power source', 'Gas');
   }
-  const size = extractSize(lot.title);
+  const size = extractSize(title);
   if (size) {
     add(out, 'Size', size);
   }
