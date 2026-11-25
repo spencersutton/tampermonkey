@@ -1,12 +1,14 @@
-// Past closes, duplicate groups and final prices (src/server/history.ts), and
-// item identity across the store, ported from the Python server's
-// test_matching.py and test_identity.py.
 import { beforeEach, describe, expect, test } from 'bun:test';
 
 import { History } from '../../src/server/history';
 import { Labeller } from '../../src/server/itemtypes';
 import { ApiError, SiteApi } from '../../src/server/site';
-import type { Lot, Store } from '../../src/server/store';
+import type { Store } from '../../src/server/store';
+// Past closes, duplicate groups and final prices (src/server/history.ts), and
+// item identity across the store, ported from the Python server's
+// test_matching.py and test_identity.py.
+import type { Lot } from '../../src/shared/lot';
+import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';
 import { testDb } from './pg';
 
@@ -14,27 +16,23 @@ const db = testDb();
 
 const LATER = 4_000_000_000_000; // an endsAt far in the future
 const item = (id: number, title = 'Cordless drill', fields: Partial<Lot> = {}): Lot => ({
-  id,
-  title,
+  ...rawLot({ id, title, ends_at: new Date(LATER).toISOString() }),
   brand: 'Acme',
   model: 'D-100',
-  condition: null,
-  ends_at: new Date(LATER).toISOString(),
   ...fields,
 });
 // test_identity.py's lots: closed ones, sold.
 const sold = (id: number, title = 'Cordless drill', fields: Partial<Lot> = {}): Lot => ({
-  id,
-  title,
+  ...rawLot({
+    id,
+    title,
+    ends_at: new Date(1000).toISOString(),
+    current_price: 20,
+    status: 'sold',
+    bid_count: 1,
+  }),
   brand: 'Acme',
   model: 'D-100',
-  auction_period: 'test',
-  ends_at: new Date(1000).toISOString(),
-  current_price: 20,
-  condition: null,
-  status: 'sold',
-  bid_count: 1,
-  category: { value: 'tools', label: 'Tools' },
   ...fields,
 });
 

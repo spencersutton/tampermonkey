@@ -1,6 +1,6 @@
 import type { CustomCategory } from '../../shared/keys';
+import type { Lot } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
-import type { Lot } from '../types';
 import {
   categoryIndex,
   categoryPath,

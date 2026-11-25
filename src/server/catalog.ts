@@ -16,12 +16,12 @@
 // final prices of the lots that just left the catalog).
 import { DEFAULT_SYNC_MINUTES, MIN_SYNC_MINUTES, MINUTE } from '../shared/constants';
 import { KEYS } from '../shared/keys';
-import { endsAtMs } from '../shared/lot';
+import { endsAtMs, type Lot } from '../shared/lot';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';
 import { ApiError, LIST_PAGE_SIZE, type SiteApi } from './site';
-import type { CatalogMeta, Lot, Store } from './store';
+import type { CatalogMeta, Store } from './store';
 
 const CHECK_EVERY_MS = 15_000; // between checks whether a pull is due
 const ACCOUNT_FIELDS = ['your_standing', 'is_watchlisted', 'has_bid'] as const;
@@ -121,9 +121,7 @@ export class Catalog {
       }
       if (!authed && old) {
         for (const key of ACCOUNT_FIELDS) {
-          if (old[key] !== undefined) {
-            Object.assign(lot, { [key]: old[key] });
-          }
+          Object.assign(lot, { [key]: old[key] });
         }
       }
       return lot;

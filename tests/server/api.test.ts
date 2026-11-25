@@ -1,18 +1,16 @@
-// This server's own /api endpoints, ported from the Python server's API tests
-// (test_itemtypes.py, test_metadata.py, test_tags.py, test_identity.py).
 import { describe, expect, test } from 'bun:test';
 
-import type { Lot } from '../../src/server/store';
+// This server's own /api endpoints, ported from the Python server's API tests
+// (test_itemtypes.py, test_metadata.py, test_tags.py, test_identity.py).
+import type { Lot } from '../../src/shared/lot';
+import { rawLot } from '../raw-lot.mjs';
 import { setup } from './harness';
 import { testDb } from './pg';
 
 testDb();
 
 const lot = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({
-  id,
-  title,
-  category: { value: 'tools', label: 'Tools' },
-  version: 1,
+  ...rawLot({ id, title }),
   ...fields,
 });
 

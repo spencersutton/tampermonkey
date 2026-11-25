@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 // test_brands.py, test_metadata.py, test_itemtypes.py and test_tags.py.
 import { SQL } from 'bun';
 
-import type { Lot, Store } from '../../src/server/store';
+import type { Store } from '../../src/server/store';
 import { KEYS } from '../../src/shared/keys';
+import type { Lot } from '../../src/shared/lot';
 import { rawDetail, rawLot } from '../raw-lot.mjs';
 import { testDb } from './pg';
 
@@ -184,10 +185,7 @@ describe('lot metadata', () => {
 });
 
 const item = (id: number, title = 'Drill', fields: Partial<Lot> = {}): Lot => ({
-  id,
-  title,
-  category: { value: 'tools', label: 'Tools' },
-  version: 1,
+  ...rawLot({ id, title }),
   ...fields,
 });
 

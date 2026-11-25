@@ -3,11 +3,11 @@
 // one, one request at a time with a short pause between), so brands, models,
 // descriptions and images are ready right away even when no tab is open.
 import { MINUTE } from '../shared/constants';
-import type { RawLotDetail } from '../shared/lot';
+import type { RawLotDetail, Lot } from '../shared/lot';
 import { isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';
-import type { Lot, Store } from './store';
+import type { Store } from './store';
 
 export const DETAIL_PAUSE_MS = 500; // between detail requests
 export const RETRY_MS = 15 * MINUTE; // retry after a failure, with no pull to wake it

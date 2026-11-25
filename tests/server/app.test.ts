@@ -4,6 +4,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { rmSync } from 'node:fs';
 
+import { rawLot } from '../raw-lot.mjs';
 import { jwt } from './fake-site';
 import { fixture, setup, staticRoot } from './harness';
 import { testDb } from './pg';
@@ -203,8 +204,12 @@ describe('/backend proxy', () => {
           : Response.json({}, { status: 404 }),
     });
     await store.replaceAll([
-      { id: 1, title: 'Cordless drill', ends_at: new Date(Date.now() + 60_000).toISOString() },
-      { id: 2, title: 'Saw', ends_at: new Date(Date.now() + 60_000).toISOString() },
+      rawLot({
+        id: 1,
+        title: 'Cordless drill',
+        ends_at: new Date(Date.now() + 60_000).toISOString(),
+      }),
+      rawLot({ id: 2, title: 'Saw', ends_at: new Date(Date.now() + 60_000).toISOString() }),
     ]);
     await store.saveLotDetail({ id: 90, brand: 'Acme', model: 'D-1' });
     const body = await (

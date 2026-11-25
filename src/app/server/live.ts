@@ -4,8 +4,7 @@
 import { computed, effect, signal, type ReadonlySignal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 
-import { endsAtMs, type Standing } from '../../shared/lot';
-import type { Lot } from '../types';
+import { endsAtMs, type Lot, type Standing } from '../../shared/lot';
 import { fetchWsToken } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';

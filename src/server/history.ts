@@ -14,21 +14,24 @@
 // the same item get a shared `groupId`, which the app folds into one card, and
 // the site's Won/Lost pages get `relisted`: open lots matching each closed one.
 import { DEFAULT_NAME_MATCH, ItemIndex, setGroups } from '../shared/identity';
-import { endsAtMs, type RawLotDetail } from '../shared/lot';
+import { endsAtMs, type Lot, type PastClose, type RawLotDetail } from '../shared/lot';
 import { field, isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';
-import type { ClosedLot, Lot, PastClose, Store } from './store';
+import type { ClosedLot, Store } from './store';
 
 const RECENT = 8; // closes attached to each lot
 export const HISTORY_LIMIT = 200; // closes listed in the lot popup
 const DETAIL_PAUSE_MS = 500; // between final-price requests
 
-/** A closed lot as attached to an open lot's `pastCloses`. */
+/**
+ * A closed lot as attached to an open lot's `pastCloses` (price and endsAt are set on every closed
+ * lot, though their columns are nullable).
+ */
 const close = (row: ClosedLot): PastClose => ({
   id: row.id,
-  price: row.price,
-  endsAt: row.endsAt,
+  price: row.price!,
+  endsAt: row.endsAt!,
   condition: row.condition,
   sold: row.sold,
   final: row.final,

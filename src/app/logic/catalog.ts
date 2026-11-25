@@ -2,9 +2,8 @@ import { DAY } from '../../shared/constants';
 import * as format from '../../shared/format';
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
 import { lotHref, type HiddenLot } from '../../shared/keys';
-import { endsAtMs } from '../../shared/lot';
+import { endsAtMs, type Lot, type PastClose } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
-import type { Lot, PastClose } from '../types';
 import type { ViewState } from './view';
 import '../../shared/arrayToSet';
 

@@ -5,7 +5,7 @@ import { CDN } from '../../shared/constants';
 import { costBreakdown } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
-import { endsAtMs, type LotMetadata } from '../../shared/lot';
+import { endsAtMs, type Lot, type LotMetadata } from '../../shared/lot';
 import { bidBlocker, isLeading, maxBidError, minMaxBid, quickBidAmount } from '../logic/bid';
 import { cleanDescription, openSimilarLots, pastPrice } from '../logic/catalog';
 import { errorMessage, parseNum, plural } from '../logic/util';
@@ -24,7 +24,7 @@ import {
 import { siteConditions } from '../server/conditions';
 import { clock } from '../server/reactive';
 import { fetchPastCloses } from '../server/source';
-import type { Lot, LotDetail, PastCloseDetail } from '../types';
+import type { LotDetail, PastCloseDetail } from '../types';
 import { LoginLink } from './Auth';
 import { BrandModel } from './Brands';
 import { Dialog } from './Dialog';

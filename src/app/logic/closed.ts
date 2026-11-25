@@ -1,7 +1,7 @@
 import { TRANSFER_FEE } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
-import { endsAtMs } from '../../shared/lot';
-import type { ClosedLot, Lot } from '../types';
+import { endsAtMs, type Lot } from '../../shared/lot';
+import type { ClosedLot } from '../types';
 import { makeRow, type Exclusions, type Row } from './view';
 import '../../shared/arrayToSet';
 

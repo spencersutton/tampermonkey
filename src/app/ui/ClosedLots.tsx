@@ -1,13 +1,14 @@
-// The site's "Closed Auctions" pages (Won / Lost), shown in place of the grid.
-// Each lot opens in the usual popup; matching items listed again (found by
-// the tlx server, which matches them like duplicate listings) are offered
-// right under the lot, so a lost item can be bid on again.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 
 import { CDN } from '../../shared/constants';
 import { costBreakdown, totalCost } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
+// The site's "Closed Auctions" pages (Won / Lost), shown in place of the grid.
+// Each lot opens in the usual popup; matching items listed again (found by
+// the tlx server, which matches them like duplicate listings) are offered
+// right under the lot, so a lost item can be bid on again.
+import type { Lot } from '../../shared/lot';
 import {
   closedLotKey,
   closedTotals,
@@ -24,7 +25,7 @@ import { getLot, loadDetail, lots as catalogLots, rev } from '../server/catalog'
 import { getCachedClosed, loadClosedSection, type ClosedCache } from '../server/closed';
 import { clock } from '../server/reactive';
 import { toast } from '../server/toast';
-import type { ClosedLot, Lot } from '../types';
+import type { ClosedLot } from '../types';
 import { LoginLink } from './Auth';
 import { openHandler } from './dom';
 import { Icon } from './icons';

@@ -24,10 +24,10 @@ import { brandModelKey, ItemTypeIndex } from '../shared/identity';
 import { KEYS } from '../shared/keys';
 import {
   endsAtMs,
+  type Lot,
   type LotImage,
   type LotMetadata,
   parseLotDescription,
-  type Standing,
 } from '../shared/lot';
 import { isRecord } from './json';
 import '../shared/arrayToSet';
@@ -182,39 +182,6 @@ export interface ClosedLot extends PastClose {
   model: string | null;
 }
 
-/**
- * A lot as stored and as the app gets it: the site's fields (RawLot in src/shared/lot.ts) plus the
- * server's own. Lots from tests and older code may leave fields out.
- */
-export interface Lot {
-  id: number;
-  title: string;
-  auction_period?: string | null;
-  lot_number?: string;
-  category?: { value: string; label?: string | null } | null;
-  condition?: { value: number; display_name?: string | null } | null;
-  location?: { id: number; name?: string | null } | null;
-  is_transferable?: boolean;
-  transfer_fee?: number | null;
-  current_price?: number | null;
-  estimated_retail_price?: number | null;
-  ends_at?: string | null;
-  status?: string | null;
-  version?: number | null;
-  bid_count?: number | null;
-  next_min_increment?: number | null;
-  your_standing?: Standing | null;
-  is_watchlisted?: boolean;
-  has_bid?: boolean;
-  images?: LotImage[];
-  firstSeenAt?: number;
-  pastCloses?: { n: number; recent: PastClose[] };
-  groupId?: number;
-  brand?: string | null;
-  model?: string | null;
-  itemType?: string;
-}
-
 /** Something with a title, and maybe an id and identity: what item types are looked up by. */
 export interface Item {
   id?: number;
@@ -222,7 +189,7 @@ export interface Item {
   brand?: Nullable<string>;
   model?: Nullable<string>;
   category?: { value: string; label?: string | null } | null | undefined;
-  itemType?: string;
+  itemType?: string | undefined;
 }
 
 /** A lot detail as saved (RawLotDetail in src/shared/lot.ts; tests may leave fields out). */
@@ -233,8 +200,8 @@ export interface Detail {
   status?: string | null;
   current_price?: number | null;
   description?: string | null;
-  brand?: string | null;
-  model?: string | null;
+  brand?: Nullable<string>;
+  model?: Nullable<string>;
   lot_fee?: number | null;
   bid_history?: unknown[];
   images?: LotImage[];
@@ -278,25 +245,25 @@ function lotRow(lot: Lot, seq: number): Param[] {
   return [
     lot.id,
     seq,
-    lot.auction_period ?? null,
-    lot.title || '',
-    lot.lot_number || '',
-    lot.category?.value ?? null,
-    lot.condition?.value ?? null,
-    lot.location?.id ?? null,
-    Boolean(lot.is_transferable),
-    lot.transfer_fee ?? null,
-    lot.current_price ?? null,
-    lot.estimated_retail_price ?? null,
-    lot.ends_at ?? null,
-    lot.status ?? null,
-    lot.version ?? null,
-    lot.bid_count ?? null,
-    lot.next_min_increment ?? null,
+    lot.auction_period,
+    lot.title,
+    lot.lot_number,
+    lot.category.value,
+    lot.condition.value,
+    lot.location.id,
+    lot.is_transferable,
+    lot.transfer_fee,
+    lot.current_price,
+    lot.estimated_retail_price,
+    lot.ends_at,
+    lot.status,
+    lot.version,
+    lot.bid_count,
+    lot.next_min_increment,
     s ? s.is_leading : null,
     s ? s.your_max_bid : null,
-    Boolean(lot.is_watchlisted),
-    Boolean(lot.has_bid),
+    lot.is_watchlisted,
+    lot.has_bid,
     lot.firstSeenAt ?? null,
     lot.pastCloses?.n ?? 0,
     lot.groupId ?? null,
@@ -308,20 +275,20 @@ function lotRow(lot: Lot, seq: number): Param[] {
  * bids counts as sold.
  */
 function closedRow(lot: Lot, final: number): Param[] {
-  const sold = final === 1 ? lot.status === 'sold' : (lot.bid_count ?? 0) > 0;
+  const sold = final === 1 ? lot.status === 'sold' : lot.bid_count > 0;
   return [
     lot.id,
-    lot.title || '',
-    lot.auction_period ?? null,
+    lot.title,
+    lot.auction_period,
     endsAtColumn(lot),
-    lot.current_price ?? null,
-    lot.bid_count ?? null,
+    lot.current_price,
+    lot.bid_count,
     sold,
     final,
-    lot.condition?.display_name ?? null,
-    lot.location?.name ?? null,
-    lot.category?.value ?? null,
-    lot.estimated_retail_price ?? null,
+    lot.condition.display_name,
+    lot.location.name,
+    lot.category.value,
+    lot.estimated_retail_price,
   ];
 }
 
@@ -503,23 +470,24 @@ export class Store {
     );
     for (const r of rows) {
       const id = toInt(r.id);
+      // The columns are nullable, but every row was written (lotRow) from a complete site lot.
       const lot: Lot = {
         id,
-        auction_period: r.period,
+        auction_period: r.period!,
         title: r.title,
         lot_number: r.number,
-        category: r.cat === null ? null : { value: r.cat, label: r.catLabel },
-        condition: r.cond === null ? null : { value: r.cond, display_name: r.condLabel },
-        location: r.loc === null ? null : { id: r.loc, name: r.locName },
+        category: { value: r.cat!, label: r.catLabel! },
+        condition: { value: r.cond!, display_name: r.condLabel! },
+        location: { id: r.loc!, name: r.locName! },
         is_transferable: r.transferable,
-        transfer_fee: r.fee,
-        current_price: r.price,
-        estimated_retail_price: r.retail,
-        ends_at: r.ends,
-        status: r.status,
-        version: r.version,
-        bid_count: r.bids,
-        next_min_increment: r.increment,
+        transfer_fee: r.fee!,
+        current_price: r.price!,
+        estimated_retail_price: r.retail!,
+        ends_at: r.ends!,
+        status: r.status!,
+        version: r.version!,
+        bid_count: r.bids!,
+        next_min_increment: r.increment!,
         your_standing:
           r.leading === null ? null : { is_leading: r.leading, your_max_bid: r.maxBid },
         is_watchlisted: r.watched,
@@ -547,7 +515,7 @@ export class Store {
       [lotIds],
       q,
     )) {
-      lots.get(toInt(id))?.images?.push(im);
+      lots.get(toInt(id))?.images.push(im);
     }
     for (const c of await this.all<{
       lotId: string | number;
@@ -563,10 +531,11 @@ export class Store {
       [lotIds],
       q,
     )) {
+      // price and endsAt are set on every closed lot (closedRow), though their columns are nullable.
       lots.get(toInt(c.lotId))?.pastCloses?.recent.push({
         id: toInt(c.id),
-        price: c.price,
-        endsAt: toOptInt(c.endsAt),
+        price: c.price!,
+        endsAt: toOptInt(c.endsAt)!,
         condition: c.condition,
         sold: c.sold,
         final: c.final === 1,
@@ -696,34 +665,17 @@ export class Store {
     if (!lots.length) {
       return;
     }
-    type Pick = (l: Lot) => [string | number, string | null] | null;
+    type Pick = (l: Lot) => [string | number, string];
     const lookups: [string, string, string, Pick][] = [
-      [
-        'categories',
-        'value',
-        'label',
-        l => (l.category ? [l.category.value, l.category.label ?? null] : null),
-      ],
-      [
-        'conditions',
-        'value',
-        'label',
-        l => (l.condition ? [l.condition.value, l.condition.display_name ?? null] : null),
-      ],
-      [
-        'locations',
-        'id',
-        'name',
-        l => (l.location ? [l.location.id, l.location.name ?? null] : null),
-      ],
+      ['categories', 'value', 'label', l => [l.category.value, l.category.label]],
+      ['conditions', 'value', 'label', l => [l.condition.value, l.condition.display_name]],
+      ['locations', 'id', 'name', l => [l.location.id, l.location.name]],
     ];
     for (const [table, key, label, pick] of lookups) {
-      const pairs = new Map<string | number, string | null>();
+      const pairs = new Map<string | number, string>();
       for (const lot of lots) {
-        const pair = pick(lot);
-        if (pair) {
-          pairs.set(pair[0], pair[1]);
-        }
+        const [k, v] = pick(lot);
+        pairs.set(k, v);
       }
       const entries = [...pairs.entries()];
       if (entries.length) {
@@ -753,7 +705,7 @@ export class Store {
     const imageRows: Param[][] = [];
     const closeRows: Param[][] = [];
     for (const lot of lots) {
-      for (const im of lot.images ?? []) {
+      for (const im of lot.images) {
         imageRows.push([lot.id, im.position, im.image_thumb, im.image_card, im.image_large]);
       }
       (lot.pastCloses?.recent ?? []).forEach((c, n) => closeRows.push([lot.id, n, c.id]));
@@ -815,7 +767,7 @@ export class Store {
   async replaceAll(lots: Iterable<Lot>, meta: Partial<CatalogMeta> = {}): Promise<number> {
     const old = await this.load();
     let seq = await this.int('seq');
-    const fresh = new Map([...lots].map(lot => [lot.id, lot]));
+    const fresh = new Map(Iterator.from(lots).map(lot => [lot.id, lot]));
     await this.annotateItems(fresh.values());
     const changed = fresh
       .values()
@@ -875,7 +827,10 @@ export class Store {
   async updateLots(fn: (lots: Lot[]) => void): Promise<number> {
     const seq = (await this.int('seq')) + 1;
     const old = await this.load();
-    const lots = structuredClone(old.values().toArray());
+    const lots = old
+      .values()
+      .map(lot => structuredClone(lot))
+      .toArray();
     fn(lots);
     const changed = lots.filter(lot => !dequal(lot, old.get(lot.id)));
     if (changed.length) {

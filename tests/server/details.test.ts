@@ -1,9 +1,10 @@
-// Background fetching of open lot details (src/server/details.ts).
 import { describe, expect, test } from 'bun:test';
 
 import { DETAIL_PAUSE_MS, Details } from '../../src/server/details';
 import { SiteApi } from '../../src/server/site';
-import type { Lot } from '../../src/server/store';
+// Background fetching of open lot details (src/server/details.ts).
+import type { Lot } from '../../src/shared/lot';
+import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';
 import { testDb } from './pg';
 
@@ -15,10 +16,12 @@ const detailWithoutBrand = fixture('lot-detail-without-brand-model.json').body a
 >;
 
 const lot = (id: number, fields: Partial<Lot> = {}): Lot => ({
-  id,
-  title: `Item ${id}`,
-  auction_period: 'p1',
-  ends_at: `2030-01-0${id}T00:00:00Z`,
+  ...rawLot({
+    id,
+    title: `Item ${id}`,
+    auction_period: 'p1',
+    ends_at: `2030-01-0${id}T00:00:00Z`,
+  }),
   ...fields,
 });
 
@@ -29,7 +32,7 @@ describe('Details', () => {
       lot(3, { ends_at: '2030-01-03T00:00:00Z' }),
       lot(1, { ends_at: '2030-01-01T00:00:00Z' }),
       lot(2, { ends_at: '2030-01-02T00:00:00Z' }),
-      lot(4, { auction_period: null }),
+      lot(4, { auction_period: '' }),
     ]);
     // Lot 2 already has a saved detail; it should not be requested.
     await store.saveLotDetail({ id: 2, auction_period: 'p1', title: 'Item 2', brand: 'Saved' });
@@ -149,7 +152,7 @@ describe('Details', () => {
     const details = new Details(store, site, () => Promise.resolve());
     // Lots 10 and 11 were just seen on a catalog page before replaceAll() has run;
     // lot 2 is already saved, lot 12 has no auction_period, and lot 10 is passed twice.
-    await details.enqueue([lot(10), lot(2), lot(11), lot(10), lot(12, { auction_period: null })]);
+    await details.enqueue([lot(10), lot(2), lot(11), lot(10), lot(12, { auction_period: '' })]);
 
     expect(await details.fetchMissing()).toBe(3);
     expect(requested).toEqual([10, 11, 1]);

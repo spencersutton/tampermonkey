@@ -1,14 +1,15 @@
-// Catalog pulls and their load rules (src/server/catalog.ts), with the
-// first-seen tests from the Python server's test_catalog.py, and the item type
-// labeller's parsing and requests (src/server/itemtypes.ts).
 import { describe, expect, test } from 'bun:test';
 
 import { Catalog, type CatalogStore } from '../../src/server/catalog';
 import { History } from '../../src/server/history';
 import { Labeller, parseReply } from '../../src/server/itemtypes';
 import { ApiError, type LotPage, SiteApi } from '../../src/server/site';
-import type { Lot } from '../../src/server/store';
 import { cleanType } from '../../src/shared/itemtype';
+// Catalog pulls and their load rules (src/server/catalog.ts), with the
+// first-seen tests from the Python server's test_catalog.py, and the item type
+// labeller's parsing and requests (src/server/itemtypes.ts).
+import type { Lot } from '../../src/shared/lot';
+import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';
 import { testDb } from './pg';
 
@@ -21,7 +22,7 @@ const session = (token: string | null = null) => ({
 const noHistory = { annotate: () => Promise.resolve(), wake: () => {} };
 
 describe('first seen', () => {
-  async function pull(previous: Map<number, Partial<Lot> & { id: number }>, lots: Lot[]) {
+  async function pull(previous: Map<number, Lot>, lots: Lot[]) {
     let stored: Lot[] = [];
     const store = {
       meta: () =>
@@ -29,7 +30,7 @@ describe('first seen', () => {
       writeMeta: () =>
         Promise.resolve({ fetchedAt: null, pullStartedAt: null, count: 0, authed: false }),
       setting: () => Promise.resolve(undefined),
-      allLots: () => Promise.resolve(previous as Map<number, Lot>),
+      allLots: () => Promise.resolve(previous),
       annotateItems: () => Promise.resolve(),
       replaceAll: (pulled: Iterable<Lot>) => {
         stored = [...pulled];
@@ -44,19 +45,19 @@ describe('first seen', () => {
   }
 
   test('the first pull marks no lot as new', async () => {
-    const pulled = await pull(new Map(), [{ id: 1, title: 'Drill' }]);
+    const pulled = await pull(new Map(), [rawLot({ id: 1, title: 'Drill' })]);
     expect(pulled.get(1)?.firstSeenAt).toBe(0);
   });
 
   test('later pulls keep existing times, mark new lots, and keep account fields when logged out', async () => {
-    const previous = new Map<number, Partial<Lot> & { id: number }>([
-      [1, { id: 1, firstSeenAt: 99, has_bid: true }],
-      [2, { id: 2 }],
-      [3, { id: 3, firstSeenAt: 0 }],
+    const previous = new Map<number, Lot>([
+      [1, { ...rawLot({ id: 1, has_bid: true }), firstSeenAt: 99 }],
+      [2, rawLot({ id: 2 })],
+      [3, { ...rawLot({ id: 3 }), firstSeenAt: 0 }],
     ]);
     const pulled = await pull(
       previous,
-      [1, 2, 3, 4, 5].map(id => ({ id, title: `Lot ${id}`, has_bid: false })),
+      [1, 2, 3, 4, 5].map(id => rawLot({ id, title: `Lot ${id}`, has_bid: false })),
     );
     expect([1, 2, 3, 4, 5].map(id => pulled.get(id)?.firstSeenAt)).toEqual([
       99, 0, 0, 12345, 12345,
@@ -172,8 +173,8 @@ describe('a pull', () => {
   test('lots skipped by pages shifting mid-pull are kept while still open', async () => {
     const store = await db.openStore();
     await store.replaceAll([
-      { id: 1, title: 'Open', ends_at: new Date(NOW + 60_000).toISOString() },
-      { id: 2, title: 'Ended', ends_at: new Date(NOW - 1).toISOString() },
+      rawLot({ id: 1, title: 'Open', ends_at: new Date(NOW + 60_000).toISOString() }),
+      rawLot({ id: 2, title: 'Ended', ends_at: new Date(NOW - 1).toISOString() }),
     ]);
     const { site } = siteServing({ 1: [{ ...raw[0], id: 3 }] }, 3);
     await new Catalog(store, session(), noHistory, site, () => NOW).pull();
@@ -248,9 +249,9 @@ describe('item type labeller', () => {
   test('labels batch titles by category with the types already in use, and save them', async () => {
     const store = await db.openStore();
     await store.replaceAll([
-      { id: 1, title: 'Zeta Saw', category: { value: 'tools', label: 'Tools' } },
-      { id: 2, title: 'alpha drill', category: { value: 'tools', label: 'Tools' } },
-      { id: 3, title: 'Rug', category: null },
+      rawLot({ id: 1, title: 'Zeta Saw' }),
+      rawLot({ id: 2, title: 'alpha drill' }),
+      rawLot({ id: 3, title: 'Rug', category: { value: 'misc', label: '' } }),
     ]);
     await store.saveLotTypes([[{ title: 'Old', category: { value: 'tools' } }, 'saw']]);
     const bodies: { messages: { content: string }[]; model: string }[] = [];
@@ -277,7 +278,7 @@ describe('item type labeller', () => {
 
   test('a failed request stops the run and leaves the rest untyped', async () => {
     const store = await db.openStore();
-    await store.replaceAll([{ id: 1, title: 'Saw' }]);
+    await store.replaceAll([rawLot({ id: 1, title: 'Saw' })]);
     const llm = (() =>
       Promise.resolve(new Response('busy', { status: 429 }))) as unknown as typeof fetch;
     await new Labeller(store, 'key', undefined, undefined, llm).labelAll();

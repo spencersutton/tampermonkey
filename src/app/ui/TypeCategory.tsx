@@ -1,9 +1,10 @@
-// Dialog behind the + button next to the item type on a lot card: make a custom category of
-// that type (plus any similar types picked), or add the types to an existing one.
 import { useMemo, useState } from 'preact/hooks';
 
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
+// Dialog behind the + button next to the item type on a lot card: make a custom category of
+// that type (plus any similar types picked), or add the types to an existing one.
+import type { Lot } from '../../shared/lot';
 import {
   categoryError,
   defaultCategoryName,
@@ -18,7 +19,6 @@ import { categoryIndex, categoryPath, compileCategories, customCategoryValue } f
 import { saveCustomCategories } from '../server/categories';
 import { getSetting, setSetting } from '../server/settings';
 import { toast } from '../server/toast';
-import type { Lot } from '../types';
 import { Dialog } from './Dialog';
 
 export function TypeCategory({

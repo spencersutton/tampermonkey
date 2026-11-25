@@ -13,11 +13,12 @@ import { MINUTE } from '../shared/constants';
 // sort and categorize by title as before.
 import { brandModelKey } from '../shared/identity';
 import { cleanType } from '../shared/itemtype';
+import type { Lot } from '../shared/lot';
 import { byCode } from '../shared/sortKey';
 import { prop } from './json';
 import { log, Waker } from './log';
 import { USER_AGENT } from './site';
-import type { Lot, Store } from './store';
+import type { Store } from './store';
 import '../shared/arrayToSet';
 
 export const DEFAULT_URL = 'https://nano-gpt.com/api/v1';
@@ -100,9 +101,9 @@ export class Labeller {
         continue;
       }
       seen.add(key);
-      const value = lot.category?.value ?? null;
+      const { value } = lot.category;
       byCategory.getOrInsertComputed(value, () => []).push(lot);
-      labels.set(value, lot.category?.label || 'Other');
+      labels.set(value, lot.category.label || 'Other');
     }
     const total = byCategory.values().sumBy(items => items.length);
     if (!total) {

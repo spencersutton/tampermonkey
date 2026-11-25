@@ -40,6 +40,11 @@ committing.
 - Shared settings are listed in `SERVER_KEYS` in `src/shared/keys.ts` and
   synced to the server; other keys in `KEYS` stay browser-local in
   `localStorage`.
+- `Lot` (the one definition, a plain interface in `src/shared/lot.ts`
+  extending `RawLot`) has the site's strict field types for both app and
+  server; don't add null fallbacks for its fields. Keep it a plain interface
+  (lots travel as JSON and are compared with `dequal`), copying with spreads.
+  Server tests build complete lots with `rawLot()` from `tests/raw-lot.mjs`.
 - Global (no-import) TypeScript types live in `src/shared/global.d.ts`
   (included by both root `tsconfig.json` and `src/server/tsconfig.json`). Keep
   it as an ambient script file without `export {}` (which triggers oxlint
