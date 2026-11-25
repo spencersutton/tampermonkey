@@ -4,7 +4,8 @@ import type { RawLot } from '../shared/lot';
 import { isRecord, prop } from './json';
 
 export const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';
-export const USER_AGENT = 'tlx-server/1.0 (+https://github.com/spencersutton/tampermonkey)';
+export const USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36';
 export const VERSION = '1.0.0';
 
 /**
