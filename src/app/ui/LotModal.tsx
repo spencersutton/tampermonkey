@@ -12,7 +12,15 @@ import { errorMessage, parseNum, plural } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
 import { bidPending } from '../server/bid';
-import { cachedDetail, cachedMetadata, getLot, loadDetail, loadMetadata } from '../server/catalog';
+import {
+  cachedDetail,
+  cachedMetadata,
+  getLot,
+  loadDetail,
+  loadMetadata,
+  lotBrands,
+  lotModels,
+} from '../server/catalog';
 import { siteConditions } from '../server/conditions';
 import { clock } from '../server/reactive';
 import { fetchPastCloses } from '../server/source';
@@ -103,6 +111,8 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
     };
   }, [lot.id, lot.version, lot.your_standing?.your_max_bid, lot.your_standing?.is_leading, authed]);
 
+  const brand = metadata?.brand ?? lotBrands.value.get(lot.id) ?? lot.brand ?? null;
+  const model = metadata?.model ?? lotModels.value.get(lot.id) ?? lot.model ?? null;
   const images = metadata?.images ?? lot.images;
   const description = metadata?.description ? cleanDescription(metadata.description) : '';
   const auction = detail && detail.version >= lot.version ? detail : null;
@@ -171,7 +181,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
 
         <div class="modal-info">
           <h2 id="lot-title">{lot.title}</h2>
-          {metadata && <BrandModel brand={metadata.brand} model={metadata.model} />}
+          <BrandModel brand={brand} model={model} />
           <div class="card-meta">
             <LocationText row={row} />
             <span title={conditions.get(lot.condition.value)?.description}>

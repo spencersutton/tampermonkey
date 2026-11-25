@@ -42,6 +42,8 @@ export type CatalogStore = Pick<
 export class Catalog {
   progress: Progress | null = null;
   error: string | null = null;
+  /** Called as each page of lots is seen (e.g. to fetch details for new lots right away). */
+  onLotsSeen: (lots: Lot[]) => void = () => {};
   /** Called after each successful pull (e.g. to label the new titles). */
   afterPull: () => void = () => {};
   private readonly waker = new Waker();
@@ -151,6 +153,9 @@ export class Catalog {
         }
         for (const lot of d.results) {
           pulled.set(lot.id, stamp(lot, token !== null));
+        }
+        if (d.results.length) {
+          this.onLotsSeen(d.results);
         }
         this.progress = { done: pulled.size, total: count };
         if (!d.results.length) {

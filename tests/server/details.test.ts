@@ -125,4 +125,32 @@ describe('Details', () => {
     expect(requested).toEqual([3, 4]);
     expect(afterCalls).toBe(2);
   });
+
+  test('enqueued new lots are fetched immediately ahead of pending backfill, even before replaceAll', async () => {
+    const store = new Store(':memory:');
+    // Lot 1 is already in the catalog without a detail; lot 2 already has a saved detail.
+    store.replaceAll([
+      lot(1, { ends_at: '2030-01-01T00:00:00Z' }),
+      lot(2, { ends_at: '2030-01-02T00:00:00Z' }),
+    ]);
+    store.saveLotDetail({ id: 2, auction_period: 'p1', title: 'Item 2', brand: 'Saved' });
+
+    const requested: number[] = [];
+    const site = new SiteApi((async (input: string | URL | Request) => {
+      const id = Number(new URL(String(input)).pathname.split('/').at(-2));
+      requested.push(id);
+      return Response.json({ ...detailWithBrand, id, auction_period: 'p1' });
+    }) as typeof fetch);
+
+    const details = new Details(store, site, () => Promise.resolve());
+    // Lots 10 and 11 were just seen on a catalog page before replaceAll() has run;
+    // lot 2 is already saved, lot 12 has no auction_period, and lot 10 is passed twice.
+    details.enqueue([lot(10), lot(2), lot(11), lot(10), lot(12, { auction_period: null })]);
+
+    expect(await details.fetchMissing()).toBe(3);
+    expect(requested).toEqual([10, 11, 1]);
+    expect(store.hasLotDetail(10)).toBe(true);
+    expect(store.hasLotDetail(11)).toBe(true);
+    expect(store.hasLotDetail(1)).toBe(true);
+  });
 });

@@ -91,9 +91,16 @@ describe('a pull', () => {
     const history = new History(store, site, () => Promise.resolve());
     history.wake = () => void woken++;
     const catalog = new Catalog(store, session(), history, site, () => NOW);
+    const seenPages: number[][] = [];
     let after = 0;
+    catalog.onLotsSeen = pageLots => {
+      // Fired as each page arrives, before replaceAll() stores the pull.
+      expect(store.allLots().size).toBe(0);
+      seenPages.push(pageLots.map(l => l.id));
+    };
     catalog.afterPull = () => void after++;
     await catalog.pull();
+    expect(seenPages.map(p => p.length)).toEqual([100, 50]);
     expect(
       requests.map(u => [
         u.searchParams.get('page'),

@@ -5,8 +5,6 @@ import 'temporal-polyfill/global';
 import { Component, h, options, render } from 'preact';
 import { createServer } from 'vite';
 
-import { rawDetail } from './raw-lot.mjs';
-
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const vite = await createServer({
   configFile: false,
@@ -15,18 +13,12 @@ const vite = await createServer({
   appType: 'custom',
 });
 after(() => vite.close());
-const { lotBrands, lotModels, lots, loadDetail, invalidateDetail } = await vite.ssrLoadModule(
-  '/src/app/server/catalog.ts',
-);
+const { lotBrands, lotModels, lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/ui/state.ts');
-const { applyCatalog } = await vite.ssrLoadModule('/src/app/server/source.ts');
-const { startBrandWatch } = await vite.ssrLoadModule('/src/app/server/brands.ts');
 const { BrandModel, CardBrandModel } = await vite.ssrLoadModule('/src/app/ui/Brands.tsx');
 const { LocationText, LotCard, TimeLeft, WatchButton } =
   await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
-const raw = (id, brand, model = null) =>
-  rawDetail({ id, title: `Item ${id}`, lot_number: `${id}`, brand, model });
 const lot = id => ({
   id,
   auction_period: 'test',
@@ -94,86 +86,7 @@ test('card and popup watchlist controls disappear after bidding, without a stale
   }
 });
 
-test('visible cards load brands with bounded concurrency, caching, and no price regression', async t => {
-  const requests = [];
-  const replies = new Map();
-  t.mock.method(globalThis, 'fetch', url => {
-    const id = Number(url.split('/').at(-2));
-    requests.push(id);
-    return new Promise(resolve =>
-      replies.set(id, (brand, model) => resolve(Response.json(raw(id, brand, model)))),
-    );
-  });
-  lots.value = new Map([1, 2, 3, 4].map(id => [id, lot(id)]));
-  onScreen.value = [];
-  const stop = startBrandWatch(onScreen);
-  t.after(() => {
-    stop();
-    onScreen.value = [];
-  });
-  assert.deepEqual(requests, []);
-  onScreen.value = [1, 2, 3];
-  await settle();
-  assert.deepEqual(requests, [1, 2]);
-  // Opening the popup shares the brand request.
-  const detail = loadDetail(lot(1));
-  replies.get(1)('  Acme & Co.  ', '  D-100  ');
-  await detail;
-  await settle();
-  assert.deepEqual(requests, [1, 2, 3]);
-  assert.equal(lotBrands.peek().get(1), 'Acme & Co.');
-  assert.equal(lots.peek().get(1).current_price, 20);
-  assert.equal(lots.peek().get(1).version, 2);
-  assert.deepEqual(identity(1), { brand: 'Acme & Co.', model: 'D-100' });
-  assert.equal(lotModels.peek().get(1), 'D-100');
-
-  replies.get(2)('');
-  replies.get(3)('   ', '   ');
-  await settle();
-  assert.equal(CardBrandModel({ id: 2 }), null);
-  assert.equal(CardBrandModel({ id: 3 }), null);
-  assert.equal(lotModels.peek().get(2), null);
-  assert.equal(lotModels.peek().get(3), null);
-  assert.equal(lotBrands.peek().has(2), true);
-  assert.equal(lotBrands.peek().has(3), true);
-
-  invalidateDetail(1);
-  onScreen.value = [];
-  const now = Date.now();
-  applyCatalog({
-    now,
-    nextPullAt: now + 60_000,
-    meta: { fetchedAt: now },
-    progress: null,
-    error: null,
-    seq: 1,
-    full: true,
-    ids: null,
-    lots: lots
-      .peek()
-      .values()
-      .toArray()
-      .map(item => ({
-        ...item,
-        ends_at: item.ends_at,
-      })),
-  });
-  onScreen.value = [1, 2, 3];
-  assert.deepEqual(
-    requests,
-    [1, 2, 3],
-    'polls, expired details and revisits do not refetch known brands',
-  );
-  assert.equal(lotBrands.peek().get(1), 'Acme & Co.');
-  assert.equal(lotModels.peek().get(1), 'D-100');
-
-  const brandNode = nodes(card(rowOf(lots.peek().get(1)))()).find(
-    node => node.type === CardBrandModel,
-  );
-  assert.equal(brandNode.props.id, 1);
-});
-
-test('mounted cards retain independent viewport observers and fetch brands without clicking', async t => {
+test('mounted cards retain independent viewport observers without fetching details on scroll', async t => {
   class Element {
     childNodes = [];
     /** @type {Element | null} */
@@ -216,18 +129,10 @@ test('mounted cards retain independent viewport observers and fetch brands witho
   };
   globalThis.document = { createElementNS: () => new Element() };
   const root = new Element();
-  const requests = [];
-  t.mock.method(globalThis, 'fetch', async url => {
-    const id = Number(url.split('/').at(-2));
-    requests.push(id);
-    return Response.json(raw(id, `Brand ${id}`));
-  });
   t.mock.timers.enable({ apis: ['setTimeout'] });
   lots.value = new Map([20, 21, 22].map(id => [id, lot(id)]));
   onScreen.value = [];
-  const stop = startBrandWatch(onScreen);
   t.after(() => {
-    stop();
     render(null, root);
     onScreen.value = [];
     delete globalThis.document;
@@ -248,9 +153,6 @@ test('mounted cards retain independent viewport observers and fetch brands witho
   t.mock.timers.tick(150);
   await settle();
   assert.deepEqual(onScreen.peek(), [20, 21]);
-  assert.deepEqual(requests, [20, 21], 'only nearby cards fetch, without any click');
-  assert.equal(lotBrands.peek().get(20), 'Brand 20');
-  assert.equal(lotBrands.peek().get(21), 'Brand 21');
   render(drawArticles(), root);
   assert.equal(observed.size, 3);
   render(drawArticles().slice(1), root);
@@ -271,8 +173,6 @@ test('brands and known missing brands survive a fresh app module load without de
   });
   t.after(() => fresh.close());
   const catalog = await fresh.ssrLoadModule('/src/app/server/catalog.ts');
-  const state = await fresh.ssrLoadModule('/src/app/ui/state.ts');
-  const brands = await fresh.ssrLoadModule('/src/app/server/brands.ts');
   const brandsUi = await fresh.ssrLoadModule('/src/app/ui/Brands.tsx');
   const source = await fresh.ssrLoadModule('/src/app/server/source.ts');
   let requests = 0;
@@ -280,9 +180,6 @@ test('brands and known missing brands survive a fresh app module load without de
     requests++;
     throw new Error('Unexpected detail request');
   });
-  state.onScreen.value = [90, 91];
-  const stop = brands.startBrandWatch(state.onScreen);
-  t.after(stop);
   const now = Date.now();
   source.applyCatalog({
     now,
@@ -366,40 +263,6 @@ test('brands and known missing brands survive a fresh app module load without de
   });
   assert.equal(catalog.lotModels.peek().get(90), null, 'removed models disappear from cards');
   assert.equal(requests, 0, 'known missing models do not trigger more requests');
-});
-
-test('queued cards that leave the viewport are skipped; failures are visible and retryable', async t => {
-  const requests = [];
-  const replies = new Map();
-  t.mock.method(globalThis, 'fetch', url => {
-    const id = Number(url.split('/').at(-2));
-    requests.push(id);
-    return new Promise(resolve => replies.set(id, resolve));
-  });
-  lots.value = new Map([10, 11, 12].map(id => [id, lot(id)]));
-  onScreen.value = [10, 11, 12];
-  const stop = startBrandWatch(onScreen);
-  t.after(() => {
-    stop();
-    onScreen.value = [];
-  });
-  await settle();
-  assert.deepEqual(requests, [10, 11]);
-  onScreen.value = [10];
-  replies.get(10)(new Response('Unavailable', { status: 503 }));
-  replies.get(11)(Response.json(raw(11, 'Other')));
-  await settle();
-  assert.deepEqual(requests, [10, 11]);
-  const button = nodes(CardBrandModel({ id: 10 })).find(node => node.type === 'button');
-  assert.match(button.props.title, /503/);
-  assert.equal(button.props.children, 'Item details unavailable - Retry');
-  button.props.onClick();
-  await settle();
-  assert.deepEqual(requests, [10, 11, 10]);
-  replies.get(10)(Response.json(raw(10, 'Recovered', 'R-10')));
-  await settle();
-  assert.equal(lotBrands.peek().get(10), 'Recovered');
-  assert.deepEqual(identity(10), { brand: 'Recovered', model: 'R-10' });
 });
 
 test('brand and model names link to the catalog and a separate Google icon retains web search', () => {
@@ -504,25 +367,6 @@ test('brand/model navigation clears filters and the popup, with quoted field-spe
     assert.equal(matches(rowOf({ ...lot(92), brand: 'Other brand', model })), false);
   }
   assert.equal(scrolls, 2);
-});
-
-test('a known brand without a cached model still loads its model', async t => {
-  let requests = 0;
-  t.mock.method(globalThis, 'fetch', async () => {
-    requests++;
-    return Response.json(raw(81, 'Acme', 'D-81'));
-  });
-  lotBrands.value = new Map(lotBrands.peek()).set(81, 'Acme');
-  lots.value = new Map([[81, lot(81)]]);
-  onScreen.value = [81];
-  const stop = startBrandWatch(onScreen);
-  t.after(() => {
-    stop();
-    onScreen.value = [];
-  });
-  await settle();
-  assert.equal(requests, 1);
-  assert.deepEqual(identity(81), { brand: 'Acme', model: 'D-81' });
 });
 
 test('cards show condition, location, lot number, pricing, retail comparison and time compactly', () => {

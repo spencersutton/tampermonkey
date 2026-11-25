@@ -2,7 +2,6 @@ import { batch } from '@preact/signals';
 
 import { brandSearchQuery, googleSearchUrl, modelSearchQuery } from '../logic/brands';
 import { DEFAULT_VIEW } from '../logic/view';
-import { brandErrors, retryBrandDetail } from '../server/brands';
 import { lotBrands, lotModels } from '../server/catalog';
 import { openHandler } from './dom';
 import { Icon } from './icons';
@@ -11,19 +10,12 @@ import { filteredOnly, highlight, openId, setView, sidebarOpen, storedView } fro
 export function CardBrandModel({ id }: { id: number }) {
   const brand = lotBrands.value.get(id);
   const model = lotModels.value.get(id);
-  const error = brandErrors.value.get(id);
-  const failed = error && (!lotBrands.value.has(id) || !lotModels.value.has(id));
-  if (!brand && !model && !failed) {
+  if (!brand && !model) {
     return null;
   }
   return (
     <div class="card-identity">
       <BrandModel brand={brand ?? null} model={model ?? null} />
-      {failed && (
-        <button type="button" class="btn-text" title={error} onClick={() => retryBrandDetail(id)}>
-          Item details unavailable - Retry
-        </button>
-      )}
     </div>
   );
 }

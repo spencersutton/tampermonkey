@@ -7,7 +7,6 @@ import { render } from 'preact';
 
 import './app/ui/app.css';
 import { appUnlocked, me, startAuth } from './app/server/auth';
-import { startBrandWatch } from './app/server/brands';
 import { error } from './app/server/catalog';
 import { startLiveWatch } from './app/server/live';
 import { setSetting } from './app/server/settings';
@@ -38,7 +37,6 @@ void appUnlocked.then(async () => {
   startApp();
   startHistory();
   startLiveWatch(onScreen, openId);
-  startBrandWatch(onScreen);
 });
 
 function Root() {

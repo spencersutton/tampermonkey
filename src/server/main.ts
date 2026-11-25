@@ -117,6 +117,7 @@ function main() {
     );
     void labeller.runForever();
   }
+  catalog.onLotsSeen = lots => details.enqueue(lots);
   catalog.afterPull = () => {
     details.wake();
     labeller?.wake();
