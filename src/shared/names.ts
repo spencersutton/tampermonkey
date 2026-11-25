@@ -12,6 +12,7 @@ export interface ItemIdentity {
 export interface ItemDetails {
   brands: ReadonlyMap<number, string | null>;
   models: ReadonlyMap<number, string | null>;
+  descriptions?: ReadonlyMap<number, string | null>;
 }
 
 /** Detail caches can be newer than the price-versioned catalog entry. */
@@ -26,4 +27,13 @@ export function itemIdentity(
     brand: brand === undefined ? item.brand : brand,
     model: model === undefined ? item.model : model,
   };
+}
+
+/** A lot's description, preferring the newest client detail cache when present. */
+export function itemDescription(
+  item: { id: number; description?: Nullable<string> },
+  details?: ItemDetails,
+): Nullable<string> {
+  const desc = details?.descriptions?.get(item.id);
+  return desc === undefined ? item.description : desc;
 }

@@ -1,9 +1,11 @@
-import { termsRegex } from '../logic/highlight';
-import { effectiveSearch } from './state';
+import { descriptionTermsRegex, termsRegex } from '../logic/highlight';
+import { effectiveSearch, storedView } from './state';
 
 /** `text` with the current search's words marked. */
-export function Highlight({ text }: { text: string }) {
-  const re = termsRegex(effectiveSearch.value);
+export function Highlight({ text, description }: { text: string; description?: boolean }) {
+  const re = description
+    ? descriptionTermsRegex(effectiveSearch.value, storedView.value.searchDescriptions)
+    : termsRegex(effectiveSearch.value);
   if (!re) {
     return <>{text}</>;
   }

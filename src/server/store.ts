@@ -182,6 +182,7 @@ export interface Item {
   title: string;
   brand?: Nullable<string>;
   model?: Nullable<string>;
+  description?: Nullable<string>;
   category?: { value: string; label?: string | null } | null | undefined;
   itemType?: string | undefined;
 }
@@ -193,7 +194,7 @@ export interface Detail {
   title?: string;
   status?: string | null;
   current_price?: number | null;
-  description?: string | null;
+  description?: Nullable<string>;
   brand?: Nullable<string>;
   model?: Nullable<string>;
   lot_fee?: number | null;
@@ -605,10 +606,37 @@ export class Store {
     }
   }
 
-  /** Attach cached identities and item types (before comparing a catalog pull, or reading lots). */
+  /**
+   * Attach cached details (brand, model, description) and item types (before comparing a catalog
+   * pull, or reading lots).
+   */
   async annotateItems(lots: Iterable<Item>, q: Queryable = this.sql): Promise<void> {
     const list = [...lots];
-    await this.annotateIdentities(list, 'id', q);
+    const ids = list.map(lot => lot.id).filter((id): id is number => typeof id === 'number');
+    if (ids.length) {
+      const rows = await this.all<{
+        lotId: string | number;
+        brand: string | null;
+        model: string | null;
+        description: string | null;
+      }>(
+        'SELECT lot_id AS "lotId", brand, model, description FROM lot_details WHERE lot_id = ANY($1::bigint[])',
+        [ids],
+        q,
+      );
+      const byId = new Map(
+        rows.map(r => [
+          toInt(r.lotId),
+          { brand: r.brand, model: r.model, description: r.description },
+        ]),
+      );
+      for (const lot of list) {
+        const detail = typeof lot.id === 'number' ? byId.get(lot.id) : undefined;
+        if (detail) {
+          Object.assign(lot, detail);
+        }
+      }
+    }
     const index = await this.typeIndex(q);
     for (const lot of list) {
       const record = index.match(lot);
@@ -934,15 +962,16 @@ export class Store {
   /** Keep a lot's detail (RawLotDetail in src/shared/lot.ts), replacing the one fetched before. */
   async saveLotDetail(d: Detail): Promise<void> {
     await this.tx(async tx => {
-      const previous = await this.get<{ brand: string | null; model: string | null }>(
-        'SELECT brand, model FROM lot_details WHERE lot_id = $1',
-        [d.id],
-        tx,
-      );
+      const previous = await this.get<{
+        brand: string | null;
+        model: string | null;
+        description: string | null;
+      }>('SELECT brand, model, description FROM lot_details WHERE lot_id = $1', [d.id], tx);
       const brand = (d.brand ?? '').trim() || null;
       const model = (d.model ?? '').trim() || null;
       const { description, quantity } = parseLotDescription(d.description);
-      const changed = !previous || previous.brand !== brand || previous.model !== model;
+      const identityChanged = !previous || previous.brand !== brand || previous.model !== model;
+      const catalogChanged = identityChanged || previous.description !== description;
       await this.run(
         `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, quantity, brand, model,
           lot_fee, bid_history, fetched_at, images) VALUES ${valuePlaceholders(1, 13)}
@@ -968,10 +997,13 @@ export class Store {
         ],
         tx,
       );
-      if (changed) {
-        if (await this.get('SELECT 1 FROM closed_lots WHERE id = $1', [d.id], tx)) {
-          await this.bumpClosedRev(tx);
-        }
+      if (
+        identityChanged &&
+        (await this.get('SELECT 1 FROM closed_lots WHERE id = $1', [d.id], tx))
+      ) {
+        await this.bumpClosedRev(tx);
+      }
+      if (catalogChanged) {
         const seq = (await this.int('seq', tx)) + 1;
         if (await this.run('UPDATE lots SET seq = $1 WHERE id = $2', [seq, d.id], tx)) {
           await this.setMeta('seq', seq, tx);

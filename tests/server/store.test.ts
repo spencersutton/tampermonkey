@@ -49,15 +49,20 @@ describe('brands and models from lot details', () => {
     expect((await reopened.changes(before)).lots[0]).toMatchObject({ brand: 'Acme', model: 'D-1' });
   });
 
-  test('only brand changes publish catalog deltas', async () => {
-    await store.saveLotDetail({ id: 1, brand: 'Acme' });
+  test('only brand, model or description changes publish catalog deltas', async () => {
+    await store.saveLotDetail({ id: 1, brand: 'Acme', description: 'Initial' });
     let before = await store.seq();
-    await store.saveLotDetail({ id: 1, brand: 'Acme', description: 'Updated' });
+    await store.saveLotDetail({ id: 1, brand: 'Acme', description: 'Initial', lot_fee: 5 });
     expect(await store.seq()).toBe(before);
-    await store.saveLotDetail({ id: 1, brand: 'Other' });
+    await store.saveLotDetail({ id: 1, brand: 'Acme', description: 'Updated' });
+    expect((await store.changes(before)).lots.map(l => [l.id, l.description])).toEqual([
+      [1, 'Updated'],
+    ]);
+    before = await store.seq();
+    await store.saveLotDetail({ id: 1, brand: 'Other', description: 'Updated' });
     expect((await store.changes(before)).lots.map(l => [l.id, l.brand])).toEqual([[1, 'Other']]);
     before = await store.seq();
-    await store.saveLotDetail({ id: 1, brand: '' });
+    await store.saveLotDetail({ id: 1, brand: '', description: 'Updated' });
     expect((await store.changes(before)).lots.map(l => [l.id, l.brand])).toEqual([[1, null]]);
   });
 
@@ -72,7 +77,7 @@ describe('brands and models from lot details', () => {
   test('model-only changes and removals publish deltas', async () => {
     await store.saveLotDetail({ id: 1, brand: null, model: 'D-1' });
     let before = await store.seq();
-    await store.saveLotDetail({ id: 1, brand: null, model: ' D-1 ', description: 'Updated' });
+    await store.saveLotDetail({ id: 1, brand: null, model: ' D-1 ', lot_fee: 3 });
     expect(await store.seq()).toBe(before);
     await store.saveLotDetail({ id: 1, brand: null, model: 'D-2' });
     expect((await store.changes(before)).lots.map(l => [l.id, l.model])).toEqual([[1, 'D-2']]);

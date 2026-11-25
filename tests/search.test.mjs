@@ -15,13 +15,15 @@ const { DEFAULT_VIEW, makeMatcher, makeRow, savedFilters, normalizeView } =
   await vite.ssrLoadModule('/src/app/logic/view.ts');
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
-const { lots, lotBrands, lotModels, loadDetail } = await vite.ssrLoadModule(
+const { lots, lotBrands, lotModels, lotDescriptions, loadDetail } = await vite.ssrLoadModule(
   '/src/app/server/catalog.ts',
 );
 const { gridView, searchStats, setView, storedView } =
   await vite.ssrLoadModule('/src/app/ui/state.ts');
 const { applyCatalog } = await vite.ssrLoadModule('/src/app/server/source.ts');
 const { navFromUrl } = await vite.ssrLoadModule('/src/app/ui/history.ts');
+const { navToUrl } = await vite.ssrLoadModule('/src/app/logic/history.ts');
+const { descriptionTermsRegex } = await vite.ssrLoadModule('/src/app/logic/highlight.ts');
 
 const now = Date.now();
 const ex = {
@@ -67,6 +69,7 @@ beforeEach(() => {
   lots.value = new Map();
   lotBrands.value = new Map();
   lotModels.value = new Map();
+  lotDescriptions.value = new Map();
 });
 
 test('ordinary search spans title, lot number, brand and model with AND semantics', () => {
@@ -245,4 +248,66 @@ test('qualifiers survive stored views, saved searches and shared URLs unchanged'
     assert.equal(view.search, search);
     assert.equal(makeMatcher(view, now)(makeRow(fixture(), 'Raleigh', ex)), true);
   }
+});
+
+test('description search works via toggle, desc: qualifier and regex mode', () => {
+  const item = fixture({
+    description: 'Brushless motor with 2 lithium batteries and carrying case',
+  });
+  assert.equal(matches('brushless', item), false, 'plain search ignores descriptions by default');
+  assert.equal(matches('brushless', item, { searchDescriptions: true }), true);
+  assert.equal(matches('battery', item, { searchDescriptions: true }), true);
+  assert.equal(matches('brushless -case', item, { searchDescriptions: true }), false);
+  assert.equal(matches('desc:brushless', item), true, 'desc: works even when toggle is off');
+  assert.equal(matches('desc:"carrying case"', item), true);
+  assert.equal(matches('drill -desc:case', item), false);
+  assert.equal(matches('desc:drill', item), false, 'desc: restricts to description only');
+  assert.equal(matches('brushless.*batteries', item, { searchRegex: true }), false);
+  assert.equal(
+    matches('brushless.*batteries', item, { searchRegex: true, searchDescriptions: true }),
+    true,
+  );
+});
+
+test('searchDescriptions persists in stored views, saved searches, URLs and highlights', () => {
+  setView({ search: 'brushless', searchDescriptions: true });
+  const stored = normalizeView(JSON.parse(storage.get(`tlx:${KEYS.view}`)));
+  const saved = normalizeView(savedFilters(stored));
+  const url = navToUrl({
+    view: stored,
+    page: 1,
+    openId: null,
+    closed: null,
+    filteredOnly: false,
+  });
+  const shared = navFromUrl(url.slice(url.indexOf('?'))).view;
+  for (const view of [stored, saved, shared]) {
+    assert.equal(view.searchDescriptions, true);
+  }
+  assert.equal(descriptionTermsRegex('drill', false), null);
+  assert.ok(descriptionTermsRegex('drill', true)?.test('Brushless drill'));
+  assert.ok(descriptionTermsRegex('drill desc:brushless', false)?.test('Brushless motor'));
+  assert.equal(descriptionTermsRegex('drill desc:brushless', false)?.test('drill'), false);
+});
+
+test('newly loaded lot descriptions become searchable immediately', async t => {
+  lots.value = new Map([[60, fixture({ id: 60, description: undefined })]]);
+  setView({ search: 'brushless', searchDescriptions: true });
+  assert.equal(gridView.value.rows.length, 0);
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(
+      rawDetail({
+        id: 60,
+        title: 'Cordless drill',
+        lot_number: 'A-123',
+        description: 'Quantity: 1,\n\nBrushless 20V motor\n\nLot Number: A-123,',
+        ends_at: new Date(now + 2 * 3_600_000).toISOString(),
+      }),
+    ),
+  );
+  await loadDetail(lots.value.get(60));
+  assert.deepEqual(
+    gridView.value.rows.map(r => r.lot.id),
+    [60],
+  );
 });

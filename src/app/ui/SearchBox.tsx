@@ -30,7 +30,7 @@ const GROUP_TITLES: Record<SearchOption['kind'], string | null> = {
 };
 
 const SEARCH_TIP =
-  'Search titles, item types, brands, models and lot numbers. Every word must match; plurals and common synonyms count. Use "quotes" for a phrase, -word to exclude, and brand:, model: or type: to search one field. Press / to jump here.';
+  'Search titles, item types, brands, models and lot numbers (plus descriptions when enabled). Every word must match; plurals and common synonyms count. Use "quotes" for a phrase, -word to exclude, and brand:, model:, type: or desc: to search one field. Press / to jump here.';
 
 export function SearchBox() {
   const view = storedView.value;
@@ -124,11 +124,16 @@ export function SearchBox() {
   if (badRegex) {
     searchTitle = 'Invalid regex';
   } else if (view.searchRegex) {
-    searchTitle = 'Case-insensitive regex across title, lot number, brand, model and item type';
+    const fields = view.searchDescriptions
+      ? 'title, lot number, brand, model, item type and description'
+      : 'title, lot number, brand, model and item type';
+    searchTitle = `Case-insensitive regex across ${fields}`;
   }
-  let placeholder = `Search ${format.num(gridView.value.open)} lots`;
+  const openCount = format.num(gridView.value.open);
+  const descSuffix = view.searchDescriptions ? ' + descriptions' : '';
+  let placeholder = `Search ${openCount} lots${descSuffix}`;
   if (view.searchRegex) {
-    placeholder = `Regex search ${format.num(gridView.value.open)} lots`;
+    placeholder = `Regex search ${openCount} lots${descSuffix}`;
   }
   const optionId = (i: number) => `search-option-${i}`;
   let lastKind: SearchOption['kind'] | null = null;
@@ -161,15 +166,28 @@ export function SearchBox() {
         onBlur={close}
         onKeyDown={onKeyDown}
       />
-      <button
-        type="button"
-        class={`regex-toggle ${view.searchRegex ? 'on' : ''}`}
-        aria-pressed={view.searchRegex}
-        title={view.searchRegex ? 'Regex search on (case-insensitive)' : 'Use regex search'}
-        onClick={() => setView({ searchRegex: !view.searchRegex })}
-      >
-        .*
-      </button>
+      <div class="search-toggles">
+        <button
+          type="button"
+          class={`search-toggle ${view.searchDescriptions ? 'on' : ''}`}
+          aria-pressed={view.searchDescriptions}
+          title={
+            view.searchDescriptions ? 'Searching descriptions too' : 'Also search descriptions'
+          }
+          onClick={() => setView({ searchDescriptions: !view.searchDescriptions })}
+        >
+          desc
+        </button>
+        <button
+          type="button"
+          class={`search-toggle ${view.searchRegex ? 'on' : ''}`}
+          aria-pressed={view.searchRegex}
+          title={view.searchRegex ? 'Regex search on (case-insensitive)' : 'Use regex search'}
+          onClick={() => setView({ searchRegex: !view.searchRegex })}
+        >
+          .*
+        </button>
+      </div>
       {expanded && (
         <ul
           class="search-options"

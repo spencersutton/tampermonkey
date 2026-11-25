@@ -5,7 +5,7 @@ import { batch, signal } from '@preact/signals';
 
 import { MINUTE } from '../../shared/constants';
 import { DEFAULTS, SERVER_KEYS } from '../../shared/keys';
-import { mergeBrandModels, mergeCatalogLots, type PendingTypeEdit } from '../logic/catalog';
+import { mergeCatalogLots, mergeLotDetails, type PendingTypeEdit } from '../logic/catalog';
 import { errorMessage } from '../logic/util';
 import {
   fetchCatalog,
@@ -23,6 +23,7 @@ import {
   fetchedAt,
   loaded,
   lotBrands,
+  lotDescriptions,
   lotModels,
   lots,
   progress,
@@ -62,9 +63,15 @@ function applyStatus(s: PullStatus) {
 export function applyCatalog(r: CatalogReply) {
   batch(() => {
     applyStatus(r);
-    const { brands, models } = mergeBrandModels(lotBrands.peek(), lotModels.peek(), r.lots);
+    const { brands, models, descriptions } = mergeLotDetails(
+      lotBrands.peek(),
+      lotModels.peek(),
+      lotDescriptions.peek(),
+      r.lots,
+    );
     lotBrands.value = brands;
     lotModels.value = models;
+    lotDescriptions.value = descriptions;
     for (const [id, edit] of typeEdits) {
       if (r.seq >= edit.seq) {
         typeEdits.delete(id);

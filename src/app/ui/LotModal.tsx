@@ -29,6 +29,7 @@ import { LoginLink } from './Auth';
 import { BrandModel } from './Brands';
 import { Dialog } from './Dialog';
 import { openHandler } from './dom';
+import { Highlight } from './Highlight';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
 import { ListingRow } from './ListingRow';
@@ -254,7 +255,11 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           {error && <p class="error">Couldn’t refresh auction data: {error}</p>}
           {!metadata && !error && !metadataError && <p class="muted">Loading details…</p>}
           {refreshing && metadata && <p class="muted">Refreshing auction data…</p>}
-          {description && <div class="description">{description}</div>}
+          {description && (
+            <div class="description">
+              <Highlight text={description} description />
+            </div>
+          )}
           {lot.pastCloses && <PastCloses lot={lot} />}
           {auction && (
             <>

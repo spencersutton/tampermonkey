@@ -56,6 +56,7 @@ export interface PastClose {
 export interface Lot extends RawLot {
   brand?: Nullable<string>; // server-cached detail; absent until fetched, null when no brand is provided
   model?: Nullable<string>; // same cache semantics as brand
+  description?: Nullable<string>; // same cache semantics as brand (cleaned by parseLotDescription)
   firstSeenAt?: number | undefined; // epoch ms when a full pull first saw this lot (0 = already there on the first pull)
   itemType?: string | undefined; // what the item is ("pressure washer"), named by the LLM or corrected manually; missing until assigned
   pastCloses?: { n: number; recent: PastClose[] } | undefined; // closed lots with the same or a similar name (most recent first); missing if none

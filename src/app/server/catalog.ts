@@ -6,7 +6,7 @@
 import { batch, signal } from '@preact/signals';
 
 import { MINUTE } from '../../shared/constants';
-import type { LotMetadata } from '../../shared/lot';
+import { parseLotDescription, type LotMetadata } from '../../shared/lot';
 import type { LotDetail } from '../types';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
@@ -101,9 +101,10 @@ export function loadMetadata(lot: Pick<Lot, 'id' | 'auction_period'>): Promise<L
   return promise;
 }
 
-/** Brands from server-cached or newly fetched details; null means the site supplied no brand. */
+/** Details from server-cached or newly fetched lot pages; null means the site supplied none. */
 export const lotBrands = signal(new Map<number, string | null>());
 export const lotModels = signal(new Map<number, string | null>());
+export const lotDescriptions = signal(new Map<number, string | null>());
 
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
 export function loadDetail(
@@ -131,9 +132,14 @@ export function loadDetail(
         images: d.images,
       });
       details.set(lot.id, { at: Date.now(), data: d });
+      const { description: cleanedDesc } = parseLotDescription(d.description);
       batch(() => {
         lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
         lotModels.value = new Map(lotModels.peek()).set(lot.id, d.model?.trim() || null);
+        lotDescriptions.value = new Map(lotDescriptions.peek()).set(
+          lot.id,
+          cleanedDesc?.trim() || null,
+        );
       });
       // oxlint-disable-next-line no-unused-vars
       const { description, brand, model, lot_fee, bid_history, similar, ...base } = d;

@@ -6,6 +6,7 @@
 //   "cordless drill"         an exact phrase
 //   brand:dewalt model:dcd   restrict a term to one field (quote multi-word values)
 //   type:"pressure washer"   restrict a term to the item type
+//   desc:brushless           restrict a term to the lot description
 //   -refurbished             exclude lots containing the word
 //
 // Plain words also match their singular/plural forms ("drills" finds "drill")
@@ -13,7 +14,7 @@
 // where a word matched (item type and brand count more than the title) and how
 // (a whole word counts more than part of one).
 
-export type Field = 'brand' | 'model' | 'type';
+export type Field = 'brand' | 'model' | 'type' | 'desc';
 
 export interface Term {
   field: Field | null;
@@ -29,16 +30,21 @@ export interface SearchDoc {
   brand?: Nullable<string>;
   model?: Nullable<string>;
   itemType?: string | undefined;
+  description?: Nullable<string>;
 }
 
-const TERM_RE = /(?:^|\s+)(-(?=\S))?(?:(brand|model|type):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g;
+const TERM_RE =
+  /(?:^|\s+)(-(?=\S))?(?:(brand|model|type|desc):\s*)?("(?:\\.|[^"\\])*"(?=\s|$)|\S+)/g;
 
 /** Split a query into terms. Blank input gives no terms. */
 export function parseQuery(query: string): Term[] {
   return Array.from(query.toLowerCase().matchAll(TERM_RE), ([, neg, field, raw = '']) => {
     const phrase = raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"');
     return {
-      field: field === 'brand' || field === 'model' || field === 'type' ? field : null,
+      field:
+        field === 'brand' || field === 'model' || field === 'type' || field === 'desc'
+          ? field
+          : null,
       value: phrase ? raw.slice(1, -1).replace(/\\(["\\])/g, '$1') : raw,
       phrase,
       negate: Boolean(neg),
@@ -148,9 +154,17 @@ export function matchQuality(hay: string, needle: string): number {
   return best;
 }
 
-const WEIGHTS = { itemType: 6, brand: 5, model: 4, lotNumber: 4, title: 3 } as const;
+const WEIGHTS = {
+  itemType: 6,
+  brand: 5,
+  model: 4,
+  lotNumber: 4,
+  title: 3,
+  description: 1.5,
+} as const;
 type DocField = keyof typeof WEIGHTS;
-const DOC_FIELDS: DocField[] = ['itemType', 'brand', 'model', 'lotNumber', 'title'];
+const BASE_FIELDS: DocField[] = ['itemType', 'brand', 'model', 'lotNumber', 'title'];
+const ALL_FIELDS: DocField[] = [...BASE_FIELDS, 'description'];
 
 /** A document's fields, lowercased, ready for matching. */
 export interface PreparedDoc {
@@ -159,8 +173,10 @@ export interface PreparedDoc {
   brand: string;
   model: string;
   itemType: string;
-  all: string; // every field, space separated
-  stems: Partial<Record<DocField, string>>; // title and item type with each word singular
+  description: string;
+  all: string; // base fields, space separated
+  allWithDesc: string; // base fields + description, space separated
+  stems: Partial<Record<DocField, string>>; // title, item type and description with each word singular
 }
 
 const stemWords = (text: string) => text.replace(/[\p{L}\p{N}]+/gu, stem);
@@ -172,14 +188,22 @@ export function prepareDoc(doc: SearchDoc): PreparedDoc {
   const brand = (doc.brand ?? '').toLowerCase();
   const model = (doc.model ?? '').toLowerCase();
   const itemType = (doc.itemType ?? '').toLowerCase();
+  const description = (doc.description ?? '').toLowerCase();
+  const all = [`${title} ${lotNumber}`, brand, model, itemType].filter(Boolean).join(' ');
   return {
     title,
     lotNumber,
     brand,
     model,
     itemType,
-    all: [`${title} ${lotNumber}`, brand, model, itemType].filter(Boolean).join(' '),
-    stems: { title: stemWords(title), itemType: stemWords(itemType) },
+    description,
+    all,
+    allWithDesc: description ? `${all} ${description}` : all,
+    stems: {
+      title: stemWords(title),
+      itemType: stemWords(itemType),
+      description: description ? stemWords(description) : '',
+    },
   };
 }
 
@@ -187,6 +211,7 @@ const FIELD_OF: Record<Field, DocField> = {
   brand: 'brand',
   model: 'model',
   type: 'itemType',
+  desc: 'description',
 };
 
 /** MatchQuality, except one or two letters inside a word ("ac" in "back") don't count. */
@@ -223,17 +248,18 @@ function termFieldScore(term: Term, text: string, stems: string | undefined, wei
 }
 
 /** Score of one term across the document (0 means it doesn't match). */
-function termScore(term: Term, doc: PreparedDoc): number {
+function termScore(term: Term, doc: PreparedDoc, includeDescription = false): number {
   if (term.field) {
     const f = FIELD_OF[term.field];
     return termFieldScore(term, doc[f], doc.stems[f], WEIGHTS[f]);
   }
   let best = 0;
-  for (const f of DOC_FIELDS) {
+  for (const f of includeDescription ? ALL_FIELDS : BASE_FIELDS) {
     best = Math.max(best, termFieldScore(term, doc[f], doc.stems[f], WEIGHTS[f]));
   }
+  const hay = includeDescription ? doc.allWithDesc : doc.all;
   // Plain substring anywhere (e.g. across a title/lot-number boundary) still counts a little.
-  return best || (term.value.length > 2 && doc.all.includes(term.value) ? 0.5 : 0);
+  return best || (term.value.length > 2 && hay.includes(term.value) ? 0.5 : 0);
 }
 
 /** A compiled query: `score` returns null when the document doesn't match. */
@@ -243,8 +269,13 @@ export interface CompiledQuery {
   score: (doc: PreparedDoc) => number | null;
 }
 
+export interface SearchOptions {
+  includeDescription?: boolean;
+}
+
 /** Compile a plain (non-regex) query. */
-export function compileQuery(query: string): CompiledQuery {
+export function compileQuery(query: string, opts: SearchOptions = {}): CompiledQuery {
+  const includeDesc = Boolean(opts.includeDescription);
   const terms = parseQuery(query);
   const positive = terms.filter(t => !t.negate);
   const negative = terms.filter(t => t.negate && t.value);
@@ -261,24 +292,27 @@ export function compileQuery(query: string): CompiledQuery {
         if (!term.value) {
           return null;
         }
-        const s = termScore(term, doc);
+        const s = termScore(term, doc, includeDesc);
         if (!s) {
           return null;
         }
         total += s;
       }
       for (const term of negative) {
-        const text = term.field ? doc[FIELD_OF[term.field]] : doc.all;
+        const allText = includeDesc ? doc.allWithDesc : doc.all;
+        const text = term.field ? doc[FIELD_OF[term.field]] : allText;
         if (matchQuality(text, term.value) >= 0.7) {
           return null;
         }
       }
-      // Bonus when the plain words appear together, in order, in the title or item type.
+      // Bonus when the plain words appear together, in order, in the title, item type or description.
       if (words.includes(' ')) {
         if (doc.itemType === words) {
           total += 8;
         } else if (doc.title.includes(words) || doc.itemType.includes(words)) {
           total += 4;
+        } else if (includeDesc && doc.description.includes(words)) {
+          total += 2;
         }
       }
       return total;
@@ -291,10 +325,17 @@ export function compileQuery(query: string): CompiledQuery {
 // ---------------------------------------------------------------------------
 
 /** Word frequencies across a set of documents, for spelling correction. */
-export function buildVocabulary(docs: Iterable<PreparedDoc>): Map<string, number> {
+export function buildVocabulary(
+  docs: Iterable<PreparedDoc>,
+  opts: SearchOptions = {},
+): Map<string, number> {
+  const includeDesc = Boolean(opts.includeDescription);
   const vocab = new Map<string, number>();
   for (const d of docs) {
-    for (const w of `${d.title} ${d.brand} ${d.itemType}`.split(/[^\p{L}\p{N}]+/u)) {
+    const text = includeDesc
+      ? `${d.title} ${d.brand} ${d.itemType} ${d.description}`
+      : `${d.title} ${d.brand} ${d.itemType}`;
+    for (const w of text.split(/[^\p{L}\p{N}]+/u)) {
       if (w.length >= 3 && !/^\d+$/.test(w)) {
         vocab.set(w, (vocab.get(w) ?? 0) + 1);
       }
@@ -357,13 +398,15 @@ export function correctQuery(
   query: string,
   docs: PreparedDoc[],
   vocab: Map<string, number>,
+  opts: SearchOptions = {},
 ): string | null {
+  const includeDesc = Boolean(opts.includeDescription);
   const terms = parseQuery(query);
   const fixed = terms.map(t => {
     if (t.phrase || t.negate || t.field === 'model' || !t.value) {
       return t;
     }
-    if (docs.some(d => termScore(t, d) > 0)) {
+    if (docs.some(d => termScore(t, d, includeDesc) > 0)) {
       return t;
     }
     const better = correctWord(t.value, vocab);

@@ -13,7 +13,7 @@ import { totalCost } from '../../shared/cost';
 import { buildRegexes, filterMatches } from '../../shared/filters';
 import { type CustomCategory, type HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
-import { itemIdentity, type ItemDetails } from '../../shared/names';
+import { itemDescription, itemIdentity, type ItemDetails } from '../../shared/names';
 import {
   buildVocabulary,
   compileQuery,
@@ -134,6 +134,7 @@ export interface ViewState {
   sort: SortId;
   search: string;
   searchRegex: boolean; // the search box holds a case-insensitive regex rather than words
+  searchDescriptions: boolean; // also match lot descriptions
   categories: string[];
   types: string[]; // item types (lowercase)
   excludedTypes: string[]; // item types to exclude (lowercase)
@@ -156,6 +157,7 @@ export const DEFAULT_VIEW: ViewState = {
   sort: 'relevance',
   search: '',
   searchRegex: false,
+  searchDescriptions: false,
   categories: [],
   types: [],
   excludedTypes: [],
@@ -599,7 +601,8 @@ export function computeView(
   let { rows, counts } = run(view);
   if (!rows.length && !view.searchRegex && view.search.trim() && candidates.length) {
     const docs = candidates.map(r => docOf(r.lot, details));
-    const fixed = correctQuery(view.search, docs, buildVocabulary(docs));
+    const searchOpts = { includeDescription: view.searchDescriptions };
+    const fixed = correctQuery(view.search, docs, buildVocabulary(docs, searchOpts), searchOpts);
     if (fixed) {
       const retry = run({ ...view, search: fixed });
       if (retry.rows.length) {
@@ -728,17 +731,23 @@ export function searchRegexOf(v: ViewState): RegExp | null {
   }
 }
 
-/** Prepared search text per lot, reused until the lot or its brand/model changes. */
+/** Prepared search text per lot, reused until the lot or its cached details change. */
 const docCache = new WeakMap<
   Lot,
-  { brand: Nullable<string>; model: Nullable<string>; doc: PreparedDoc }
+  {
+    brand: Nullable<string>;
+    model: Nullable<string>;
+    description: Nullable<string>;
+    doc: PreparedDoc;
+  }
 >();
 
-/** A lot's searchable fields, with brand and model from the newest detail cache. */
+/** A lot's searchable fields, with brand, model and description from the newest detail cache. */
 function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
   const { brand, model } = itemIdentity(lot, details);
+  const description = itemDescription(lot, details);
   const hit = docCache.get(lot);
-  if (hit && hit.brand === brand && hit.model === model) {
+  if (hit && hit.brand === brand && hit.model === model && hit.description === description) {
     return hit.doc;
   }
   const doc = prepareDoc({
@@ -747,8 +756,9 @@ function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
     brand,
     model,
     itemType: lot.itemType,
+    description,
   });
-  docCache.set(lot, { brand, model, doc });
+  docCache.set(lot, { brand, model, description, doc });
   return doc;
 }
 
@@ -757,9 +767,10 @@ function docOf(lot: Lot, details?: ItemDetails): PreparedDoc {
  * when it doesn't match.
  */
 export function makeSearch(
-  v: Pick<ViewState, 'search' | 'searchRegex'>,
+  v: Pick<ViewState, 'search' | 'searchRegex'> & { searchDescriptions?: boolean },
   details?: ItemDetails,
 ): (lot: Lot) => number | null {
+  const includeDescription = Boolean(v.searchDescriptions);
   if (v.searchRegex) {
     if (!v.search.trim()) {
       return () => 0;
@@ -773,13 +784,14 @@ export function makeSearch(
     }
     return lot => {
       const { brand, model } = itemIdentity(lot, details);
-      const hay = [`${lot.title} ${lot.lot_number}`, brand, model, lot.itemType]
+      const description = includeDescription ? itemDescription(lot, details) : null;
+      const hay = [`${lot.title} ${lot.lot_number}`, brand, model, lot.itemType, description]
         .filter(Boolean)
         .join(' ');
       return re.test(hay) ? 1 : null;
     };
   }
-  const query = compileQuery(v.search);
+  const query = compileQuery(v.search, { includeDescription });
   if (query.empty) {
     return () => 0;
   }

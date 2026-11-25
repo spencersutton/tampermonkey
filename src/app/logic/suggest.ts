@@ -88,6 +88,7 @@ export function suggest(
   now: number,
   hidden: Record<string, HiddenLot>,
   details?: ItemDetails,
+  searchDescriptions = false,
 ): Suggestions {
   const query = text.trim().toLowerCase().replace(/\s+/g, ' ');
   const none = { query, types: [], brands: [], tags: [], categories: [], lots: [] };
@@ -97,7 +98,7 @@ export function suggest(
   }
   const words = query.split(' ');
 
-  const score = makeSearch({ search: query, searchRegex: false }, details);
+  const score = makeSearch({ search: query, searchRegex: false, searchDescriptions }, details);
   const top: { lot: Lot; s: number }[] = [];
   for (const lot of lots) {
     if (endsAtMs(lot) <= now || hidden[lot.id]) {

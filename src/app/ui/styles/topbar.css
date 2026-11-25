@@ -33,7 +33,7 @@
 
 .search {
   flex: 1;
-  padding-right: 44px;
+  padding-right: 92px;
 }
 
 .search.has-error,
@@ -42,10 +42,15 @@
   outline-color: var(--bad);
 }
 
-.regex-toggle {
+.search-toggles {
   position: absolute;
   right: 5px;
   top: 5px;
+  display: flex;
+  gap: 3px;
+}
+
+.search-toggle {
   height: 28px;
   min-width: 32px;
   padding: 0 6px;
@@ -54,18 +59,18 @@
   background: none;
   color: var(--muted);
   font:
-    600 13px ui-monospace,
+    600 12px ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
   cursor: pointer;
 }
 
-.regex-toggle:hover {
+.search-toggle:hover {
   background: var(--hover);
 }
 
-.regex-toggle.on {
+.search-toggle.on {
   color: var(--primary);
   border-color: var(--primary);
 }

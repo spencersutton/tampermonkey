@@ -120,6 +120,25 @@ test('best match ranks item type and whole-word matches above incidental ones', 
   assert.equal(titles(run(items, { search: 'saw', sort: 'title-asc' }))[0], '20V Compact Saw Kit');
 });
 
+test('best match ranks title matches above description-only matches and corrects description typos', () => {
+  const items = [
+    lot('Tool Kit', {
+      description: 'Includes brushless motor and carrying case',
+      ends_at: new Date(now + 5 * 60_000).toISOString(),
+    }),
+    lot('Brushless Impact Driver', { description: 'Compact 20V driver' }),
+  ];
+  assert.deepEqual(titles(run(items, { search: 'brushless', searchDescriptions: true })), [
+    'Brushless Impact Driver',
+    'Tool Kit',
+  ]);
+  const corrected = run(items, { search: 'brushles', searchDescriptions: true });
+  assert.equal(corrected.correctedSearch, null, 'prefix already matches');
+  const typo = run(items, { search: 'brushelss', searchDescriptions: true });
+  assert.equal(typo.correctedSearch, 'brushless');
+  assert.deepEqual(titles(typo), ['Brushless Impact Driver', 'Tool Kit']);
+});
+
 test('a misspelt search that matches nothing runs the corrected search instead', () => {
   const items = [lot('Cordless Drill'), lot('Drill Press'), lot('Circular Saw')];
   const result = run(items, { search: 'cordelss drlil' });

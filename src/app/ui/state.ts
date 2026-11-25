@@ -27,7 +27,7 @@ import {
 import { fetchPickupLocation } from '../server/api';
 import { isAuthenticated } from '../server/auth';
 import type { BidRequest } from '../server/bid';
-import { getLot, lotBrands, lotModels, lots, rev } from '../server/catalog';
+import { getLot, lotBrands, lotDescriptions, lotModels, lots, rev } from '../server/catalog';
 import { clock } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { settingsReady } from '../server/source';
@@ -204,7 +204,11 @@ export const page = signal(1);
 export const onScreen = signal<number[]>([]);
 
 // Closed lots drop out on a 30 s clock; countdowns tick on their own.
-const searchDetails = computed(() => ({ brands: lotBrands.value, models: lotModels.value }));
+const searchDetails = computed(() => ({
+  brands: lotBrands.value,
+  models: lotModels.value,
+  descriptions: lotDescriptions.value,
+}));
 /** The grid: lots through the view's filters and sort, recomputed on every lot update. */
 export const gridView = computed(() => {
   void rev.value; // subscribe to in-place lot updates
@@ -244,6 +248,7 @@ export const suggestions = computed(() =>
     clock(30_000),
     exclusionRules.value.hidden,
     searchDetails.value,
+    storedView.value.searchDescriptions,
   ),
 );
 
