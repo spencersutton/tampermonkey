@@ -4,7 +4,6 @@
 import { useRef, useState } from 'preact/hooks';
 
 import { CDN } from '../../shared/constants';
-import { dollars } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { KEYS } from '../../shared/keys';
 import { searchOptionsFor, type SearchOption } from '../logic/suggest';
@@ -248,7 +247,7 @@ function OptionBody({ option: o }: { option: SearchOption }) {
         <>
           {thumb}
           <span class="search-option-label">{o.lot.title}</span>
-          <span class="search-option-price">{dollars(o.lot.current_price)}</span>
+          <span class="search-option-price">{format.dollars(o.lot.current_price)}</span>
         </>
       );
     }

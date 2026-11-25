@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 
 import { attrKey, extractAttrs } from '../../shared/attrs';
 import { CDN } from '../../shared/constants';
-import { costBreakdown, dollars, money } from '../../shared/cost';
+import { costBreakdown } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs, type LotMetadata } from '../../shared/lot';
@@ -201,12 +201,12 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
           />
           <div class="modal-price">
             <div>
-              <div class="price big">{dollars(lot.current_price)}</div>
+              <div class="price big">{format.dollars(lot.current_price)}</div>
               <div class="muted small">Current bid · {plural(lot.bid_count, 'bid')}</div>
             </div>
             <div>
               <div class="total big" title={costBreakdown(lot.current_price, row.transferFee)}>
-                ≈ {money(row.total)}
+                ≈ {format.money(row.total)}
               </div>
               <div class="muted small">Estimated total</div>
             </div>
@@ -221,14 +221,14 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
             <StandingBadge lot={lot} />
             {lot.your_standing?.your_max_bid != null && (
               <span class="muted small">
-                Your max bid {dollars(lot.your_standing.your_max_bid)}
+                Your max bid {format.dollars(lot.your_standing.your_max_bid)}
               </span>
             )}
             <span class="muted small">
-              Retail {dollars(lot.estimated_retail_price)}
+              Retail {format.dollars(lot.estimated_retail_price)}
               {row.retailPct != null && ` (${Math.round(row.retailPct * 100)}%)`}
             </span>
-            <span class="muted small">Next min bid {dollars(lot.next_min_increment)}</span>
+            <span class="muted small">Next min bid {format.dollars(lot.next_min_increment)}</span>
           </div>
           <BidPanel key={`${lot.id}:${lot.your_standing?.your_max_bid}`} row={row} />
           <div class="row-gap">
@@ -266,7 +266,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
                     {auction.bid_history.map(b => (
                       <li class={b.is_you ? 'you' : ''}>
                         <span>{b.is_you ? 'You' : b.bidder_label}</span>
-                        <span>{dollars(b.amount)}</span>
+                        <span>{format.dollars(b.amount)}</span>
                       </li>
                     ))}
                   </ol>
@@ -392,7 +392,7 @@ function Similar({
                 <span class="similar-img">{thumb}</span>
                 <span class="similar-title">{l.title}</span>
                 <span class="similar-meta">
-                  <span class="price">{dollars(l.current_price)}</span>
+                  <span class="price">{format.dollars(l.current_price)}</span>
                   <TimeLeft endsAt={endsAtMs(l)} />
                 </span>
               </a>
@@ -440,7 +440,7 @@ function PastCloses({ lot }: { lot: Lot }) {
             {p && (
               <span class="muted small">
                 {' '}
-                · usually {dollars(p.median)}
+                · usually {format.dollars(p.median)}
                 {p.sameCondition ? ` (${lot.condition.display_name})` : ''}
               </span>
             )}
@@ -463,7 +463,7 @@ function PastCloses({ lot }: { lot: Lot }) {
                 return (
                   <li>
                     <span class="price" title={priceTitle}>
-                      {c.sold ? dollars(c.price) : 'No sale'}
+                      {c.sold ? format.dollars(c.price) : 'No sale'}
                       {!c.final && '*'}
                     </span>
                     <span class="past-what muted small">
@@ -540,7 +540,7 @@ function BidPanel({ row }: { row: Row }) {
   } else if (error) {
     hint = error;
   } else if (leading) {
-    hint = `You’re winning. Raise your max to ${dollars(min)} or more.`;
+    hint = `You’re winning. Raise your max to ${format.dollars(min)} or more.`;
   }
 
   const submit = (e: Event) => {
@@ -581,7 +581,7 @@ function BidPanel({ row }: { row: Row }) {
             }
             title="Bid the next increment now"
           >
-            Bid {dollars(quick)}
+            Bid {format.dollars(quick)}
           </button>
         )}
       </div>

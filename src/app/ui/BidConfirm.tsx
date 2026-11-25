@@ -2,7 +2,8 @@
 // warning when the lot isn't at your pickup location.
 import { useState } from 'preact/hooks';
 
-import { costBreakdown, dollars, money, totalCost } from '../../shared/cost';
+import { costBreakdown, totalCost } from '../../shared/cost';
+import * as format from '../../shared/format';
 import { endsAtMs } from '../../shared/lot';
 import { bidBlocker, minMaxBid, quickBidAmount } from '../logic/bid';
 import { plural } from '../logic/util';
@@ -58,17 +59,17 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
         <div id="bid-confirm-body" class="confirm-body">
           <p class="confirm-lot">{lot.title}</p>
           <div class="confirm-amount">
-            <span class="big">{dollars(amount)}</span>
+            <span class="big">{format.dollars(amount)}</span>
             <span class="muted small">{bidHint}</span>
           </div>
           <dl class="confirm-facts">
             <dt>{isMax ? 'Total if you win at your max' : 'Total if you win at this bid'}</dt>
             <dd title={costBreakdown(amount, row.transferFee)}>
-              ≈ {money(totalCost(amount, row.transferFee))}
+              ≈ {format.money(totalCost(amount, row.transferFee))}
             </dd>
             <dt>Current bid</dt>
             <dd>
-              {dollars(lot.current_price)} · {plural(lot.bid_count, 'bid')}
+              {format.dollars(lot.current_price)} · {plural(lot.bid_count, 'bid')}
             </dd>
             <dt>Ends</dt>
             <dd>
@@ -77,7 +78,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
             {lot.your_standing?.your_max_bid != null && (
               <>
                 <dt>Your current max</dt>
-                <dd>{dollars(lot.your_standing.your_max_bid)}</dd>
+                <dd>{format.dollars(lot.your_standing.your_max_bid)}</dd>
               </>
             )}
           </dl>
@@ -89,16 +90,16 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
           {!row.pickupOnly && row.transferFee > 0 && (
             <p class="confirm-warn">
               This lot is at <b>{elsewhere}</b>. It will be transferred to {pickup} for{' '}
-              {money(row.transferFee)} (included in the total).
+              {format.money(row.transferFee)} (included in the total).
             </p>
           )}
           {blocker && <p class="error">{blocker}</p>}
           {!blocker && stale && (
             <p class="confirm-warn">
               The price moved: the {isMax ? 'smallest max bid' : 'next bid'} is now{' '}
-              <b>{dollars(min)}</b>.{' '}
+              <b>{format.dollars(min)}</b>.{' '}
               <button type="button" class="btn-text" onClick={() => setAmount(min)}>
-                Use {dollars(min)}
+                Use {format.dollars(min)}
               </button>
             </p>
           )}
@@ -114,7 +115,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
             onClick={confirm}
             aria-disabled={disabled ? 'true' : undefined}
           >
-            {pending ? 'Placing bid…' : `Place ${dollars(amount)} bid`}
+            {pending ? 'Placing bid…' : `Place ${format.dollars(amount)} bid`}
           </button>
         </div>
       </div>

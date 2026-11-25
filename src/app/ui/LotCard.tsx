@@ -2,7 +2,7 @@ import { memo } from 'preact/compat';
 import { useCallback } from 'preact/hooks';
 
 import { CDN } from '../../shared/constants';
-import { costBreakdown, dollars, money } from '../../shared/cost';
+import { costBreakdown } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
@@ -52,7 +52,7 @@ export function LocationText({ row }: { row: Row }) {
   }
   if (row.transferFee) {
     return (
-      <span title={`Transfer to your pickup location for ${money(row.transferFee)}`}>
+      <span title={`Transfer to your pickup location for ${format.money(row.transferFee)}`}>
         {name} · transfer
       </span>
     );
@@ -135,7 +135,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   if (lot.estimated_retail_price) {
     retail = (
       <span>
-        Retail {dollars(lot.estimated_retail_price)}
+        Retail {format.dollars(lot.estimated_retail_price)}
         {row.retailPct != null && (
           <span class="card-retail-pct" title="Current bid as a share of retail">
             {' '}
@@ -202,10 +202,10 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         <div class="card-summary">
           <div class="card-price">
             <span class="price" title="Current bid">
-              {dollars(lot.current_price)}
+              {format.dollars(lot.current_price)}
             </span>
             <span class="card-total" title={costBreakdown(lot.current_price, row.transferFee)}>
-              ≈ {money(row.total)} total
+              ≈ {format.money(row.total)} total
             </span>
             <CardBidButton row={row} />
           </div>
@@ -230,7 +230,7 @@ function DupeCount({ row }: { row: Row }) {
   const list = row.others
     .map(
       r =>
-        `${money(r.total)} total · ${r.lot.location.name} · ends ${format.shortTime(endsAtMs(r.lot))}`,
+        `${format.money(r.total)} total · ${r.lot.location.name} · ends ${format.shortTime(endsAtMs(r.lot))}`,
     )
     .join('\n');
   return (
@@ -256,11 +256,11 @@ function CheaperNote({ lead, cheaper }: { lead: Row; cheaper: Row }) {
     <button
       type="button"
       class="card-cheaper"
-      title={`Same item, ${condition.toLowerCase()}: ${dollars(cheaper.lot.current_price)} bid at ${where}, ends ${format.shortTime(endsAtMs(cheaper.lot))}`}
+      title={`Same item, ${condition.toLowerCase()}: ${format.dollars(cheaper.lot.current_price)} bid at ${where}, ends ${format.shortTime(endsAtMs(cheaper.lot))}`}
       onClick={() => openLot(cheaper.lot)}
     >
-      {condition} for <b>≈ {money(cheaper.total)}</b> total (save{' '}
-      {money(lead.total - cheaper.total)})
+      {condition} for <b>≈ {format.money(cheaper.total)}</b> total (save{' '}
+      {format.money(lead.total - cheaper.total)})
     </button>
   );
 }
@@ -278,7 +278,7 @@ function PastCloses({ lot, onOpen }: { lot: Lot; onOpen: (e: MouseEvent) => void
     <button type="button" class="card-past" title={title} onClick={onOpen}>
       {p && (
         <>
-          Sold before for <b>{dollars(p.median)}</b>
+          Sold before for <b>{format.dollars(p.median)}</b>
           {p.count > 1 && ` (median of ${p.count})`}
           {!p.sameCondition && ' in another condition'}
         </>
@@ -329,7 +329,7 @@ function CardBidButton({ row }: { row: Row }) {
       onClick={() => modalActions.startBid({ lotId: lot.id, amount, type: 'next_increment' })}
       title="Bid the next increment (asks to confirm)"
     >
-      Bid {dollars(amount)}
+      Bid {format.dollars(amount)}
     </button>
   );
 }

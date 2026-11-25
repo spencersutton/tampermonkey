@@ -1,4 +1,5 @@
-import { costBreakdown, dollars, money } from '../../shared/cost';
+import { costBreakdown } from '../../shared/cost';
+import { dollars, money } from '../../shared/format';
 import { endsAtMs } from '../../shared/lot';
 import { plural } from '../logic/util';
 import type { Row } from '../logic/view';

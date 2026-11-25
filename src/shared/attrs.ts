@@ -135,13 +135,6 @@ const unit = (name: string, re: RegExp, suffix: string, when?: RegExp): Rule => 
   when,
 ];
 
-/**
- * Finish adjectives used to disambiguate metallic finish names (brass, silver, stainless steel)
- * from unrelated words in titles.
- */
-const FINISH_MOD =
-  '(?:satin|polished|brushed|antique|vintage|warm|french|beige|modern|oil[ -]rubbed|cocoa|champagne|venetian|matte|aged|rustic|rubbed|blackened)';
-
 /** Context guard identifying bedding/mattress lots so `"Full"`/`"Twin"` aren't misclassified. */
 const BED_ITEM = /\b(?:box spring|bunk|bed|mattress|comforter|sheets?|pad)\b/i;
 

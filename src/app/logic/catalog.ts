@@ -1,5 +1,4 @@
 import { DAY } from '../../shared/constants';
-import { dollars } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
 import { lotHref, type HiddenLot } from '../../shared/keys';
@@ -115,7 +114,7 @@ export function cleanDescription(description: string): string {
 
 /** One past close as a line of text. */
 export const pastCloseText = (c: PastClose) =>
-  `${c.sold ? dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${format.shortDate(c.endsAt)}`;
+  `${c.sold ? format.dollars(c.price) : 'no sale'}${c.final ? '' : ' (last seen)'} · ${c.condition ?? 'Unknown'} · ${format.shortDate(c.endsAt)}`;
 
 /** Validate an item type name before saving. */
 export function itemTypeError(name: string): string | null {

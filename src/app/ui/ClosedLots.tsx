@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 
 import { CDN } from '../../shared/constants';
-import { costBreakdown, dollars, money, totalCost } from '../../shared/cost';
+import { costBreakdown, totalCost } from '../../shared/cost';
 import * as format from '../../shared/format';
 import { lotHref } from '../../shared/keys';
 import {
@@ -129,7 +129,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
                 {section === 'won' && lots.length > 0 && (
                   <span title="Each lot's winning bid plus the buyer's premium, lot fee and sales tax, plus the transfer fee for lots not at your pickup location">
                     {' '}
-                    · {dollars(bids)} in bids · ≈ {money(total)} with fees and tax
+                    · {format.dollars(bids)} in bids · ≈ {format.money(total)} with fees and tax
                   </span>
                 )}
                 {section === 'lost' && ' · the site keeps lost lots for 14 days'}
@@ -196,7 +196,7 @@ function ClosedRow(props: {
   if (won) {
     priceNote = (
       <span class="muted small" title={costBreakdown(c.final_price, fee)}>
-        ≈ {money(totalCost(c.final_price, fee))}
+        ≈ {format.money(totalCost(c.final_price, fee))}
       </span>
     );
   }
@@ -231,7 +231,7 @@ function ClosedRow(props: {
           </span>
         </div>
         <div class="closed-price">
-          <span class="price">{dollars(c.final_price)}</span>
+          <span class="price">{format.dollars(c.final_price)}</span>
           {priceNote}
         </div>
       </div>

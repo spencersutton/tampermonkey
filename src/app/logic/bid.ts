@@ -1,4 +1,4 @@
-import { dollars } from '../../shared/cost';
+import * as format from '../../shared/format';
 import { endsAtMs } from '../../shared/lot';
 import type { Lot } from '../types';
 
@@ -64,7 +64,7 @@ export function maxBidError(text: string, n: number | null, min: number): string
   if (!Number.isInteger(n)) {
     return 'Whole dollars only';
   }
-  return n < min ? `Must be at least ${dollars(min)}` : null;
+  return n < min ? `Must be at least ${format.dollars(min)}` : null;
 }
 
 /** Shorten a title for toast messages. */
