@@ -17,10 +17,20 @@ export interface RelayData {
 const CONNECT_TIMEOUT_MS = 15_000;
 
 /** A close code the WebSocket client API accepts (1000 or 3000–4999). */
-const clientCode = (code: number) =>
-  code === 1000 || (code >= 3000 && code <= 4999) ? code : 1000;
+const clientCode = (code: number) => {
+  if (code === 1000 || (code >= 3000 && code <= 4999)) {
+    return code;
+  }
+
+  return 1000;
+};
 /** A close code a server may send: codes reserved for "no status"/"abnormal"/"TLS" become 1011. */
-const serverCode = (code: number) => ([1005, 1006, 1015].includes(code) ? 1011 : code);
+const serverCode = (code: number) => {
+  if (code === 1005 || code === 1006 || code === 1015) {
+    return 1011;
+  }
+  return code;
+};
 
 /** Open the upstream connection; resolves once it's open, rejects if it can't be. */
 export function connectUpstream(url: string, protocols: string[]): Promise<WebSocket> {
