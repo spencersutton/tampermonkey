@@ -5,14 +5,14 @@
 // (cached for DETAIL_TTL).
 import { batch, signal } from '@preact/signals';
 
-import { MINUTE } from '../../shared/constants';
 import { parseLotDescription, type LotMetadata } from '../../shared/lot';
+import { within } from '../../shared/time';
 import type { LotDetail } from '../types';
 import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 
 /** How long a fetched lot detail is reused. */
-const DETAIL_TTL = 2 * MINUTE;
+const DETAIL_TTL = Temporal.Duration.from({ minutes: 2 });
 
 export interface SyncProgress {
   done: number;
@@ -66,7 +66,14 @@ export function updateItemType(ids: Iterable<number>, itemType: string) {
 }
 
 /** Lot detail cache (or the in-flight request), by lot id. */
-const details = new Map<number, { at: number; data?: LotDetail; promise?: Promise<LotDetail> }>();
+const details = new Map<
+  number,
+  {
+    at: Temporal.Instant;
+    data?: LotDetail;
+    promise?: Promise<LotDetail>;
+  }
+>();
 const metadata = new Map<number, LotMetadata>();
 const metadataRequests = new Map<number, Promise<LotMetadata | null>>();
 
@@ -131,7 +138,7 @@ export function loadDetail(
         lot_fee: d.lot_fee,
         images: d.images,
       });
-      details.set(lot.id, { at: Date.now(), data: d });
+      details.set(lot.id, { at: Temporal.Now.instant(), data: d });
       const { description: cleanedDesc } = parseLotDescription(d.description);
       batch(() => {
         lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
@@ -157,7 +164,7 @@ export function loadDetail(
       throw err;
     },
   );
-  details.set(lot.id, { at: Date.now(), promise });
+  details.set(lot.id, { at: Temporal.Now.instant(), promise });
   return promise;
 }
 
@@ -170,7 +177,7 @@ export function cachedDetail(id: number): LotDetail | undefined {
   const current = lots.peek().get(id);
   if (
     hit?.data &&
-    Date.now() - hit.at < DETAIL_TTL &&
+    within(hit.at, DETAIL_TTL) &&
     (!current || hit.data.version >= current.version)
   ) {
     return hit.data;

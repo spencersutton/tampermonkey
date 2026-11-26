@@ -1,4 +1,6 @@
-import { MINUTE } from '../shared/constants';
+import { brandModelKey } from '../shared/identity';
+import { cleanType } from '../shared/itemtype';
+import { byCode } from '../shared/sortKey';
 // Item types: a short plain name for what each lot is ("pressure washer",
 // "area rug"), so the app can sort lots by type and make a category of one type
 // in a click (a port of the Python server's itemtypes.py).
@@ -11,9 +13,7 @@ import { MINUTE } from '../shared/constants';
 // that category already uses, so the same kind of item gets the same name. A
 // failed request leaves the rest for the next run; lots without a type yet just
 // sort and categorize by title as before.
-import { brandModelKey } from '../shared/identity';
-import { cleanType } from '../shared/itemtype';
-import { byCode } from '../shared/sortKey';
+import { ms } from '../shared/time';
 import { prop } from './json';
 import { log, Waker } from './log';
 import { USER_AGENT } from './site';
@@ -23,8 +23,8 @@ export const DEFAULT_URL = 'https://nano-gpt.com/api/v1';
 export const DEFAULT_MODEL = 'mistralai/ministral-14b-instruct-2512';
 const BATCH = 40; // titles per request
 const VOCAB = 100; // types already in use sent with each request
-const RETRY_MS = 15 * MINUTE; // how often to try again after a failure, with no pull to wake it
-const TIMEOUT_MS = MINUTE;
+const RETRY = Temporal.Duration.from({ minutes: 15 }); // how often to try again after a failure, with no pull to wake it
+const TIMEOUT = Temporal.Duration.from({ minutes: 1 });
 
 const PROMPT = `You name the kind of item in lot titles from a liquidation auction (customer returns and overstock from home improvement and big-box stores).
 
@@ -83,7 +83,7 @@ export class Labeller {
       } catch (e) {
         log.error('item type labelling crashed', e); // keep the loop alive no matter what
       }
-      await this.waker.wait(RETRY_MS);
+      await this.waker.wait(RETRY);
     }
   }
 
@@ -167,7 +167,7 @@ export class Labeller {
           'User-Agent': USER_AGENT,
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(ms(TIMEOUT)),
       });
     } catch (e) {
       throw new LabelError(String(e));

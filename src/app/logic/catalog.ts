@@ -1,9 +1,9 @@
-import { DAY } from '../../shared/constants';
 import * as format from '../../shared/format';
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
 import { lotHref, type HiddenLot } from '../../shared/keys';
 import { endsAtMs, type PastClose } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
+import { ms } from '../../shared/time';
 import type { ViewState } from './view';
 
 export interface PendingTypeEdit {
@@ -144,14 +144,14 @@ export function itemTypeSuggestions(lots: Iterable<Lot>): string[] {
 }
 
 /** Before any visit was recorded, lots with more than this left are taken to be new. */
-const FIRST_VISIT_NEW_LEFT = 2 * DAY;
+const FIRST_VISIT_NEW_LEFT = Temporal.Duration.from({ days: 2 });
 
 /**
  * With no previous visit, start just before the earliest-seen lot that still has over
  * FIRST_VISIT_NEW_LEFT to go.
  */
 export function firstVisitSince(lots: Iterable<Lot>, now: number): number {
-  const newAfter = now + FIRST_VISIT_NEW_LEFT;
+  const newAfter = now + ms(FIRST_VISIT_NEW_LEFT);
   const first = Iterator.from(lots)
     .filter(l => endsAtMs(l) > newAfter)
     .reduce<number | null>((min, l) => Math.min(min ?? Infinity, l.firstSeenAt ?? 0), null);

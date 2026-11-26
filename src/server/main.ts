@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import '../shared/arrayToSet';
-import { MINUTE } from '../shared/constants';
+import { ms } from '../shared/time';
 import { createApp, LOCAL_HOSTS } from './app';
 import { Catalog } from './catalog';
 import { Details } from './details';
@@ -25,7 +25,7 @@ const env = (name: string) => process.env[name];
 const REPO = new URL('../../', import.meta.url).pathname;
 const STATIC_DIR = join(REPO, 'dist');
 const DEFAULT_DB = env('TLX_DB') ?? env('DATABASE_URL') ?? DEFAULT_DB_URL;
-const TOKEN_CHECK_MS = MINUTE; // refresh the token before it expires, for background pulls too
+const TOKEN_CHECK = Temporal.Duration.from({ minutes: 1 }); // refresh the token before it expires, for background pulls too
 
 const HELP = `Usage: npm run server -- [options]
 
@@ -121,7 +121,7 @@ async function main() {
     history.wake();
     labeller?.wake();
   };
-  setInterval(() => void session.token(), TOKEN_CHECK_MS);
+  setInterval(() => void session.token(), ms(TOKEN_CHECK));
 
   const app = createApp({
     store,

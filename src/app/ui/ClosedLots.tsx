@@ -51,7 +51,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   const [filter, setFilter] = useState('');
   const [opening, setOpening] = useState<number | null>(null);
   const [modalLot, setModalLot] = useState<Lot | null>(null);
-  const now = clock(30_000);
+  const now = clock({ seconds: 30 });
 
   const relisted = useMemo(
     () => relistedRowsFor(data?.lots ?? [], catalogLots.value, now, pickup, exclusions),

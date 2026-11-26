@@ -4,6 +4,7 @@
 import { batch, computed, effect } from '@preact/signals';
 
 import { KEYS } from '../../shared/keys';
+import { ms } from '../../shared/time';
 import {
   isHistoryEntry,
   navFromUrl as parseNavUrl,
@@ -28,6 +29,9 @@ function record(nav: NavState) {
     history.replaceState(entry, '', url);
   }
 }
+
+/** Scroll positions are saved this long after scrolling stops. */
+const SCROLL_SAVE_DEBOUNCE = Temporal.Duration.from({ milliseconds: 200 });
 
 const current = computed((): NavState => ({
   view: storedView.value,
@@ -85,7 +89,7 @@ export function startHistory() {
         if (isHistoryEntry(history.state)) {
           history.replaceState({ ...history.state, scrollY: window.scrollY }, '');
         }
-      }, 200);
+      }, ms(SCROLL_SAVE_DEBOUNCE));
     },
     { passive: true },
   );

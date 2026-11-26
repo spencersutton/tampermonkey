@@ -1,5 +1,7 @@
 import { signal, type Signal } from '@preact/signals';
 
+import { ms } from '../../shared/time';
+
 /**
  * A set of ids (e.g. lots with a request in flight); reading it in a component re-renders that
  * component when it changes.
@@ -21,7 +23,7 @@ export function observableSet<T>() {
   };
 }
 
-/** One clock signal per interval; its timer runs only while something reads it. */
+/** One clock signal per interval (in ms); its timer runs only while something reads it. */
 const clocks = new Map<number, Signal<number>>();
 
 function createClock(every: number): Signal<number> {
@@ -40,9 +42,9 @@ function createClock(every: number): Signal<number> {
 }
 
 /**
- * Current time, updated every `every` ms; read in a component or computed, it re-runs them on each
- * tick.
+ * Current time in epoch ms, updated every `every`; read in a component or computed, it re-runs them
+ * on each tick.
  */
-export function clock(every = 1000): number {
-  return clocks.getOrInsertComputed(every, createClock).value;
+export function clock(every: Temporal.DurationLike = { seconds: 1 }): number {
+  return clocks.getOrInsertComputed(ms(Temporal.Duration.from(every)), createClock).value;
 }

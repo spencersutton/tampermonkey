@@ -1,16 +1,16 @@
+import type { RawLotDetail } from '../shared/lot';
 // Background lot detail fetcher: pulls the detail page for every new lot as
 // soon as a catalog pull sees it (and backfills any open lots still missing
 // one, one request at a time with a short pause between), so brands, models,
 // descriptions and images are ready right away even when no tab is open.
-import { MINUTE } from '../shared/constants';
-import type { RawLotDetail } from '../shared/lot';
+import { sleep as pause } from '../shared/time';
 import { isRecord } from './json';
 import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';
 import type { Store } from './store';
 
-export const DETAIL_PAUSE_MS = 500; // between detail requests
-export const RETRY_MS = 15 * MINUTE; // retry after a failure, with no pull to wake it
+export const DETAIL_PAUSE = Temporal.Duration.from({ milliseconds: 500 }); // between detail requests
+export const RETRY = Temporal.Duration.from({ minutes: 15 }); // retry after a failure, with no pull to wake it
 
 export type DetailsStore = Pick<Store, 'pendingDetails' | 'hasLotDetail' | 'saveLotDetail'>;
 
@@ -24,7 +24,7 @@ export class Details {
   constructor(
     private readonly store: DetailsStore,
     private readonly site: Pick<SiteApi, 'get'>,
-    private readonly sleep: (ms: number) => Promise<unknown> = Bun.sleep,
+    private readonly sleep: (d: Temporal.Duration) => Promise<unknown> = pause,
   ) {}
 
   wake(): void {
@@ -54,7 +54,7 @@ export class Details {
 
   async runForever(): Promise<never> {
     for (;;) {
-      await this.waker.wait(RETRY_MS);
+      await this.waker.wait(RETRY);
       try {
         await this.fetchMissing();
       } catch (e) {
@@ -109,7 +109,7 @@ export class Details {
         } catch (e) {
           if (e instanceof ApiError && e.status === 404) {
             this.missing.add(row.id);
-            await this.sleep(DETAIL_PAUSE_MS);
+            await this.sleep(DETAIL_PAUSE);
             continue;
           }
           log.warn(`lot details stopped after ${done} of ${total}: ${String(e)}`);
@@ -120,7 +120,7 @@ export class Details {
           await this.store.saveLotDetail(raw as unknown as RawLotDetail);
           done += 1;
         }
-        await this.sleep(DETAIL_PAUSE_MS);
+        await this.sleep(DETAIL_PAUSE);
       }
       log.info(`fetched ${done} lot details`);
       return done;

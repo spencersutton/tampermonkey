@@ -299,7 +299,7 @@ function AppDialogs() {
   const curModal = modal.value;
   const result = gridView.value;
   const pickup = pickupName.value;
-  const now30 = clock(30_000);
+  const now30 = clock({ seconds: 30 });
   const openLotObj = curOpenId != null ? getLot(curOpenId) : undefined;
   const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
 
@@ -406,7 +406,7 @@ const LIVE_LABELS: Record<LiveState, string> = {
 /** Catalog freshness, pull progress, live connection state and the manual refresh button. */
 function StatusBar() {
   const live = liveState.value;
-  const now = clock(1000);
+  const now = clock();
   const pull = progress.value;
   const lastFetch = fetchedAt.value;
   const nextPull = nextPullAt();

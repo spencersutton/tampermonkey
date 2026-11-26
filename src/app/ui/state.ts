@@ -1,7 +1,7 @@
 import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
-import { DAY, MINUTE } from '../../shared/constants';
 import { KEYS, siteUrl } from '../../shared/keys';
+import { ms, within } from '../../shared/time';
 // App-wide UI state as signals, the values derived from it, and the actions
 // that change it. Components read and call these directly instead of passing
 // state and callbacks down.
@@ -143,12 +143,13 @@ export const pickupName = computed(() => accountPickupName.value || 'Raleigh');
 export const storedView = computed(() => initialView(getSetting(KEYS.view)));
 export const searchDraft = signal('');
 const committedSearch = computed(() => storedView.value.search);
+const SEARCH_DEBOUNCE = Temporal.Duration.from({ milliseconds: 200 });
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function setSearchDraft(text: string) {
   searchDraft.value = text;
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => setView({ search: text }), 200);
+  searchTimer = setTimeout(() => setView({ search: text }), ms(SEARCH_DEBOUNCE));
 }
 
 export function resetSearch(text: string) {
@@ -217,7 +218,7 @@ export const gridView = computed(() => {
     storedView.value,
     pickupName.value,
     exclusionRules.value,
-    clock(30_000),
+    clock({ seconds: 30 }),
     searchDetails.value,
     filteredOnly.value,
   );
@@ -226,7 +227,7 @@ export const gridView = computed(() => {
 export const filterFacets = computed(() =>
   computeFacets(
     lots.value.values(),
-    clock(30_000),
+    clock({ seconds: 30 }),
     getSetting(KEYS.customCategories),
     searchDetails.value,
   ),
@@ -245,7 +246,7 @@ export const suggestions = computed(() =>
     searchDraft.value,
     filterFacets.value,
     lots.value.values(),
-    clock(30_000),
+    clock({ seconds: 30 }),
     exclusionRules.value.hidden,
     searchDetails.value,
     storedView.value.searchDescriptions,
@@ -274,7 +275,7 @@ export const searchStats = computed(() => {
     getSetting(KEYS.savedSearches),
     pickupName.value,
     exclusionRules.value,
-    clock(30_000),
+    clock({ seconds: 30 }),
     searchDetails.value,
   );
 });
@@ -282,7 +283,10 @@ export const searchStats = computed(() => {
 export const totalNew = computed(() => searchStats.value.values().sumBy(s => s.fresh));
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
-const VISIT_GAP = 30 * MINUTE;
+const VISIT_GAP = Temporal.Duration.from({ minutes: 30 });
+
+/** How long the account's pickup location is reused before asking the site again. */
+const PICKUP_TTL = Temporal.Duration.from({ days: 1 });
 
 /**
  * Lots first seen after this count as new: the start of the previous visit (a page load, or the tab
@@ -298,13 +302,13 @@ function trackVisits() {
     visitSince.value = lastVisit ?? firstVisitSince(lots.peek().values(), now);
     setSetting(KEYS.lastVisit, now);
   };
-  let hiddenAt = 0;
+  let hiddenAt: Temporal.Instant | null = null;
   void settingsReady.then(() => {
     visit();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
-        hiddenAt = Date.now();
-      } else if (hiddenAt && Date.now() - hiddenAt >= VISIT_GAP) {
+        hiddenAt = Temporal.Now.instant();
+      } else if (hiddenAt && !within(hiddenAt, VISIT_GAP)) {
         visit();
       }
     });
@@ -323,7 +327,7 @@ export function startApp() {
       return;
     }
     const acct = untracked(() => getSetting(KEYS.accountPickup));
-    if (!(acct && Date.now() - acct.at < DAY)) {
+    if (!(acct && within(Temporal.Instant.fromEpochMilliseconds(acct.at), PICKUP_TTL))) {
       fetchPickupLocation().then(
         p =>
           setSetting(KEYS.accountPickup, {

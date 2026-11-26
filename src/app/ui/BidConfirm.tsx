@@ -25,7 +25,7 @@ export function BidConfirm({ req, row, pickup, onClose }: Props) {
   const { lot } = row;
   const [amount, setAmount] = useState(req.amount);
   const pending = bidPending(lot.id);
-  const now = clock(1000);
+  const now = clock();
 
   const isMax = req.type === 'max_bid';
   const blocker = bidBlocker(row, isAuthenticated(), now);

@@ -3,8 +3,8 @@
 // first seen; this module fetches what changed and syncs shared SERVER_KEYS settings.
 import { batch, signal } from '@preact/signals';
 
-import { MINUTE } from '../../shared/constants';
 import { DEFAULTS, SERVER_KEYS } from '../../shared/keys';
+import { ms } from '../../shared/time';
 import { mergeCatalogLots, mergeLotDetails, type PendingTypeEdit } from '../logic/catalog';
 import { errorMessage } from '../logic/util';
 import {
@@ -35,9 +35,11 @@ import { toast } from './toast';
 export { fetchPastCloses };
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
-const POLL_PULLING = 2_000;
-const POLL_VISIBLE = 15_000;
-const POLL_HIDDEN = MINUTE;
+const POLL_PULLING = Temporal.Duration.from({ seconds: 2 });
+const POLL_VISIBLE = Temporal.Duration.from({ seconds: 15 });
+const POLL_HIDDEN = Temporal.Duration.from({ minutes: 1 });
+/** How soon to poll after asking for a pull, so the progress bar shows up. */
+const POLL_AFTER_REQUEST = Temporal.Duration.from({ milliseconds: 500 });
 
 /** Last catalog sequence applied here (0 = have nothing). */
 let seq = 0;
@@ -97,8 +99,8 @@ function setServerError(err: unknown) {
 let pollTimer: ReturnType<typeof setTimeout> | number | undefined;
 let polling: Promise<void> | null = null;
 
-const schedule = (fn: () => void, ms: number) =>
-  typeof window === 'undefined' ? setTimeout(fn, ms) : window.setTimeout(fn, ms);
+const schedule = (fn: () => void, wait: Temporal.Duration) =>
+  typeof window === 'undefined' ? setTimeout(fn, ms(wait)) : window.setTimeout(fn, ms(wait));
 
 /** Fetch catalog changes, load settings at startup, then schedule the next poll. */
 function poll(): Promise<void> {
@@ -127,8 +129,7 @@ function poll(): Promise<void> {
 export async function pullCatalog() {
   try {
     applyStatus(await requestPull());
-    // Poll soon so the progress bar shows up.
-    schedule(() => void poll(), 500);
+    schedule(() => void poll(), POLL_AFTER_REQUEST);
   } catch (err) {
     setServerError(err);
   }

@@ -1,17 +1,17 @@
 // Fetching and caching the site's "Closed Auctions" sections (Won / Lost).
-import { MINUTE } from '../../shared/constants';
+import { within } from '../../shared/time';
 import { errorMessage } from '../logic/util';
 import type { ClosedLot } from '../types';
 import { fetchClosed, type ClosedSection } from './api';
 
 /** A fetched section is shown again without refetching for this long. */
-const FRESH = 2 * MINUTE;
+const FRESH = Temporal.Duration.from({ minutes: 2 });
 
 export interface ClosedCache {
   lots: ClosedLot[];
   count: number; // what the site reports, while pages are still arriving
   done: boolean;
-  at: number;
+  at: Temporal.Instant;
   error?: string;
 }
 
@@ -30,7 +30,7 @@ export function loadClosedSection(
   onUpdate: (data: ClosedCache) => void,
 ): () => void {
   const hit = cache.get(section);
-  if (!authed || (hit && !hit.error && Date.now() - hit.at < FRESH)) {
+  if (!authed || (hit && !hit.error && within(hit.at, FRESH))) {
     return () => {};
   }
   const ac = new AbortController();
@@ -42,17 +42,17 @@ export function loadClosedSection(
   };
   fetchClosed(
     section,
-    (lots, count) => put({ lots, count, done: false, at: Date.now() }),
+    (lots, count) => put({ lots, count, done: false, at: Temporal.Now.instant() }),
     ac.signal,
   ).then(
-    lots => put({ lots, count: lots.length, done: true, at: Date.now() }),
+    lots => put({ lots, count: lots.length, done: true, at: Temporal.Now.instant() }),
     e =>
       !ac.signal.aborted &&
       put({
         lots: hit?.lots ?? [],
         count: 0,
         done: true,
-        at: 0,
+        at: Temporal.Now.instant(),
         error: errorMessage(e) || String(e),
       }),
   );

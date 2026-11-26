@@ -1,6 +1,8 @@
 // Small transient messages (bid results, save errors), stored as reactive state.
 import { signal } from '@preact/signals';
 
+import { ms } from '../../shared/time';
+
 export type ToastKind = 'good' | 'bad' | 'info';
 
 export interface Toast {
@@ -13,11 +15,15 @@ export interface Toast {
 export const toasts = signal<Toast[]>([]);
 let nextId = 1;
 
-/** Show a message for `ms` (errors stay up longer). */
-export function toast(kind: ToastKind, text: string, ms = kind === 'bad' ? 8000 : 4000) {
+/** Show a message for `shown` (errors stay up longer). */
+export function toast(
+  kind: ToastKind,
+  text: string,
+  shown = Temporal.Duration.from({ seconds: kind === 'bad' ? 8 : 4 }),
+) {
   const id = nextId++;
   toasts.value = [...toasts.value, { id, kind, text }].slice(-4);
-  setTimeout(() => dismissToast(id), ms);
+  setTimeout(() => dismissToast(id), ms(shown));
 }
 
 /** Remove a toast early (clicked) or when its time is up. */

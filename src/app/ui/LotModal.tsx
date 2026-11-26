@@ -368,7 +368,7 @@ function Similar({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
-  const now = clock(30_000);
+  const now = clock({ seconds: 30 });
   const open = openSimilarLots(lots, current.id, getLot, now);
   if (!open.length) {
     return null;
@@ -507,7 +507,7 @@ function PastCloses({ lot }: { lot: Lot }) {
 /** Bid controls in the popup: next-increment bid and a custom max bid. */
 function BidPanel({ row }: { row: Row }) {
   const { lot } = row;
-  const now = clock(1000);
+  const now = clock();
   const pending = bidPending(lot.id);
   const authed = isAuthenticated();
   const [value, setValue] = useState('');

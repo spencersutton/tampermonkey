@@ -1,3 +1,6 @@
+import { DEFAULT_SYNC_MINUTES, MIN_SYNC_MINUTES } from '../shared/constants';
+import { KEYS } from '../shared/keys';
+import { endsAtMs } from '../shared/lot';
 // Full catalog pulls, with load rules that keep requests to the site down (a
 // port of the Python server's catalog.py).
 //
@@ -14,16 +17,14 @@
 // already known for it (itemtypes.ts labels the rest after the pull) and gets
 // the past closes matching it (history.ts, which then asks the site for the
 // final prices of the lots that just left the catalog).
-import { DEFAULT_SYNC_MINUTES, MIN_SYNC_MINUTES, MINUTE } from '../shared/constants';
-import { KEYS } from '../shared/keys';
-import { endsAtMs } from '../shared/lot';
+import { ms } from '../shared/time';
 import type { History } from './history';
 import { log, Waker } from './log';
 import type { SiteSession } from './session';
 import { ApiError, LIST_PAGE_SIZE, type SiteApi } from './site';
 import type { CatalogMeta, Store } from './store';
 
-const CHECK_EVERY_MS = 15_000; // between checks whether a pull is due
+const CHECK_EVERY = Temporal.Duration.from({ seconds: 15 }); // between checks whether a pull is due
 const ACCOUNT_FIELDS = ['your_standing', 'is_watchlisted', 'has_bid'] as const;
 
 export interface Progress {
@@ -58,15 +59,17 @@ export class Catalog {
 
   // -- schedule -------------------------------------------------------------------
   /** Minimum time between full pulls, from the synced setting. */
-  async intervalMs(): Promise<number> {
+  async interval(): Promise<Temporal.Duration> {
     const m = await this.store.setting(KEYS.syncMinutes);
-    return Math.max(MIN_SYNC_MINUTES, typeof m === 'number' ? m : DEFAULT_SYNC_MINUTES) * MINUTE;
+    return Temporal.Duration.from({
+      minutes: Math.max(MIN_SYNC_MINUTES, typeof m === 'number' ? m : DEFAULT_SYNC_MINUTES),
+    });
   }
 
   /** Epoch ms when the next full pull is allowed. */
   async nextPullAt(meta?: CatalogMeta): Promise<number> {
     const m = meta ?? (await this.store.meta());
-    return m.pullStartedAt === null ? 0 : m.pullStartedAt + (await this.intervalMs());
+    return m.pullStartedAt === null ? 0 : m.pullStartedAt + ms(await this.interval());
   }
 
   async due(): Promise<boolean> {
@@ -87,7 +90,7 @@ export class Catalog {
 
   async runForever(): Promise<never> {
     for (;;) {
-      await this.waker.wait(CHECK_EVERY_MS);
+      await this.waker.wait(CHECK_EVERY);
       if (await this.due()) {
         try {
           await this.pull();

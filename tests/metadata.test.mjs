@@ -82,8 +82,8 @@ test('auction expiry and bid invalidation retain reusable metadata but not stale
   t.mock.method(globalThis, 'fetch', async () => Response.json(raw(102)));
   await loadDetail(lot(102));
   const item = cachedMetadata(102);
-  const now = Date.now();
-  t.mock.method(Date, 'now', () => now + 121_000);
+  const later = Temporal.Now.instant().add({ seconds: 121 });
+  t.mock.method(Temporal.Now, 'instant', () => later);
   assert.equal(cachedDetail(102), undefined);
   assert.equal(await loadMetadata(lot(102)), item);
   invalidateDetail(102);

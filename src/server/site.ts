@@ -1,6 +1,7 @@
 import { SITE } from '../shared/constants';
 // The site this server stands in for, and a client for its JSON API.
 import type { RawLot } from '../shared/lot';
+import { ms } from '../shared/time';
 import { isRecord, prop } from './json';
 
 export const WS_URL = 'wss://ws.triangleliquidators.com/connection/websocket';
@@ -20,7 +21,7 @@ export const BunWebSocket = WebSocket as unknown as new (
 
 export const BASE = `${SITE}/backend`;
 export const LIST_PAGE_SIZE = 100; // the API's maximum per_page
-const TIMEOUT_MS = 30_000;
+const TIMEOUT = Temporal.Duration.from({ seconds: 30 });
 
 /** A failed API request, with its HTTP status (0 = network error). */
 export class ApiError extends Error {
@@ -62,7 +63,7 @@ export class SiteApi {
     }
     let res: Response;
     try {
-      res = await this.fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      res = await this.fetch(url, { headers, signal: AbortSignal.timeout(ms(TIMEOUT)) });
     } catch (e) {
       throw new ApiError(`Network error for ${path}: ${String(e)}`, 0);
     }

@@ -1,11 +1,14 @@
 // Logging to stderr with a timestamp, like the Python server's.
+import { ms } from '../shared/time';
+
 let verbose = false;
 
 export function setVerbose(on: boolean) {
   verbose = on;
 }
 
-const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+const stamp = () =>
+  Temporal.Now.instant().toString({ smallestUnit: 'second' }).replace('T', ' ').slice(0, 19);
 
 export const log = {
   debug: (message: string) => {
@@ -32,14 +35,14 @@ export class Waker {
     this.resolve?.();
   }
 
-  /** Wait for wake(), or `ms` if given; clears the wake-up either way. */
-  async wait(ms?: number): Promise<void> {
+  /** Wait for wake(), or `timeout` if given; clears the wake-up either way. */
+  async wait(timeout?: Temporal.Duration): Promise<void> {
     if (!this.pending) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       await new Promise<void>(resolve => {
         this.resolve = resolve;
-        if (ms !== undefined) {
-          timer = setTimeout(resolve, ms);
+        if (timeout !== undefined) {
+          timer = setTimeout(resolve, ms(timeout));
         }
       });
       clearTimeout(timer);

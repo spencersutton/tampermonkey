@@ -5,6 +5,7 @@ import { computed, effect, signal, type ReadonlySignal } from '@preact/signals';
 import { Centrifuge, type SubscribedContext, type Subscription } from 'centrifuge';
 
 import { endsAtMs, type Standing } from '../../shared/lot';
+import { ms } from '../../shared/time';
 import { fetchWsToken } from './api';
 import { isAuthenticated, onAuthChange } from './auth';
 import { getLot, loadDetail, loaded, updateLot } from './catalog';
@@ -21,6 +22,8 @@ export type LiveState = 'off' | 'connecting' | 'connected' | 'disconnected';
 export const liveState = signal<LiveState>('off');
 /** Active `lot:{id}` channel subscriptions, by lot id. */
 const subs = new Map<number, Subscription>();
+/** How long the set of watched lots must settle before subscriptions change. */
+const WATCH_DEBOUNCE = Temporal.Duration.from({ milliseconds: 300 });
 
 const setState = (s: LiveState) => void (liveState.value = s);
 
@@ -162,7 +165,7 @@ export function startLiveWatch(
       return;
     }
     const ids = key ? key.split(',').map(Number) : [];
-    const t = setTimeout(() => void watchLots(ids).catch(() => {}), 300);
+    const t = setTimeout(() => void watchLots(ids).catch(() => {}), ms(WATCH_DEBOUNCE));
     return () => clearTimeout(t);
   });
 }

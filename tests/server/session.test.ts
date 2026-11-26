@@ -128,14 +128,14 @@ describe('SiteSession', () => {
     site.token = jwt(Date.now() / 1000 + 7200);
 
     // Advance past the token cookie's Max-Age so live() drops it while the session cookie remains.
-    const realNow = Date.now;
-    Date.now = () => realNow() + 5000;
+    const realNow = Temporal.Now.instant;
+    Temporal.Now.instant = () => realNow().add({ seconds: 5 });
     try {
       expect(s.loggedIn()).toBe(true);
       expect(await s.token()).toBe(site.token);
       expect(await s.token()).not.toBe(first);
     } finally {
-      Date.now = realNow;
+      Temporal.Now.instant = realNow;
     }
   });
 
@@ -167,7 +167,7 @@ describe('SiteSession', () => {
   });
 
   test('tokenExpiry reads the exp claim', () => {
-    expect(tokenExpiry(jwt(123))).toBe(123);
+    expect(tokenExpiry(jwt(123))?.epochMilliseconds).toBe(123_000);
     expect(tokenExpiry('no-dots')).toBeNull();
     expect(tokenExpiry(null)).toBeNull();
   });

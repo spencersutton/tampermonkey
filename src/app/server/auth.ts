@@ -7,10 +7,10 @@
 //   page never sees a token at all.
 import { computed, effect, signal, untracked } from '@preact/signals';
 
-import { MINUTE } from '../../shared/constants';
+import { ms, within } from '../../shared/time';
 
-const CHECK_EVERY = 5 * MINUTE;
-const FOCUS_MIN_GAP = MINUTE;
+const CHECK_EVERY = Temporal.Duration.from({ minutes: 5 });
+const FOCUS_MIN_GAP = Temporal.Duration.from({ minutes: 1 });
 
 export interface Me {
   version: string;
@@ -67,7 +67,7 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
 
 /** Check in-flight, shared by concurrent callers. */
 let inflight: Promise<boolean> | null = null;
-let lastCheck = 0;
+let lastCheck: Temporal.Instant | null = null;
 
 /** Ask the server for the login state. Resolves to whether it's logged in to the site. */
 export function refreshSession(): Promise<boolean> {
@@ -75,7 +75,7 @@ export function refreshSession(): Promise<boolean> {
     .then(isAuthenticated, isAuthenticated)
     .finally(() => {
       inflight = null;
-      lastCheck = Date.now();
+      lastCheck = Temporal.Now.instant();
     }));
 }
 
@@ -88,12 +88,15 @@ export function startAuth() {
   ready = refreshSession();
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastCheck > FOCUS_MIN_GAP) {
+      if (
+        document.visibilityState === 'visible' &&
+        !(lastCheck && within(lastCheck, FOCUS_MIN_GAP))
+      ) {
         void refreshSession();
       }
     });
   }
-  setInterval(() => void refreshSession(), CHECK_EVERY);
+  setInterval(() => void refreshSession(), ms(CHECK_EVERY));
 }
 
 /**

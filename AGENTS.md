@@ -55,6 +55,13 @@ committing.
   (included by both root `tsconfig.json` and `src/server/tsconfig.json`). Keep
   it as an ambient script file without `export {}` (which triggers oxlint
   `unicorn/require-module-specifiers`).
+- Time: durations are `Temporal.Duration` constants and in-memory timestamps
+  `Temporal.Instant`, with helpers in `src/shared/time.ts` (`ms()` for
+  setTimeout/AbortSignal, `within(at, age)`, `sleep()`). Epoch ms numbers stay
+  only at JSON/storage boundaries (store meta, API, synced settings) and in hot
+  lot paths (`endsAtMs`, `clock()`). Tests that fake time mock
+  `Temporal.Now.instant`, not `Date.now` (the web polyfill and Bun's native
+  Temporal don't read `Date.now`).
 - Custom categories (`KEYS.customCategories`) represent hierarchy via stable
   `id` and optional `parent` (a site category `value` or `"custom:<id>"`), with
   filter values `"custom:<id>"` via `customCategoryValue()` — not dash-separated

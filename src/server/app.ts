@@ -1,3 +1,16 @@
+import { timingSafeEqual, createHash, randomBytes } from 'node:crypto';
+import { resolve, sep } from 'node:path';
+
+import type { Server } from 'bun';
+import { Hono, type Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { compress } from 'hono/compress';
+import { getCookie } from 'hono/cookie';
+
+import { SITE } from '../shared/constants';
+import { cleanType, MAX_TYPE_LENGTH } from '../shared/itemtype';
+import { KEYS } from '../shared/keys';
+import type { RawLotDetail } from '../shared/lot';
 // The HTTP side: serves the web app and everything it talks to. The app can't
 // talk to the site directly: the site's API sends no CORS headers and its
 // websocket only accepts its own Origin. So this server stands in for the site:
@@ -27,19 +40,7 @@
 // preflight that's never answered; websocket upgrades must come from this
 // server's own Origin. Without a password, the Host header must be a local name
 // (stops DNS rebinding).
-import { timingSafeEqual, createHash, randomBytes } from 'node:crypto';
-import { resolve, sep } from 'node:path';
-
-import type { Server } from 'bun';
-import { Hono, type Context } from 'hono';
-import { bodyLimit } from 'hono/body-limit';
-import { compress } from 'hono/compress';
-import { getCookie } from 'hono/cookie';
-
-import { SITE } from '../shared/constants';
-import { cleanType, MAX_TYPE_LENGTH } from '../shared/itemtype';
-import { KEYS } from '../shared/keys';
-import type { RawLotDetail } from '../shared/lot';
+import { ms, sleep } from '../shared/time';
 import type { Catalog } from './catalog';
 import { HISTORY_LIMIT, type History } from './history';
 import { field, isRecord, prop } from './json';
@@ -51,7 +52,9 @@ import type { Store } from './store';
 
 const MAX_BODY = 4 * 1024 * 1024;
 const SESSION_COOKIE = 'tlx_session';
-const SESSION_MAX_AGE = 90 * 24 * 3600;
+const SESSION_MAX_AGE = Temporal.Duration.from({ days: 90 });
+const WRONG_PASSWORD_DELAY = Temporal.Duration.from({ seconds: 1 });
+const SITE_TIMEOUT = Temporal.Duration.from({ seconds: 30 });
 export const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 const PUBLIC_PATHS = ['/api/me', '/api/app-login', '/api/health'].toSet();
 // Request headers passed through to the site's API (the rest are dropped).
@@ -85,7 +88,7 @@ export interface Deps {
   siteFetch?: typeof fetch;
   wsUrl?: string;
   /** Pause after a wrong app password, to slow down guessing. */
-  wrongPasswordDelayMs?: number;
+  wrongPasswordDelay?: Temporal.Duration;
 }
 
 type Env = { Bindings: Server<RelayData> }; // Bun passes its server to fetch
@@ -217,10 +220,10 @@ export function createApp(deps: Deps) {
       const sid = randomBytes(32).toString('base64url');
       await store.addSession(sid);
       const res = json(await me(c, false));
-      res.headers.set('Set-Cookie', cookie(c, sid, SESSION_MAX_AGE));
+      res.headers.set('Set-Cookie', cookie(c, sid, SESSION_MAX_AGE.total('seconds')));
       return res;
     }
-    await Bun.sleep(deps.wrongPasswordDelayMs ?? 1000);
+    await sleep(deps.wrongPasswordDelay ?? WRONG_PASSWORD_DELAY);
     return error(401, 'Wrong password.');
   });
   app.post('/api/app-logout', async c => {
@@ -363,7 +366,7 @@ export function createApp(deps: Deps) {
         method,
         headers,
         redirect: 'manual',
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(ms(SITE_TIMEOUT)),
         ...(body ? { body } : {}),
       });
     };

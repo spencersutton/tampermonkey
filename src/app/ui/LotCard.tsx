@@ -26,7 +26,7 @@ import { observeLot } from './viewport';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
 export function TimeLeft({ endsAt }: { endsAt: number }) {
-  const now = clock(1000);
+  const now = clock();
   const { text, soon } = timeLabel(endsAt, now);
   return (
     <span class={`time ${soon ? 'soon' : ''}`} title={format.dateTime(endsAt)}>

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { DETAIL_PAUSE_MS, Details } from '../../src/server/details';
+import { DETAIL_PAUSE, Details } from '../../src/server/details';
 import { SiteApi } from '../../src/server/site';
 // Background fetching of open lot details (src/server/details.ts).
 import { rawLot } from '../raw-lot.mjs';
@@ -38,7 +38,7 @@ describe('Details', () => {
     const beforeSeq = await store.seq();
 
     const paths: string[] = [];
-    const pauses: number[] = [];
+    const pauses: Temporal.Duration[] = [];
     const site = new SiteApi((async (input: string | URL | Request) => {
       const path = new URL(String(input)).pathname;
       paths.push(path);
@@ -47,8 +47,8 @@ describe('Details', () => {
       return Response.json({ ...base, id, auction_period: 'p1' });
     }) as typeof fetch);
 
-    const details = new Details(store, site, ms => {
-      pauses.push(ms);
+    const details = new Details(store, site, d => {
+      pauses.push(d);
       return Promise.resolve();
     });
     let afterCalls = 0;
@@ -56,7 +56,7 @@ describe('Details', () => {
 
     expect(await details.fetchMissing()).toBe(2);
     expect(paths).toEqual(['/backend/v1/auctions/lots/p1/1/', '/backend/v1/auctions/lots/p1/3/']);
-    expect(pauses).toEqual([DETAIL_PAUSE_MS, DETAIL_PAUSE_MS]);
+    expect(pauses).toEqual([DETAIL_PAUSE, DETAIL_PAUSE]);
     expect(afterCalls).toBe(1);
 
     // Saved details bump seq so clients pick up brand/model on the next catalog poll.

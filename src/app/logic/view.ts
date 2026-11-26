@@ -1,7 +1,6 @@
 import { dequal } from 'dequal';
 
 import { attrKey, compareAttrValues, extractAttrs, parseAttrKey } from '../../shared/attrs';
-import { HOUR } from '../../shared/constants';
 import { totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../../shared/filters';
@@ -16,6 +15,7 @@ import {
   type PreparedDoc,
 } from '../../shared/search';
 import { byCode, collator } from '../../shared/sortKey';
+import { ms } from '../../shared/time';
 import { hasBidOn } from './bid';
 import { groupCategories, groupFacets, type CategoryGroup } from './categories';
 import { memoize, memoizeWeak, memoLast } from './util';
@@ -88,7 +88,7 @@ type Window = [start: number, end: number];
 
 /** The next `h` hours. */
 function nextHours(h: number) {
-  return (now: number): Window => [now, now + h * HOUR];
+  return (now: number): Window => [now, now + ms(Temporal.Duration.from({ hours: h }))];
 }
 
 /** The calendar day `offset` days from today, minus the part already past. */

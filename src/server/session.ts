@@ -7,12 +7,14 @@
 // PostgreSQL, and refreshes the token shortly before it expires or after the
 // API rejects it.
 import { SITE } from '../shared/constants';
+import { ms, within } from '../shared/time';
 import { field, isRecord, prop } from './json';
 import { USER_AGENT } from './site';
 import type { Store } from './store';
 
-const EXPIRY_MARGIN = 120; // seconds; refresh the token this long before it expires
-const REFRESH_MIN_GAP = 30; // seconds between forced refreshes (after a 401)
+const EXPIRY_MARGIN = Temporal.Duration.from({ minutes: 2 }); // refresh the token this long before it expires
+const REFRESH_MIN_GAP = Temporal.Duration.from({ seconds: 30 }); // between forced refreshes (after a 401)
+const REQUEST_TIMEOUT = Temporal.Duration.from({ seconds: 30 });
 const COOKIES_KEY = 'siteCookies';
 const USER_KEY = 'siteUser';
 const SITE_HOST = new URL(SITE).hostname;
@@ -28,7 +30,7 @@ interface Cookie {
   value: string;
   domain: string;
   path: string;
-  expires?: number; // epoch ms; kept in memory only, like the Python jar's saved form
+  expires?: Temporal.Instant; // kept in memory only, like the Python jar's saved form
 }
 
 export interface SiteUser {
@@ -42,22 +44,24 @@ export interface SiteStatus {
   name: string | null;
 }
 
-/** Epoch seconds when a JWT expires (its `exp` claim), or null if it has none. */
-export function tokenExpiry(token: string | null): number | null {
+/** When a JWT expires (its `exp` claim), or null if it has none. */
+export function tokenExpiry(token: string | null): Temporal.Instant | null {
   const part = token?.split('.')[1];
   if (!part) {
     return null;
   }
   try {
     const exp = prop(JSON.parse(Buffer.from(part, 'base64url').toString()), 'exp');
-    return typeof exp === 'number' ? exp : null;
+    return typeof exp === 'number'
+      ? Temporal.Instant.fromEpochMilliseconds(Math.trunc(exp * 1000))
+      : null;
   } catch {
     return null;
   }
 }
 
 /** A Set-Cookie header as a cookie, or null if it can't be read. */
-function parseSetCookie(header: string, now: number): Cookie | null {
+function parseSetCookie(header: string, now: Temporal.Instant): Cookie | null {
   const [pair = '', ...attrs] = header.split(';');
   const eq = pair.indexOf('=');
   if (eq < 1) {
@@ -83,7 +87,7 @@ function parseSetCookie(header: string, now: number): Cookie | null {
         // Max-Age wins over Expires.
         const seconds = Number(value);
         if (Number.isFinite(seconds)) {
-          cookie.expires = now + seconds * 1000;
+          cookie.expires = now.add({ seconds: Math.trunc(seconds) });
         }
         break;
       }
@@ -91,7 +95,7 @@ function parseSetCookie(header: string, now: number): Cookie | null {
         if (!attrs.some(a => a.trim().toLowerCase().startsWith('max-age='))) {
           const parsed = Date.parse(value);
           if (Number.isFinite(parsed)) {
-            cookie.expires = parsed;
+            cookie.expires = Temporal.Instant.fromEpochMilliseconds(parsed);
           }
         }
         break;
@@ -103,7 +107,7 @@ function parseSetCookie(header: string, now: number): Cookie | null {
 export class SiteSession {
   user: SiteUser | null;
   private cookies: Cookie[] = [];
-  private lastRefresh = 0;
+  private lastRefresh: Temporal.Instant | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly store: Store;
   private readonly fetch: typeof fetch;
@@ -152,8 +156,10 @@ export class SiteSession {
   }
 
   private live(): Cookie[] {
-    const now = Date.now();
-    return this.cookies.filter(c => c.expires === undefined || c.expires > now);
+    const now = Temporal.Now.instant();
+    return this.cookies.filter(
+      c => c.expires === undefined || Temporal.Instant.compare(c.expires, now) > 0,
+    );
   }
 
   private cookie(name: string): string | null {
@@ -165,14 +171,14 @@ export class SiteSession {
   }
 
   private takeCookies(res: Response) {
-    const now = Date.now();
+    const now = Temporal.Now.instant();
     for (const header of res.headers.getSetCookie()) {
       const cookie = parseSetCookie(header, now);
       if (cookie) {
         const same = (c: Cookie) =>
           c.name === cookie.name && c.domain === cookie.domain && c.path === cookie.path;
         this.cookies = this.cookies.filter(c => !same(c));
-        if (cookie.expires === undefined || cookie.expires > now) {
+        if (cookie.expires === undefined || Temporal.Instant.compare(cookie.expires, now) > 0) {
           this.cookies.push(cookie);
         }
       }
@@ -214,7 +220,7 @@ export class SiteSession {
       headers,
       redirect: 'manual',
       ...(form ? { body: new URLSearchParams(form).toString() } : {}),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(ms(REQUEST_TIMEOUT)),
     });
     this.takeCookies(res);
     const text = await res.text();
@@ -247,7 +253,10 @@ export class SiteSession {
       }
       const current = this.cookie('token');
       const exp = tokenExpiry(current);
-      if (current === null || (exp !== null && exp - EXPIRY_MARGIN < Date.now() / 1000)) {
+      const expiring =
+        exp !== null &&
+        Temporal.Instant.compare(exp.subtract(EXPIRY_MARGIN), Temporal.Now.instant()) < 0;
+      if (current === null || expiring) {
         await this.refreshNow(false);
       }
       return this.loggedIn() ? this.cookie('token') : null;
@@ -266,10 +275,10 @@ export class SiteSession {
     if (!this.user) {
       return false;
     }
-    if (force && Date.now() / 1000 - this.lastRefresh < REFRESH_MIN_GAP) {
+    if (force && this.lastRefresh && within(this.lastRefresh, REFRESH_MIN_GAP)) {
       return this.loggedIn();
     }
-    this.lastRefresh = Date.now() / 1000;
+    this.lastRefresh = Temporal.Now.instant();
     let status: number;
     let s: unknown;
     try {
