@@ -507,17 +507,19 @@ export interface CategorySettingsSnapshot {
   lastCategory: string | null;
   view: unknown;
   savedSearches: SavedSearch[];
+  hiddenCategories?: string[];
 }
 
 export interface CategorySettingsUpdates {
   lastCategory?: string | null;
   view?: ViewState;
   savedSearches?: SavedSearch[];
+  hiddenCategories?: string[];
 }
 
 const toFilterValue = (v: string) => (isCustomCategory(v) ? v : customCategoryValue(v));
 
-/** Compute setting updates needed when custom categories are renamed or removed. */
+/** Compute setting updates needed when custom categories are renamed, removed or reparented. */
 export function computeCategoryUpdates(
   categories: CustomCategory[],
   renames: ReadonlyMap<string, string | null>,
@@ -537,17 +539,6 @@ export function computeCategoryUpdates(
       byValue.set(fromVal, toVal);
     }
   }
-  if (!byValue.size) {
-    return {};
-  }
-
-  const updates: CategorySettingsUpdates = {};
-  if (snapshot.lastCategory != null) {
-    const lastVal = toFilterValue(snapshot.lastCategory);
-    if (byValue.has(lastVal)) {
-      updates.lastCategory = byValue.get(lastVal) ?? null;
-    }
-  }
 
   const fix = (cats: string[]) =>
     cats.flatMap(v => {
@@ -558,15 +549,41 @@ export function computeCategoryUpdates(
       return next === null ? [] : [next];
     });
 
-  if (snapshot.view != null) {
-    const view = normalizeView(snapshot.view);
-    updates.view = { ...view, categories: fix(view.categories) };
+  const updates: CategorySettingsUpdates = {};
+  if (byValue.size) {
+    if (snapshot.lastCategory != null) {
+      const lastVal = toFilterValue(snapshot.lastCategory);
+      if (byValue.has(lastVal)) {
+        updates.lastCategory = byValue.get(lastVal) ?? null;
+      }
+    }
+
+    if (snapshot.view != null) {
+      const view = normalizeView(snapshot.view);
+      updates.view = { ...view, categories: fix(view.categories) };
+    }
+
+    updates.savedSearches = snapshot.savedSearches.map(s => ({
+      ...s,
+      view: { ...s.view, categories: fix(normalizeView(s.view).categories) },
+    }));
   }
 
-  updates.savedSearches = snapshot.savedSearches.map(s => ({
-    ...s,
-    view: { ...s.view, categories: fix(normalizeView(s.view).categories) },
-  }));
+  if (snapshot.hiddenCategories?.length) {
+    const nested = categories
+      .filter(c => c.parent)
+      .map(customCategoryValue)
+      .toSet();
+    const nextHidden = fix(snapshot.hiddenCategories)
+      .filter(v => !nested.has(v))
+      .toUnique();
+    if (
+      nextHidden.length !== snapshot.hiddenCategories.length ||
+      nextHidden.some((v, i) => v !== snapshot.hiddenCategories![i])
+    ) {
+      updates.hiddenCategories = nextHidden;
+    }
+  }
 
   return updates;
 }

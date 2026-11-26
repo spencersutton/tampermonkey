@@ -305,10 +305,10 @@ export function createApp(deps: Deps) {
     }
     const value = body['value'];
     if (
-      key === KEYS.filterTypes &&
+      (key === KEYS.filterTypes || key === KEYS.hiddenCategories) &&
       (!Array.isArray(value) || !value.every(v => typeof v === 'string'))
     ) {
-      throw new BadRequest('Expected an array of strings for filterTypes');
+      throw new BadRequest(`Expected an array of strings for ${key}`);
     }
     if (key === KEYS.hidden && !isValidHiddenLots(value)) {
       throw new BadRequest('Expected an object of { [lotId]: { title, href, ts } } for hiddenLots');

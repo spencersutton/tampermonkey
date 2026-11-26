@@ -15,6 +15,7 @@ export const KEYS = {
   savedSearches: 'tlxSavedSearches', // SavedSearch[] (see app/view.ts)
   accountPickup: 'tlxAccountPickup', // { id, name, at } – pickup location from the account, cached a day
   customCategories: 'tlxCustomCategories', // CustomCategory[] – item types that move lots into a category of their own
+  hiddenCategories: 'tlxHiddenCategories', // string[] – top-level category values hidden from "All categories"
   lastCategory: 'tlxLastCategory', // last category used or created in this browser
   titleLines: 'tlxTitleLines', // number – lines of a lot title shown in the grid before it's cut off; 0 = no limit
   lastVisit: 'tlxLastVisit', // epoch ms | null – when the catalog was last opened; lots first seen since the visit before get a "New" badge
@@ -35,6 +36,7 @@ export const SERVER_KEYS = [
   KEYS.syncMinutes, // the server's own pull interval
   KEYS.savedSearches,
   KEYS.customCategories,
+  KEYS.hiddenCategories,
   KEYS.lastVisit,
 ] as const;
 
@@ -71,6 +73,7 @@ export const DEFAULTS = {
   [KEYS.savedSearches]: [] as SavedSearch[],
   [KEYS.accountPickup]: null as { id: number | null; name: string | null; at: number } | null,
   [KEYS.customCategories]: [] as CustomCategory[],
+  [KEYS.hiddenCategories]: [] as string[],
   [KEYS.lastCategory]: null as string | null,
   [KEYS.titleLines]: DEFAULT_TITLE_LINES,
   [KEYS.lastVisit]: null as number | null,

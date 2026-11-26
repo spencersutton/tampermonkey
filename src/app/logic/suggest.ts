@@ -1,11 +1,18 @@
 // Typeahead for the search box: item types, brands and categories whose names
 // match what's being typed, plus the best-matching lots, like a shop's search
 // dropdown.
-import type { HiddenLot } from '../../shared/keys';
+import type { CustomCategory, HiddenLot } from '../../shared/keys';
 import { endsAtMs } from '../../shared/lot';
 import type { ItemDetails } from '../../shared/names';
 import { matchQuality, stem } from '../../shared/search';
-import { makeSearch, type Facet, type Facets } from './view';
+import {
+  categoryOf,
+  compileCategories,
+  makeSearch,
+  topLevelCategoryValue,
+  type Facet,
+  type Facets,
+} from './view';
 
 export type SearchOption =
   | { kind: 'search'; text: string }
@@ -89,6 +96,8 @@ export function suggest(
   hidden: Record<string, HiddenLot>,
   details?: ItemDetails,
   searchDescriptions = false,
+  hiddenCategories: string[] = [],
+  customCategories: CustomCategory[] = [],
 ): Suggestions {
   const query = text.trim().toLowerCase().replace(/\s+/g, ' ');
   const none = { query, types: [], brands: [], tags: [], categories: [], lots: [] };
@@ -97,11 +106,19 @@ export function suggest(
     return none;
   }
   const words = query.split(' ');
+  const hiddenCatSet = hiddenCategories.toSet();
+  const byValue = hiddenCatSet.size ? compileCategories(customCategories).byValue : null;
 
   const score = makeSearch({ search: query, searchRegex: false, searchDescriptions }, details);
   const top: { lot: Lot; s: number }[] = [];
   for (const lot of lots) {
     if (endsAtMs(lot) <= now || hidden[lot.id]) {
+      continue;
+    }
+    if (
+      byValue &&
+      hiddenCatSet.has(topLevelCategoryValue(categoryOf(lot, customCategories).value, byValue))
+    ) {
       continue;
     }
     const s = score(lot);

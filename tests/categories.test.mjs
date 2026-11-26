@@ -261,3 +261,16 @@ test('chips and saved-search names collapse a full parent branch and format subc
     ['Tools (other)'],
   );
 });
+
+test('saveCustomCategories updates hiddenCategories on rename, deletion, and reparenting', () => {
+  setup([{ name: 'A' }, { name: 'B' }, { name: 'C' }], []);
+  applySetting(KEYS.hiddenCategories, ['pets', 'custom:A', 'custom:B', 'custom:C']);
+  saveCustomCategories(
+    [{ name: 'A2' }, { name: 'C', parent: 'tools' }],
+    new Map([
+      ['A', 'A2'],
+      ['B', null],
+    ]),
+  );
+  assert.deepEqual(getSetting(KEYS.hiddenCategories), ['pets', 'custom:A2']);
+});

@@ -225,6 +225,7 @@ export interface Exclusions {
   hidden: Record<string, HiddenLot>;
   showHidden: boolean;
   customCategories: CustomCategory[];
+  hiddenCategories?: string[];
 }
 
 const titleKey = memoizeWeak((lot: Lot) => `${lot.itemType ?? ''}\u0000${lot.title}`);
@@ -337,6 +338,31 @@ export function categoryIndex(lot: Lot, { byType }: CompiledCategories): number 
 }
 
 const compiledCategories = memoLast(compileCategories);
+
+/** Top-level category value for `value` (its root site category or top-level custom category). */
+export function topLevelCategoryValue(
+  value: string,
+  byValue: ReadonlyMap<string, CustomCategory>,
+): string {
+  if (!isCustomCategory(value)) {
+    return value;
+  }
+  let cur = value;
+  const seen = new Set([cur]);
+  let parent = byValue.get(cur)?.parent;
+  while (parent && !seen.has(parent)) {
+    seen.add(parent);
+    if (!isCustomCategory(parent)) {
+      return parent;
+    }
+    if (!byValue.has(parent)) {
+      break;
+    }
+    cur = parent;
+    parent = byValue.get(cur)?.parent;
+  }
+  return cur;
+}
 
 /** The lot's category: its custom category (see categoryIndex) if any, else the site's. */
 export function categoryOf(
@@ -570,8 +596,9 @@ export function computeView(
     }
   }
 
+  const hiddenCats = filteredOnly ? undefined : ex.hiddenCategories;
   const run = (v: ViewState) => {
-    const p = makePredicates(v, now, details);
+    const p = makePredicates(v, now, details, hiddenCats, ex.customCategories);
     const counts = emptyCounts();
     const rows: Row[] = [];
     for (const row of candidates) {
@@ -807,7 +834,13 @@ interface Predicates {
 }
 
 /** The view's filters split into search, plain filters and facet filters. */
-function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predicates {
+function makePredicates(
+  v: ViewState,
+  now: number,
+  details?: ItemDetails,
+  hiddenCategories?: string[],
+  customCategories?: CustomCategory[],
+): Predicates {
   const win = ENDING[v.ending].window?.(now);
   const newSince = v.newSince;
   const mine: (lot: Lot) => boolean = MINE[v.mine].test;
@@ -816,6 +849,10 @@ function makePredicates(v: ViewState, now: number, details?: ItemDetails): Predi
   if (v.categories.length) {
     const category = oneOf(v.categories);
     dims.push(['category', r => category(r.category.value)]);
+  } else if (!v.mine && hiddenCategories?.length) {
+    const hiddenSet = hiddenCategories.toSet();
+    const { byValue } = compiledCategories(customCategories ?? []);
+    dims.push(['category', r => !hiddenSet.has(topLevelCategoryValue(r.category.value, byValue))]);
   }
   if (v.conditions.length) {
     const condition = oneOf(v.conditions);
@@ -888,8 +925,10 @@ export function makeMatcher(
   v: ViewState,
   now: number,
   details?: ItemDetails,
+  hiddenCategories?: string[],
+  customCategories?: CustomCategory[],
 ): (row: Row) => boolean {
-  const p = makePredicates(v, now, details);
+  const p = makePredicates(v, now, details, hiddenCategories, customCategories);
   return row => p.search(row.lot) != null && p.base(row) && p.dims.every(([, test]) => test(row));
 }
 
@@ -1190,7 +1229,13 @@ export function savedSearchStats(
   const matchers = searches.map(s => ({
     s,
     since: s.lastViewedAt,
-    matches: makeMatcher(normalizeView(s.view), now, details),
+    matches: makeMatcher(
+      normalizeView(s.view),
+      now,
+      details,
+      ex.hiddenCategories,
+      ex.customCategories,
+    ),
     stats: { total: 0, fresh: 0 },
   }));
   for (const lot of lots) {

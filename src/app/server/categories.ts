@@ -12,6 +12,7 @@ export function saveCustomCategories(
     lastCategory: getSetting(KEYS.lastCategory),
     view: getSetting(KEYS.view),
     savedSearches: getSetting(KEYS.savedSearches),
+    hiddenCategories: getSetting(KEYS.hiddenCategories),
   });
 
   setSetting(KEYS.customCategories, categories);
@@ -23,5 +24,8 @@ export function saveCustomCategories(
   }
   if (updates.savedSearches !== undefined) {
     setSetting(KEYS.savedSearches, updates.savedSearches);
+  }
+  if (updates.hiddenCategories !== undefined) {
+    setSetting(KEYS.hiddenCategories, updates.hiddenCategories);
   }
 }

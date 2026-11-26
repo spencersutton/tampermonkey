@@ -204,6 +204,38 @@ export function hideItemType(type: string, from?: EventTarget | null, temporary 
   }
 }
 
+/** Hide a top-level category from "All categories"; deselects it if currently selected. */
+export function hideCategory(value: string, groupValues: string[] = [value]) {
+  const cur = getSetting(KEYS.hiddenCategories);
+  const next = cur.includes(value) ? cur : [...cur, value];
+  batch(() => {
+    if (next !== cur) {
+      setSetting(KEYS.hiddenCategories, next);
+    }
+    const selected = storedView.value.categories;
+    if (selected.some(v => groupValues.includes(v))) {
+      setView({ categories: selected.filter(v => !groupValues.includes(v)) });
+    }
+  });
+}
+
+/** Unhide a previously hidden top-level category. */
+export function unhideCategory(value: string) {
+  const cur = getSetting(KEYS.hiddenCategories);
+  if (cur.includes(value)) {
+    setSetting(
+      KEYS.hiddenCategories,
+      cur.filter(v => v !== value),
+    );
+  }
+}
+
+export function unhideAllCategories() {
+  if (getSetting(KEYS.hiddenCategories).length) {
+    setSetting(KEYS.hiddenCategories, []);
+  }
+}
+
 export const exclusionRules = computed(() => ({
   words: getSetting(KEYS.words),
   filterTypes: getSetting(KEYS.filterTypes),
@@ -212,6 +244,7 @@ export const exclusionRules = computed(() => ({
   hidden: getSetting(KEYS.hidden),
   showHidden: getSetting(KEYS.showHidden),
   customCategories: getSetting(KEYS.customCategories),
+  hiddenCategories: getSetting(KEYS.hiddenCategories),
 }));
 
 // Catalog rows, facets and pagination
@@ -269,6 +302,8 @@ export const suggestions = computed(() =>
     exclusionRules.value.hidden,
     searchDetails.value,
     storedView.value.searchDescriptions,
+    exclusionRules.value.hiddenCategories,
+    exclusionRules.value.customCategories,
   ),
 );
 

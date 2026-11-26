@@ -11,6 +11,7 @@ import {
 } from '../../logic/categories';
 import { parseNum } from '../../logic/util';
 import {
+  customCategoryValue,
   DEFAULT_VIEW,
   ENDING,
   MINE,
@@ -23,7 +24,16 @@ import { siteConditions } from '../../server/conditions';
 import { getSetting, useSetting } from '../../server/settings';
 import { hasModifierKey } from '../dom';
 import { Icon } from '../icons';
-import { closed, hideItemType, modalActions, openClosed, setView } from '../state';
+import {
+  closed,
+  hideCategory,
+  hideItemType,
+  modalActions,
+  openClosed,
+  setView,
+  unhideAllCategories,
+  unhideCategory,
+} from '../state';
 import { Collapsible } from './Collapsible';
 import { NumberInput } from './NumberInput';
 
@@ -215,8 +225,10 @@ function CategoryTreeNode(props: {
   onChange: (next: string[]) => void;
   collapsed: Record<string, boolean>;
   setCollapsed: (next: Record<string, boolean>) => void;
+  hidden?: boolean;
+  onToggleHide?: () => void;
 }) {
-  const { group, selected, onChange, collapsed, setCollapsed } = props;
+  const { group, selected, onChange, collapsed, setCollapsed, hidden, onToggleHide } = props;
   const isExact = (values: string[]) =>
     values.length > 0 &&
     selected.length === values.length &&
@@ -228,11 +240,25 @@ function CategoryTreeNode(props: {
   const active = isExact(values);
   const hasActive = !active && values.some(v => selected.includes(v));
 
+  const hideButton = onToggleHide && (
+    <button
+      type="button"
+      class={`icon-btn facet-hide ${hidden ? 'cat-unhide' : ''}`}
+      title={hidden ? `Show category: ${group.facet.label}` : `Hide category: ${group.facet.label}`}
+      aria-label={
+        hidden ? `Show category: ${group.facet.label}` : `Hide category: ${group.facet.label}`
+      }
+      onClick={onToggleHide}
+    >
+      <Icon name={hidden ? 'visibility' : 'visibilityOff'} size={14} />
+    </button>
+  );
+
   if (group.subs.length === 0) {
-    return (
+    const item = (
       <button
         type="button"
-        class={`cat-item cat-leaf ${active ? 'active' : ''} ${count || active ? '' : 'zero'}`}
+        class={`cat-item ${onToggleHide ? '' : 'cat-leaf'} ${active ? 'active' : ''} ${count || active ? '' : 'zero'}`}
         aria-current={active ? 'true' : undefined}
         onClick={() => onChange(active ? [] : values)}
       >
@@ -241,6 +267,15 @@ function CategoryTreeNode(props: {
         </span>
         <span class="count">{format.num(count)}</span>
       </button>
+    );
+    if (!onToggleHide) {
+      return item;
+    }
+    return (
+      <div class="cat-row cat-leaf">
+        {item}
+        {hideButton}
+      </div>
     );
   }
 
@@ -291,6 +326,7 @@ function CategoryTreeNode(props: {
           <span class="cat-label">{group.facet.label}</span>
           <span class="count">{format.num(count)}</span>
         </button>
+        {hideButton}
       </div>
       {open && (
         <div class="cat-subs">
@@ -329,8 +365,27 @@ function CategoryTree(props: {
 }) {
   const { facets, selected, onChange } = props;
   const [collapsed, setCollapsed] = useSetting(KEYS.collapsed);
+  const [hiddenCategories] = useSetting(KEYS.hiddenCategories);
+  const hiddenSet = hiddenCategories.toSet();
   const groups = groupCategories(facets);
-  const total = facets.categories.reduce((sum, f) => sum + f.count, 0);
+  const visibleGroups = groups.filter(g => !hiddenSet.has(g.facet.value));
+  const presentHidden = groups.filter(g => hiddenSet.has(g.facet.value));
+  const presentHiddenValues = presentHidden.map(g => g.facet.value).toSet();
+  const customByValue = new Map(
+    getSetting(KEYS.customCategories).map(c => [customCategoryValue(c), c.name]),
+  );
+  const missingHidden: CategoryGroup[] = hiddenCategories
+    .filter(v => !presentHiddenValues.has(v))
+    .map(value => ({
+      facet: { value, label: customByValue.get(value) ?? value, count: 0 },
+      subs: [],
+    }));
+  const hiddenGroups = [...presentHidden, ...missingHidden];
+  const total = visibleGroups.reduce(
+    (sum, g) => sum + groupFacets(g).reduce((s, f) => s + f.count, 0),
+    0,
+  );
+  const hiddenOpen = !collapsed['f-hidden-cats'];
 
   return (
     <div class="cat-tree" role="navigation" aria-label="Categories">
@@ -343,7 +398,7 @@ function CategoryTree(props: {
         <span class="cat-label">All categories</span>
         <span class="count">{format.num(total)}</span>
       </button>
-      {groups.map(g => (
+      {visibleGroups.map(g => (
         <CategoryTreeNode
           key={g.facet.value}
           group={g}
@@ -351,8 +406,48 @@ function CategoryTree(props: {
           onChange={onChange}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
+          onToggleHide={() =>
+            hideCategory(
+              g.facet.value,
+              groupFacets(g).map(f => f.value),
+            )
+          }
         />
       ))}
+      {hiddenGroups.length > 0 && (
+        <div class="excluded-types">
+          <div class="excluded-types-head">
+            <button
+              type="button"
+              class="excluded-types-toggle"
+              aria-expanded={hiddenOpen}
+              onClick={() => setCollapsed({ ...collapsed, 'f-hidden-cats': hiddenOpen })}
+            >
+              <Icon name="expandMore" size={16} />
+              <span class="muted small">Hidden ({hiddenGroups.length})</span>
+            </button>
+            <button type="button" class="btn-text" onClick={unhideAllCategories}>
+              Show all
+            </button>
+          </div>
+          {hiddenOpen && (
+            <div class="cat-tree">
+              {hiddenGroups.map(g => (
+                <CategoryTreeNode
+                  key={g.facet.value}
+                  group={g}
+                  selected={selected}
+                  onChange={onChange}
+                  collapsed={collapsed}
+                  setCollapsed={setCollapsed}
+                  hidden
+                  onToggleHide={() => unhideCategory(g.facet.value)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

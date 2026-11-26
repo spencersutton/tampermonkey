@@ -319,6 +319,8 @@
 }
 
 .check-row:hover .facet-hide,
+.cat-row:hover .facet-hide,
+.cat-parent:hover .facet-hide,
 .facet-hide:focus-visible {
   opacity: 1;
 }
@@ -327,12 +329,17 @@
   color: var(--bad);
 }
 
+.cat-unhide:hover {
+  color: var(--primary);
+}
+
 .cat-tree {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
 
+.cat-row,
 .cat-parent {
   display: flex;
   align-items: center;
