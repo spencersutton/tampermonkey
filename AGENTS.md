@@ -87,6 +87,12 @@ committing.
   camelCase aliases), and every query inside `sql.begin(async tx => ...)` must
   use `tx` rather than `this.sql` to avoid deadlocks when `max: 1`.
 
+- The `item-type` skill (`.claude/skills/item-type/`) suggests a better item
+  type for a pasted lot; it reads the naming rules from `PROMPT` in
+  `src/server/itemtypes.ts`, so keep rule changes there. Quick DB lookups:
+  `/opt/homebrew/opt/postgresql@18/bin/psql tlx` (`lots.lot_number`, brand /
+  model / description in `lot_details`, types in `item_types`).
+
 Copilot memory can't be saved for this repository. When you learn something
 durable about it (a convention, a tool, or a correction from the user), record
 it in this file instead.
