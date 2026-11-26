@@ -39,6 +39,7 @@ import { Sidebar } from './Sidebar';
 import {
   closed,
   filteredOnly,
+  filteredPattern,
   openFiltered,
   modalActions,
   sidebarFacets,
@@ -142,6 +143,7 @@ function AppSidebar({
         page.value = 1;
         closed.value = null;
         filteredOnly.value = false;
+        filteredPattern.value = null;
         highlight.value = { id: s.id, since: s.lastViewedAt };
         updateSaved(l => l.map(x => (x.id === s.id ? { ...x, lastViewedAt: Date.now() } : x)));
         sidebarOpen.value = false;

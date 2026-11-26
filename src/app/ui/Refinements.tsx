@@ -7,7 +7,15 @@ import * as format from '../../shared/format';
 import { chipsFor, type Chip } from '../logic/refinements';
 import { DEFAULT_VIEW, type AttrFacetGroup } from '../logic/view';
 import { Icon } from './icons';
-import { gridView, pickupName, setView, sidebarFacets, storedView } from './state';
+import {
+  filteredOnly,
+  filteredPattern,
+  gridView,
+  pickupName,
+  setView,
+  sidebarFacets,
+  storedView,
+} from './state';
 
 const MAX_TYPE_PILLS = 10;
 
@@ -86,12 +94,14 @@ export function Refinements() {
   const view = storedView.value;
   const result = gridView.value;
   const facets = sidebarFacets.value;
+  const activePattern = filteredOnly.value ? filteredPattern.value : null;
   const chips = chipsFor(view, facets, pickupName.value);
   const isCategory = (c: Chip) => c.key.startsWith('cat:');
   const isExcludedType = (c: Chip) => c.key.startsWith('exType:');
   const catChips = chips.filter(isCategory);
   const exTypeChips = chips.filter(isExcludedType);
   const otherChips = chips.filter(c => !isCategory(c) && !isExcludedType(c));
+  const totalChips = chips.length + (activePattern != null ? 1 : 0);
   const chipButton = (c: Chip) => (
     <button
       type="button"
@@ -107,7 +117,7 @@ export function Refinements() {
   const types = view.types.length ? [] : facets.types.slice(0, MAX_TYPE_PILLS);
   const showTypes = result.rows.length > 0 && types.length > 1;
   const showAttrs = facets.attrs.length > 0;
-  if (!result.correctedSearch && !chips.length && !showTypes && !showAttrs) {
+  if (!result.correctedSearch && !totalChips && !showTypes && !showAttrs) {
     return null;
   }
   return (
@@ -138,14 +148,29 @@ export function Refinements() {
           {exTypeChips.map(chipButton)}
         </div>
       )}
-      {(otherChips.length > 0 || chips.length > 1) && (
+      {(otherChips.length > 0 || activePattern != null || totalChips > 1) && (
         <div class="chips" aria-label="Active filters">
+          {activePattern != null && (
+            <button
+              type="button"
+              key="filteredPattern"
+              class="chip"
+              title={`Show all filtered lots (clear /${activePattern}/)`}
+              onClick={() => (filteredPattern.value = null)}
+            >
+              <span>Filter: /{activePattern}/</span>
+              <Icon name="close" size={14} />
+            </button>
+          )}
           {otherChips.map(chipButton)}
-          {chips.length > 1 && (
+          {totalChips > 1 && (
             <button
               type="button"
               class="btn-text chips-clear"
-              onClick={() => setView({ ...DEFAULT_VIEW, sort: view.sort })}
+              onClick={() => {
+                filteredPattern.value = null;
+                setView({ ...DEFAULT_VIEW, sort: view.sort });
+              }}
             >
               Clear all
             </button>

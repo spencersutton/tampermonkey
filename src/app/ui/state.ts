@@ -39,6 +39,7 @@ export const openId = signal<number | null>(null);
 /** The Won / Lost page, shown in place of the grid. */
 export const closed = signal<ClosedSection | null>(null);
 export const filteredOnly = signal(false);
+export const filteredPattern = signal<string | null>(null);
 export const sidebarOpen = signal(false);
 
 export const openLot = (lot: Lot) => void (openId.value = lot.id);
@@ -57,6 +58,7 @@ export function openClosed(section: ClosedSection | null) {
   batch(() => {
     closed.value = section;
     filteredOnly.value = false;
+    filteredPattern.value = null;
     sidebarOpen.value = false;
   });
   window.scrollTo(0, 0);
@@ -65,6 +67,7 @@ export function openClosed(section: ClosedSection | null) {
 export function openFiltered(show = true) {
   batch(() => {
     filteredOnly.value = show;
+    filteredPattern.value = null;
     closed.value = null;
     page.value = 1;
     sidebarOpen.value = false;
@@ -79,6 +82,21 @@ export function openFilteredType(type: string) {
     resetSearch('');
     setSetting(KEYS.view, { ...DEFAULT_VIEW, sort: storedView.value.sort, types: [key] });
     filteredOnly.value = true;
+    filteredPattern.value = null;
+    closed.value = null;
+    page.value = 1;
+    sidebarOpen.value = false;
+  });
+  window.scrollTo(0, 0);
+}
+
+/** Open the Filtered lots view narrowed to a single regex filter pattern. */
+export function openFilteredPattern(pattern: string) {
+  batch(() => {
+    resetSearch('');
+    setSetting(KEYS.view, { ...DEFAULT_VIEW, sort: storedView.value.sort });
+    filteredOnly.value = true;
+    filteredPattern.value = pattern;
     closed.value = null;
     page.value = 1;
     sidebarOpen.value = false;
@@ -221,6 +239,7 @@ export const gridView = computed(() => {
     clock(EVERY_30_SECONDS),
     searchDetails.value,
     filteredOnly.value,
+    filteredPattern.value,
   );
 });
 /** Every filter option among open lots, with catalog-wide counts; these don't follow live prices. */

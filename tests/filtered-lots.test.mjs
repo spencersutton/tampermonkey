@@ -13,8 +13,18 @@ const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { applySetting } = await vite.ssrLoadModule('/src/app/server/settings.ts');
 const { lots, updateLot } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { DEFAULT_VIEW } = await vite.ssrLoadModule('/src/app/logic/view.ts');
-const { filteredOnly, gridView, openFiltered, openClosed, closed, page, setView, sidebarOpen } =
-  await vite.ssrLoadModule('/src/app/ui/state.ts');
+const {
+  filteredOnly,
+  filteredPattern,
+  gridView,
+  openFiltered,
+  openFilteredPattern,
+  openClosed,
+  closed,
+  page,
+  setView,
+  sidebarOpen,
+} = await vite.ssrLoadModule('/src/app/ui/state.ts');
 const { navFromUrl, startHistory } = await vite.ssrLoadModule('/src/app/ui/history.ts');
 
 const now = Date.now();
@@ -39,6 +49,7 @@ const ids = () => gridView.value.rows.map(row => row.lot.id);
 
 beforeEach(() => {
   filteredOnly.value = false;
+  filteredPattern.value = null;
   closed.value = null;
   applySetting(KEYS.view, DEFAULT_VIEW);
   applySetting(KEYS.words, ['drill', 'saw']);
@@ -163,7 +174,79 @@ test('filtered item type suggestions omit item types that are already filtered',
   assert.ok(rakeBtn);
   rakeBtn.props.onClick();
   assert.equal(filteredOnly.value, true);
+  assert.equal(filteredPattern.value, null);
   assert.deepEqual(ids(), [2]);
+});
+
+test('Option/Alt-clicking a regex filter opens the Filtered lots view narrowed to that pattern', async () => {
+  const { HideFilterSection } = await vite.ssrLoadModule(
+    '/src/app/ui/Sidebar/HideFilterSection.tsx',
+  );
+  const render = (component, props) => {
+    const vnode = h(component, props);
+    vnode.__c = new Component(vnode.props);
+    vnode.__c.__h = [];
+    options.__r(vnode);
+    const tree = vnode.type(vnode.props);
+    options.diffed(vnode);
+    options.unmount?.(vnode);
+    return tree;
+  };
+  const nodes = node => {
+    if (node == null || typeof node !== 'object') return [];
+    if (Array.isArray(node)) return node.flatMap(nodes);
+    return [node, ...nodes(node.props?.children)];
+  };
+
+  lots.value = new Map([
+    [1, lot(1, 'Cordless drill', { itemType: 'drill' })],
+    [2, lot(2, 'Garden rake', { itemType: 'rake' })],
+    [3, lot(3, 'Circular saw and drill kit', { itemType: 'saw' })],
+  ]);
+  applySetting(KEYS.words, ['drill', 'saw', '[bad']);
+  applySetting(KEYS.filterTypes, ['rake']);
+  applySetting(KEYS.filterOn, false);
+
+  const tree = render(HideFilterSection, {
+    matchCounts: gridView.value.matchCounts,
+    typeMatchCounts: gridView.value.typeMatchCounts,
+  });
+  const filterRows = nodes(tree).filter(n => typeof n.type === 'function' && n.props?.pattern);
+  const sawRow = filterRows.find(n => n.props.pattern === 'saw');
+  const badRow = filterRows.find(n => n.props.pattern === '[bad');
+  assert.ok(sawRow);
+  assert.ok(badRow);
+
+  const sawBtn = nodes(render(sawRow.type, sawRow.props)).find(
+    n => n.type === 'button' && n.props?.class === 'filter-pattern',
+  );
+  const badBtn = nodes(render(badRow.type, badRow.props)).find(
+    n => n.type === 'button' && n.props?.class === 'filter-pattern',
+  );
+  assert.ok(sawBtn);
+  assert.ok(badBtn);
+
+  // Plain click starts inline editing rather than opening filtered lots.
+  sawBtn.props.onClick({ altKey: false });
+  assert.equal(filteredOnly.value, false);
+
+  // Option/Alt-click on an invalid regex does not open filtered lots.
+  badBtn.props.onClick({ altKey: true });
+  assert.equal(filteredOnly.value, false);
+
+  // Option/Alt-click on a valid regex opens filtered lots for just that pattern (even if a lot also matches an earlier regex or Apply filters is off).
+  sawBtn.props.onClick({ altKey: true });
+  assert.equal(filteredOnly.value, true);
+  assert.equal(filteredPattern.value, 'saw');
+  assert.deepEqual(ids(), [3]);
+  assert.equal(gridView.value.rows[0].matched, 'saw');
+
+  // Clearing filteredPattern returns to all filtered lots; openFiltered(false) returns to the catalog.
+  filteredPattern.value = null;
+  assert.deepEqual(ids(), [1, 2, 3]);
+  openFiltered(false);
+  assert.equal(filteredOnly.value, false);
+  assert.equal(filteredPattern.value, null);
 });
 
 test('LotAttrs renders every extracted attribute on the lot detail view and filters on click', async () => {
@@ -271,10 +354,21 @@ test('filtered page round-trips through URLs and browser back/forward', () => {
   openFiltered();
   const filtered = history.state;
   assert.equal(entries.at(-1).url, '/tlx?filtered=1');
+  openFilteredPattern('saw');
+  const filteredSaw = history.state;
+  assert.equal(entries.at(-1).url, '/tlx?filtered=1&filteredPattern=saw');
+  assert.equal(navFromUrl('?filtered=1&filteredPattern=saw').filteredPattern, 'saw');
+  assert.equal(navFromUrl('?filtered=0&filteredPattern=saw').filteredPattern, null);
   listeners.popstate({ state: catalog });
   assert.equal(filteredOnly.value, false);
+  assert.equal(filteredPattern.value, null);
   assert.deepEqual(ids(), [2]);
   listeners.popstate({ state: filtered });
   assert.equal(filteredOnly.value, true);
+  assert.equal(filteredPattern.value, null);
   assert.deepEqual(ids(), [1, 3]);
+  listeners.popstate({ state: filteredSaw });
+  assert.equal(filteredOnly.value, true);
+  assert.equal(filteredPattern.value, 'saw');
+  assert.deepEqual(ids(), [3]);
 });

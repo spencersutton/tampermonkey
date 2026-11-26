@@ -521,6 +521,7 @@ export function computeView(
   now: number,
   details?: ItemDetails,
   filteredOnly = false,
+  filteredPattern: string | null = null,
 ): ViewResult {
   const matchCounts = new Map(ex.words.map(w => [w, 0]));
   const filterTypes = ex.filterTypes ?? [];
@@ -538,7 +539,8 @@ export function computeView(
       continue;
     }
     open++;
-    for (const word of lotMatches(lot)) {
+    const matches = lotMatches(lot);
+    for (const word of matches) {
       matchCounts.set(word, matchCounts.get(word)! + 1);
     }
     const typeKey = lot.itemType?.trim().toLowerCase();
@@ -549,6 +551,12 @@ export function computeView(
     const row = makeRow(lot, pickup, rowRules);
     if (filteredOnly && !row.matched) {
       continue;
+    }
+    if (filteredOnly && filteredPattern != null) {
+      if (!matches.includes(filteredPattern)) {
+        continue;
+      }
+      row.matched = filteredPattern;
     }
     // My lots views show every lot of mine, hidden or regex-filtered included.
     if (

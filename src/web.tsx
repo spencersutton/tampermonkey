@@ -15,7 +15,15 @@ import { settingsLoaded, settingsReady, startCatalog } from './app/server/source
 import { App } from './app/ui/App';
 import { AppLock, LoginDialog } from './app/ui/Auth';
 import { navFromUrl, startHistory } from './app/ui/history';
-import { closed, filteredOnly, onScreen, openId, page, startApp } from './app/ui/state';
+import {
+  closed,
+  filteredOnly,
+  filteredPattern,
+  onScreen,
+  openId,
+  page,
+  startApp,
+} from './app/ui/state';
 import { KEYS } from './shared/keys';
 
 // A URL with parameters (/tlx?search=foo&sort=...) overrides the saved view, pages shown and open lot.
@@ -29,6 +37,7 @@ if (fromUrl) {
   openId.value = fromUrl.openId;
   closed.value = fromUrl.closed;
   filteredOnly.value = fromUrl.filteredOnly;
+  filteredPattern.value = fromUrl.filteredPattern ?? null;
 }
 
 // The app starts once the server is unlocked, so its first requests aren't refused.

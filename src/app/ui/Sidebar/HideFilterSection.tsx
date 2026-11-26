@@ -6,7 +6,15 @@ import { KEYS, siteUrl } from '../../../shared/keys';
 import { useSetting } from '../../server/settings';
 import { openHandler } from '../dom';
 import { Icon } from '../icons';
-import { filteredOnly, filterFacets, openFiltered, openFilteredType, openHidden } from '../state';
+import {
+  filteredOnly,
+  filteredPattern,
+  filterFacets,
+  openFiltered,
+  openFilteredPattern,
+  openFilteredType,
+  openHidden,
+} from '../state';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
 
@@ -26,12 +34,13 @@ function PatternText({ pattern }: { pattern: string }) {
 interface FilterRowProps {
   pattern: string;
   count: number;
+  onOpen: () => void;
   onRemove: () => void;
   onSave: (next: string) => void;
 }
 
-// One regex per line: remove button, pattern (click to edit), match count.
-function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
+// One regex per line: remove button, pattern (click to edit, Option-click to view matches), match count.
+function FilterRow({ pattern, count, onOpen, onRemove, onSave }: FilterRowProps) {
   const edit = useInlineEdit();
   const editing = edit.editing != null;
   const ok = compileFilter(pattern) != null;
@@ -48,14 +57,20 @@ function FilterRow({ pattern, count, onRemove, onSave }: FilterRowProps) {
 
   let patternTitle = 'Invalid regex – ignored. Click to edit';
   if (ok) {
-    patternTitle = `/\\b(?:${pattern})\\b/i – click to edit`;
+    patternTitle = `/\\b(?:${pattern})\\b/i – click to edit, Option-click to view filtered lots`;
   }
   let body = (
     <button
       type="button"
       class="filter-pattern"
       title={patternTitle}
-      onClick={() => edit.start('pattern', pattern)}
+      onClick={(e?: MouseEvent) => {
+        if (e?.altKey && ok) {
+          onOpen();
+          return;
+        }
+        edit.start('pattern', pattern);
+      }}
     >
       <PatternText pattern={pattern} />
     </button>
@@ -195,8 +210,14 @@ export function HideFilterSection({
               key={w}
               pattern={w}
               count={matchCounts.get(w) ?? 0}
+              onOpen={() => openFilteredPattern(w)}
               onRemove={() => setWords(words.filter(x => x !== w))}
-              onSave={next => setWords(words.map(x => (x === w ? next : x)).toUnique())}
+              onSave={next => {
+                setWords(words.map(x => (x === w ? next : x)).toUnique());
+                if (filteredPattern.peek() === w) {
+                  filteredPattern.value = next;
+                }
+              }}
             />
           ))}
         </ul>

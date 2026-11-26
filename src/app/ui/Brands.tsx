@@ -5,7 +5,15 @@ import { DEFAULT_VIEW } from '../logic/view';
 import { lotBrands, lotModels } from '../server/catalog';
 import { openHandler } from './dom';
 import { Icon } from './icons';
-import { filteredOnly, highlight, openId, setView, sidebarOpen, storedView } from './state';
+import {
+  filteredOnly,
+  filteredPattern,
+  highlight,
+  openId,
+  setView,
+  sidebarOpen,
+  storedView,
+} from './state';
 
 export function CardBrandModel({ id }: { id: number }) {
   const brand = lotBrands.value.get(id);
@@ -35,6 +43,7 @@ export function BrandModel({ brand, model }: { brand: string | null; model: stri
           setView({ ...DEFAULT_VIEW, sort, search });
           openId.value = null;
           filteredOnly.value = false;
+          filteredPattern.value = null;
           highlight.value = null;
           sidebarOpen.value = false;
         });

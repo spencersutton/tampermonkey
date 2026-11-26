@@ -15,7 +15,7 @@ import {
 } from '../logic/history';
 import { normalizeView } from '../logic/view';
 import { setSetting } from '../server/settings';
-import { closed, filteredOnly, openId, page, storedView } from './state';
+import { closed, filteredOnly, filteredPattern, openId, page, storedView } from './state';
 
 /** The state a /tlx URL describes, or null when it has no parameters. */
 export const navFromUrl = (search = location.search) => parseNavUrl(search);
@@ -39,6 +39,7 @@ const current = computed((): NavState => ({
   openId: openId.value,
   closed: closed.value,
   filteredOnly: filteredOnly.value,
+  filteredPattern: filteredPattern.value,
 }));
 
 function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
@@ -48,6 +49,7 @@ function restore(nav: Omit<NavState, 'view'> & { view: unknown }) {
     openId.value = nav.openId;
     closed.value = nav.closed;
     filteredOnly.value = nav.filteredOnly;
+    filteredPattern.value = nav.filteredPattern ?? null;
   });
 }
 

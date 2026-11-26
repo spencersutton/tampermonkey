@@ -10,6 +10,7 @@ export interface NavState {
   openId: number | null;
   closed: ClosedSection | null; // the Won / Lost page shown instead of the grid
   filteredOnly: boolean;
+  filteredPattern?: string | null;
 }
 
 /**
@@ -46,7 +47,7 @@ const LIST_PARAM = {
 
 /** The URL (path and query) that shows `nav`. */
 export function navToUrl(
-  { view, page, openId, closed, filteredOnly }: NavState,
+  { view, page, openId, closed, filteredOnly, filteredPattern }: NavState,
   pathname = '/',
 ): string {
   const q = new URLSearchParams();
@@ -69,6 +70,7 @@ export function navToUrl(
   put('lot', openId);
   put('closed', closed);
   put('filtered', filteredOnly ? 1 : null);
+  put('filteredPattern', filteredOnly ? filteredPattern : null);
   const qs = q.toString();
   return pathname + (qs ? `?${qs}` : '');
 }
@@ -102,12 +104,14 @@ export function navFromUrl(search: string): NavState | null {
   });
   const page = num('page');
   const closed = q.get('closed');
+  const filteredOnly = closed !== 'won' && closed !== 'lost' && q.get('filtered') === '1';
   return {
     view,
     page: page && page >= 1 ? Math.floor(page) : 1,
     openId: num('lot'),
     closed: closed === 'won' || closed === 'lost' ? closed : null,
-    filteredOnly: closed !== 'won' && closed !== 'lost' && q.get('filtered') === '1',
+    filteredOnly,
+    filteredPattern: filteredOnly ? q.get('filteredPattern') || null : null,
   };
 }
 
@@ -115,15 +119,16 @@ export const isHistoryEntry = (s: unknown): s is HistoryEntry =>
   s !== null && typeof s === 'object' && 'tlx' in s && s.tlx === true;
 
 export const navKey = (n: Omit<NavState, 'view'> & { view: unknown }) =>
-  JSON.stringify([n.view, n.page, n.openId, n.closed, n.filteredOnly]);
+  JSON.stringify([n.view, n.page, n.openId, n.closed, n.filteredOnly, n.filteredPattern ?? null]);
 
 /** Same view on the same page (the grid, or one of the closed-lot pages). */
 export const sameView = (
-  a: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown },
-  b: Pick<NavState, 'closed' | 'filteredOnly'> & { view: unknown },
+  a: Pick<NavState, 'closed' | 'filteredOnly' | 'filteredPattern'> & { view: unknown },
+  b: Pick<NavState, 'closed' | 'filteredOnly' | 'filteredPattern'> & { view: unknown },
 ) =>
   a.closed === b.closed &&
   a.filteredOnly === b.filteredOnly &&
+  (a.filteredPattern ?? null) === (b.filteredPattern ?? null) &&
   JSON.stringify(a.view) === JSON.stringify(b.view);
 
 /** Decide whether a navigation change should push or replace the current history entry. */
