@@ -35,11 +35,11 @@ import { toast } from './toast';
 export { fetchPastCloses };
 
 /** Poll interval while a pull is running (for the progress bar), while visible, and while hidden. */
-const POLL_PULLING = Temporal.Duration.from({ seconds: 2 });
-const POLL_VISIBLE = Temporal.Duration.from({ seconds: 15 });
-const POLL_HIDDEN = Temporal.Duration.from({ minutes: 1 });
+const POLL_PULLING = Duration.from({ seconds: 2 });
+const POLL_VISIBLE = Duration.from({ seconds: 15 });
+const POLL_HIDDEN = Duration.from({ minutes: 1 });
 /** How soon to poll after asking for a pull, so the progress bar shows up. */
-const POLL_AFTER_REQUEST = Temporal.Duration.from({ milliseconds: 500 });
+const POLL_AFTER_REQUEST = Duration.from({ milliseconds: 500 });
 
 /** Last catalog sequence applied here (0 = have nothing). */
 let seq = 0;
@@ -99,7 +99,7 @@ function setServerError(err: unknown) {
 let pollTimer: ReturnType<typeof setTimeout> | number | undefined;
 let polling: Promise<void> | null = null;
 
-const schedule = (fn: () => void, wait: Temporal.Duration) =>
+const schedule = (fn: () => void, wait: Duration) =>
   typeof window === 'undefined' ? setTimeout(fn, ms(wait)) : window.setTimeout(fn, ms(wait));
 
 /** Fetch catalog changes, load settings at startup, then schedule the next poll. */

@@ -5,13 +5,13 @@ import type { ClosedLot } from '../types';
 import { fetchClosed, type ClosedSection } from './api';
 
 /** A fetched section is shown again without refetching for this long. */
-const FRESH = Temporal.Duration.from({ minutes: 2 });
+const FRESH = Duration.from({ minutes: 2 });
 
 export interface ClosedCache {
   lots: ClosedLot[];
   count: number; // what the site reports, while pages are still arriving
   done: boolean;
-  at: Temporal.Instant;
+  at: Instant;
   error?: string;
 }
 

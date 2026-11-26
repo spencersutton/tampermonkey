@@ -3,6 +3,7 @@
 // available from anywhere.
 import 'temporal-polyfill/global';
 import './shared/arrayToSet';
+import './shared/temporalGlobals';
 import { render } from 'preact';
 
 import './app/ui/app.css';

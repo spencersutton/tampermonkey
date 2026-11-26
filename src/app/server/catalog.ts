@@ -12,7 +12,7 @@ import { fetchLotDetail, fetchLotMetadata } from './api';
 import { onAuthChange } from './auth';
 
 /** How long a fetched lot detail is reused. */
-const DETAIL_TTL = Temporal.Duration.from({ minutes: 2 });
+const DETAIL_TTL = Duration.from({ minutes: 2 });
 
 export interface SyncProgress {
   done: number;
@@ -69,7 +69,7 @@ export function updateItemType(ids: Iterable<number>, itemType: string) {
 const details = new Map<
   number,
   {
-    at: Temporal.Instant;
+    at: Instant;
     data?: LotDetail;
     promise?: Promise<LotDetail>;
   }

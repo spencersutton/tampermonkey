@@ -143,7 +143,7 @@ export const pickupName = computed(() => accountPickupName.value || 'Raleigh');
 export const storedView = computed(() => initialView(getSetting(KEYS.view)));
 export const searchDraft = signal('');
 const committedSearch = computed(() => storedView.value.search);
-const SEARCH_DEBOUNCE = Temporal.Duration.from({ milliseconds: 200 });
+const SEARCH_DEBOUNCE = Duration.from({ milliseconds: 200 });
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
 export function setSearchDraft(text: string) {
@@ -283,10 +283,10 @@ export const searchStats = computed(() => {
 export const totalNew = computed(() => searchStats.value.values().sumBy(s => s.fresh));
 
 /** Coming back to the tab after it was hidden this long counts as a new visit. */
-const VISIT_GAP = Temporal.Duration.from({ minutes: 30 });
+const VISIT_GAP = Duration.from({ minutes: 30 });
 
 /** How long the account's pickup location is reused before asking the site again. */
-const PICKUP_TTL = Temporal.Duration.from({ days: 1 });
+const PICKUP_TTL = Duration.from({ days: 1 });
 
 /**
  * Lots first seen after this count as new: the start of the previous visit (a page load, or the tab
@@ -302,7 +302,7 @@ function trackVisits() {
     visitSince.value = lastVisit ?? firstVisitSince(lots.peek().values(), now);
     setSetting(KEYS.lastVisit, now);
   };
-  let hiddenAt: Temporal.Instant | null = null;
+  let hiddenAt: Instant | null = null;
   void settingsReady.then(() => {
     visit();
     document.addEventListener('visibilitychange', () => {
@@ -327,7 +327,7 @@ export function startApp() {
       return;
     }
     const acct = untracked(() => getSetting(KEYS.accountPickup));
-    if (!(acct && within(Temporal.Instant.fromEpochMilliseconds(acct.at), PICKUP_TTL))) {
+    if (!(acct && within(Instant.fromEpochMilliseconds(acct.at), PICKUP_TTL))) {
       fetchPickupLocation().then(
         p =>
           setSetting(KEYS.accountPickup, {

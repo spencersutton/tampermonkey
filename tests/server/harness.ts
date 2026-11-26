@@ -106,7 +106,7 @@ export async function setup(options: Options = {}) {
     password: options.password ?? null,
     staticDir,
     siteFetch,
-    wrongPasswordDelay: new Temporal.Duration(),
+    wrongPasswordDelay: new Duration(),
   });
   const request = (path: string, init: RequestInit & { host?: string } = {}) => {
     const headers = new Headers(init.headers);

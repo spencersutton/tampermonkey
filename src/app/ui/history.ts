@@ -31,7 +31,7 @@ function record(nav: NavState) {
 }
 
 /** Scroll positions are saved this long after scrolling stops. */
-const SCROLL_SAVE_DEBOUNCE = Temporal.Duration.from({ milliseconds: 200 });
+const SCROLL_SAVE_DEBOUNCE = Duration.from({ milliseconds: 200 });
 
 const current = computed((): NavState => ({
   view: storedView.value,

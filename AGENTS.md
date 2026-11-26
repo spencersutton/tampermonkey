@@ -49,6 +49,12 @@ committing.
 - The `src/shared/arrayToSet.ts` prototype helpers are installed only by entry
   points (`src/web.tsx`, `src/server/main.ts`, scripts), `tests/vite.mjs` and
   the Bun test preload in `bunfig.toml`; don't import it from other modules.
+- `Duration` and `Instant` are globals (aliases of `Temporal.Duration` /
+  `Temporal.Instant`, typed in `global.d.ts`) installed by
+  `src/shared/temporalGlobals.ts` at the same entry points as `arrayToSet`
+  (plus the Bun preload and `tests/vite.mjs`); write `Duration.from(...)`, not
+  `Temporal.Duration.from(...)`. A module that uses them at top level only works
+  when loaded after that import.
 - `Lot` is an ambient global type (aliased in `global.d.ts`), so don't import
   it; `plural` lives in `src/shared/format.ts` (`format.plural`).
 - Global (no-import) TypeScript types live in `src/shared/global.d.ts`

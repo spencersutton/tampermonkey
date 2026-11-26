@@ -5,7 +5,7 @@ const duration = new Intl.DurationFormat([], { style: 'narrow' });
  * last hour.
  */
 export function timeLabel(endsAt: number, now: number) {
-  const left = Temporal.Duration.from({ milliseconds: endsAt - now }).round({ largestUnit: 'day' });
+  const left = Duration.from({ milliseconds: endsAt - now }).round({ largestUnit: 'day' });
   if (left.sign <= 0) {
     return { text: 'Closed', soon: true };
   }
@@ -18,7 +18,7 @@ export function timeLabel(endsAt: number, now: number) {
   const rounded = left.round({ smallestUnit, roundingMode: 'trunc' });
   return {
     text: duration.format(rounded),
-    soon: Temporal.Duration.compare(left, { hours: 1 }) <= 0,
+    soon: Duration.compare(left, { hours: 1 }) <= 0,
   };
 }
 
@@ -29,7 +29,7 @@ const relative = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
  * "yesterday".
  */
 export function ago(ts: number, now: number) {
-  const elapsed = Temporal.Duration.from({ milliseconds: now - ts }).round({ largestUnit: 'day' });
+  const elapsed = Duration.from({ milliseconds: now - ts }).round({ largestUnit: 'day' });
   if (elapsed.days > 0) {
     return relative.format(-elapsed.days, 'day');
   }
@@ -44,7 +44,7 @@ export function ago(ts: number, now: number) {
 
 /** Remaining time as "m:ss", or "Ns" under a minute. */
 export function countdown(ms: number) {
-  const left = Temporal.Duration.from({ milliseconds: Math.max(0, ms) }).round({
+  const left = Duration.from({ milliseconds: Math.max(0, ms) }).round({
     largestUnit: 'minute',
     smallestUnit: 'second',
     roundingMode: 'ceil',

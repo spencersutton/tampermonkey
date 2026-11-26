@@ -12,5 +12,6 @@ export async function createTestServer() {
     appType: 'custom',
   });
   await vite.ssrLoadModule('/src/shared/arrayToSet.ts');
+  await vite.ssrLoadModule('/src/shared/temporalGlobals.ts');
   return vite;
 }

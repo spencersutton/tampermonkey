@@ -58,9 +58,7 @@ describe('guards', () => {
     );
     const cookie = setCookie.split(';')[0]!;
     expect((await request('/api/catalog', { headers: { Cookie: cookie } })).status).toBe(200);
-    expect(
-      await store.hasSession(cookie.split('=')[1]!, Temporal.Duration.from({ minutes: 1 })),
-    ).toBe(true);
+    expect(await store.hasSession(cookie.split('=')[1]!, Duration.from({ minutes: 1 }))).toBe(true);
 
     const logout = await post('/api/app-logout', undefined, { Cookie: cookie });
     expect(logout.headers.get('Set-Cookie')).toContain('Max-Age=0');

@@ -23,7 +23,7 @@ export const liveState = signal<LiveState>('off');
 /** Active `lot:{id}` channel subscriptions, by lot id. */
 const subs = new Map<number, Subscription>();
 /** How long the set of watched lots must settle before subscriptions change. */
-const WATCH_DEBOUNCE = Temporal.Duration.from({ milliseconds: 300 });
+const WATCH_DEBOUNCE = Duration.from({ milliseconds: 300 });
 
 const setState = (s: LiveState) => void (liveState.value = s);
 

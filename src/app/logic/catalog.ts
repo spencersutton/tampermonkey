@@ -144,7 +144,7 @@ export function itemTypeSuggestions(lots: Iterable<Lot>): string[] {
 }
 
 /** Before any visit was recorded, lots with more than this left are taken to be new. */
-const FIRST_VISIT_NEW_LEFT = Temporal.Duration.from({ days: 2 });
+const FIRST_VISIT_NEW_LEFT = Duration.from({ days: 2 });
 
 /**
  * With no previous visit, start just before the earliest-seen lot that still has over

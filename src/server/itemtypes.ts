@@ -23,8 +23,8 @@ export const DEFAULT_URL = 'https://nano-gpt.com/api/v1';
 export const DEFAULT_MODEL = 'mistralai/ministral-14b-instruct-2512';
 const BATCH = 40; // titles per request
 const VOCAB = 100; // types already in use sent with each request
-const RETRY = Temporal.Duration.from({ minutes: 15 }); // how often to try again after a failure, with no pull to wake it
-const TIMEOUT = Temporal.Duration.from({ minutes: 1 });
+const RETRY = Duration.from({ minutes: 15 }); // how often to try again after a failure, with no pull to wake it
+const TIMEOUT = Duration.from({ minutes: 1 });
 
 const PROMPT = `You name the kind of item in lot titles from a liquidation auction (customer returns and overstock from home improvement and big-box stores).
 

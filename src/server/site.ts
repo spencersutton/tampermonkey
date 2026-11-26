@@ -21,7 +21,7 @@ export const BunWebSocket = WebSocket as unknown as new (
 
 export const BASE = `${SITE}/backend`;
 export const LIST_PAGE_SIZE = 100; // the API's maximum per_page
-const TIMEOUT = Temporal.Duration.from({ seconds: 30 });
+const TIMEOUT = Duration.from({ seconds: 30 });
 
 /** A failed API request, with its HTTP status (0 = network error). */
 export class ApiError extends Error {

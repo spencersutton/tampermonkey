@@ -36,7 +36,7 @@ export class Waker {
   }
 
   /** Wait for wake(), or `timeout` if given; clears the wake-up either way. */
-  async wait(timeout?: Temporal.Duration): Promise<void> {
+  async wait(timeout?: Duration): Promise<void> {
     if (!this.pending) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       await new Promise<void>(resolve => {

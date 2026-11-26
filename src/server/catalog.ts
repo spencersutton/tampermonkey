@@ -24,7 +24,7 @@ import type { SiteSession } from './session';
 import { ApiError, LIST_PAGE_SIZE, type SiteApi } from './site';
 import type { CatalogMeta, Store } from './store';
 
-const CHECK_EVERY = Temporal.Duration.from({ seconds: 15 }); // between checks whether a pull is due
+const CHECK_EVERY = Duration.from({ seconds: 15 }); // between checks whether a pull is due
 const ACCOUNT_FIELDS = ['your_standing', 'is_watchlisted', 'has_bid'] as const;
 
 export interface Progress {
@@ -59,9 +59,9 @@ export class Catalog {
 
   // -- schedule -------------------------------------------------------------------
   /** Minimum time between full pulls, from the synced setting. */
-  async interval(): Promise<Temporal.Duration> {
+  async interval(): Promise<Duration> {
     const m = await this.store.setting(KEYS.syncMinutes);
-    return Temporal.Duration.from({
+    return Duration.from({
       minutes: Math.max(MIN_SYNC_MINUTES, typeof m === 'number' ? m : DEFAULT_SYNC_MINUTES),
     });
   }

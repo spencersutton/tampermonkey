@@ -12,9 +12,9 @@ import { field, isRecord, prop } from './json';
 import { USER_AGENT } from './site';
 import type { Store } from './store';
 
-const EXPIRY_MARGIN = Temporal.Duration.from({ minutes: 2 }); // refresh the token this long before it expires
-const REFRESH_MIN_GAP = Temporal.Duration.from({ seconds: 30 }); // between forced refreshes (after a 401)
-const REQUEST_TIMEOUT = Temporal.Duration.from({ seconds: 30 });
+const EXPIRY_MARGIN = Duration.from({ minutes: 2 }); // refresh the token this long before it expires
+const REFRESH_MIN_GAP = Duration.from({ seconds: 30 }); // between forced refreshes (after a 401)
+const REQUEST_TIMEOUT = Duration.from({ seconds: 30 });
 const COOKIES_KEY = 'siteCookies';
 const USER_KEY = 'siteUser';
 const SITE_HOST = new URL(SITE).hostname;
@@ -30,7 +30,7 @@ interface Cookie {
   value: string;
   domain: string;
   path: string;
-  expires?: Temporal.Instant; // kept in memory only, like the Python jar's saved form
+  expires?: Instant; // kept in memory only, like the Python jar's saved form
 }
 
 export interface SiteUser {
@@ -45,23 +45,21 @@ export interface SiteStatus {
 }
 
 /** When a JWT expires (its `exp` claim), or null if it has none. */
-export function tokenExpiry(token: string | null): Temporal.Instant | null {
+export function tokenExpiry(token: string | null): Instant | null {
   const part = token?.split('.')[1];
   if (!part) {
     return null;
   }
   try {
     const exp = prop(JSON.parse(Buffer.from(part, 'base64url').toString()), 'exp');
-    return typeof exp === 'number'
-      ? Temporal.Instant.fromEpochMilliseconds(Math.trunc(exp * 1000))
-      : null;
+    return typeof exp === 'number' ? Instant.fromEpochMilliseconds(Math.trunc(exp * 1000)) : null;
   } catch {
     return null;
   }
 }
 
 /** A Set-Cookie header as a cookie, or null if it can't be read. */
-function parseSetCookie(header: string, now: Temporal.Instant): Cookie | null {
+function parseSetCookie(header: string, now: Instant): Cookie | null {
   const [pair = '', ...attrs] = header.split(';');
   const eq = pair.indexOf('=');
   if (eq < 1) {
@@ -95,7 +93,7 @@ function parseSetCookie(header: string, now: Temporal.Instant): Cookie | null {
         if (!attrs.some(a => a.trim().toLowerCase().startsWith('max-age='))) {
           const parsed = Date.parse(value);
           if (Number.isFinite(parsed)) {
-            cookie.expires = Temporal.Instant.fromEpochMilliseconds(parsed);
+            cookie.expires = Instant.fromEpochMilliseconds(parsed);
           }
         }
         break;
@@ -107,7 +105,7 @@ function parseSetCookie(header: string, now: Temporal.Instant): Cookie | null {
 export class SiteSession {
   user: SiteUser | null;
   private cookies: Cookie[] = [];
-  private lastRefresh: Temporal.Instant | null = null;
+  private lastRefresh: Instant | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly store: Store;
   private readonly fetch: typeof fetch;
@@ -157,9 +155,7 @@ export class SiteSession {
 
   private live(): Cookie[] {
     const now = Temporal.Now.instant();
-    return this.cookies.filter(
-      c => c.expires === undefined || Temporal.Instant.compare(c.expires, now) > 0,
-    );
+    return this.cookies.filter(c => c.expires === undefined || Instant.compare(c.expires, now) > 0);
   }
 
   private cookie(name: string): string | null {
@@ -178,7 +174,7 @@ export class SiteSession {
         const same = (c: Cookie) =>
           c.name === cookie.name && c.domain === cookie.domain && c.path === cookie.path;
         this.cookies = this.cookies.filter(c => !same(c));
-        if (cookie.expires === undefined || Temporal.Instant.compare(cookie.expires, now) > 0) {
+        if (cookie.expires === undefined || Instant.compare(cookie.expires, now) > 0) {
           this.cookies.push(cookie);
         }
       }
@@ -254,8 +250,7 @@ export class SiteSession {
       const current = this.cookie('token');
       const exp = tokenExpiry(current);
       const expiring =
-        exp !== null &&
-        Temporal.Instant.compare(exp.subtract(EXPIRY_MARGIN), Temporal.Now.instant()) < 0;
+        exp !== null && Instant.compare(exp.subtract(EXPIRY_MARGIN), Temporal.Now.instant()) < 0;
       if (current === null || expiring) {
         await this.refreshNow(false);
       }

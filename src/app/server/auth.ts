@@ -9,8 +9,8 @@ import { computed, effect, signal, untracked } from '@preact/signals';
 
 import { ms, within } from '../../shared/time';
 
-const CHECK_EVERY = Temporal.Duration.from({ minutes: 5 });
-const FOCUS_MIN_GAP = Temporal.Duration.from({ minutes: 1 });
+const CHECK_EVERY = Duration.from({ minutes: 5 });
+const FOCUS_MIN_GAP = Duration.from({ minutes: 1 });
 
 export interface Me {
   version: string;
@@ -67,7 +67,7 @@ async function callMe(path: string, body?: unknown): Promise<Me & { error?: stri
 
 /** Check in-flight, shared by concurrent callers. */
 let inflight: Promise<boolean> | null = null;
-let lastCheck: Temporal.Instant | null = null;
+let lastCheck: Instant | null = null;
 
 /** Ask the server for the login state. Resolves to whether it's logged in to the site. */
 export function refreshSession(): Promise<boolean> {

@@ -52,9 +52,9 @@ import type { Store } from './store';
 
 const MAX_BODY = 4 * 1024 * 1024;
 const SESSION_COOKIE = 'tlx_session';
-const SESSION_MAX_AGE = Temporal.Duration.from({ days: 90 });
-const WRONG_PASSWORD_DELAY = Temporal.Duration.from({ seconds: 1 });
-const SITE_TIMEOUT = Temporal.Duration.from({ seconds: 30 });
+const SESSION_MAX_AGE = Duration.from({ days: 90 });
+const WRONG_PASSWORD_DELAY = Duration.from({ seconds: 1 });
+const SITE_TIMEOUT = Duration.from({ seconds: 30 });
 export const LOCAL_HOSTS = ['localhost', '127.0.0.1', '::1'];
 const PUBLIC_PATHS = ['/api/me', '/api/app-login', '/api/health'].toSet();
 // Request headers passed through to the site's API (the rest are dropped).
@@ -88,7 +88,7 @@ export interface Deps {
   siteFetch?: typeof fetch;
   wsUrl?: string;
   /** Pause after a wrong app password, to slow down guessing. */
-  wrongPasswordDelay?: Temporal.Duration;
+  wrongPasswordDelay?: Duration;
 }
 
 type Env = { Bindings: Server<RelayData> }; // Bun passes its server to fetch

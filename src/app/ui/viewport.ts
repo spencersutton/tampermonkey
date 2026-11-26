@@ -4,7 +4,7 @@ import { ms } from '../../shared/time';
 import { gridView, onScreen, page, PAGE_SIZE } from './state';
 
 /** How long scrolling must settle before the on-screen lots are published. */
-const PUBLISH_DEBOUNCE = Temporal.Duration.from({ milliseconds: 150 });
+const PUBLISH_DEBOUNCE = Duration.from({ milliseconds: 150 });
 
 const nearby = new Set<number>();
 let cards: IntersectionObserver | undefined;

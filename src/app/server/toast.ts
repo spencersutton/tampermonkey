@@ -19,7 +19,7 @@ let nextId = 1;
 export function toast(
   kind: ToastKind,
   text: string,
-  shown = Temporal.Duration.from({ seconds: kind === 'bad' ? 8 : 4 }),
+  shown = Duration.from({ seconds: kind === 'bad' ? 8 : 4 }),
 ) {
   const id = nextId++;
   toasts.value = [...toasts.value, { id, kind, text }].slice(-4);

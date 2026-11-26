@@ -38,7 +38,7 @@ describe('Details', () => {
     const beforeSeq = await store.seq();
 
     const paths: string[] = [];
-    const pauses: Temporal.Duration[] = [];
+    const pauses: Duration[] = [];
     const site = new SiteApi((async (input: string | URL | Request) => {
       const path = new URL(String(input)).pathname;
       paths.push(path);

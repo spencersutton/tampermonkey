@@ -88,14 +88,14 @@ type Window = [start: number, end: number];
 
 /** The next `h` hours. */
 function nextHours(h: number) {
-  return (now: number): Window => [now, now + ms(Temporal.Duration.from({ hours: h }))];
+  return (now: number): Window => [now, now + ms(Duration.from({ hours: h }))];
 }
 
 /** The calendar day `offset` days from today, minus the part already past. */
 function day(offset: number) {
   return (now: number): Window => {
     // Temporal handles DST-length days and the local time zone.
-    const start = Temporal.Instant.fromEpochMilliseconds(now)
+    const start = Instant.fromEpochMilliseconds(now)
       .toZonedDateTimeISO(Temporal.Now.timeZoneId())
       .startOfDay()
       .add({ days: offset });

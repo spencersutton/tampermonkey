@@ -9,8 +9,8 @@ import { log, Waker } from './log';
 import { ApiError, type SiteApi } from './site';
 import type { Store } from './store';
 
-export const DETAIL_PAUSE = Temporal.Duration.from({ milliseconds: 500 }); // between detail requests
-export const RETRY = Temporal.Duration.from({ minutes: 15 }); // retry after a failure, with no pull to wake it
+export const DETAIL_PAUSE = Duration.from({ milliseconds: 500 }); // between detail requests
+export const RETRY = Duration.from({ minutes: 15 }); // retry after a failure, with no pull to wake it
 
 export type DetailsStore = Pick<Store, 'pendingDetails' | 'hasLotDetail' | 'saveLotDetail'>;
 
@@ -24,7 +24,7 @@ export class Details {
   constructor(
     private readonly store: DetailsStore,
     private readonly site: Pick<SiteApi, 'get'>,
-    private readonly sleep: (d: Temporal.Duration) => Promise<unknown> = pause,
+    private readonly sleep: (d: Duration) => Promise<unknown> = pause,
   ) {}
 
   wake(): void {

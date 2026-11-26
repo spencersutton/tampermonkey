@@ -23,7 +23,7 @@ import type { ClosedLot, Store } from './store';
 
 const RECENT = 8; // closes attached to each lot
 export const HISTORY_LIMIT = 200; // closes listed in the lot popup
-const DETAIL_PAUSE = Temporal.Duration.from({ milliseconds: 500 }); // between final-price requests
+const DETAIL_PAUSE = Duration.from({ milliseconds: 500 }); // between final-price requests
 
 /**
  * A closed lot as attached to an open lot's `pastCloses` (price and endsAt are set on every closed
@@ -41,16 +41,12 @@ const close = (row: ClosedLot): PastClose => ({
 export class History {
   private readonly store: Store;
   private readonly site: SiteApi;
-  private readonly sleep: (d: Temporal.Duration) => Promise<unknown>;
+  private readonly sleep: (d: Duration) => Promise<unknown>;
   private readonly waker = new Waker();
   private cache: { version: number; index: ItemIndex<ClosedLot> } | null = null;
   private open: { seq: number; index: ItemIndex<Lot & { endsAt: number }> } | null = null;
 
-  constructor(
-    store: Store,
-    site: SiteApi,
-    sleep: (d: Temporal.Duration) => Promise<unknown> = pause,
-  ) {
+  constructor(store: Store, site: SiteApi, sleep: (d: Duration) => Promise<unknown> = pause) {
     this.store = store;
     this.site = site;
     this.sleep = sleep;

@@ -24,13 +24,13 @@ export function observableSet<T>() {
 }
 
 /** Clock rates: pass these constants so each rate shares one signal (keyed by identity). */
-export const EVERY_SECOND = Temporal.Duration.from({ seconds: 1 });
-export const EVERY_30_SECONDS = Temporal.Duration.from({ seconds: 30 });
+export const EVERY_SECOND = Duration.from({ seconds: 1 });
+export const EVERY_30_SECONDS = Duration.from({ seconds: 30 });
 
 /** One clock signal per interval; its timer runs only while something reads it. */
-const clocks = new Map<Temporal.Duration, Signal<number>>();
+const clocks = new Map<Duration, Signal<number>>();
 
-function createClock(every: Temporal.Duration): Signal<number> {
+function createClock(every: Duration): Signal<number> {
   const interval = ms(every);
   let timer: ReturnType<typeof setInterval> | undefined;
   return signal(Date.now(), {

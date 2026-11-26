@@ -1205,7 +1205,7 @@ export class Store {
     await this.run('INSERT INTO app_sessions (id, created) VALUES ($1, $2)', [id, now()]);
   }
 
-  async hasSession(id: string, maxAge: Temporal.Duration): Promise<boolean> {
+  async hasSession(id: string, maxAge: Duration): Promise<boolean> {
     const row = await this.get<{ created: number }>(
       'SELECT created FROM app_sessions WHERE id = $1',
       [id],
