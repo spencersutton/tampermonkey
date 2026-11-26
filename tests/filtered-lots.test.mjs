@@ -249,6 +249,27 @@ test('Option/Alt-clicking a regex filter opens the Filtered lots view narrowed t
   assert.equal(filteredPattern.value, null);
 });
 
+test('LotCard is dimmed in the main catalog but not in the filtered lots view', async () => {
+  const { LotCard } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
+  const renderCard = row => {
+    const vnode = h(LotCard.type, { row });
+    vnode.__c = new Component(vnode.props);
+    vnode.__c.__h = [];
+    options.__r(vnode);
+    const tree = vnode.type(vnode.props);
+    options.diffed(vnode);
+    options.unmount?.(vnode);
+    return tree;
+  };
+  applySetting(KEYS.removeFiltered, false);
+  const row = gridView.value.rows.find(r => r.lot.id === 1);
+  assert.ok(row?.matched);
+
+  assert.equal(renderCard(row).props.class, 'card dim');
+  openFiltered();
+  assert.equal(renderCard(row).props.class, 'card ');
+});
+
 test('LotAttrs renders every extracted attribute on the lot detail view and filters on click', async () => {
   const { LotAttrs } = await vite.ssrLoadModule('/src/app/ui/LotModal.tsx');
   const nodes = node => {

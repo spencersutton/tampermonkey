@@ -21,7 +21,7 @@ import { openHandler } from './dom';
 import { Highlight } from './Highlight';
 import { Icon } from './icons';
 import { ItemTypeActions } from './ItemType';
-import { modalActions, openLot, setView, toggleHide } from './state';
+import { filteredOnly, modalActions, openLot, setView, toggleHide } from './state';
 import { observeLot } from './viewport';
 
 /** Live countdown to a lot closing, highlighted in the last hour. */
@@ -120,7 +120,7 @@ interface Props {
 export const LotCard = memo(function LotCard({ row, isNew }: Props) {
   const { lot, matched, hidden, category } = row;
   const href = lotHref(lot.auction_period, lot.id);
-  const dim = Boolean(matched) || hidden;
+  const dim = !filteredOnly.value && (Boolean(matched) || hidden);
   const img = lot.images[0];
   const open = openHandler(() => openLot(lot));
   const conditions = siteConditions();
