@@ -67,6 +67,32 @@ describe('/api/settings', () => {
     expect((await send('PUT', '/api/settings/filterTypes', { value: 'drill' })).status).toBe(400);
     expect((await send('PUT', '/api/settings/filterTypes', { value: [1] })).status).toBe(400);
   });
+
+  test('hiddenLots validates its shape and persists to hidden_lots', async () => {
+    const { request, send, store } = await setup();
+    const sample = {
+      '55': { title: 'Cordless drill', href: '/lots/2026-11-01/55', ts: 1_795_471_903_166 },
+    };
+    expect(await (await send('PUT', '/api/settings/hiddenLots', { value: sample })).json()).toEqual(
+      { rev: 1 },
+    );
+    expect(await (await request('/api/settings')).json()).toEqual({
+      rev: 1,
+      values: { hiddenLots: sample },
+    });
+    expect(await store.hiddenLots()).toEqual(sample);
+    expect((await send('PUT', '/api/settings/hiddenLots', { value: [] })).status).toBe(400);
+    expect(
+      (
+        await send('PUT', '/api/settings/hiddenLots', {
+          value: { bad: { title: 'x', href: '/', ts: 1 } },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (await send('PUT', '/api/settings/hiddenLots', { value: { '55': { title: 'x' } } })).status,
+    ).toBe(400);
+  });
 });
 
 describe('/api/lot-metadata', () => {

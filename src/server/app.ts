@@ -69,6 +69,25 @@ const PROXY_HEADERS = [
 const LOT_DETAIL_PATH = /^\/backend\/v1\/auctions\/lots\/[^/]+\/\d+\/$/;
 const CLOSED_PATH = /^\/backend\/v1\/auctions\/control-panel\/closed\/(won|lost)\/$/;
 const SETTING_KEY = /^[A-Za-z0-9_]{1,64}$/;
+
+function isValidHiddenLots(value: unknown): boolean {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return Object.entries(value).every(([k, v]) => {
+    const id = Number(k);
+    return (
+      /^\d+$/.test(k) &&
+      Number.isInteger(id) &&
+      id > 0 &&
+      isRecord(v) &&
+      typeof v['title'] === 'string' &&
+      typeof v['href'] === 'string' &&
+      typeof v['ts'] === 'number' &&
+      Number.isFinite(v['ts'])
+    );
+  });
+}
 const MAX_ID = Number.MAX_SAFE_INTEGER;
 const PAGES: Record<string, string> = {
   '/': 'index.html',
@@ -290,6 +309,9 @@ export function createApp(deps: Deps) {
       (!Array.isArray(value) || !value.every(v => typeof v === 'string'))
     ) {
       throw new BadRequest('Expected an array of strings for filterTypes');
+    }
+    if (key === KEYS.hidden && !isValidHiddenLots(value)) {
+      throw new BadRequest('Expected an object of { [lotId]: { title, href, ts } } for hiddenLots');
     }
     return json({ rev: await store.putSetting(key, value) });
   });

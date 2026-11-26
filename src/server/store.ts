@@ -21,7 +21,7 @@ import { SQL } from 'bun';
 import { dequal } from 'dequal';
 
 import { brandModelKey, ItemTypeIndex } from '../shared/identity';
-import { KEYS } from '../shared/keys';
+import { type HiddenLot, KEYS } from '../shared/keys';
 import {
   endsAtMs,
   type LotImage,
@@ -59,6 +59,9 @@ const SCHEMA_STATEMENTS = [
   'CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS filter_types (type TEXT PRIMARY KEY)',
+  `CREATE TABLE IF NOT EXISTS hidden_lots (
+    lot_id BIGINT PRIMARY KEY, title TEXT NOT NULL, href TEXT NOT NULL, ts BIGINT NOT NULL
+  )`,
   'CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created DOUBLE PRECISION NOT NULL)',
   `CREATE TABLE IF NOT EXISTS item_types (
     brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
@@ -144,6 +147,30 @@ type Param = string | number | boolean | null | number[] | string[];
 /** Bun.SQL returns BIGINT values as strings; convert back to JS number. */
 const toInt = (v: string | number): number => Number(v);
 const toOptInt = (v: string | number | null): number | null => (v === null ? null : Number(v));
+
+function parseHiddenLots(value: unknown): [number, HiddenLot][] {
+  if (!isRecord(value)) {
+    return [];
+  }
+  const entries: [number, HiddenLot][] = [];
+  for (const [k, v] of Object.entries(value)) {
+    const id = Number(k);
+    if (!/^\d+$/.test(k) || !Number.isInteger(id) || id <= 0 || !isRecord(v)) {
+      continue;
+    }
+    const { title, href, ts } = v;
+    if (
+      typeof title !== 'string' ||
+      typeof href !== 'string' ||
+      typeof ts !== 'number' ||
+      !Number.isFinite(ts)
+    ) {
+      continue;
+    }
+    entries.push([id, { title, href, ts: Math.trunc(ts) }]);
+  }
+  return entries;
+}
 
 /** Build multi-row VALUES placeholders: `($1, $2), ($3, $4)` for `rows` rows of `cols` columns. */
 function valuePlaceholders(rows: number, cols: number): string {
@@ -333,6 +360,7 @@ export class Store {
         await sql.unsafe(stmt);
       }
       await store.migrateFilterTypes();
+      await store.migrateHiddenLots();
       return store;
     } catch (e) {
       await sql.close();
@@ -1145,6 +1173,57 @@ export class Store {
     });
   }
 
+  private async hiddenLotsRev(q: Queryable = this.sql): Promise<number | null> {
+    const v = await this.getMeta('hiddenLotsRev', q);
+    return typeof v === 'number' ? Math.trunc(v) : null;
+  }
+
+  /** All hidden lots, keyed by lot id string. */
+  async hiddenLots(q: Queryable = this.sql): Promise<Record<string, HiddenLot>> {
+    const rows = await this.all<{
+      lot_id: string | number;
+      title: string;
+      href: string;
+      ts: string | number;
+    }>('SELECT lot_id, title, href, ts FROM hidden_lots ORDER BY lot_id', [], q);
+    return Object.fromEntries(
+      rows.map(r => [String(r.lot_id), { title: r.title, href: r.href, ts: toInt(r.ts) }]),
+    );
+  }
+
+  private async writeHiddenLots(entries: [number, HiddenLot][], q: Queryable): Promise<void> {
+    await this.run('DELETE FROM hidden_lots', [], q);
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      const batch = entries.slice(i, i + BATCH_SIZE);
+      const params: Param[] = [];
+      for (const [id, h] of batch) {
+        params.push(id, h.title, h.href, h.ts);
+      }
+      await this.run(
+        `INSERT INTO hidden_lots (lot_id, title, href, ts) VALUES ${valuePlaceholders(batch.length, 4)}
+         ON CONFLICT (lot_id) DO UPDATE SET title = EXCLUDED.title, href = EXCLUDED.href, ts = EXCLUDED.ts`,
+        params,
+        q,
+      );
+    }
+  }
+
+  private async migrateHiddenLots(): Promise<void> {
+    const row = await this.get<{ value: string; rev: number }>(
+      'SELECT value, rev FROM settings WHERE key = $1',
+      [KEYS.hidden],
+    );
+    if (!row) {
+      return;
+    }
+    const entries = parseHiddenLots(JSON.parse(row.value));
+    await this.tx(async tx => {
+      await this.writeHiddenLots(entries, tx);
+      await this.setMeta('hiddenLotsRev', row.rev, tx);
+      await this.run('DELETE FROM settings WHERE key = $1', [KEYS.hidden], tx);
+    });
+  }
+
   /** The settings revision and every setting changed after `since`. */
   async settings(since = 0): Promise<{ rev: number; values: Record<string, unknown> }> {
     const rev = await this.int('settingsRev');
@@ -1160,12 +1239,19 @@ export class Store {
     if (ftRev !== null && ftRev > from) {
       values[KEYS.filterTypes] = await this.filterTypes();
     }
+    const hlRev = await this.hiddenLotsRev();
+    if (hlRev !== null && hlRev > from) {
+      values[KEYS.hidden] = await this.hiddenLots();
+    }
     return { rev, values };
   }
 
   async setting(key: string): Promise<unknown> {
     if (key === KEYS.filterTypes) {
       return (await this.filterTypesRev()) === null ? undefined : this.filterTypes();
+    }
+    if (key === KEYS.hidden) {
+      return (await this.hiddenLotsRev()) === null ? undefined : this.hiddenLots();
     }
     const row = await this.get<{ value: string }>('SELECT value FROM settings WHERE key = $1', [
       key,
@@ -1183,6 +1269,16 @@ export class Store {
         const rev = (await this.int('settingsRev', tx)) + 1;
         await this.writeFilterTypes(types, tx);
         await this.setMeta('filterTypesRev', rev, tx);
+        await this.setMeta('settingsRev', rev, tx);
+        return rev;
+      });
+    }
+    if (key === KEYS.hidden) {
+      const entries = parseHiddenLots(value);
+      return this.tx(async tx => {
+        const rev = (await this.int('settingsRev', tx)) + 1;
+        await this.writeHiddenLots(entries, tx);
+        await this.setMeta('hiddenLotsRev', rev, tx);
         await this.setMeta('settingsRev', rev, tx);
         return rev;
       });

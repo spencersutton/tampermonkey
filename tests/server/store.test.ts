@@ -341,6 +341,87 @@ describe('settings and sessions', () => {
     expect(await reopened.filterTypes()).toEqual(['drill', 'phone case']);
   });
 
+  test('hiddenLots is stored in its own hidden_lots table with revision tracking', async () => {
+    const store = await db.openStore();
+    expect(await store.setting(KEYS.hidden)).toBeUndefined();
+    expect(await store.settings()).toEqual({ rev: 0, values: {} });
+    expect(await store.hiddenLots()).toEqual({});
+
+    const sample = {
+      '101': { title: 'Cordless drill', href: '/lots/2026-11-01/101', ts: 1_795_471_903_166 },
+      '202': { title: 'Garden rake', href: 'https://example.com/202', ts: 1_795_471_999_000 },
+    };
+    expect(await store.putSetting(KEYS.hidden, sample)).toBe(1);
+    expect(await store.hiddenLots()).toEqual(sample);
+    expect(await store.setting(KEYS.hidden)).toEqual(sample);
+    expect(await store.settings(0)).toEqual({ rev: 1, values: { hiddenLots: sample } });
+    expect(await store.settings(1)).toEqual({ rev: 1, values: {} });
+    expect(await store.settings(99)).toEqual({ rev: 1, values: { hiddenLots: sample } });
+    // Must live in hidden_lots, not in the settings blob table.
+    expect(
+      await store.sql.unsafe('SELECT 1 FROM settings WHERE key = $1', [KEYS.hidden]),
+    ).toHaveLength(0);
+    expect([
+      ...(await store.sql.unsafe(
+        'SELECT lot_id, title, href, ts FROM hidden_lots ORDER BY lot_id',
+      )),
+    ]).toEqual([
+      {
+        lot_id: '101',
+        title: 'Cordless drill',
+        href: '/lots/2026-11-01/101',
+        ts: '1795471903166',
+      },
+      {
+        lot_id: '202',
+        title: 'Garden rake',
+        href: 'https://example.com/202',
+        ts: '1795471999000',
+      },
+    ]);
+
+    expect(await store.putSetting(KEYS.hidden, {})).toBe(2);
+    expect(await store.setting(KEYS.hidden)).toEqual({});
+    expect(await store.settings(1)).toEqual({ rev: 2, values: { hiddenLots: {} } });
+  });
+
+  test('existing settings.hiddenLots rows migrate into hidden_lots on open', async () => {
+    const schema = db.nextSchema();
+    const raw = new SQL({ url: db.url, max: 1 });
+    const sample = {
+      '42': { title: 'Old lamp', href: '/lots/2026-10-01/42', ts: 1_790_000_000_000 },
+    };
+    try {
+      await raw.unsafe(`CREATE SCHEMA "${schema}"`);
+      await raw.unsafe(`SET search_path TO "${schema}"`);
+      await raw.unsafe('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      await raw.unsafe(
+        'CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL)',
+      );
+      await raw.unsafe("INSERT INTO meta (key, value) VALUES ('settingsRev', '12')");
+      await raw.unsafe('INSERT INTO settings (key, value, rev) VALUES ($1, $2, $3)', [
+        KEYS.hidden,
+        JSON.stringify(sample),
+        9,
+      ]);
+    } finally {
+      await raw.close();
+    }
+
+    const store = await db.openStore(schema);
+    expect(await store.hiddenLots()).toEqual(sample);
+    expect(await store.setting(KEYS.hidden)).toEqual(sample);
+    expect(await store.settings(8)).toEqual({ rev: 12, values: { hiddenLots: sample } });
+    expect(await store.settings(9)).toEqual({ rev: 12, values: {} });
+    expect(
+      await store.sql.unsafe('SELECT 1 FROM settings WHERE key = $1', [KEYS.hidden]),
+    ).toHaveLength(0);
+
+    // Reopening is idempotent and keeps migrated rows.
+    const reopened = await db.openStore(schema);
+    expect(await reopened.hiddenLots()).toEqual(sample);
+  });
+
   test('catalog meta merges patches and survives odd saved values', async () => {
     const store = await db.openStore();
     expect(await store.meta()).toEqual({
