@@ -20,7 +20,7 @@ import {
 import { isAuthenticated } from '../server/auth';
 import { error, fetchedAt, getLot, loaded, lots, progress } from '../server/catalog';
 import { liveState, type LiveState } from '../server/live';
-import { clock } from '../server/reactive';
+import { clock, EVERY_30_SECONDS } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { nextPullAt, pullCatalog } from '../server/source';
 import { LoginLink } from './Auth';
@@ -299,7 +299,7 @@ function AppDialogs() {
   const curModal = modal.value;
   const result = gridView.value;
   const pickup = pickupName.value;
-  const now30 = clock({ seconds: 30 });
+  const now30 = clock(EVERY_30_SECONDS);
   const openLotObj = curOpenId != null ? getLot(curOpenId) : undefined;
   const bidLot = curModal?.kind === 'bid' ? getLot(curModal.req.lotId) : undefined;
 

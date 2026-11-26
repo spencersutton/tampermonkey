@@ -23,17 +23,22 @@ export function observableSet<T>() {
   };
 }
 
-/** One clock signal per interval (in ms); its timer runs only while something reads it. */
-const clocks = new Map<number, Signal<number>>();
+/** Clock rates: pass these constants so each rate shares one signal (keyed by identity). */
+export const EVERY_SECOND = Temporal.Duration.from({ seconds: 1 });
+export const EVERY_30_SECONDS = Temporal.Duration.from({ seconds: 30 });
 
-function createClock(every: number): Signal<number> {
+/** One clock signal per interval; its timer runs only while something reads it. */
+const clocks = new Map<Temporal.Duration, Signal<number>>();
+
+function createClock(every: Temporal.Duration): Signal<number> {
+  const interval = ms(every);
   let timer: ReturnType<typeof setInterval> | undefined;
   return signal(Date.now(), {
     watched() {
       this.value = Date.now();
       timer = setInterval(() => {
         this.value = Date.now();
-      }, every);
+      }, interval);
     },
     unwatched() {
       clearInterval(timer);
@@ -45,6 +50,6 @@ function createClock(every: number): Signal<number> {
  * Current time in epoch ms, updated every `every`; read in a component or computed, it re-runs them
  * on each tick.
  */
-export function clock(every: Temporal.DurationLike = { seconds: 1 }): number {
-  return clocks.getOrInsertComputed(ms(Temporal.Duration.from(every)), createClock).value;
+export function clock(every = EVERY_SECOND): number {
+  return clocks.getOrInsertComputed(every, createClock).value;
 }

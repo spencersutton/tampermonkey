@@ -22,7 +22,7 @@ import type { ClosedSection } from '../server/api';
 import { isAuthenticated } from '../server/auth';
 import { getLot, loadDetail, lots as catalogLots, rev } from '../server/catalog';
 import { getCachedClosed, loadClosedSection, type ClosedCache } from '../server/closed';
-import { clock } from '../server/reactive';
+import { clock, EVERY_30_SECONDS } from '../server/reactive';
 import { toast } from '../server/toast';
 import type { ClosedLot } from '../types';
 import { LoginLink } from './Auth';
@@ -51,7 +51,7 @@ export function ClosedLots({ section }: { section: ClosedSection }) {
   const [filter, setFilter] = useState('');
   const [opening, setOpening] = useState<number | null>(null);
   const [modalLot, setModalLot] = useState<Lot | null>(null);
-  const now = clock({ seconds: 30 });
+  const now = clock(EVERY_30_SECONDS);
 
   const relisted = useMemo(
     () => relistedRowsFor(data?.lots ?? [], catalogLots.value, now, pickup, exclusions),

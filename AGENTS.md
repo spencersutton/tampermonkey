@@ -59,7 +59,9 @@ committing.
   `Temporal.Instant`, with helpers in `src/shared/time.ts` (`ms()` for
   setTimeout/AbortSignal, `within(at, age)`, `sleep()`). Epoch ms numbers stay
   only at JSON/storage boundaries (store meta, API, synced settings) and in hot
-  lot paths (`endsAtMs`, `clock()`). Tests that fake time mock
+  lot paths (`endsAtMs`, `clock()`). Pass `clock()` the shared
+  `EVERY_SECOND` / `EVERY_30_SECONDS` constants from `reactive.ts` (clocks are
+  keyed by Duration identity, and building one per render is wasteful). Tests that fake time mock
   `Temporal.Now.instant`, not `Date.now` (the web polyfill and Bun's native
   Temporal don't read `Date.now`).
 - Custom categories (`KEYS.customCategories`) represent hierarchy via stable

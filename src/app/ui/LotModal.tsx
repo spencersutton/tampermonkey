@@ -22,7 +22,7 @@ import {
   lotModels,
 } from '../server/catalog';
 import { siteConditions } from '../server/conditions';
-import { clock } from '../server/reactive';
+import { clock, EVERY_30_SECONDS } from '../server/reactive';
 import { fetchPastCloses } from '../server/source';
 import type { LotDetail, PastCloseDetail } from '../types';
 import { LoginLink } from './Auth';
@@ -368,7 +368,7 @@ function Similar({
   current: Lot;
   onOpen: (lot: Lot) => void;
 }) {
-  const now = clock({ seconds: 30 });
+  const now = clock(EVERY_30_SECONDS);
   const open = openSimilarLots(lots, current.id, getLot, now);
   if (!open.length) {
     return null;

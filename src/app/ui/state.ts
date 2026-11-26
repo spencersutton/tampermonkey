@@ -28,7 +28,7 @@ import { fetchPickupLocation } from '../server/api';
 import { isAuthenticated } from '../server/auth';
 import type { BidRequest } from '../server/bid';
 import { getLot, lotBrands, lotDescriptions, lotModels, lots, rev } from '../server/catalog';
-import { clock } from '../server/reactive';
+import { clock, EVERY_30_SECONDS } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { settingsReady } from '../server/source';
 import { keepScrollAnchor } from './dom';
@@ -218,7 +218,7 @@ export const gridView = computed(() => {
     storedView.value,
     pickupName.value,
     exclusionRules.value,
-    clock({ seconds: 30 }),
+    clock(EVERY_30_SECONDS),
     searchDetails.value,
     filteredOnly.value,
   );
@@ -227,7 +227,7 @@ export const gridView = computed(() => {
 export const filterFacets = computed(() =>
   computeFacets(
     lots.value.values(),
-    clock({ seconds: 30 }),
+    clock(EVERY_30_SECONDS),
     getSetting(KEYS.customCategories),
     searchDetails.value,
   ),
@@ -246,7 +246,7 @@ export const suggestions = computed(() =>
     searchDraft.value,
     filterFacets.value,
     lots.value.values(),
-    clock({ seconds: 30 }),
+    clock(EVERY_30_SECONDS),
     exclusionRules.value.hidden,
     searchDetails.value,
     storedView.value.searchDescriptions,
@@ -275,7 +275,7 @@ export const searchStats = computed(() => {
     getSetting(KEYS.savedSearches),
     pickupName.value,
     exclusionRules.value,
-    clock({ seconds: 30 }),
+    clock(EVERY_30_SECONDS),
     searchDetails.value,
   );
 });
