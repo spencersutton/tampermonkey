@@ -1,6 +1,6 @@
 import * as format from '../../shared/format';
 import { MAX_TYPE_LENGTH } from '../../shared/itemtype';
-import { lotHref, type HiddenLot } from '../../shared/keys';
+import type { HiddenLot } from '../../shared/keys';
 import { endsAtMs, type PastClose } from '../../shared/lot';
 import { collator } from '../../shared/sortKey';
 import { ms } from '../../shared/time';
@@ -193,7 +193,7 @@ export function toggleHiddenLot(
   }
   return {
     ...rest,
-    [lot.id]: { title: lot.title, href: lotHref(lot.auction_period, lot.id), ts: now },
+    [lot.id]: { title: lot.title, ts: now },
   };
 }
 

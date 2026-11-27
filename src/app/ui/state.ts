@@ -1,6 +1,6 @@
 import { batch, computed, effect, signal, untracked } from '@preact/signals';
 
-import { KEYS, siteUrl } from '../../shared/keys';
+import { KEYS } from '../../shared/keys';
 import { ms, within } from '../../shared/time';
 // App-wide UI state as signals, the values derived from it, and the actions
 // that change it. Components read and call these directly instead of passing
@@ -27,7 +27,7 @@ import {
 import { fetchPickupLocation } from '../server/api';
 import { isAuthenticated } from '../server/auth';
 import type { BidRequest } from '../server/bid';
-import { getLot, lotBrands, lotDescriptions, lotModels, lots, rev } from '../server/catalog';
+import { lotBrands, lotDescriptions, lotModels, lots, rev } from '../server/catalog';
 import { clock, EVERY_30_SECONDS } from '../server/reactive';
 import { getSetting, setSetting } from '../server/settings';
 import { settingsReady } from '../server/source';
@@ -43,15 +43,6 @@ export const filteredPattern = signal<string | null>(null);
 export const sidebarOpen = signal(false);
 
 export const openLot = (lot: Lot) => void (openId.value = lot.id);
-
-/** Open a hidden lot: in the popup when it's in the catalog, else on the site. */
-export function openHidden(id: number) {
-  if (getLot(id)) {
-    openId.value = id;
-  } else {
-    window.open(siteUrl(getSetting(KEYS.hidden)[id]?.href ?? '/'), '_blank', 'noopener');
-  }
-}
 
 /** Show the Won / Lost page, or the grid again for null. */
 export function openClosed(section: ClosedSection | null) {

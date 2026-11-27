@@ -221,7 +221,8 @@
   gap: 4px;
 }
 
-.hidden-list a {
+.hidden-list a,
+.hidden-list span {
   flex: 1;
   min-width: 0;
   color: inherit;
@@ -230,6 +231,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 13px;
+}
+
+.hidden-list span.muted {
+  color: var(--muted);
 }
 
 .hidden-list a:hover {

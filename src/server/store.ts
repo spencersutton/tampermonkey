@@ -60,8 +60,9 @@ const SCHEMA_STATEMENTS = [
   'CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, rev INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS filter_types (type TEXT PRIMARY KEY)',
   `CREATE TABLE IF NOT EXISTS hidden_lots (
-    lot_id BIGINT PRIMARY KEY, title TEXT NOT NULL, href TEXT NOT NULL, ts BIGINT NOT NULL
+    lot_id BIGINT PRIMARY KEY, title TEXT NOT NULL, ts BIGINT NOT NULL
   )`,
+  'ALTER TABLE hidden_lots DROP COLUMN IF EXISTS href',
   'CREATE TABLE IF NOT EXISTS app_sessions (id TEXT PRIMARY KEY, created DOUBLE PRECISION NOT NULL)',
   `CREATE TABLE IF NOT EXISTS item_types (
     brand TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '', title TEXT NOT NULL,
@@ -158,16 +159,11 @@ function parseHiddenLots(value: unknown): [number, HiddenLot][] {
     if (!/^\d+$/.test(k) || !Number.isInteger(id) || id <= 0 || !isRecord(v)) {
       continue;
     }
-    const { title, href, ts } = v;
-    if (
-      typeof title !== 'string' ||
-      typeof href !== 'string' ||
-      typeof ts !== 'number' ||
-      !Number.isFinite(ts)
-    ) {
+    const { title, ts } = v;
+    if (typeof title !== 'string' || typeof ts !== 'number' || !Number.isFinite(ts)) {
       continue;
     }
-    entries.push([id, { title, href, ts: Math.trunc(ts) }]);
+    entries.push([id, { title, ts: Math.trunc(ts) }]);
   }
   return entries;
 }
@@ -1183,11 +1179,10 @@ export class Store {
     const rows = await this.all<{
       lot_id: string | number;
       title: string;
-      href: string;
       ts: string | number;
-    }>('SELECT lot_id, title, href, ts FROM hidden_lots ORDER BY lot_id', [], q);
+    }>('SELECT lot_id, title, ts FROM hidden_lots ORDER BY lot_id', [], q);
     return Object.fromEntries(
-      rows.map(r => [String(r.lot_id), { title: r.title, href: r.href, ts: toInt(r.ts) }]),
+      rows.map(r => [String(r.lot_id), { title: r.title, ts: toInt(r.ts) }]),
     );
   }
 
@@ -1197,11 +1192,11 @@ export class Store {
       const batch = entries.slice(i, i + BATCH_SIZE);
       const params: Param[] = [];
       for (const [id, h] of batch) {
-        params.push(id, h.title, h.href, h.ts);
+        params.push(id, h.title, h.ts);
       }
       await this.run(
-        `INSERT INTO hidden_lots (lot_id, title, href, ts) VALUES ${valuePlaceholders(batch.length, 4)}
-         ON CONFLICT (lot_id) DO UPDATE SET title = EXCLUDED.title, href = EXCLUDED.href, ts = EXCLUDED.ts`,
+        `INSERT INTO hidden_lots (lot_id, title, ts) VALUES ${valuePlaceholders(batch.length, 3)}
+         ON CONFLICT (lot_id) DO UPDATE SET title = EXCLUDED.title, ts = EXCLUDED.ts`,
         params,
         q,
       );

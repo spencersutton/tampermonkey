@@ -82,7 +82,6 @@ function isValidHiddenLots(value: unknown): boolean {
       id > 0 &&
       isRecord(v) &&
       typeof v['title'] === 'string' &&
-      typeof v['href'] === 'string' &&
       typeof v['ts'] === 'number' &&
       Number.isFinite(v['ts'])
     );
@@ -311,7 +310,7 @@ export function createApp(deps: Deps) {
       throw new BadRequest(`Expected an array of strings for ${key}`);
     }
     if (key === KEYS.hidden && !isValidHiddenLots(value)) {
-      throw new BadRequest('Expected an object of { [lotId]: { title, href, ts } } for hiddenLots');
+      throw new BadRequest('Expected an object of { [lotId]: { title, ts } } for hiddenLots');
     }
     return json({ rev: await store.putSetting(key, value) });
   });

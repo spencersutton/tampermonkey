@@ -2,7 +2,8 @@ import { useState } from 'preact/hooks';
 
 import { compileFilter } from '../../../shared/filters';
 import * as format from '../../../shared/format';
-import { KEYS, siteUrl } from '../../../shared/keys';
+import { KEYS, lotHref } from '../../../shared/keys';
+import { lots } from '../../server/catalog';
 import { useSetting } from '../../server/settings';
 import { openHandler } from '../dom';
 import { Icon } from '../icons';
@@ -13,7 +14,7 @@ import {
   openFiltered,
   openFilteredPattern,
   openFilteredType,
-  openHidden,
+  openLot,
 } from '../state';
 import { Collapsible } from './Collapsible';
 import { useInlineEdit, type SaveFn } from './useInlineEdit';
@@ -280,26 +281,36 @@ export function HideFilterSection({
 
       <Collapsible id="hidden" title={`Hidden lots (${hidden.length})`}>
         <ul class="hidden-list">
-          {hidden.map(([id, info]) => (
-            <li>
-              <a
-                href={siteUrl(info.href)}
-                title={info.title}
-                onClick={openHandler(() => openHidden(Number(id)))}
-              >
-                {info.title || `Lot ${id}`}
-              </a>
-              <button
-                type="button"
-                class="icon-btn"
-                title="Unhide"
-                aria-label={`Unhide ${info.title}`}
-                onClick={() => unhide(id)}
-              >
-                <Icon name="visibility" size={18} />
-              </button>
-            </li>
-          ))}
+          {hidden.map(([id, info]) => {
+            const lot = lots.value.get(Number(id));
+            const label = info.title || `Lot ${id}`;
+            return (
+              <li key={id}>
+                {lot ? (
+                  <a
+                    href={lotHref(lot.auction_period, lot.id)}
+                    title={info.title}
+                    onClick={openHandler(() => openLot(lot))}
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  <span class="muted" title={info.title}>
+                    {label}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  class="icon-btn"
+                  title="Unhide"
+                  aria-label={`Unhide ${info.title}`}
+                  onClick={() => unhide(id)}
+                >
+                  <Icon name="visibility" size={18} />
+                </button>
+              </li>
+            );
+          })}
         </ul>
         {hidden.length > 0 && (
           <button

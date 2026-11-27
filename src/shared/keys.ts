@@ -3,7 +3,7 @@ import type { SavedSearch } from '../app/logic/view';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, SITE } from './constants';
 
 export const KEYS = {
-  hidden: 'hiddenLots', // { [lotId]: { title, href, ts } }
+  hidden: 'hiddenLots', // { [lotId]: { title, ts } }
   words: 'filterWords', // string[]
   filterTypes: 'filterTypes', // string[] – item types filtered out globally, like filterWords
   filterOn: 'filterEnabled', // boolean
@@ -42,7 +42,6 @@ export const SERVER_KEYS = [
 
 export interface HiddenLot {
   title: string;
-  href: string;
   ts: number;
 }
 
@@ -82,6 +81,3 @@ export const DEFAULTS = {
 
 /** A lot's page on the real site (absolute, since the web app runs on another origin). */
 export const lotHref = (auctionPeriod: string, id: number) => `${SITE}/lots/${auctionPeriod}/${id}`;
-
-/** A link saved with a hidden lot as an absolute URL on the site (older ones were saved as paths). */
-export const siteUrl = (href: string) => new URL(href, `${SITE}/`).href;
