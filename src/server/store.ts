@@ -78,10 +78,11 @@ const SCHEMA_STATEMENTS = [
   'CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at)',
   `CREATE TABLE IF NOT EXISTS lot_details (
     lot_id BIGINT PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price DOUBLE PRECISION, description TEXT,
-    quantity INTEGER, brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, bid_history TEXT NOT NULL, fetched_at BIGINT NOT NULL
+    quantity INTEGER, brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, fetched_at BIGINT NOT NULL
   )`,
   'ALTER TABLE lot_details ADD COLUMN IF NOT EXISTS quantity INTEGER',
   'ALTER TABLE lot_details DROP COLUMN IF EXISTS images',
+  'ALTER TABLE lot_details DROP COLUMN IF EXISTS bid_history',
 ];
 
 // lots: ends_at is the site's ISO 8601 text; is_leading and your_max_bid are
@@ -223,7 +224,6 @@ export interface Detail {
   brand?: Nullable<string>;
   model?: Nullable<string>;
   lot_fee?: number | null;
-  bid_history?: unknown[];
 }
 
 /** Ends at, as the epoch ms closed_lots keeps. */
@@ -985,12 +985,12 @@ export class Store {
       const catalogChanged = identityChanged || previous.description !== description;
       await this.run(
         `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, quantity, brand, model,
-          lot_fee, bid_history, fetched_at) VALUES ${valuePlaceholders(1, 12)}
+          lot_fee, fetched_at) VALUES ${valuePlaceholders(1, 11)}
          ON CONFLICT (lot_id) DO UPDATE SET
           auction_period = EXCLUDED.auction_period, title = EXCLUDED.title, status = EXCLUDED.status,
           current_price = EXCLUDED.current_price, description = EXCLUDED.description, quantity = EXCLUDED.quantity,
           brand = EXCLUDED.brand, model = EXCLUDED.model, lot_fee = EXCLUDED.lot_fee,
-          bid_history = EXCLUDED.bid_history, fetched_at = EXCLUDED.fetched_at`,
+          fetched_at = EXCLUDED.fetched_at`,
         [
           d.id,
           d.auction_period ?? null,
@@ -1002,7 +1002,6 @@ export class Store {
           brand,
           model,
           d.lot_fee ?? null,
-          JSON.stringify(d.bid_history ?? []),
           Date.now(),
         ],
         tx,
