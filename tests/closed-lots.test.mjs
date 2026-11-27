@@ -9,8 +9,8 @@ after(() => vite.close());
 const { fetchClosed } = await vite.ssrLoadModule('/src/app/server/api.ts');
 const { loadDetail, lots: catalogLots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
 const { openHandler } = await vite.ssrLoadModule('/src/app/ui/dom.ts');
-const { makeRow } = await vite.ssrLoadModule('/src/app/logic/view.ts');
-const { totalCost, costBreakdown } = await vite.ssrLoadModule('/src/shared/cost.ts');
+const { makeRow, SORTS } = await vite.ssrLoadModule('/src/app/logic/view.ts');
+const { preTaxCost, totalCost, costBreakdown } = await vite.ssrLoadModule('/src/shared/cost.ts');
 const { ListingRow } = await vite.ssrLoadModule('/src/app/ui/ListingRow.tsx');
 const { LocationText, TimeLeft } = await vite.ssrLoadModule('/src/app/ui/LotCard.tsx');
 
@@ -157,10 +157,66 @@ test('lot links open in-app only for unhandled, unmodified primary clicks', () =
 });
 
 test('estimated costs use the supplied transfer fee', () => {
+  assert.equal(preTaxCost(100), 100 * 1.15 + 1);
+  assert.equal(preTaxCost(100, 8), 100 * 1.15 + 1 + 8);
   assert.equal(totalCost(100), (100 * 1.15 + 1) * 1.0725);
   assert.equal(totalCost(100, 8), (100 * 1.15 + 1 + 8) * 1.0725);
   assert.match(costBreakdown(100, 8), /\$8\.00 transfer/);
   assert.doesNotMatch(costBreakdown(100), /transfer/);
+});
+
+test('best deal (% of retail) includes buyers premium, lot fee, and applicable transfer fee', () => {
+  const ex = {
+    words: [],
+    filterOn: false,
+    removeFiltered: false,
+    hidden: {},
+    showHidden: false,
+    customCategories: [],
+  };
+  const local = makeRow(
+    rawDetail({
+      id: 1,
+      current_price: 20,
+      estimated_retail_price: 100,
+      location: { id: 1, name: 'Raleigh' },
+      is_transferable: true,
+      transfer_fee: 8,
+    }),
+    'Raleigh',
+    ex,
+  );
+  const transfer = makeRow(
+    rawDetail({
+      id: 2,
+      current_price: 18,
+      estimated_retail_price: 100,
+      location: { id: 2, name: 'Durham' },
+      is_transferable: true,
+      transfer_fee: 8,
+    }),
+    'Raleigh',
+    ex,
+  );
+  const pickupOnly = makeRow(
+    rawDetail({
+      id: 3,
+      current_price: 20,
+      estimated_retail_price: 100,
+      location: { id: 2, name: 'Durham' },
+      is_transferable: false,
+      transfer_fee: 8,
+    }),
+    'Raleigh',
+    ex,
+  );
+  // Local: (20 * 1.15 + 1) / 100 = 0.24
+  assert.equal(local.retailPct, 0.24);
+  // Transfer: (18 * 1.15 + 1 + 8) / 100 = 0.297 -> 0.30 (worse deal than local despite lower bid)
+  assert.equal(transfer.retailPct, 0.3);
+  // Pickup-only elsewhere: transfer fee doesn't apply -> (20 * 1.15 + 1) / 100 = 0.24
+  assert.equal(pickupOnly.retailPct, 0.24);
+  assert.ok(SORTS['retail-pct-asc'].compare(local, transfer) < 0);
 });
 
 test('a fetched closed lot detail can be used as a row and reused by the modal', async t => {
@@ -193,7 +249,7 @@ test('a fetched closed lot detail can be used as a row and reused by the modal',
   assert.equal(row.lot, detail);
   assert.equal(row.lot.description, 'Details');
   assert.equal(row.transferFee, 0);
-  assert.equal(row.retailPct, 0.5);
+  assert.equal(row.retailPct, 0.6);
   assert.equal(await loadDetail(row.lot), detail);
   assert.equal(requests, 1);
   assert.equal(detail.lot_fee, 1);

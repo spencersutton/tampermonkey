@@ -136,7 +136,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
       <span>
         Retail {format.dollars(lot.estimated_retail_price)}
         {row.retailPct != null && (
-          <span class="card-retail-pct" title="Current bid as a share of retail">
+          <span class="card-retail-pct" title="Bid + fees (before tax) as a share of retail">
             {' '}
             ({Math.round(row.retailPct * 100)}%)
           </span>

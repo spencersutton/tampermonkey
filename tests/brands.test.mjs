@@ -376,7 +376,7 @@ test('cards show condition, location, lot number, pricing, retail comparison and
   assert.equal(text(LocationText(location.props)), 'Raleigh');
   assert.equal(byClass('price').props.title, 'Current bid');
   assert.match(text(byClass('card-total')), /total$/);
-  assert.equal(text(byClass('card-retail-pct')).trim(), '(20%)');
+  assert.equal(text(byClass('card-retail-pct')).trim(), '(24%)');
   assert.match(text(byClass('card-sub')), /3 bids/);
   assert.ok(nodes(byClass('card-sub')).some(node => node.type === TimeLeft));
   const sparse = card(rowOf(lot(83)))();

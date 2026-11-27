@@ -1,7 +1,7 @@
 import { dequal } from 'dequal';
 
 import { attrKey, compareAttrValues, extractAttrs, parseAttrKey } from '../../shared/attrs';
-import { totalCost } from '../../shared/cost';
+import { preTaxCost, totalCost } from '../../shared/cost';
 // Catalog view: filters and sorting applied locally to the cached catalog.
 import { buildRegexes, filterMatches } from '../../shared/filters';
 import { type CustomCategory, type HiddenLot } from '../../shared/keys';
@@ -388,7 +388,9 @@ export function makeRow(lot: Lot, pickup: string, ex: Exclusions): Row {
   const transferFee = elsewhere && lot.is_transferable ? lot.transfer_fee : 0;
   let retailPct: number | null = null;
   if (lot.estimated_retail_price) {
-    retailPct = Math.round((lot.current_price / lot.estimated_retail_price) * 100) / 100;
+    retailPct =
+      Math.round((preTaxCost(lot.current_price, transferFee) / lot.estimated_retail_price) * 100) /
+      100;
   }
   let matched: string | null = null;
   if (ex.filterOn) {
