@@ -1,5 +1,3 @@
-import { DEFAULT_NAME_MATCH, ItemIndex, setGroups } from '../shared/identity';
-import { endsAtMs, type PastClose, type RawLotDetail } from '../shared/lot';
 // Past closing prices: what earlier matching items closed at (a port of the
 // Python server's history.py; the matching itself is src/shared/identity.ts).
 //
@@ -15,6 +13,9 @@ import { endsAtMs, type PastClose, type RawLotDetail } from '../shared/lot';
 // GET /api/history?id=N lists every match for the lot popup. Open lots listing
 // the same item get a shared `groupId`, which the app folds into one card, and
 // the site's Won/Lost pages get `relisted`: open lots matching each closed one.
+
+import { DEFAULT_NAME_MATCH, ItemIndex, setGroups } from '../shared/identity';
+import { endsAtMs, type PastClose, type RawLotDetail } from '../shared/lot';
 import { sleep as pause } from '../shared/time';
 import { field, isRecord } from './json';
 import { log, Waker } from './log';
