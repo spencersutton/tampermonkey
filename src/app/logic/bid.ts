@@ -9,10 +9,6 @@ export interface BidOutcome {
   version: number | null;
 }
 
-/** Whether the lot can no longer be bid on. */
-export const isClosed = (lot: Lot, now = Date.now()) =>
-  lot.status !== 'live' || endsAtMs(lot) <= now;
-
 /** Whether you have bid on the lot (winning or not). */
 export const hasBidOn = (lot: Lot) => lot.has_bid || lot.your_standing != null;
 
@@ -43,7 +39,7 @@ export function bidBlocker(
   if (row.matched) {
     return `Bidding is disabled for filtered lots (${row.matched})`;
   }
-  if (isClosed(row.lot, now)) {
+  if (row.lot.status !== 'live' || endsAtMs(row.lot) <= now) {
     return 'This lot has closed';
   }
   if (!authenticated) {
