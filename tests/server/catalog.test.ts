@@ -5,8 +5,7 @@ import { History } from '../../src/server/history';
 import { Labeller, parseReply } from '../../src/server/itemtypes';
 import { ApiError, type LotPage, SiteApi } from '../../src/server/site';
 import { cleanType } from '../../src/shared/itemtype';
-// Catalog pulls and their load rules (src/server/catalog.ts), with the
-// first-seen tests from the Python server's test_catalog.py, and the item type
+// Catalog pulls and their load rules (src/server/catalog.ts), and the item type
 // labeller's parsing and requests (src/server/itemtypes.ts).
 import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';

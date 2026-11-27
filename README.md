@@ -76,7 +76,7 @@ TLX_PASSWORD='pick-one' npm run server -- --host 0.0.0.0  # also your phone: htt
 npm run server -- --help                                  # --port, --db, --llm-key, --tls-cert/--tls-key, ...
 ```
 
-The server stores its data in PostgreSQL (default `postgres://localhost:5432/tlx`, override with `--db`, `TLX_DB`, or `DATABASE_URL`). To migrate an existing SQLite database into PostgreSQL, run `bun scripts/migrate-sqlite.ts` (pass `--truncate` to replace existing rows).
+The server stores its data in PostgreSQL (default `postgres://localhost:5432/tlx`, override with `--db`, `TLX_DB`, or `DATABASE_URL`).
 
 The app can't call the site directly, because the site's API doesn't allow other origins and its websocket only accepts its own pages. So the server stands in for the site:
 

@@ -3,7 +3,7 @@ import { cleanType } from '../shared/itemtype';
 import { byCode } from '../shared/sortKey';
 // Item types: a short plain name for what each lot is ("pressure washer",
 // "area rug"), so the app can sort lots by type and make a category of one type
-// in a click (a port of the Python server's itemtypes.py).
+// in a click.
 //
 // An LLM behind any OpenAI-compatible chat completions API names them (by
 // default Ministral 3 14B on nano-gpt.com). Types are stored by brand/model,

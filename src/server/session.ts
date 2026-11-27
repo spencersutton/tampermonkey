@@ -30,7 +30,7 @@ interface Cookie {
   value: string;
   domain: string;
   path: string;
-  expires?: Instant; // kept in memory only, like the Python jar's saved form
+  expires?: Instant; // kept in memory only
 }
 
 export interface SiteUser {
@@ -126,7 +126,7 @@ export class SiteSession {
     return session;
   }
 
-  /** Run one session operation at a time, as the Python version's lock does. */
+  /** Serialize session operations so only one runs at a time. */
   private exclusive<T>(fn: () => Promise<T>): Promise<T> {
     const run = this.queue.then(fn, fn);
     this.queue = run.catch(() => {});

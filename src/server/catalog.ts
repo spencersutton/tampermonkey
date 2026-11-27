@@ -1,8 +1,7 @@
 import { DEFAULT_SYNC_MINUTES, MIN_SYNC_MINUTES } from '../shared/constants';
 import { KEYS } from '../shared/keys';
 import { endsAtMs } from '../shared/lot';
-// Full catalog pulls, with load rules that keep requests to the site down (a
-// port of the Python server's catalog.py).
+// Full catalog pulls, with load rules that keep requests to the site down.
 //
 // - A full pull happens at most once per interval (the synced `tlxSyncMinutes`
 //   setting, never under MIN_SYNC_MINUTES), measured from the start of the last

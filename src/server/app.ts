@@ -142,13 +142,13 @@ function hostname(host: string | undefined): string {
   }
 }
 
-/** A query parameter as an integer (like Python's int()), or null. */
+/** Parse a query parameter as an integer, or null. */
 function integer(v: string | undefined): number | null {
   return v !== undefined && /^\s*[+-]?\d+\s*$/.test(v) ? Number(v) : null;
 }
 
-// Characters Python's str.isprintable() refuses, other than whitespace.
-const UNPRINTABLE = /(?![\s])[\p{C}\p{Zl}\p{Zp}]/u;
+// Control/non-printable characters other than whitespace.
+const UNPRINTABLE = /(?!\s)\p{C}/u;
 
 const digest = (s: string) => createHash('sha256').update(s).digest();
 const samePassword = (a: string, b: string) => timingSafeEqual(digest(a), digest(b));

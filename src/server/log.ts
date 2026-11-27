@@ -1,4 +1,4 @@
-// Logging to stderr with a timestamp, like the Python server's.
+// Logging to stderr with a timestamp.
 import { ms } from '../shared/time';
 
 let verbose = false;
@@ -22,10 +22,7 @@ export const log = {
     console.error(`${stamp()} ERROR ${message}`, ...(e === undefined ? [] : [e])),
 };
 
-/**
- * Like Python's threading.Event for a background loop: wake() makes the next (or current) wait()
- * return.
- */
+/** Event signal for a background loop: wake() makes the next (or current) wait() return. */
 export class Waker {
   private pending = false;
   private resolve: (() => void) | null = null;

@@ -1,12 +1,6 @@
 // Item identity and matching: which listings are the same item. Used for
 // duplicate listings (`groupId`), relisted items and past closing prices.
 //
-// Ported from the earlier Python server, whose results (identity keys, item
-// types and tags saved by brand/model) are in existing databases, so its rules
-// are kept exactly: Python's whitespace and word-boundary rules, and its
-// iteration order (grouping never joins two different known identities, so
-// which joins happen first can change the result).
-//
 // Brand and model match exactly, ignoring case and whitespace, when both items
 // have both fields. Otherwise titles match fuzzily (`namesMatch`): 90% of words
 // in common, ignoring case, punctuation and word order, and no number that only
@@ -28,13 +22,7 @@ export interface Listing extends Item {
   groupId?: number | undefined;
 }
 
-// Python's str.split()/strip() whitespace, so keys match those saved by the earlier Python server.
-const SPACE =
-  '\\t-\\r\\x1c-\\x20\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000';
-const SPACES = new RegExp(`[${SPACE}]+`, 'g');
-const EDGES = new RegExp(`^[${SPACE}]+|[${SPACE}]+$`, 'g');
-
-const collapse = (text: string) => text.toLowerCase().replace(SPACES, ' ').replace(EDGES, '');
+const collapse = (text: string) => text.trim().toLowerCase().replace(/\s+/g, ' ');
 
 /**
  * The brand and model as one key, lowercase with whitespace collapsed (model punctuation and word
@@ -109,8 +97,7 @@ export class ItemTypeIndex<R extends ItemTypeRecord = ItemTypeRecord> {
   }
 }
 
-/** Python's \b and \s: "qty" not after a letter, digit or underscore, and its whitespace. */
-const QTY = new RegExp(`(?<![\\p{L}\\p{N}_])qty\\.?[${SPACE}]*([0-9]+)`, 'gu');
+const QTY = /\bqty\.?\s*(\d+)/g;
 const TOKEN = /qty[0-9]+|[0-9]+(?:[./][0-9]+)*|[a-z]+/g;
 
 /**
@@ -259,7 +246,7 @@ export function groupLots(
   const entries = new Map<string, Entry>();
   for (const lot of [...lots].sortBy(l => l.id)) {
     const tokens = nameTokens(lot.title);
-    const words = tokens.size ? tokens : lot.title.replace(EDGES, '').toLowerCase();
+    const words = tokens.size ? tokens : lot.title.trim().toLowerCase();
     const condition = lot.condition?.value ?? null;
     const identity = brandModelKey(lot);
     const wordsKey = typeof words === 'string' ? titleKey(words) : tokensKey(words);

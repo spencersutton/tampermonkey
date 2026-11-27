@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 
-// The store (src/server/store.ts), ported from the Python server's
-// test_brands.py, test_metadata.py, test_itemtypes.py and test_tags.py.
+// The store (src/server/store.ts).
 import { SQL } from 'bun';
 
 import type { Store } from '../../src/server/store';

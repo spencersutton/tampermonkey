@@ -1,5 +1,5 @@
-// Past closing prices: what earlier matching items closed at (a port of the
-// Python server's history.py; the matching itself is src/shared/identity.ts).
+// Past closing prices: what earlier matching items closed at (the matching
+// itself is src/shared/identity.ts).
 //
 // When a lot leaves the catalog, the store keeps a slim row of it in
 // `closed_lots` with the last price a pull saw. Lots get most of their bids in

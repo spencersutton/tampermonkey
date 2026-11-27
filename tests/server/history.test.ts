@@ -5,8 +5,7 @@ import { Labeller } from '../../src/server/itemtypes';
 import { ApiError, SiteApi } from '../../src/server/site';
 import type { Store } from '../../src/server/store';
 // Past closes, duplicate groups and final prices (src/server/history.ts), and
-// item identity across the store, ported from the Python server's
-// test_matching.py and test_identity.py.
+// item identity across the store.
 import { rawLot } from '../raw-lot.mjs';
 import { fixture } from './harness';
 import { testDb } from './pg';
@@ -20,7 +19,7 @@ const item = (id: number, title = 'Cordless drill', fields: Partial<Lot> = {}): 
   model: 'D-100',
   ...fields,
 });
-// test_identity.py's lots: closed ones, sold.
+// Closed, sold lots.
 const sold = (id: number, title = 'Cordless drill', fields: Partial<Lot> = {}): Lot => ({
   ...rawLot({
     id,

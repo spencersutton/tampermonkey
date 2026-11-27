@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-// This server's own /api endpoints, ported from the Python server's API tests
-// (test_itemtypes.py, test_metadata.py, test_tags.py, test_identity.py).
+// This server's own /api endpoints.
 import { rawLot } from '../raw-lot.mjs';
 import { setup } from './harness';
 import { testDb } from './pg';
