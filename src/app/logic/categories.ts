@@ -103,7 +103,62 @@ export const groupFacets = (g: CategoryGroup): Facet<string>[] => [
   ...g.subs.flatMap(groupFacets),
 ];
 
-export const categoryCollapseId = (value: string) => `cat:${value}`;
+const CATEGORY_COLLAPSE_PREFIX = 'cat:';
+
+export const categoryCollapseId = (value: string) => `${CATEGORY_COLLAPSE_PREFIX}${value}`;
+
+/** Collapse ids of categories that are currently focused (active, or ancestors of an active one). */
+export function focusedCategoryCollapseIds(
+  groups: readonly CategoryGroup[],
+  selected: readonly string[],
+): Set<string> {
+  const focused = new Set<string>();
+  if (selected.length === 0) {
+    return focused;
+  }
+  const selectedSet = selected.toSet();
+  const walk = (list: readonly CategoryGroup[]) => {
+    for (const g of list) {
+      if (g.subs.length === 0) {
+        continue;
+      }
+      const values = groupFacets(g).map(f => f.value);
+      const exact = values.length === selectedSet.size && values.every(v => selectedSet.has(v));
+      if (exact) {
+        focused.add(categoryCollapseId(g.facet.value));
+      } else if (values.some(v => selectedSet.has(v))) {
+        focused.add(categoryCollapseId(g.facet.value));
+        walk(g.subs);
+      }
+    }
+  };
+  walk(groups);
+  return focused;
+}
+
+/**
+ * Return `collapsed` with every unfocused category collapsed, or `collapsed` itself if nothing
+ * changed.
+ */
+export function collapseUnfocusedCategories(
+  collapsed: Record<string, boolean>,
+  groups: readonly CategoryGroup[],
+  selected: readonly string[],
+): Record<string, boolean> {
+  const focused = focusedCategoryCollapseIds(groups, selected);
+  let changed = false;
+  const next: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(collapsed)) {
+    if (key.startsWith(CATEGORY_COLLAPSE_PREFIX) && !focused.has(key)) {
+      if (!value) {
+        changed = true;
+      }
+      continue;
+    }
+    next[key] = value;
+  }
+  return changed ? next : collapsed;
+}
 
 // ---------------------------------------------------------------------------
 // Category editor logic

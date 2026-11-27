@@ -18,7 +18,9 @@ const { applySetting, getSetting, setSaveHook } = await vite.ssrLoadModule(
 const { KEYS } = await vite.ssrLoadModule('/src/shared/keys.ts');
 const { DEFAULT_VIEW, computeFacets, suggestName } =
   await vite.ssrLoadModule('/src/app/logic/view.ts');
-const { groupCategories } = await vite.ssrLoadModule('/src/app/logic/categories.ts');
+const { collapseUnfocusedCategories, groupCategories } = await vite.ssrLoadModule(
+  '/src/app/logic/categories.ts',
+);
 const { chipsFor } = await vite.ssrLoadModule('/src/app/logic/refinements.ts');
 
 function setup(categories, selected) {
@@ -273,4 +275,57 @@ test('saveCustomCategories updates hiddenCategories on rename, deletion, and rep
     ]),
   );
   assert.deepEqual(getSetting(KEYS.hiddenCategories), ['pets', 'custom:A2']);
+});
+
+test('collapseUnfocusedCategories collapses unfocused categories and preserves focused ancestors', () => {
+  const groups = groupCategories(
+    facetsFor(
+      [
+        facet('Tools', 2, 'tools'),
+        facet('Drills', 1, 'custom:drills', 'tools'),
+        facet('Cordless', 3, 'custom:cordless', 'custom:drills'),
+        facet('Saws', 1, 'custom:saws', 'tools'),
+        facet('Garden', 2, 'garden'),
+        facet('Mowers', 1, 'custom:mowers', 'garden'),
+      ],
+      [facet('Tools', 7, 'tools'), facet('Garden', 3, 'garden')],
+    ),
+  );
+  const allOpen = {
+    words: false,
+    'cat:tools': false,
+    'cat:custom:drills': false,
+    'cat:garden': false,
+  };
+
+  // Clearing selection collapses every category while keeping non-category keys.
+  assert.deepEqual(collapseUnfocusedCategories(allOpen, groups, []), { words: false });
+
+  // Selecting a nested leaf keeps its ancestors open and collapses unrelated branches.
+  assert.deepEqual(collapseUnfocusedCategories(allOpen, groups, ['custom:cordless']), {
+    words: false,
+    'cat:tools': false,
+    'cat:custom:drills': false,
+  });
+
+  // Selecting a parent keeps that parent open and collapses nested children & other roots.
+  assert.deepEqual(
+    collapseUnfocusedCategories(allOpen, groups, [
+      'tools',
+      'custom:drills',
+      'custom:cordless',
+      'custom:saws',
+    ]),
+    { words: false, 'cat:tools': false },
+  );
+
+  // Selecting "Other" (parent value only) keeps the parent open and collapses subcategories.
+  assert.deepEqual(collapseUnfocusedCategories(allOpen, groups, ['tools']), {
+    words: false,
+    'cat:tools': false,
+  });
+
+  // Returns the same object reference when no unfocused category is open.
+  const stable = { words: false, 'cat:garden': false };
+  assert.equal(collapseUnfocusedCategories(stable, groups, ['garden', 'custom:mowers']), stable);
 });

@@ -1,10 +1,12 @@
 // oxlint-disable typescript/no-unsafe-type-assertion
-import { useState } from 'preact/hooks';
+import { useLayoutEffect, useState } from 'preact/hooks';
 
 import * as format from '../../../shared/format';
 import { KEYS } from '../../../shared/keys';
 import {
   categoryCollapseId,
+  collapseUnfocusedCategories,
+  focusedCategoryCollapseIds,
   groupCategories,
   groupFacets,
   type CategoryGroup,
@@ -284,9 +286,6 @@ function CategoryTreeNode(props: {
   const selectParent = () => {
     if (active) {
       onChange([]);
-      if (open) {
-        setCollapsed({ ...collapsed, [cid]: true });
-      }
     } else {
       onChange(values);
       if (!open) {
@@ -368,6 +367,19 @@ function CategoryTree(props: {
   const [hiddenCategories] = useSetting(KEYS.hiddenCategories);
   const hiddenSet = hiddenCategories.toSet();
   const groups = groupCategories(facets);
+  const selectedKey = selected.join('\0');
+  const focusedKey = [...focusedCategoryCollapseIds(groups, selected)].toSorted().join('\0');
+  const hasGroups = groups.length > 0;
+  useLayoutEffect(() => {
+    if (!hasGroups) {
+      return;
+    }
+    const cur = getSetting(KEYS.collapsed);
+    const next = collapseUnfocusedCategories(cur, groups, selected);
+    if (next !== cur) {
+      setCollapsed(next);
+    }
+  }, [selectedKey, focusedKey, hasGroups]);
   const visibleGroups = groups.filter(g => !hiddenSet.has(g.facet.value));
   const presentHidden = groups.filter(g => hiddenSet.has(g.facet.value));
   const presentHiddenValues = presentHidden.map(g => g.facet.value).toSet();
