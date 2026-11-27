@@ -78,9 +78,10 @@ const SCHEMA_STATEMENTS = [
   'CREATE INDEX IF NOT EXISTS closed_lots_pending ON closed_lots (final, ends_at)',
   `CREATE TABLE IF NOT EXISTS lot_details (
     lot_id BIGINT PRIMARY KEY, auction_period TEXT, title TEXT NOT NULL, status TEXT, current_price DOUBLE PRECISION, description TEXT,
-    quantity INTEGER, brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, bid_history TEXT NOT NULL, fetched_at BIGINT NOT NULL, images TEXT
+    quantity INTEGER, brand TEXT, model TEXT, lot_fee DOUBLE PRECISION, bid_history TEXT NOT NULL, fetched_at BIGINT NOT NULL
   )`,
   'ALTER TABLE lot_details ADD COLUMN IF NOT EXISTS quantity INTEGER',
+  'ALTER TABLE lot_details DROP COLUMN IF EXISTS images',
 ];
 
 // lots: ends_at is the site's ISO 8601 text; is_leading and your_max_bid are
@@ -223,7 +224,6 @@ export interface Detail {
   model?: Nullable<string>;
   lot_fee?: number | null;
   bid_history?: unknown[];
-  images?: LotImage[];
 }
 
 /** Ends at, as the epoch ms closed_lots keeps. */
@@ -310,20 +310,6 @@ function closedRow(lot: Lot, final: number): Param[] {
     lot.estimated_retail_price,
   ];
 }
-
-/** An image as lot_details.images keeps it. */
-interface SavedImage {
-  position: number;
-  thumb: string;
-  card: string;
-  large: string;
-}
-const savedImage = (im: LotImage): SavedImage => ({
-  position: im.position,
-  thumb: im.image_thumb,
-  card: im.image_card,
-  large: im.image_large,
-});
 
 export interface StoreOptions {
   /** Isolate tables in a dedicated Postgres schema (used by tests). */
@@ -999,12 +985,12 @@ export class Store {
       const catalogChanged = identityChanged || previous.description !== description;
       await this.run(
         `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, quantity, brand, model,
-          lot_fee, bid_history, fetched_at, images) VALUES ${valuePlaceholders(1, 13)}
+          lot_fee, bid_history, fetched_at) VALUES ${valuePlaceholders(1, 12)}
          ON CONFLICT (lot_id) DO UPDATE SET
           auction_period = EXCLUDED.auction_period, title = EXCLUDED.title, status = EXCLUDED.status,
           current_price = EXCLUDED.current_price, description = EXCLUDED.description, quantity = EXCLUDED.quantity,
           brand = EXCLUDED.brand, model = EXCLUDED.model, lot_fee = EXCLUDED.lot_fee,
-          bid_history = EXCLUDED.bid_history, fetched_at = EXCLUDED.fetched_at, images = EXCLUDED.images`,
+          bid_history = EXCLUDED.bid_history, fetched_at = EXCLUDED.fetched_at`,
         [
           d.id,
           d.auction_period ?? null,
@@ -1018,7 +1004,6 @@ export class Store {
           d.lot_fee ?? null,
           JSON.stringify(d.bid_history ?? []),
           Date.now(),
-          d.images ? JSON.stringify(d.images.map(savedImage)) : null,
         ],
         tx,
       );
@@ -1045,9 +1030,8 @@ export class Store {
       brand: string | null;
       model: string | null;
       lot_fee: number | null;
-      images: string | null;
     }>(
-      `SELECT description, quantity, brand, model, lot_fee, images FROM lot_details
+      `SELECT description, quantity, brand, model, lot_fee FROM lot_details
        WHERE lot_id = $1 AND auction_period = $2`,
       [id, auctionPeriod],
     );
@@ -1062,15 +1046,6 @@ export class Store {
     };
     if (row.quantity !== null) {
       metadata.quantity = row.quantity;
-    }
-    if (row.images !== null) {
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- saved by saveLotDetail
-      metadata.images = (JSON.parse(row.images) as SavedImage[]).map(im => ({
-        position: im.position,
-        image_thumb: im.thumb,
-        image_card: im.card,
-        image_large: im.large,
-      }));
     }
     return metadata;
   }

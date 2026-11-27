@@ -136,7 +136,6 @@ export function loadDetail(
         brand: d.brand,
         model: d.model,
         lot_fee: d.lot_fee,
-        images: d.images,
       });
       details.set(lot.id, { at: Temporal.Now.instant(), data: d });
       const { description: cleanedDesc } = parseLotDescription(d.description);

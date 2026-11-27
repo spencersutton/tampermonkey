@@ -113,7 +113,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
 
   const brand = metadata?.brand ?? lotBrands.value.get(lot.id) ?? lot.brand ?? null;
   const model = metadata?.model ?? lotModels.value.get(lot.id) ?? lot.model ?? null;
-  const images = metadata?.images ?? lot.images;
+  const images = lot.images;
   const description = metadata?.description ? cleanDescription(metadata.description) : '';
   const auction = detail && detail.version >= lot.version ? detail : null;
   const img = images[Math.min(imgIdx, images.length - 1)];

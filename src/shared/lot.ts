@@ -79,7 +79,6 @@ export interface LotMetadata {
   brand: string | null;
   model: string | null;
   lot_fee: number | null;
-  images?: LotImage[] | undefined; // older server cache entries may not have saved images
 }
 
 const LEADING_QUANTITY = /^\s*Quantity:\s*(\d+),?\s*/i;

@@ -112,9 +112,6 @@ describe('lot metadata', () => {
     brand: 'Acme',
     model: 'D1',
     lot_fee: 2,
-    images: [
-      { position: 1, image_thumb: 'thumb.jpg', image_card: 'card.jpg', image_large: 'large.jpg' },
-    ],
   };
 
   test('metadata survives restart and lot removal, without auction or account fields', async () => {
@@ -127,11 +124,10 @@ describe('lot metadata', () => {
     expect(await reopened.lotMetadata(1, 'test')).toEqual(expected);
     expect(await reopened.lotMetadata(1, 'different-period')).toBeNull();
     expect(await reopened.lotMetadata(2, 'test')).toBeNull();
-    await reopened.saveLotDetail({ ...raw, description: 'Corrected', images: [] });
+    await reopened.saveLotDetail({ ...raw, description: 'Corrected' });
     expect(await reopened.lotMetadata(1, 'test')).toEqual({
       ...expected,
       description: 'Corrected',
-      images: [],
     });
   });
 

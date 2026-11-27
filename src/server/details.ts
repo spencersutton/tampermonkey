@@ -1,8 +1,8 @@
 import type { RawLotDetail } from '../shared/lot';
 // Background lot detail fetcher: pulls the detail page for every new lot as
 // soon as a catalog pull sees it (and backfills any open lots still missing
-// one, one request at a time with a short pause between), so brands, models,
-// descriptions and images are ready right away even when no tab is open.
+// one, one request at a time with a short pause between), so brands, models
+// and descriptions are ready right away even when no tab is open.
 import { sleep as pause } from '../shared/time';
 import { isRecord } from './json';
 import { log, Waker } from './log';
