@@ -71,7 +71,7 @@ describe('/api/settings', () => {
   test('hiddenLots validates its shape and persists to hidden_lots', async () => {
     const { request, send, store } = await setup();
     const sample = {
-      '55': { title: 'Cordless drill', ts: 1_795_471_903_166 },
+      '55': { ts: 1_795_471_903_166 },
     };
     expect(await (await send('PUT', '/api/settings/hiddenLots', { value: sample })).json()).toEqual(
       { rev: 1 },
@@ -85,13 +85,13 @@ describe('/api/settings', () => {
     expect(
       (
         await send('PUT', '/api/settings/hiddenLots', {
-          value: { bad: { title: 'x', ts: 1 } },
+          value: { bad: { ts: 1 } },
         })
       ).status,
     ).toBe(400);
-    expect(
-      (await send('PUT', '/api/settings/hiddenLots', { value: { '55': { title: 'x' } } })).status,
-    ).toBe(400);
+    expect((await send('PUT', '/api/settings/hiddenLots', { value: { '55': {} } })).status).toBe(
+      400,
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import type { SavedSearch } from '../app/logic/view';
 import { DEFAULT_SYNC_MINUTES, DEFAULT_TITLE_LINES, SITE } from './constants';
 
 export const KEYS = {
-  hidden: 'hiddenLots', // { [lotId]: { title, ts } }
+  hidden: 'hiddenLots', // { [lotId]: { ts } }
   words: 'filterWords', // string[]
   filterTypes: 'filterTypes', // string[] – item types filtered out globally, like filterWords
   filterOn: 'filterEnabled', // boolean
@@ -41,7 +41,6 @@ export const SERVER_KEYS = [
 ] as const;
 
 export interface HiddenLot {
-  title: string;
   ts: number;
 }
 

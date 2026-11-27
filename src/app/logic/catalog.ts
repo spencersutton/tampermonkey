@@ -193,7 +193,7 @@ export function toggleHiddenLot(
   }
   return {
     ...rest,
-    [lot.id]: { title: lot.title, ts: now },
+    [lot.id]: { ts: now },
   };
 }
 

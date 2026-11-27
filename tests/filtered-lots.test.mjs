@@ -57,7 +57,7 @@ beforeEach(() => {
   applySetting(KEYS.filterOn, true);
   applySetting(KEYS.removeFiltered, true);
   applySetting(KEYS.showHidden, false);
-  applySetting(KEYS.hidden, { 3: { title: 'Circular saw', ts: 1 } });
+  applySetting(KEYS.hidden, { 3: { ts: 1 } });
   applySetting(KEYS.customCategories, []);
   lots.value = new Map([
     [1, lot(1, 'Cordless drill', { itemType: 'drill' })],

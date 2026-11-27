@@ -281,21 +281,21 @@ export function HideFilterSection({
 
       <Collapsible id="hidden" title={`Hidden lots (${hidden.length})`}>
         <ul class="hidden-list">
-          {hidden.map(([id, info]) => {
+          {hidden.map(([id]) => {
             const lot = lots.value.get(Number(id));
-            const label = info.title || `Lot ${id}`;
+            const label = lot?.title || `Lot ${id}`;
             return (
               <li key={id}>
                 {lot ? (
                   <a
                     href={lotHref(lot.auction_period, lot.id)}
-                    title={info.title}
+                    title={label}
                     onClick={openHandler(() => openLot(lot))}
                   >
                     {label}
                   </a>
                 ) : (
-                  <span class="muted" title={info.title}>
+                  <span class="muted" title={label}>
                     {label}
                   </span>
                 )}
@@ -303,7 +303,7 @@ export function HideFilterSection({
                   type="button"
                   class="icon-btn"
                   title="Unhide"
-                  aria-label={`Unhide ${info.title}`}
+                  aria-label={`Unhide ${label}`}
                   onClick={() => unhide(id)}
                 >
                   <Icon name="visibility" size={18} />
