@@ -180,6 +180,19 @@ describe('lot metadata', () => {
       { lot_id: '12', quantity: 3, description: '' },
       { lot_id: '13', quantity: null, description: 'No boilerplate here.' },
     ]);
+
+    await store.replaceAll([item(10), item(13)]);
+    expect((await store.lot(10))?.quantity).toBe(6);
+    expect((await store.lot(13))?.quantity).toBeNull();
+
+    const seqBefore = await store.seq();
+    await store.saveLotDetail({
+      ...raw,
+      id: 10,
+      description: 'Quantity: 8,\n\nImpact driver kit.\n\nLot Number: 21810009,\nBrand: Lasko,',
+    });
+    const delta = await store.changes(seqBefore);
+    expect(delta.lots.map(l => [l.id, l.quantity])).toEqual([[10, 8]]);
   });
 });
 

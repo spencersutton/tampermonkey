@@ -209,6 +209,7 @@ export interface Item {
   brand?: Nullable<string>;
   model?: Nullable<string>;
   description?: Nullable<string>;
+  quantity?: Nullable<number>;
   category?: { value: string; label?: string | null } | null | undefined;
   itemType?: string | undefined;
 }
@@ -618,8 +619,8 @@ export class Store {
   }
 
   /**
-   * Attach cached details (brand, model, description) and item types (before comparing a catalog
-   * pull, or reading lots).
+   * Attach cached details (brand, model, description, quantity) and item types (before comparing a
+   * catalog pull, or reading lots).
    */
   async annotateItems(lots: Iterable<Item>, q: Queryable = this.sql): Promise<void> {
     const list = [...lots];
@@ -630,15 +631,16 @@ export class Store {
         brand: string | null;
         model: string | null;
         description: string | null;
+        quantity: number | null;
       }>(
-        'SELECT lot_id AS "lotId", brand, model, description FROM lot_details WHERE lot_id = ANY($1::bigint[])',
+        'SELECT lot_id AS "lotId", brand, model, description, quantity FROM lot_details WHERE lot_id = ANY($1::bigint[])',
         [ids],
         q,
       );
       const byId = new Map(
         rows.map(r => [
           toInt(r.lotId),
-          { brand: r.brand, model: r.model, description: r.description },
+          { brand: r.brand, model: r.model, description: r.description, quantity: r.quantity },
         ]),
       );
       for (const lot of list) {
@@ -977,12 +979,18 @@ export class Store {
         brand: string | null;
         model: string | null;
         description: string | null;
-      }>('SELECT brand, model, description FROM lot_details WHERE lot_id = $1', [d.id], tx);
+        quantity: number | null;
+      }>(
+        'SELECT brand, model, description, quantity FROM lot_details WHERE lot_id = $1',
+        [d.id],
+        tx,
+      );
       const brand = (d.brand ?? '').trim() || null;
       const model = (d.model ?? '').trim() || null;
       const { description, quantity } = parseLotDescription(d.description);
       const identityChanged = !previous || previous.brand !== brand || previous.model !== model;
-      const catalogChanged = identityChanged || previous.description !== description;
+      const catalogChanged =
+        identityChanged || previous.description !== description || previous.quantity !== quantity;
       await this.run(
         `INSERT INTO lot_details (lot_id, auction_period, title, status, current_price, description, quantity, brand, model,
           lot_fee, fetched_at) VALUES ${valuePlaceholders(1, 11)}

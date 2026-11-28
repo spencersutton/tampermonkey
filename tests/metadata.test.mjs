@@ -15,6 +15,7 @@ const {
   loadMetadata,
   lotBrands,
   lotModels,
+  lotQuantities,
   lots,
   updateLot,
 } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
@@ -167,14 +168,18 @@ test('login changes invalidate auction data and late requests without losing sta
   assert.equal(cachedDetail(106), undefined, 'an old account response cannot repopulate the cache');
 });
 
-test('loadDetail handles null brand and model from the site API', async t => {
+test('loadDetail handles null brand and model from the site API and parses quantity', async t => {
   t.mock.method(globalThis, 'fetch', async () =>
-    Response.json(raw(107, { brand: null, model: null })),
+    Response.json(
+      raw(107, { brand: null, model: null, description: 'Quantity: 4,\n\nPack of 4.' }),
+    ),
   );
   const detail = await loadDetail(lot(107));
   assert.equal(detail.brand, null);
   assert.equal(detail.model, null);
   assert.equal(lotBrands.peek().get(107), null);
   assert.equal(lotModels.peek().get(107), null);
+  assert.equal(lotQuantities.peek().get(107), 4);
   assert.equal(cachedMetadata(107).brand, null);
+  assert.equal(cachedMetadata(107).quantity, 4);
 });

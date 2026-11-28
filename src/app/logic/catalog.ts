@@ -52,20 +52,23 @@ export function mergeCatalogLots(
   return next;
 }
 
-/** Merge brand, model and description fields from catalog lots into the detail caches. */
+/** Merge brand, model, description and quantity fields from catalog lots into the detail caches. */
 export function mergeLotDetails(
   curBrands: ReadonlyMap<number, string | null>,
   curModels: ReadonlyMap<number, string | null>,
   curDescriptions: ReadonlyMap<number, string | null>,
+  curQuantities: ReadonlyMap<number, number | null>,
   incoming: Lot[],
 ): {
   brands: Map<number, string | null>;
   models: Map<number, string | null>;
   descriptions: Map<number, string | null>;
+  quantities: Map<number, number | null>;
 } {
   const brands = new Map(curBrands);
   const models = new Map(curModels);
   const descriptions = new Map(curDescriptions);
+  const quantities = new Map(curQuantities);
   for (const lot of incoming) {
     if (lot.brand !== undefined) {
       brands.set(lot.id, lot.brand?.trim() || null);
@@ -76,8 +79,11 @@ export function mergeLotDetails(
     if (lot.description !== undefined) {
       descriptions.set(lot.id, lot.description?.trim() || null);
     }
+    if (lot.quantity !== undefined) {
+      quantities.set(lot.id, lot.quantity ?? null);
+    }
   }
-  return { brands, models, descriptions };
+  return { brands, models, descriptions, quantities };
 }
 
 /** Median of a list of prices. */

@@ -347,6 +347,15 @@ h3 {
   padding: 1px 7px;
 }
 
+.pill-qty {
+  background: #fff;
+  color: #333;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-size: 11.5px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+}
+
 .pill-dupes {
   border: 0;
   cursor: pointer;

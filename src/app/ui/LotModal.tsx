@@ -20,6 +20,7 @@ import {
   loadMetadata,
   lotBrands,
   lotModels,
+  lotQuantities,
 } from '../server/catalog';
 import { siteConditions } from '../server/conditions';
 import { clock, EVERY_30_SECONDS } from '../server/reactive';
@@ -113,6 +114,10 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
 
   const brand = metadata?.brand ?? lotBrands.value.get(lot.id) ?? lot.brand ?? null;
   const model = metadata?.model ?? lotModels.value.get(lot.id) ?? lot.model ?? null;
+  const quantity =
+    metadata?.quantity ??
+    (lotQuantities.value.has(lot.id) ? lotQuantities.value.get(lot.id) : lot.quantity) ??
+    null;
   const images = lot.images;
   const description = metadata?.description ? cleanDescription(metadata.description) : '';
   const auction = detail && detail.version >= lot.version ? detail : null;
@@ -189,6 +194,7 @@ function LotContent({ row, onClose, group, onOpenLot = openLot }: Props) {
             </span>
             <span>{row.category.label}</span>
             <span>Lot #{lot.lot_number}</span>
+            {quantity != null && <span>Qty {format.num(quantity)}</span>}
           </div>
           {getLot(lot.id) && <ItemTypeActions lot={lot} />}
           <LotAttrs

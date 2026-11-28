@@ -8,7 +8,9 @@ import { createTestServer } from './vite.mjs';
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 const vite = await createTestServer();
 after(() => vite.close());
-const { lotBrands, lotModels, lots } = await vite.ssrLoadModule('/src/app/server/catalog.ts');
+const { lotBrands, lotModels, lotQuantities, lots } = await vite.ssrLoadModule(
+  '/src/app/server/catalog.ts',
+);
 const { onScreen, rowOf } = await vite.ssrLoadModule('/src/app/ui/state.ts');
 const { BrandModel, CardBrandModel } = await vite.ssrLoadModule('/src/app/ui/Brands.tsx');
 const { LocationText, LotCard, TimeLeft, WatchButton } =
@@ -381,4 +383,44 @@ test('cards show condition, location, lot number, pricing, retail comparison and
   assert.ok(nodes(byClass('card-sub')).some(node => node.type === TimeLeft));
   const sparse = card(rowOf(lot(83)))();
   assert.match(text(sparse), /No retail estimate/);
+});
+
+test('cards show a quantity pill only for multi-unit lots and detail modal always shows quantity when known', async t => {
+  const { LotModal } = await vite.ssrLoadModule('/src/app/ui/LotModal.tsx');
+  const previous = lotQuantities.peek();
+  t.after(() => {
+    lotQuantities.value = previous;
+  });
+
+  const cardQty = item => {
+    const node = nodes(card(rowOf(item))()).find(n => n.type?.name === 'CardQuantity');
+    assert.ok(node);
+    return node.type(node.props);
+  };
+
+  lotQuantities.value = new Map([
+    [84, 6],
+    [85, 1],
+    [86, null],
+  ]);
+
+  const multi = cardQty(lot(84));
+  assert.equal(multi.props.class, 'pill pill-qty');
+  assert.equal(text(multi), 'Qty 6');
+  assert.equal(cardQty(lot(85)), null, 'single-unit lots omit the card pill');
+  assert.equal(cardQty(lot(86)), null, 'unknown quantities omit the card pill');
+
+  const modalMeta = item => {
+    const modal = LotModal({ row: rowOf(item), onClose: () => {} });
+    const contentVnode = modal.props.children;
+    contentVnode.__c = new Component(contentVnode.props);
+    options.__r(contentVnode);
+    const tree = contentVnode.type(contentVnode.props);
+    options.diffed(contentVnode);
+    return text(nodes(tree).find(n => n.props?.class === 'card-meta'));
+  };
+
+  assert.match(modalMeta({ ...lot(84), lot_number: '84' }), /Qty 6/);
+  assert.match(modalMeta({ ...lot(85), lot_number: '85' }), /Qty 1/);
+  assert.doesNotMatch(modalMeta({ ...lot(86), lot_number: '86' }), /Qty/);
 });

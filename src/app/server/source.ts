@@ -25,6 +25,7 @@ import {
   lotBrands,
   lotDescriptions,
   lotModels,
+  lotQuantities,
   lots,
   progress,
   updateItemType,
@@ -65,15 +66,17 @@ function applyStatus(s: PullStatus) {
 export function applyCatalog(r: CatalogReply) {
   batch(() => {
     applyStatus(r);
-    const { brands, models, descriptions } = mergeLotDetails(
+    const { brands, models, descriptions, quantities } = mergeLotDetails(
       lotBrands.peek(),
       lotModels.peek(),
       lotDescriptions.peek(),
+      lotQuantities.peek(),
       r.lots,
     );
     lotBrands.value = brands;
     lotModels.value = models;
     lotDescriptions.value = descriptions;
+    lotQuantities.value = quantities;
     for (const [id, edit] of typeEdits) {
       if (r.seq >= edit.seq) {
         typeEdits.delete(id);

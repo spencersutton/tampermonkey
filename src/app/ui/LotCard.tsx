@@ -12,6 +12,7 @@ import { timeLabel } from '../logic/util';
 import type { Row } from '../logic/view';
 import { isAuthenticated } from '../server/auth';
 import { bidPending } from '../server/bid';
+import { lotQuantities } from '../server/catalog';
 import { siteConditions } from '../server/conditions';
 import { clock } from '../server/reactive';
 import { canWatch, toggleWatch, watchPending } from '../server/watch';
@@ -161,6 +162,7 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
         </button>
         <div class="media-tr">
           {isNew && <span class="pill pill-new">New</span>}
+          <CardQuantity lot={lot} />
           {row.others.length > 0 && <DupeCount row={row} />}
           <WatchStar lot={lot} />
           <StandingBadge lot={lot} />
@@ -220,6 +222,19 @@ export const LotCard = memo(function LotCard({ row, isNew }: Props) {
     </article>
   );
 });
+
+/** Multi-unit quantity badge on the card image; hidden for single-unit or unknown quantities. */
+function CardQuantity({ lot }: { lot: Lot }) {
+  const qty = lotQuantities.value.has(lot.id) ? lotQuantities.value.get(lot.id) : lot.quantity;
+  if (qty == null || qty <= 1) {
+    return null;
+  }
+  return (
+    <span class="pill pill-qty" title={`Quantity: ${format.num(qty)}`}>
+      Qty {format.num(qty)}
+    </span>
+  );
+}
 
 /**
  * "+N" badge for listings of the same item folded into this card; opens the cheapest's popup, which

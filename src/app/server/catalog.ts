@@ -112,6 +112,7 @@ export function loadMetadata(lot: Pick<Lot, 'id' | 'auction_period'>): Promise<L
 export const lotBrands = signal(new Map<number, string | null>());
 export const lotModels = signal(new Map<number, string | null>());
 export const lotDescriptions = signal(new Map<number, string | null>());
+export const lotQuantities = signal(new Map<number, number | null>());
 
 /** Fetch one lot's detail page data, cached for DETAIL_TTL; also refreshes the catalog entry. */
 export function loadDetail(
@@ -131,14 +132,15 @@ export function loadDetail(
       if (details.get(lot.id)?.promise !== promise) {
         return d;
       }
+      const { description: cleanedDesc, quantity } = parseLotDescription(d.description);
       metadata.set(lot.id, {
         description: d.description,
+        quantity,
         brand: d.brand,
         model: d.model,
         lot_fee: d.lot_fee,
       });
       details.set(lot.id, { at: Temporal.Now.instant(), data: d });
-      const { description: cleanedDesc } = parseLotDescription(d.description);
       batch(() => {
         lotBrands.value = new Map(lotBrands.peek()).set(lot.id, d.brand?.trim() || null);
         lotModels.value = new Map(lotModels.peek()).set(lot.id, d.model?.trim() || null);
@@ -146,6 +148,7 @@ export function loadDetail(
           lot.id,
           cleanedDesc?.trim() || null,
         );
+        lotQuantities.value = new Map(lotQuantities.peek()).set(lot.id, quantity);
       });
       // oxlint-disable-next-line no-unused-vars
       const { description, brand, model, lot_fee, bid_history, similar, ...base } = d;
